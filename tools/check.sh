@@ -12,9 +12,17 @@
 # a check that silently opts out is not a check. The target type-checks without
 # linking. Bundled SQLite additionally needs a MinGW C compiler
 # (mingw-w64 on Homebrew / gcc-mingw-w64-x86-64 on Debian). The target install is a one-off of a
-# few seconds. `NOTES_NO_WINDOWS_CHECK=1` opts out deliberately; a machine with
-# no rustup and no target degrades to a warning rather than a failure, because
-# refusing to run the rest of the gate over a cross-check helps nobody.
+# few seconds. `NOTES_NO_WINDOWS_CHECK=1` opts out deliberately; a machine
+# missing rustup, the target or that C compiler degrades to a warning rather
+# than a failure, because refusing to run the rest of the gate over a
+# cross-check helps nobody.
+#
+# **The compiler is checked, and before the target is installed.** Checking only
+# rustup and the target was the same mistake the paragraph above describes, one
+# level down: the guard passed, cargo reached `libsqlite3-sys`, and cc-rs died
+# with sixty lines that never name the missing package. A gate that is red for a
+# reason which is not the code is a gate that gets ignored, and that costs more
+# than the check it was protecting.
 set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -29,6 +37,8 @@ step "clippy (native)"      cargo clippy --all-targets -- -D warnings
 windows_target_ready() {
   [ -z "${NOTES_NO_WINDOWS_CHECK:-}" ] || { echo "opted out by NOTES_NO_WINDOWS_CHECK"; return 1; }
   command -v rustup >/dev/null 2>&1 || { echo "no rustup on this machine"; return 1; }
+  command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 || {
+    echo "no MinGW C compiler (gcc-mingw-w64-x86-64 on Debian, mingw-w64 on Homebrew)"; return 1; }
   rustup target list --installed 2>/dev/null | grep -q '^x86_64-pc-windows-gnu$' && return 0
   echo "   installing the x86_64-pc-windows-gnu target (one-off)…" >&2
   rustup target add x86_64-pc-windows-gnu >/dev/null 2>&1 || { echo "could not install the target"; return 1; }

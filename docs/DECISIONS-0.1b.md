@@ -16,8 +16,9 @@
 
 **Decided.** `tools/check.sh` no longer skips the `x86_64-pc-windows-gnu` clippy
 step when the target is not installed: it runs `rustup target add` once and then
-runs the step. `NOTES_NO_WINDOWS_CHECK=1` opts out on purpose; a machine with no
-`rustup` at all degrades to a printed warning rather than failing the gate.
+runs the step. `NOTES_NO_WINDOWS_CHECK=1` opts out on purpose; a machine missing
+`rustup`, the target, or the MinGW C compiler that bundled SQLite needs degrades
+to a printed warning rather than failing the gate.
 
 **Gap closed.** The step existed at `0.7.3` and was conditional, which meant the
 one check that would have caught both Windows compile failures was absent on

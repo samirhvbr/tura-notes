@@ -8,6 +8,28 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.2 - degrade the Windows cross-check when its C compiler is missing
+
+The `clippy (windows)` step guarded itself on `rustup` and on the
+`x86_64-pc-windows-gnu` target, but never on the MinGW C compiler that bundled
+SQLite needs to build for that target. On a machine with the target installed
+and no compiler — a Debian workstation without `gcc-mingw-w64-x86-64` — the
+guard passed, `cargo` reached `libsqlite3-sys`, and cc-rs failed the whole gate
+with sixty lines of environment probing that never name the missing package.
+
+That contradicted the step's own stated design: a missing prerequisite degrades
+to a printed warning, because refusing to run the remaining eighteen checks over
+a cross-check helps nobody. The gate was red on the owner's Linux machine for a
+reason that was not the code, and a permanently red gate is an ignored gate.
+
+The guard now checks `x86_64-w64-mingw32-gcc` before installing the target, and
+reports the package to install in one sentence. Measured on that machine: the
+step prints `WARNING, not run — no MinGW C compiler (gcc-mingw-w64-x86-64 on
+Debian, mingw-w64 on Homebrew)` and the gate continues. `NOTES_NO_WINDOWS_CHECK`
+and the install-the-target behavior are unchanged; D-01 in
+`docs/DECISIONS-0.1b.md`, which described the old two-prerequisite degrade, was
+corrected in the same pass.
+
 ## 1.1.1 - remove the Rust 1.96 Clippy blocker from the release gate
 
 Rust 1.96 started flagging an unnecessary borrow in a sync-client regression
