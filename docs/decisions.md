@@ -375,9 +375,11 @@ were already covered, so the `.gitignore` line added here is for one placed
 outside it — which is exactly what `apps/notes-app/notes_0.11.11_amd64.deb` was,
 4.2 MB committed at 0.12.0 when artifacts were still attached to the tree, and
 still tracked a hundred versions later. Nothing in this repository writes an
-installer outside `target/`, so the line is scoped by format rather than by
-path: a path-scoped rule would guard a directory nobody writes to and would not
-catch the same accident one directory over. The file is untracked from 1.1.10;
+installer outside `target/` — which was wrong, and is corrected at 1.1.12:
+`makepkg` builds the Arch package inside `packaging/aur/notes-bin/`, and
+`.github/workflows/build.yml` installs it from that path. The scoping by format
+rather than by path still holds, for the reason that accident shows: a
+path-scoped rule would have guarded one directory and missed the other. The file is untracked from 1.1.10;
 the blob stays in history, which is the point of history and is not something
 `git rm --cached` claims to change.
 

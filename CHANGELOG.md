@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.12 - cover the Arch package the installer globs were missing
+
+1.1.10 ignored `*.deb`, `*.AppImage` and `*.rpm`, and justified scoping the group
+by format with the claim that nothing in this repository writes an installer
+outside `target/`. That claim was false, and it was false about the one installer
+format the group did not list. `makepkg` builds the Arch package inside
+`packaging/aur/notes-bin/`, which is not under `target/`;
+`.github/workflows/build.yml` installs it with
+`pacman -U packaging/aur/notes-bin/*.pkg.tar.zst`, and `docs/runbook.md` runs the
+same build. `git check-ignore` confirmed the result was untracked and unignored.
+
+The existing block above it was written for exactly this workflow — it already
+covers `PKGBUILD` and the source tarball `gen-pkgbuild.sh` copies in for a local
+build — and simply stopped short of what the build produces. `*.pkg.tar.zst`
+joins the installer group, and `makepkg`'s `src/` and `pkg/` working directories
+join the block that anticipated the local build.
+
+The scoping decision itself stands, and this accident is the argument for it: a
+rule scoped to `apps/notes-app/` would have guarded one directory and missed
+`packaging/aur/`, and the reverse would have missed the `.deb`. ADR-011's
+paragraph carried the same false sentence and is corrected rather than deleted,
+so the record shows what the reasoning was and where it was wrong.
+
+Checked before committing, because the previous pattern choice was not: feeding
+every tracked path to `git check-ignore` matches nothing. No file leaves a fresh
+clone, on any platform.
+
 ## 1.1.11 - make the Linux build survive a pull it cannot fast-forward
 
 `build-local.sh` has said since it was written that the pull before a build
