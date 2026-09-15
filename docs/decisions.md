@@ -367,6 +367,20 @@ generated directory that quietly starts holding something hand-edited stops bein
 build output while still being ignored. The mitigation is the test above, applied
 when the line is added and not after.
 
+**Recorded 15/09/2026 — installer artifacts are inside this exception.** A
+`.deb`, `.AppImage` or `.rpm` passes the test above without argument:
+`./build-local.sh` produces it, from sources in this repository, and reproducing
+it is running that command. The ones a build writes land under `target/` and
+were already covered, so the `.gitignore` line added here is for one placed
+outside it — which is exactly what `apps/notes-app/notes_0.11.11_amd64.deb` was,
+4.2 MB committed at 0.12.0 when artifacts were still attached to the tree, and
+still tracked a hundred versions later. Nothing in this repository writes an
+installer outside `target/`, so the line is scoped by format rather than by
+path: a path-scoped rule would guard a directory nobody writes to and would not
+catch the same accident one directory over. The file is untracked from 1.1.10;
+the blob stays in history, which is the point of history and is not something
+`git rm --cached` claims to change.
+
 ---
 
 ## ADR-012 — `index.db` lives in app data, not in the workspace

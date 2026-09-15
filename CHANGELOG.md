@@ -8,6 +8,27 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.10 - untrack the installer that was committed into the app directory
+
+`apps/notes-app/notes_0.11.11_amd64.deb` was 4.2 MB of build output tracked in
+git. It arrived at 0.12.0, in a commit about attaching artifacts to a minor bump,
+and stayed through a hundred versions after that practice moved to GitHub
+Releases and the download service. It is untracked now and stays on disk; the
+blob remains in history, which is what history is for.
+
+The `.gitignore` header forbids a new line without an ADR, so ADR-011 records
+the coverage rather than the line arriving unargued. This is not a new exception:
+an installer passes ADR-011's existing test without strain — `./build-local.sh`
+produces it, from sources here, and reproducing it is running that command.
+
+The pattern is scoped by format, not by path, and checking first is what decided
+that. Nothing in this repository writes an installer outside `target/`: Tauri
+bundles land in `target/local-linux/<host>/release/bundle/<format>/`, already
+covered. So `apps/notes-app/*.deb` would guard a directory nobody writes to and
+would miss the same accident one directory over. `*.deb`, `*.AppImage` and
+`*.rpm` are the three formats one `--bundles` run produces, and none of them is
+ever source. No tracked file other than that one matched them.
+
 ## 1.1.9 - restart the smoke server for a fresh rate window instead of waiting
 
 Two `time.sleep(61)` calls cost 122 seconds of every gate run. They were waiting

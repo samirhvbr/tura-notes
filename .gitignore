@@ -38,6 +38,18 @@ apps/notes-app/src-tauri/gen/schemas/
 # being committed. Same class as the entries above, same ADR-011.
 __pycache__/
 
+# Installer artifacts, wherever they land. The ones a build writes are already
+# covered by `target/`; this line is for a copy placed outside it, which is what
+# `apps/notes-app/notes_0.11.11_amd64.deb` was — committed at 0.12.0, when
+# artifacts were still attached to the tree, and still sitting there a hundred
+# versions later. Nothing in this repository generates one of these outside
+# `target/`, so a path-scoped rule would guard a path nobody writes to and miss
+# the next directory. Same ADR-011 test as the entries above: `./build-local.sh`
+# produces them from inputs here, and reproducing one is running that command.
+*.deb
+*.AppImage
+*.rpm
+
 # Generated test corpus — tools/gen-large.sh rebuilds it deterministically (ADR-011)
 fixtures/large/
 fixtures/deep/
