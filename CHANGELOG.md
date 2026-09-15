@@ -8,6 +8,20 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.3 - ignore the CPython bytecode the gate generates
+
+`tools/check.sh` runs the Python packaging and updater suites, which import
+their module under test, so CPython writes `tools/__pycache__/` on every run of
+the gate. Nothing ignored it, so a clean checkout reported an untracked
+directory it had created itself.
+
+In a repository whose first rule is that everything is versioned and the only
+exception is a secret, an untracked directory appearing on its own is not
+harmless noise: it is one `git add -A` away from putting compiled bytecode in
+the history, where it would go stale against the source it was built from. It is
+derived, reproducible build output of the same class as `target/` and
+`node_modules/`, and it is ignored under the same ADR-011 those entries cite.
+
 ## 1.1.2 - degrade the Windows cross-check when its C compiler is missing
 
 The `clippy (windows)` step guarded itself on `rustup` and on the
