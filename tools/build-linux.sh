@@ -70,12 +70,12 @@ host_triple="$(rustc -vV | sed -n 's/^host: //p')"
 [ -n "$version" ] && [ -n "$host_triple" ] || exit 1
 output="$ROOT/target/local-linux/$host_triple"
 export CARGO_TARGET_DIR="$output"
-source_hash="$(python3 tools/linux-build-cache.py fingerprint)"
+source_hash="$(python3 tools/build-cache.py fingerprint)"
 artifacts=(); pending=()
 for target in "${targets[@]}"; do
   directory="$output/release/bundle/$target"
   listing="$(mktemp)"
-  if [ "$force" -eq 0 ] && python3 tools/linux-build-cache.py check "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" > "$listing"; then
+  if [ "$force" -eq 0 ] && python3 tools/build-cache.py check "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" > "$listing"; then
     while IFS= read -r -d '' artifact; do artifacts+=("$artifact"); done < "$listing"
     echo "Reusing $target for $version: sources and SHA-256 verified."
   else
@@ -112,7 +112,7 @@ if [ "${#pending[@]}" -gt 0 ]; then
   pending_bundles="$(IFS=,; echo "${pending[*]}")"
   (cd apps/notes-app && npm run tauri build -- --bundles "$pending_bundles")
   cp "$backup" "$config"; rm -f "$backup"; backup=""
-  [ "$(python3 tools/linux-build-cache.py fingerprint)" = "$source_hash" ] || {
+  [ "$(python3 tools/build-cache.py fingerprint)" = "$source_hash" ] || {
     echo 'Sources changed during the build; retry before publishing.' >&2; exit 1;
   }
   for target in "${pending[@]}"; do
@@ -129,7 +129,7 @@ if [ "${#pending[@]}" -gt 0 ]; then
         python3 tools/updater-release.py prepare --artifact "$artifact" --version "$version" --platform "linux-${host_triple%%-*}-$target"
       done
     fi
-    python3 tools/linux-build-cache.py record "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" "${built[@]}"
+    python3 tools/build-cache.py record "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" "${built[@]}"
     artifacts+=("${built[@]}")
   done
 else

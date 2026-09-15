@@ -15,7 +15,7 @@ class LinuxBuild(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/linux-build-cache.py']:
+        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/build-cache.py']:
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, dest)

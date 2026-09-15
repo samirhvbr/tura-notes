@@ -77,13 +77,22 @@
 # — offline, dirty tree or a diverged branch only produce a warning. Skip it
 # with --skip-git-pull.
 #
-# REUSING A BUILD: if a DMG for this exact version is already on disk, its
-# sha256 still matches the recorded sidecar, and no source is newer than it, the
-# script skips straight to publishing. Forgetting `--publish` must not cost a
-# full rebuild to upload a file that already exists. The freshness check is what
-# makes the shortcut safe: editing code without bumping the version would
-# otherwise publish an old binary under a new version number, signed, silently.
-# Override with --force.
+# REUSING A BUILD: if a DMG for this exact version is already on disk and
+# `tools/build-cache.py` still recognises it — same version, same architecture,
+# same build mode, and a source fingerprint that matches the tree byte for byte
+# — the script skips straight to publishing. Forgetting `--publish` must not
+# cost a full rebuild to upload a file that already exists. The freshness check
+# is what makes the shortcut safe: editing code without bumping the version
+# would otherwise publish an old binary under a new version number, signed,
+# silently. Override with --force.
+#
+# **It is a content fingerprint, not mtime.** `find -newer` was the first shape
+# of this test and it asks the wrong question: a file restored with `cp -p`, or
+# any checkout that preserves timestamps, is different from the DMG *and* older
+# than it, so the test passed and the stale binary shipped. Linux had already
+# moved to a fingerprint; macOS — the side that signs and notarises — was the
+# one still deciding on timestamps. Both run the same check now, which is why
+# the script implementing it no longer carries "linux" in its name.
 #
 # Norm: docs/runbook.md §4 · docs/decisions.md ADR-011, ADR-024, ADR-035, ADR-070
 set -euo pipefail
@@ -399,20 +408,20 @@ can_reuse_build() {
          -name "*_${version}_*.dmg" -print -quit 2>/dev/null || true)"
   [ -z "$dmg" ] && { REUSE_REASON="no DMG for $version on disk"; return 1; }
 
-  [ -f "$dmg.sha256" ] || { REUSE_REASON="no .sha256 sidecar — cannot prove what that DMG is"; return 1; }
-  local recorded current
-  recorded="$(awk '{print $1; exit}' "$dmg.sha256")"
-  current="$(_sha256 "$dmg")"
-  [ -n "$current" ] && [ "$current" = "$recorded" ] || {
-    REUSE_REASON="the DMG no longer matches its recorded sha256"; return 1; }
-
-  local newer
-  newer="$(find apps/notes-app/src apps/notes-app/src-tauri/src crates server \
-                apps/notes-app/package.json apps/notes-app/index.html \
-                apps/notes-app/vite.config.ts apps/notes-app/src-tauri/Cargo.toml \
-                Cargo.toml Cargo.lock version.md \
-             -type f -newer "$dmg" -print -quit 2>/dev/null || true)"
-  [ -n "$newer" ] && { REUSE_REASON="a source file is newer than the build: $newer"; return 1; }
+  # The DMG's own hash, its sidecar and the freshness of the sources are one
+  # question, and `tools/build-cache.py check` is the single answer — the same
+  # call `tools/build-linux.sh` makes. See the header for why this replaced
+  # `find -newer`.
+  if [ -z "$SOURCE_HASH" ] || [ -z "$HOST_TRIPLE" ]; then
+    REUSE_REASON="cannot fingerprint the sources on this machine — rebuilding rather than guessing"
+    return 1
+  fi
+  local why
+  if ! why="$(python3 tools/build-cache.py check "$ROOT/target/release/bundle/dmg" \
+                "$version" "$HOST_TRIPLE" "$SOURCE_HASH" "$NO_SIGN" 2>&1 >/dev/null)"; then
+    REUSE_REASON="${why#Build required: }"
+    return 1
+  fi
 
   if [ "$NO_SIGN" -eq 0 ]; then
     python3 tools/updater-release.py verify --artifact "$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz" --version "$version" >/dev/null 2>&1 || {
@@ -543,6 +552,16 @@ version="$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' version.md | head -1)"
 [ -n "$version" ] || { echo "build-local.sh: no version in version.md" >&2; exit 1; }
 echo "    version: $version"
 
+# The two facts `tools/build-cache.py` needs to recognise an existing build, and
+# both are read before the reuse question rather than inside it: an empty one is
+# a refusal to reuse, never a silent pass. `preflight` recovers ~/.cargo/bin
+# later in the run, which is too late for a shell that was opened before rustup.
+if ! command -v rustc >/dev/null 2>&1 && [ -x "$HOME/.cargo/bin/rustc" ]; then
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+HOST_TRIPLE="$(rustc -vV 2>/dev/null | sed -n 's/^host: //p' || true)"
+SOURCE_HASH="$(python3 tools/build-cache.py fingerprint 2>/dev/null || true)"
+
 step "[reuse] is there a build of this version on disk?"
 if can_reuse_build "$version"; then
   echo "    ✅ yes — $(basename "$REUSE_DMG"), sha256 verified, no newer source."
@@ -614,6 +633,19 @@ else
   # produced — a harmless symptom of a harmful bug, because the same number is
   # what a user checks the download against, and it would never have matched.
   _sha256 "$dmg" | awk -v n="$(basename "$dmg")" '{print $1"  "n}' > "$dmg.sha256"
+
+  # Record what these bytes were built from — and refuse if that answer changed
+  # while we were building. A notarised build is long enough to edit a file in,
+  # and a fingerprint taken before it would then describe sources this DMG does
+  # not contain: the stale-publish hole again, one step further along. The
+  # recording is last because `stapler staple` REWRITES the image, so anything
+  # hashed before it describes a file that no longer exists.
+  [ "$(python3 tools/build-cache.py fingerprint)" = "$SOURCE_HASH" ] || {
+    echo "build-local.sh: sources changed during the build; retry before publishing." >&2
+    exit 1
+  }
+  python3 tools/build-cache.py record "$ROOT/target/release/bundle/dmg" \
+    "$version" "$HOST_TRIPLE" "$SOURCE_HASH" "$NO_SIGN" "$dmg"
 fi
 
 if [ "$PUBLISH" -eq 1 ]; then

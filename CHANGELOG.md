@@ -8,6 +8,41 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.4 - decide macOS build reuse by source fingerprint instead of mtime
+
+The two release paths answered "is the build on disk still the build for this
+source tree?" differently. Linux hashed every input file and compared the
+digest; macOS ran `find -newer` against the DMG. Timestamps cannot answer that
+question: a file restored with `cp -p`, or from any checkout that preserves
+mtimes, is different from the build *and* older than it, so the test passed and
+the reuse path skipped straight to publication. The weaker check was on the side
+that signs, notarizes and uploads to the download service — a stale binary
+republished under a new version number, with a valid Developer ID signature and
+a notarization ticket, and nothing in the output to notice it by.
+
+macOS now calls the same `check`, `record` and `fingerprint` operations Linux
+does, writing `.build.json` beside the image after stapling. The manual sha256
+comparison and the `find -newer` clause are gone; the shared code already
+verified the artifact digest and its sidecar. The macOS path also gained the
+during-build guard Linux had: if the fingerprint changes between the start of
+the build and the recording, the script refuses rather than recording a
+manifest that describes sources the image does not contain.
+
+Measured on Linux against the shared implementation: a source file given
+different content and a 2020 mtime is invisible to `find -newer` against the
+build, and changes the fingerprint. The call shape macOS now uses was exercised
+directly — matching state reuses; a changed fingerprint, version or build mode
+and a tampered image each refuse with their own reason. The 11 packaging
+orchestration tests and the 5 updater publication tests pass.
+
+`tools/linux-build-cache.py` is now `tools/build-cache.py`. It was named for its
+only caller, and it has two.
+
+**Not verified on macOS.** The Darwin branch of `build-local.sh` cannot execute
+on a Linux host; the Python it now calls is covered above, the shell around it
+is not. The next macOS build establishes the first manifest and costs one
+rebuild.
+
 ## 1.1.3 - ignore the CPython bytecode the gate generates
 
 `tools/check.sh` runs the Python packaging and updater suites, which import

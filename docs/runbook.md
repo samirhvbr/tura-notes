@@ -68,6 +68,15 @@ Ctrl-C.
 image, so a hash taken earlier describes a file that no longer exists — and that
 is the number a user checks their download against.
 
+**A DMG already on disk is reused only when `tools/build-cache.py` recognises
+it** — the same manifest and content fingerprint the Linux packages use, written
+to `.build.json` beside the image once stapling is done. Until 1.1.4 this side
+compared source mtimes with `find -newer`, which cannot see a file that is
+different but older than the build: restore one with `cp -p`, or from any
+checkout that preserves timestamps, and a stale binary was republished under the
+new version number, signed and notarised. `--force` rebuilds regardless. A DMG
+built before 1.1.4 has no manifest and costs one rebuild to establish it.
+
 `./build-local.sh --help` prints the whole contract. The flags worth knowing:
 
 | | |
@@ -264,8 +273,9 @@ requirements. This is a native build, not a Linux cross-compile from macOS.
 
 The script pulls with `--ff-only` and stops on a failed pull; use
 `--skip-git-pull` deliberately for offline/local changes. `--skip-npm-ci` reuses
-installed dependencies. Linux reuses completed packages when version, architecture, source contents
-and SHA-256 checksums match. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
+installed dependencies. Both platforms reuse completed packages when version, architecture, build mode,
+source contents and SHA-256 checksums match, through the same
+`tools/build-cache.py`. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
 The tracked Tauri version placeholder is restored on exit and interruption.
 
 The default SCP/SSH destination is `b3sys@100.64.100.242`, on the private
@@ -316,9 +326,9 @@ and ingestion. Keep the same `--bundles` selection when retrying; adding a forma
 builds that format while reusing valid existing ones. `--skip-git-pull` can be
 used deliberately to retry the current checkout without fetching a newer release.
 
-A `.build.json` is written beside each format's packages before publication.
-It records the version, native Rust host, source fingerprint, build mode and
-artifact hashes. Source changes (including deletions), missing or corrupt files,
+A `.build.json` is written beside each format's packages before publication —
+and beside the macOS DMG, from 1.1.4 on. It records the version, native Rust
+host, source fingerprint, build mode and artifact hashes. Source changes (including deletions), missing or corrupt files,
 a version change or `--force` require a rebuild. Documentation and upload-host
 changes alone do not invalidate the source fingerprint. Existing packages from
 older scripts without a manifest need one build to establish that record.

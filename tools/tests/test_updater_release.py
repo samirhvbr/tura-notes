@@ -54,7 +54,7 @@ class UpdaterReleaseTests(unittest.TestCase):
             updater.verify(self.artifact, '1.1.0')
 
     def test_linux_reuse_checks_signed_sidecars(self):
-        cache = Path(__file__).parents[1] / 'linux-build-cache.py'
+        cache = Path(__file__).parents[1] / 'build-cache.py'
         Path(str(self.artifact) + '.sha256').write_text(updater.sha(self.artifact) + '  package\n')
         identity = [str(self.root), '1.1.0', 'aarch64-unknown-linux-gnu', 'source-hash', '0']
         subprocess.run([sys.executable, str(cache), 'record', *identity, str(self.artifact)], check=True)
