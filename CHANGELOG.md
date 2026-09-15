@@ -8,6 +8,26 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.8 - correct the crate layout in the agent instructions
+
+The `Layout:` line in `CLAUDE.md` and `AGENTS.md` listed `packages/ui/` as part
+of the tree. That directory does not exist and never has: ADR-043 defers it
+until real sharing requires it, and `docs/ARCHITECTURE.md` annotates it as "may
+stay empty until 0.4 needs it". Only the two agent files presented it as a
+current fact, which is the shape of stale documentation that does damage — an
+instruction file carries the authority of being the first thing read.
+
+Checking the rest of the line before editing turned up a second error in it. The
+crate list named six of the eight crates under `crates/`, omitting
+`notes-markdown` and `notes-model` — the Markdown parse/render/sanitize layer
+and the foundation crate that every other one depends on for ids, paths, stat,
+caps and errors. Both are now listed, in the same alphabetical order.
+
+`docs/ARCHITECTURE.md` keeps its `packages/ui/` row on purpose: it is annotated
+as deferred and is the record ADR-043 points at, so removing it there would
+erase a decision rather than correct a fact. The twins remain byte-identical
+below the H1.
+
 ## 1.1.7 - update trash to 5.2.8
 
 The desktop trash integration moves from 5.2.7 to 5.2.8. Its Windows backend

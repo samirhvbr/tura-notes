@@ -72,8 +72,9 @@ one-line version of both:
 
 - **Stack:** Tauri 2 · React · TypeScript · Rust · CodeMirror 6 · SQLite.
 - **Layout:** `apps/notes-app/` (the Tauri app: `src/` React, `src-tauri/` thin
-  shell) · `crates/` (`notes-core`, `notes-fs`, `notes-index`, `notes-mcp`, `notes-sync`, `notes-sync-client` —
-  where the Rust logic lives) · `packages/ui/` · `server/notes-server/` (standalone REST process, milestone 0.5).
+  shell) · `crates/` (`notes-core`, `notes-fs`, `notes-index`, `notes-markdown`,
+  `notes-mcp`, `notes-model`, `notes-sync`, `notes-sync-client` — where the Rust
+  logic lives) · `server/notes-server/` (standalone REST process, milestone 0.5).
   [ADR-003](docs/decisions.md#adr-003--the-rust-logic-lives-in-crates-and-the-tauri-shell-stays-thin).
 - **Runs locally with:** `cd apps/notes-app && npm ci && npm run tauri dev`.
   Milestones 0.1a–0.1d, 0.2, 0.3 and 0.5 are implemented; 0.4 has its mobile core foundation. The 0.6 blocks provide causal planning, a server inbox and a durable CLI transfer client;
