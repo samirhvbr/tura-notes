@@ -340,6 +340,53 @@ async fn rate_limit_bounds_authenticated_requests() {
     assert_eq!(denied.0, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(denied.1["retry-after"], "60");
 }
+
+/// The budget above the credential one, and why holding a second credential is
+/// not a way around it.
+///
+/// `rate_limit_bounds_authenticated_requests` covers the 60/min a credential
+/// gets. This covers the 120/min an address gets, which is a different control
+/// in a different place: it is charged **before** authentication, so it counts
+/// requests that never present a credential at all and cannot be divided by
+/// holding more of them. `server/tests/smoke.py` learned that the expensive
+/// way — giving a phase its own token does nothing when every phase dials from
+/// the same loopback address.
+#[tokio::test]
+async fn rate_limit_bounds_requests_per_ip_before_authentication() {
+    let mut f = Fixture::new(&[Permission::Read]);
+
+    // `/healthz` answers after the address check and before the credential one,
+    // so these spend the per-IP budget while leaving the per-token one at zero.
+    for _ in 0..120 {
+        assert_eq!(
+            f.request("GET", "/healthz", None, &[]).await.0,
+            StatusCode::OK
+        );
+    }
+    let denied = f.request("GET", "/healthz", None, &[]).await;
+    assert_eq!(denied.0, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(denied.1["retry-after"], "60");
+
+    // A credential minted this instant, holding a budget it has never spent, is
+    // refused the same way: the bucket that refuses it was emptied before any
+    // credential was read.
+    let output = f._dir.path().join("second.secret");
+    admin::create_token(
+        &f.data,
+        "second".into(),
+        "home".into(),
+        RelPath::parse("allowed").unwrap(),
+        [Permission::Read].into_iter().collect(),
+        false,
+        &output,
+    )
+    .unwrap();
+    f.token = fs::read_to_string(output).unwrap();
+    assert_eq!(
+        f.request("GET", COLLECTION, None, &[]).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
 #[tokio::test]
 async fn proxy_checks_actual_peer_and_https_header() {
     let mut f = Fixture::new(&[Permission::Read]);

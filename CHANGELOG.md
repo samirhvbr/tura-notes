@@ -8,6 +8,31 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.13 - cover the per-IP request budget, which no test reached
+
+The server enforces two rate limits and only one of them was tested.
+`rate_limit_bounds_authenticated_requests` sends sixty requests, asserts the
+sixty-first is refused, and stops there — that is the 60/min a credential gets.
+The 120/min an address gets had no test at all, and it is the harder of the two
+to reason about: it is charged before authentication, so it counts requests that
+never present a credential, and holding a second credential does not divide it.
+
+That gap was not hypothetical. Removing the smoke suite's rate-limit waits in
+1.1.9 failed on exactly this limit, and the reason it took instrumentation to
+see is that no test described the behavior anywhere.
+
+The new test spends the budget through `/healthz`, which answers after the
+address check and before the credential one, so 120 requests land on the per-IP
+bucket while the per-token bucket stays at zero. The 121st is refused with
+`retry-after`. It then mints a credential that has spent nothing and shows it is
+refused too, because the bucket that refuses it was emptied before any
+credential was read.
+
+Both halves were mutation-checked. Raising the ceiling to 200, and deleting the
+pre-authentication check outright, each make the new test fail — and each leave
+`rate_limit_bounds_authenticated_requests` passing, which is the measurement of
+what was uncovered.
+
 ## 1.1.12 - cover the Arch package the installer globs were missing
 
 1.1.10 ignored `*.deb`, `*.AppImage` and `*.rpm`, and justified scoping the group
