@@ -8,6 +8,15 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.7 - update trash to 5.2.8
+
+The desktop trash integration moves from 5.2.7 to 5.2.8. Its Windows backend
+now resolves through the current `windows` 0.62 family instead of the older
+0.56 family; Linux and macOS behavior keep the same public interface. The
+dependency branch passed the complete GitHub matrix before versioning, and the
+versioned lockfile was regenerated from the current 1.1.6 master rather than
+copying a stale pre-uuid resolution.
+
 ## 1.1.6 - update uuid to 1.26.1
 
 The lockfile moves `uuid` from 1.26.0 to 1.26.1. The patch release fixes an
