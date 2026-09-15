@@ -8,6 +8,41 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.5 - enforce the root jail at the open, not only at the path
+
+`LocalFs::resolve` checked every path segment with `symlink_metadata` and then
+returned a path the caller handed to `fs::read` or `fs::File::create`, both of
+which follow symlinks. The gap between the check and the syscall was the jail's
+whole coverage, and this product's premise is that other tools write in that
+folder — a sync client, a `git checkout`, a restore from backup.
+
+The temporary file needed no race to exploit. `tmp_path` is deterministic by
+design — `.{name}.tmp` beside the note, so a crash leaves at most one to clean
+up — which also makes it predictable. A symlink left at that name received the
+next save's bytes wherever it pointed, outside the workspace, through a path the
+jail had already approved. The new regression test writes through such a link
+and asserts the outside file is untouched; run against the previous code it
+fails with the outside file overwritten.
+
+Reads now open with `O_NOFOLLOW` on Unix and report `ELOOP` as the same
+`SymlinkNotFollowed` the path check produces. The temporary file is unlinked —
+which removes a link, never its target — and then created with `O_CREAT|O_EXCL`,
+which refuses a symlink outright; losing the race between the two refuses the
+write rather than redirecting it. A divergence check that meets a symlink
+reports `Diverged`, so the write is refused instead of followed.
+
+This closes the final component and says so. An intermediate directory swapped
+mid-operation is still followed: closing that needs
+`openat2(RESOLVE_NO_SYMLINKS)`, Linux 5.6+ with no macOS equivalent, which would
+buy one platform rather than the jail. Windows keeps the path half only, because
+its nearest flag opens the reparse point rather than refusing it. ADR-075 records
+the boundary and `docs/security.md` no longer claims more than the code does.
+
+`libc` becomes a direct Unix-only dependency of `notes-fs` for `O_NOFOLLOW` and
+`ELOOP`. It was already in the tree through `tempfile`, `uuid` and `notify`, so
+nothing is added to the build; the constants differ per target and spelling them
+out by hand is a portability bug waiting for a platform we do not test on.
+
 ## 1.1.4 - decide macOS build reuse by source fingerprint instead of mtime
 
 The two release paths answered "is the build on disk still the build for this

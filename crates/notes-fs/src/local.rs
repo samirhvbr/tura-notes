@@ -186,7 +186,7 @@ impl FileSystem for LocalFs {
 
     fn read(&self, path: &RelPath) -> Result<Vec<u8>> {
         let abs = self.resolve(path)?;
-        fs::read(&abs).map_err(|e| CoreError::io("read", path, &e))
+        read_no_follow(&abs, path)
     }
 
     fn write_atomic(
@@ -198,7 +198,24 @@ impl FileSystem for LocalFs {
         let abs = self.resolve(path)?;
         let tmp = Self::tmp_path(&abs)?;
 
-        let mut f = fs::File::create(&tmp).map_err(|e| CoreError::io("create_temp", path, &e))?;
+        // `File::create` is `O_CREAT|O_TRUNC`, and it FOLLOWS a symlink. This
+        // name is deterministic on purpose (see `tmp_path`), so it is also
+        // predictable: a `.note.md.tmp` left in the workspace as a link — by a
+        // sync client, a restore, anything that writes here — would send the
+        // next save's bytes wherever it points, out of the root, through a jail
+        // that had already approved the path.
+        //
+        // `remove_file` unlinks the link itself and never its target;
+        // `create_new` is `O_CREAT|O_EXCL`, which refuses a symlink outright.
+        // Losing the race between the two means `create_new` fails and the
+        // write is refused — never redirected. The pair keeps the "at most one
+        // leftover temp per note" property the deterministic name exists for.
+        let _ = fs::remove_file(&tmp);
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|e| CoreError::io("create_temp", path, &e))?;
         let write_then_sync = (|| -> std::io::Result<()> {
             f.write_all(bytes)?;
             f.sync_all()
@@ -221,7 +238,10 @@ impl FileSystem for LocalFs {
             match Self::stat_at(&abs) {
                 Ok(current) => {
                     // The final guard checks content even if size and mtime match.
-                    let same = fs::read(&abs)
+                    // A symlink that appeared here reads as "not the same",
+                    // which lands on `Diverged` — refusing the write rather
+                    // than following the link. The safe direction.
+                    let same = read_no_follow(&abs, path)
                         .map(|b| hash(&b) == base.hash)
                         .unwrap_or(false);
                     if !same {
@@ -453,6 +473,73 @@ fn native_id(_: &Path, _: &fs::Metadata) -> Option<NativeId> {
     None
 }
 
+/// Open a jailed path for reading, refusing a symlink **at the final component**.
+///
+/// [`LocalFs::resolve`] refuses every symlink it can see, and then hands back a
+/// path somebody else can still change. Between that check and this open the
+/// note can become a link, and `fs::read` would follow it straight out of the
+/// root — the jail having already approved the path.
+///
+/// That is not a hostile-user story. The workspace belongs to the user; the
+/// premise of the whole product is that **other tools touch these files** — a
+/// sync client, a `git checkout`, a restore from backup. Those write while the
+/// application reads, which is exactly the window.
+///
+/// **This closes the last component, and only the last component.** A directory
+/// in the middle of the path can still be swapped between `resolve` and here.
+/// Closing that needs `openat2(RESOLVE_NO_SYMLINKS)`, which is Linux 5.6+ and
+/// has no macOS equivalent, so it would buy one platform rather than the jail —
+/// ADR-075 records the choice. The final component is the case that is both
+/// realistic and free.
+#[cfg(unix)]
+fn open_no_follow(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+}
+
+/// Windows has no `O_NOFOLLOW`. `FILE_FLAG_OPEN_REPARSE_POINT` opens the
+/// reparse point *itself* rather than refusing it, which would hand back the
+/// link's own bytes as if they were the note — worse than following it. The
+/// string half of the jail and `resolve` still apply here; this half does not.
+#[cfg(not(unix))]
+fn open_no_follow(path: &Path) -> std::io::Result<fs::File> {
+    fs::File::open(path)
+}
+
+/// `ELOOP` from an `O_NOFOLLOW` open means one thing only, and it is not an I/O
+/// failure: the final component became a symlink after `resolve` cleared it. It
+/// is reported as the error `resolve` itself would have produced, so a caller
+/// never has to know which of the two halves refused.
+#[cfg(unix)]
+fn is_symlink_refusal(error: &std::io::Error) -> bool {
+    error.raw_os_error() == Some(libc::ELOOP)
+}
+
+#[cfg(not(unix))]
+fn is_symlink_refusal(_: &std::io::Error) -> bool {
+    false
+}
+
+fn read_no_follow(abs: &Path, rel: &RelPath) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut file = open_no_follow(abs).map_err(|e| {
+        if is_symlink_refusal(&e) {
+            CoreError::SymlinkNotFollowed {
+                path: rel.to_string(),
+            }
+        } else {
+            CoreError::io("read", rel, &e)
+        }
+    })?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)
+        .map_err(|e| CoreError::io("read", rel, &e))?;
+    Ok(bytes)
+}
+
 #[cfg(unix)]
 fn copy_mode(meta: &fs::Metadata, to: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -501,4 +588,27 @@ fn sync_dir(file: &Path) {
     }
     #[cfg(not(unix))]
     let _ = file;
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    /// The half `resolve` cannot test: `resolve` refuses a symlink it can see,
+    /// so a black-box call never reaches the open. This is the open.
+    #[test]
+    fn open_no_follow_refuses_a_symlink_and_says_which_error_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target");
+        fs::write(&target, b"secret\n").unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let error = open_no_follow(&link).expect_err("a symlink must not open");
+        assert!(is_symlink_refusal(&error), "expected ELOOP, got {error:?}");
+
+        // The same call on the real file still works, or the guard would be
+        // refusing everything and the test would prove nothing.
+        assert!(open_no_follow(&target).is_ok());
+    }
 }

@@ -2077,3 +2077,45 @@ payloads with verified hashes before atomically replacing each feed. Arch uses
 pacman; mobile and unpublished Windows installers are outside this delivery.
 The first updater-capable release must be installed manually. Installed upgrade
 acceptance remains distinct from compilation, signing and transport tests.
+
+## ADR-075 — The root jail is enforced again at the open, not only at the path
+
+**Status:** ACCEPTED · 15/09/2026
+
+**Decision.** Keep `LocalFs::resolve` as the path half of the jail and add a
+second enforcement at the moment of use. Reads open with `O_NOFOLLOW` on Unix
+and report `ELOOP` as `SymlinkNotFollowed`, the same error `resolve` produces.
+The atomic write's temporary file is unlinked and then created with
+`O_CREAT|O_EXCL` instead of `O_CREAT|O_TRUNC`. Windows keeps the path half only.
+
+**Reason.** `resolve` checks each segment with `symlink_metadata` and returns a
+path the caller then hands to `fs::read` or `fs::File::create`, both of which
+follow symlinks. Everything between the check and the syscall is a window, and
+this product's premise is that other tools write in that folder — a sync client,
+a `git checkout`, a restore — so the window is ordinary rather than adversarial.
+
+The temporary file was the concrete hole, and it needed no race at all. Its name
+is deterministic by design (`.{name}.tmp`, so a crash leaves at most one), which
+makes it predictable; a symlink left at that name received the next save's bytes
+at whatever it pointed to, outside the root, through a path the jail had already
+approved. `a_symlink_at_the_temp_path_never_receives_the_write` in
+`crates/notes-fs/tests/jail.rs` fails against the previous code with the write
+landing on the outside file, and passes now.
+
+**Consequences.** `libc` becomes a direct Unix-only dependency of `notes-fs`,
+for `O_NOFOLLOW` and `ELOOP`; it was already in the tree through `tempfile`,
+`uuid` and `notify`, so the build gains nothing but the use becomes visible.
+A write whose temporary path is taken in the instant between the unlink and the
+exclusive create is refused rather than redirected — the safe direction. A
+divergence check that meets a symlink reports `Diverged`, so the write is
+refused rather than following it.
+
+**What this does not close, stated plainly.** Only the final component. A
+directory in the middle of the path swapped between `resolve` and the open is
+still followed. Closing that requires `openat2(RESOLVE_NO_SYMLINKS)`, which is
+Linux 5.6+ with no macOS equivalent, and would buy one platform rather than the
+jail; a portable `openat` walk is the alternative if this is ever revisited.
+Windows has no `O_NOFOLLOW` at all, and `FILE_FLAG_OPEN_REPARSE_POINT` opens the
+reparse point rather than refusing it, which would return the link's own bytes
+as the note — worse than the gap. `docs/security.md` records the boundary in the
+control table rather than leaving the row claiming more than the code does.
