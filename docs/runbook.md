@@ -271,8 +271,10 @@ from the macOS output and the CI tarball workflow. Build on the oldest Linux
 release you intend to support; packages inherit the build host's system-library
 requirements. This is a native build, not a Linux cross-compile from macOS.
 
-The script pulls with `--ff-only` and stops on a failed pull; use
-`--skip-git-pull` deliberately for offline/local changes. `--skip-npm-ci` reuses
+The script pulls with `--ff-only`, and a pull it cannot fast-forward warns and
+builds the local checkout rather than aborting — the same behaviour as the macOS
+path, for the reason in that script's header. A directory that is not a git
+checkout is skipped the same way. `--skip-git-pull` skips the step outright. `--skip-npm-ci` reuses
 installed dependencies. Both platforms reuse completed packages when version, architecture, build mode,
 source contents and SHA-256 checksums match, through the same
 `tools/build-cache.py`. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.

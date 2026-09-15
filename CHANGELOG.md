@@ -8,6 +8,31 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.11 - make the Linux build survive a pull it cannot fast-forward
+
+`build-local.sh` has said since it was written that the pull before a build
+"never fails the build — offline, dirty tree or a diverged branch only produce a
+warning", because a build that refuses to run when the network is down is worse
+than one that tells you it used the local tree. On Linux that was not true.
+`build-local.sh` execs `tools/build-linux.sh` before any of it applies, and what
+that script ran was a bare `git pull --ff-only` under `set -e`: an offline
+machine, a detached HEAD or a diverged branch aborted the build outright, and
+the header a reader meets first described the other platform.
+
+The Linux path now performs the same three-way sync: `--skip-git-pull` skips the
+step, a directory that is not a git checkout is reported and skipped, and a pull
+that cannot fast-forward warns on stderr and builds what is checked out.
+`--ff-only` still never creates a merge, so nothing about what gets built is
+loosened — only what happens when the sync itself cannot complete.
+
+`test_failed_pull_stops_before_stamping` asserted the behavior that changed and
+now asserts the new one, renamed to match. It fakes a `git` that fails only for
+`pull`, because one failing at everything takes the not-a-checkout branch and
+never reaches the pull it means to test — the first version of the test passed
+for that wrong reason. A second case covers the not-a-checkout branch itself.
+Both fail against the previous script with the build aborting on 17. Twelve
+orchestration tests pass.
+
 ## 1.1.10 - untrack the installer that was committed into the app directory
 
 `apps/notes-app/notes_0.11.11_amd64.deb` was 4.2 MB of build output tracked in

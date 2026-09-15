@@ -138,12 +138,22 @@ done
                 self.assertEqual(self.run_build(*args).returncode, 2)
                 self.assertEqual(self.config.read_text(), self.original)
 
-    def test_failed_pull_stops_before_stamping(self):
-        self.fake('git', 'exit 17')
+    def test_failed_pull_warns_and_builds_the_local_checkout(self):
+        # Succeed for rev-parse, fail for pull: a git that fails at everything
+        # takes the "not a checkout" branch and never reaches the pull at all.
+        self.fake('git', '[ "$1" != pull ] || exit 17')
         result = subprocess.run(['bash', str(self.root / 'deploy.sh')],
                                 env=self.env, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 17)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('Could not fast-forward', result.stderr)
         self.assertEqual(self.config.read_text(), self.original)
+
+    def test_a_directory_that_is_not_a_checkout_still_builds(self):
+        self.fake('git', 'exit 1')
+        result = subprocess.run(['bash', str(self.root / 'deploy.sh')],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('Not a git checkout', result.stdout)
 
     def test_help_does_not_need_build_dependencies(self):
         self.fake('node', 'exit 99')

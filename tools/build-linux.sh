@@ -54,7 +54,28 @@ done
 if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
   echo 'Native Linux builds require CARGO_BUILD_TARGET to be unset.' >&2; exit 2
 fi
-if [ "$skip_pull" -eq 0 ]; then git pull --ff-only; fi
+# The same sync build-local.sh does, for the reason written in its header: a
+# build that refuses to run because the network is down is worse than a build
+# that tells you it used the local tree. Linux was the half that did not comply
+# — under `set -e`, one `git pull --ff-only` turned an offline machine, a
+# detached HEAD or a diverged branch into an aborted build. --ff-only still
+# never creates a merge, and --skip-git-pull still skips the step outright.
+git_sync() {
+  if [ "$skip_pull" -eq 1 ]; then
+    echo 'Skipping the pull: --skip-git-pull.'
+    return 0
+  fi
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo 'Not a git checkout; building what is here.'
+    return 0
+  fi
+  if git pull --ff-only; then
+    return 0
+  fi
+  echo 'Could not fast-forward; building the local checkout as it is.' >&2
+  return 0
+}
+git_sync
 if ! command -v cargo >/dev/null && [ -x "$HOME/.cargo/bin/cargo" ]; then export PATH="$HOME/.cargo/bin:$PATH"; fi
 if [ "$publish" -eq 1 ]; then
   command -v scp >/dev/null; command -v ssh >/dev/null
