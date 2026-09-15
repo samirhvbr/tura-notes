@@ -15,7 +15,7 @@ are in Portuguese.
 | Item | What remains | Who unblocks it |
 |---|---|---|
 | **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
-| **Release gate repairs** | Resolve the existing Clippy needless borrow in `notes-sync-client/src/control.rs:896` and the macOS watcher startup/index-under-change test failures in `notes-core/tests/deep.rs`; rerun the full gate (see [build verification](../docs/runbook.md#linux-build-verification-103)) | Implementation |
+| **Release gate repairs** | Resolve the macOS watcher startup/index-under-change test failures in `notes-core/tests/deep.rs`; rerun the full gate (see [build verification](../docs/runbook.md#linux-build-verification-103)). The cross-platform Clippy blocker was resolved in 1.1.1. | Implementation |
 | [0.6 — sync](0.6-sync.md) | Installed-build and physical-device owner acceptance | Samir |
 | **0.7 — remote MCP** | Expose the existing MCP capabilities through server authentication and workspace/subfolder scopes after sync is ready | Implementation |
 | **0.4 — mobile** | Turn the merged foundation into usable iOS/Android applications: entry points, generated projects, UI, folder adapters, lifecycle handling and physical-device validation | Mobile agent / Samir |

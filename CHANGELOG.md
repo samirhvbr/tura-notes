@@ -8,6 +8,18 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.1 - remove the Rust 1.96 Clippy blocker from the release gate
+
+Rust 1.96 started flagging an unnecessary borrow in a sync-client regression
+test, making every dependency pull request fail Clippy on Linux, macOS and
+Windows even though the same failure was already present on `master`. Pass the
+owned path directly to `WorkspaceService::with_data_dir`; runtime behavior and
+the test's workspace isolation remain unchanged.
+
+Native `cargo clippy --all-targets -- -D warnings` passes after the change. The
+separate macOS watcher timing failures remain in the queue and are not described
+as fixed by this release.
+
 ## 1.1.0 - add guarded desktop update installation
 
 Check for desktop updates after startup and every six hours, with manual checks,

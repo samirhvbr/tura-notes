@@ -893,7 +893,7 @@ mod tests {
         expanded.capture_renames = true;
         controller.configure(expanded).unwrap();
         let mut open_app =
-            notes_core::WorkspaceService::with_data_dir(&temp.path().join("app")).unwrap();
+            notes_core::WorkspaceService::with_data_dir(temp.path().join("app")).unwrap();
         open_app.open_workspace(&target).unwrap();
         controller.run_with(true, |_, _| Ok(&peer)).unwrap_err();
         assert!(matches!(
