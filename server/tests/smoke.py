@@ -71,16 +71,59 @@ with tempfile.TemporaryDirectory() as temp:
         with response:
             return response.status, response.headers, json.load(response)
 
-    try:
-        for attempt in range(100):
+    def wait_healthy(failure):
+        """Poll /healthz until the server answers 200, bounded at ten seconds.
+
+        Anything else means "not ready yet". Natively that is a refused
+        connection while the process is down. Behind Caddy it is a 502 whose
+        body is not JSON, which `request` raises as a ValueError rather than a
+        URLError — the one case the four hand-written copies of this loop did
+        not catch, and the one the compose restart produces.
+        """
+        for _ in range(100):
             try:
                 if request("GET", "/healthz", auth=False)[0] == 200:
-                    break
-            except (urllib.error.URLError, ConnectionError):
+                    return
+            except (urllib.error.URLError, ConnectionError, ValueError):
                 pass
             time.sleep(0.1)
+        raise RuntimeError(failure)
+
+    def restart_server():
+        """Give the next phase a fresh rate window by restarting the server.
+
+        The limiter's buckets are a HashMap built in `Server::new` and held in
+        memory for the life of the process, so a restart empties them. No limit
+        changes: 120/min per IP and 60/min per credential, exactly as production
+        runs them.
+
+        **A credential per phase cannot do this job.** The per-IP bucket is
+        checked before authentication (`api.rs`), and every request here —
+        urllib's and every notes-sync-client subprocess's — arrives from the
+        same loopback address, so they all share one 120/min bucket that no
+        number of credentials divides. Measured on this suite: ~270
+        authenticated requests overall, and the first two phases alone are ~145
+        of them inside three seconds, past the ceiling before the third begins.
+
+        Server state is untouched. Natively it is `NOTES_SERVER_DATA` on disk;
+        under compose it is the `notes-data` volume, which a restart keeps and
+        a recreate would too. What a restart does discard is the container's
+        `/tmp`, because this stack runs `read_only: true` with `/tmp` on a
+        tmpfs — and that costs nothing here, since every secret written there
+        is read back into this process in the same breath it is created.
+        """
+        global proc
+        if compose:
+            run(cmd + ["restart", "notes-server"])
         else:
-            raise RuntimeError("server did not become healthy")
+            proc.terminate()
+            proc.wait(timeout=15)
+            proc = subprocess.Popen([binary, "serve"], env=env,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        wait_healthy("server did not restart for a fresh rate window")
+
+    try:
+        wait_healthy("server did not become healthy")
         if not compose:
             # Eight incomplete bodies occupy admission slots; the ninth request
             # is refused rather than queued or allocated another large buffer.
@@ -160,15 +203,7 @@ with tempfile.TemporaryDirectory() as temp:
             assert offline.returncode != 0
             assert json.loads(run([client, "status", str(sender)]))["pending"] == 1
             proc = subprocess.Popen([binary, "serve"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for _ in range(100):
-                try:
-                    if request("GET", "/healthz", auth=False)[0] == 200:
-                        break
-                except (urllib.error.URLError, ConnectionError):
-                    pass
-                time.sleep(0.1)
-            else:
-                raise RuntimeError("server did not restart")
+            wait_healthy("server did not restart")
         run([client, "transfer", str(sender), str(client_secret)])
         run([client, "init-receive", str(receiver), str(target), base, "client", str(client_secret), "--allow-private"])
         run([client, "transfer", str(receiver), str(client_secret)])
@@ -192,15 +227,7 @@ with tempfile.TemporaryDirectory() as temp:
             proc.wait(timeout=15)
             cli("backup", str(temp / "older.tar.gz"))
             proc = subprocess.Popen([binary, "serve"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for _ in range(100):
-                try:
-                    if request("GET", "/healthz", auth=False)[0] == 200:
-                        break
-                except (urllib.error.URLError, ConnectionError):
-                    pass
-                time.sleep(0.1)
-            else:
-                raise RuntimeError("server did not restart after backup")
+            wait_healthy("server did not restart after backup")
         (source / "original.md").write_bytes(b"remote update\r\n")
         run([client, "stage", str(sender)])
         run([client, "transfer", str(sender), str(client_secret)])
@@ -244,9 +271,10 @@ with tempfile.TemporaryDirectory() as temp:
         run([client, "fetch", str(fresh_state), str(client_secret)])
         run([client, "apply", str(fresh_state), str(temp / "resolved-app-data")])
         assert (fresh_root / "original.md").read_bytes() == chosen.read_bytes()
-        # The expanded suite exceeds the real 60-request credential budget.
-        # Wait for its window rather than weakening production rate limits.
-        time.sleep(61)
+        # The expanded suite exceeds the real 60-request credential budget, and
+        # the per-IP one above it. Restart for a fresh window instead of waiting
+        # out the old one; see restart_server.
+        restart_server()
         # Exercise explicit path and tombstone choices using actual CLI processes.
         for remote_deleted in (False, True):
             parent = json.loads((sender / "client.json").read_text())["received"][-1]
@@ -354,8 +382,9 @@ with tempfile.TemporaryDirectory() as temp:
         rr_status = json.loads(run([client, "status", str(rr_receiver)]))
         assert rr_status["applied_revisions"] == rr_status["acknowledged_revisions"] == 4
         assert rr_status["superseded_revisions"] == 3
-        # New source-effect and scoped-pairing scenarios get a fresh real rate window.
-        time.sleep(61)
+        # New source-effect and scoped-pairing scenarios get a fresh real rate
+        # window, by restart rather than by waiting.
+        restart_server()
         current_path = "test.md"
         for delete_result in (False, True):
             parent = json.loads((rr_receiver / "client.json").read_text())["received"][-1]
@@ -458,7 +487,13 @@ with tempfile.TemporaryDirectory() as temp:
         run([client, "apply-bundle", str(observer_queue), str(observer_data)])
         assert not (observer_root / "new.md").exists()
         assert (observer_root / "moved.md").read_bytes() == b"new from receiver\r\n"
-        # Dedicated credential isolates the recovery/crash request budget.
+        # Dedicated credential isolates the recovery/crash request budget, and a
+        # restart isolates the half a credential cannot reach. The per-IP bucket
+        # is shared by every credential, and this section plus the one before it
+        # is ~128 requests against a 120/min ceiling. It used to fit only by
+        # accident: the suite was slow enough that the 60-second window rolled
+        # over mid-phase. Running at full speed, it no longer does.
+        restart_server()
         cli("workspace", "create", "client-recovery")
         recovery_secret = temp / "recovery.secret"
         if compose:
@@ -577,15 +612,7 @@ with tempfile.TemporaryDirectory() as temp:
         env["NOTES_SERVER_DATA"] = str(temp / "rollback")
         proc = subprocess.Popen([binary, "serve"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            for _ in range(100):
-                try:
-                    if request("GET", "/healthz", auth=False)[0] == 200:
-                        break
-                except (urllib.error.URLError, ConnectionError):
-                    pass
-                time.sleep(0.1)
-            else:
-                raise RuntimeError("restored server did not start")
+            wait_healthy("restored server did not start")
             before = (receiver / "application.json").read_bytes()
             failed = subprocess.run([client, "fetch", str(receiver), str(client_secret)], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             assert failed.returncode != 0

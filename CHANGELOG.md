@@ -8,6 +8,52 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.9 - restart the smoke server for a fresh rate window instead of waiting
+
+Two `time.sleep(61)` calls cost 122 seconds of every gate run. They were waiting
+out the rate limiter's window, and the comment beside them was right that
+weakening production limits was not the answer. Restarting the server is: the
+limiter's buckets are a `HashMap` built in `Server::new` and held in memory for
+the life of the process, so a restart empties them while every limit stays
+exactly as production runs it.
+
+A credential per phase cannot do this job, which is worth recording because it
+is the obvious idea. The per-IP bucket is checked *before* authentication, and
+every request in this suite — urllib's and every `notes-sync-client`
+subprocess's — arrives from the same loopback address, so one 120/min bucket
+covers all of them and no number of credentials divides it. Measured: ~270
+authenticated requests overall, of which the first two phases alone are ~145
+inside three seconds.
+
+Both paths restart now. The native one follows the pattern already in the file;
+the compose one had no restart at all, which mattered because CI runs
+`--compose`. It uses `docker compose restart notes-server`, which reuses the
+same container. Verified against the running stack rather than assumed: `/data`
+is a named volume and survives, while `/tmp` is a tmpfs on a `read_only: true`
+container and does **not** survive even a plain restart — a recreate is not
+required to lose it. That costs nothing here, because every secret written to
+`/tmp` is read back into the test process in the same breath it is created, and
+none is re-read after a restart point.
+
+**A third restart was needed, and finding out why was the substance of this
+change.** The client-recovery block already carried a dedicated credential to
+isolate its request budget; that isolates the token bucket and not the per-IP
+one above it. Together with the section before it, it is ~128 requests against a
+120/min ceiling. It had been fitting only by accident: the suite ran slowly
+enough that the limiter's 60-second window rolled over mid-phase and handed it a
+second budget. At full speed all 128 land in one window, and `recover-client` —
+which does not retry — failed with `client or server is busy`. The restart makes
+the isolation that comment intends actually reach the bucket that binds.
+
+The four hand-copied health-poll loops became one `wait_healthy`, which also
+catches the `ValueError` a 502 from Caddy produces when its non-JSON body
+reaches `json.load` — the one case the copies did not handle, and the one a
+compose restart creates.
+
+Measured end to end, both passing: native 188.0 s to 5.3 s, compose 192.0 s to
+9.8 s. The limiter's own behavior is unaffected and stays covered by
+`rate_limit_bounds_authenticated_requests` in `server/notes-server/tests/http.rs`.
+
 ## 1.1.8 - correct the crate layout in the agent instructions
 
 The `Layout:` line in `CLAUDE.md` and `AGENTS.md` listed `packages/ui/` as part
