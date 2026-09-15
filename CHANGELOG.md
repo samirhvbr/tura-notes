@@ -8,6 +8,15 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.6 - update uuid to 1.26.1
+
+The lockfile moves `uuid` from 1.26.0 to 1.26.1. The patch release fixes an
+overflow panic when converting timestamps to `SystemTime` and corrects the v7
+counter placement without changing this repository's declared dependency
+surface. The complete GitHub matrix passed on the dependency branch after it
+was refreshed onto 1.1.5; the versioned delivery was then checked again from
+the current master before merge.
+
 ## 1.1.5 - enforce the root jail at the open, not only at the path
 
 `LocalFs::resolve` checked every path segment with `symlink_metadata` and then
