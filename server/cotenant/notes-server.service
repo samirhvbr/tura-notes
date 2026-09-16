@@ -37,6 +37,14 @@ Environment=NOTES_SERVER_BIND=127.0.0.1:8787
 # `X-Forwarded-Proto: https` — which is what makes the front's configuration
 # load-bearing rather than advisory.
 Environment=NOTES_SERVER_TRUSTED_PROXY=127.0.0.1
+# How many proxies stand in front, so the 120/min per-address budget is charged
+# to the client and not to the front — behind one it is everyone's budget put
+# together. One is the front on this machine. **Set it to 2 when a CDN proxies
+# the name as well** (Cloudflare over this Apache is two), and not otherwise:
+# counting a hop that is not there reads an entry the CLIENT supplied, which
+# makes the budget forgeable. Being wrong low costs a shared bucket; being wrong
+# high costs the control. The default is the safe one.
+# Environment=NOTES_SERVER_TRUSTED_HOPS=2
 
 NoNewPrivileges=true
 ProtectSystem=strict

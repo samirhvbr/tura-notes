@@ -387,6 +387,170 @@ async fn rate_limit_bounds_requests_per_ip_before_authentication() {
         StatusCode::TOO_MANY_REQUESTS
     );
 }
+/// Behind a proxy the peer is the proxy, so the 120/min meant to bound one
+/// caller became the budget of everyone put together. Past three active devices
+/// that is tighter than the 60/min each credential already has, and one busy
+/// device locks the others out — the control hitting the wrong people rather
+/// than failing open. This is the co-tenant deployment the queue describes,
+/// which is now a real one.
+#[tokio::test]
+async fn behind_a_proxy_the_budget_follows_the_client_and_not_the_proxy() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    let proxied =
+        |client: &'static str| [("x-forwarded-proto", "https"), ("x-forwarded-for", client)];
+
+    // One device spends its whole budget.
+    for _ in 0..120 {
+        assert_eq!(
+            f.request("GET", "/healthz", None, &proxied("203.0.113.10"))
+                .await
+                .0,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        f.request("GET", "/healthz", None, &proxied("203.0.113.10"))
+            .await
+            .0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    // The second device has its own, which is the whole point.
+    assert_eq!(
+        f.request("GET", "/healthz", None, &proxied("203.0.113.11"))
+            .await
+            .0,
+        StatusCode::OK
+    );
+}
+
+/// The last entry, and only the last. Each hop appends the address it saw, so
+/// everything left of it came from the client and can say anything — including
+/// the address of a device it would like to lock out.
+#[tokio::test]
+async fn a_client_cannot_choose_whose_budget_it_spends() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    let forged = [
+        ("x-forwarded-proto", "https"),
+        // What a client sends, plus what the proxy appended.
+        ("x-forwarded-for", "203.0.113.99, 203.0.113.10"),
+    ];
+    for _ in 0..120 {
+        assert_eq!(
+            f.request("GET", "/healthz", None, &forged).await.0,
+            StatusCode::OK
+        );
+    }
+    // The victim it named is untouched: the budget spent was its own.
+    assert_eq!(
+        f.request(
+            "GET",
+            "/healthz",
+            None,
+            &[
+                ("x-forwarded-proto", "https"),
+                ("x-forwarded-for", "203.0.113.99")
+            ]
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+}
+
+/// Two proxies in front — Cloudflare over a local Apache is the deployment this
+/// was written for — and the client is two entries from the right.
+#[tokio::test]
+async fn a_second_hop_is_counted_when_it_is_configured() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::with_hops(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+        2,
+    ));
+    let through_two =
+        |client: &'static str| [("x-forwarded-proto", "https"), ("x-forwarded-for", client)];
+    for _ in 0..120 {
+        assert_eq!(
+            f.request(
+                "GET",
+                "/healthz",
+                None,
+                &through_two("203.0.113.10, 198.51.100.1")
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        f.request(
+            "GET",
+            "/healthz",
+            None,
+            &through_two("203.0.113.10, 198.51.100.1")
+        )
+        .await
+        .0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    // A different client through the same edge still has its own budget.
+    assert_eq!(
+        f.request(
+            "GET",
+            "/healthz",
+            None,
+            &through_two("203.0.113.11, 198.51.100.1")
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+}
+
+/// No header, or one nothing can be made of, falls back to the peer — the
+/// shared bucket, which is what shipped before. Failing closed here means the
+/// old behaviour, not a refusal.
+#[tokio::test]
+async fn an_unusable_forwarded_header_falls_back_to_the_shared_bucket() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    for _ in 0..120 {
+        assert_eq!(
+            f.request(
+                "GET",
+                "/healthz",
+                None,
+                &[
+                    ("x-forwarded-proto", "https"),
+                    ("x-forwarded-for", "nonsense")
+                ]
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
+    // A request with no header at all lands in the same bucket, so it is spent.
+    assert_eq!(
+        f.request("GET", "/healthz", None, &[("x-forwarded-proto", "https")])
+            .await
+            .0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
+
 #[tokio::test]
 async fn proxy_checks_actual_peer_and_https_header() {
     let mut f = Fixture::new(&[Permission::Read]);

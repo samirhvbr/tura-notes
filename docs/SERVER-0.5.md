@@ -128,9 +128,14 @@ they are discovered in production:
   MiB; nginx defaults to 1 MiB and answers 413 itself, so an attachment bundle
   fails before the server sees it. Leave request *buffering* on: the server
   gives a body 15 seconds to arrive and buffering absorbs a slow phone.
-- **The 120/min address budget collapses to the proxy's address**, exactly as it
-  does behind the bundled Caddy. The 60/min per-credential budget is unaffected
-  and is the one that separates devices.
+- **The front must forward the client's address**, or the 120/min budget is
+  charged to the front and becomes every device's budget put together — past
+  three active devices that is tighter than the 60/min each credential already
+  has, and one busy device locks the others out. Apache's `mod_proxy` and Caddy
+  append `X-Forwarded-For` on their own; **nginx does not**, and the template
+  carries the line that makes it. With a CDN proxying the name as well, set
+  `NOTES_SERVER_TRUSTED_HOPS=2` — and only then, because counting a hop that is
+  not there reads an entry the client supplied.
 
 `python3 server/tests/cotenant.py` runs a real process in this configuration and
 asserts each of those, that a created note lands as an ordinary `.md` file in
@@ -286,8 +291,15 @@ and newline policy are preserved; unsupported/mixed text opens read-only.
 At most eight bodies/filesystem operations run simultaneously. Excess parallel
 requests receive 503. Fixed one-minute windows permit 60 requests per credential
 and 120 per actual connection address, returning 429 and `Retry-After: 60`.
-Behind Caddy that address budget is shared by clients; client-supplied forwarding
-addresses do not control rate accounting. There is no unbounded request queue.
+Behind a proxy the address budget is charged to the **client**, taken from the
+last `X-Forwarded-For` entry — the one the trusted proxy appended, since
+everything left of it came from the client and is forgeable.
+`NOTES_SERVER_TRUSTED_HOPS` (default 1, maximum 8) says how many proxies stand
+in front when more than one does. Setting it higher than the truth counts back
+into an entry the client supplied and makes the budget forgeable; setting it
+lower collapses the budget into one shared bucket, which is what shipped before.
+Without a trusted proxy, or with a header nothing can be made of, the peer is
+used. There is no unbounded request queue.
 Credential storage is limited to 1024 entries, including revoked credentials.
 
 All responses disable caching, MIME sniffing, framing and referrer disclosure;

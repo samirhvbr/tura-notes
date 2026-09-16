@@ -144,6 +144,7 @@ for line in ["Environment=NOTES_SERVER_BIND=127.0.0.1:8787",
 
 nginx = (cotenant / "nginx-tura.conf").read_text()
 for line in ["proxy_set_header X-Forwarded-Proto https;",
+             "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
              'proxy_set_header Origin "";',
              "proxy_pass http://127.0.0.1:8787;",
              "client_max_body_size 16m;"]:

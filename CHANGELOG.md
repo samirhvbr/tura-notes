@@ -8,6 +8,39 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.1 - the rate budget follows the client instead of the proxy
+
+The server charges 120 requests a minute to an address, before authentication,
+to bound a flood that never presents a credential. Behind a proxy the address is
+the proxy, so it became the budget of every device put together. Past three
+active devices that is **tighter than the 60/min each credential already has**,
+and one busy device locks the others out — the control hitting the wrong people
+rather than failing open. It is live now, on the co-tenant deployment.
+
+The budget is charged to the last `X-Forwarded-For` entry, and only the last.
+Each hop appends the address it saw, so everything further left came from the
+client and can say anything, including the address of a device it would like to
+lock out. Reading the header is safe here for one reason: the peer has already
+been checked to *be* the trusted proxy, so the header is something our proxy
+appended rather than something a client sent.
+
+`NOTES_SERVER_TRUSTED_HOPS` (default 1, maximum 8) covers a CDN in front of the
+site's own front, which is this deployment. **It defaults low on purpose.**
+Wrong low costs a shared bucket — what shipped before. Wrong high counts back
+into an entry the client supplied and makes the budget forgeable. The two
+mistakes are not the same size, so the default is the safe one and the unit file
+carries the other commented out with the reason.
+
+**nginx does not send `X-Forwarded-For` unless told to**, which would have made
+this change do nothing there; the template now carries the line. Apache's
+`mod_proxy` and Caddy append it themselves, and the Apache template says so
+rather than leaving the reader to wonder what is missing.
+
+Four cases: one device spending its budget leaves the second device's alone; a
+client naming a victim in the header spends its own budget and not the victim's;
+a second hop is counted when configured; and a header nothing can be made of
+falls back to the shared bucket rather than to a refusal.
+
 ## 1.3.0 - the watcher stops holding the service mutex for 270 ms
 
 The gate has had one failing test for a while — `starting_the_watcher_returns_immediately_and_walks_behind`
