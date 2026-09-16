@@ -431,7 +431,7 @@ can_reuse_build() {
   fi
 
   if [ "$NO_SIGN" -eq 0 ]; then
-    python3 tools/updater-release.py verify --artifact "$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz" --version "$version" >/dev/null 2>&1 || {
+    python3 tools/updater-release.py verify --artifact "$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz" --version "$version" >/dev/null 2>&1 || {
       REUSE_REASON="updater payload is absent or unverifiable"; return 1;
     }
   fi
@@ -687,6 +687,13 @@ else
   if [ "$NO_SIGN" -eq 0 ]; then python3 tools/updater-release.py preflight; fi
   (cd apps/notes-app && npm run tauri build -- --bundles app,dmg)
 
+  # The bundler names files after `productName`, and that name has a space in
+  # it. `Tura Notes.app` keeps its — it is an installed identity — but the
+  # downloadable file loses it, before anything hashes, signs or publishes the
+  # name. See tools/name-bundles.sh.
+  step "[name] canonical bundle filenames"
+  tools/name-bundles.sh "$ROOT/target/release/bundle/dmg"
+
   # ── Unstamp BEFORE anything fingerprints the tree ───────────────────────────
   # `tauri.conf.json` lives under `apps/notes-app/src-tauri`, which is one of
   # `tools/build-cache.py`'s INPUTS, and `stamp-version.sh` rewrites it. So the
@@ -718,7 +725,7 @@ else
   step "[verify] codesign / Gatekeeper / notarisation ticket"
   verify_macos_signature "$dmg"
   if [ "$NO_SIGN" -eq 0 ]; then
-    payload="$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz"
+    payload="$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz"
     tar -czf "$payload" -C "$ROOT/target/release/bundle/macos" 'Tura Notes.app'
     case "$(uname -m)" in arm64) updater_arch=aarch64;; *) updater_arch="$(uname -m)";; esac
     python3 tools/updater-release.py prepare --artifact "$payload" --version "$version" --platform "darwin-$updater_arch-app"
@@ -749,7 +756,7 @@ fi
 if [ "$PUBLISH" -eq 1 ]; then
   step "[publish] upload to $PUBLIC_BASE"
   publish_release "$dmg" "$version"
-  python3 tools/updater-release.py publish --artifact "$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz" --version "$version" --host "$PUBLISH_HOST" --stage "$PUBLISH_STAGE" --app "$PUBLISH_APP" --base "$PUBLIC_BASE"
+  python3 tools/updater-release.py publish --artifact "$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz" --version "$version" --host "$PUBLISH_HOST" --stage "$PUBLISH_STAGE" --app "$PUBLISH_APP" --base "$PUBLIC_BASE"
 fi
 
 step "done"

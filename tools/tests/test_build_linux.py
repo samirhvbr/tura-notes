@@ -15,7 +15,7 @@ class LinuxBuild(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/build-cache.py']:
+        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/build-cache.py', 'tools/name-bundles.sh']:
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, dest)
@@ -165,6 +165,21 @@ done
         self.fake('pkg-config', 'exit 1')
         self.assertNotEqual(self.run_build().returncode, 0)
         self.assertEqual(self.config.read_text(), self.original)
+
+    def test_bundle_filenames_lose_the_product_name_space(self):
+        # The bundler names files after productName, which has a space in it:
+        # `%20` in every URL and a word boundary in every script not written
+        # carefully — ADR-071 is one that was not.
+        self.assertEqual(self.run_build('--bundles', 'deb').returncode, 0)
+        built = list(self.root.glob('target/**/*.deb'))
+        self.assertEqual(len(built), 1, built)
+        self.assertNotIn(' ', built[0].name)
+        self.assertTrue(built[0].name.startswith('TuraNotes_'), built[0].name)
+        # The checksum sidecar is written after the rename, so it names the file
+        # that will actually be published.
+        sidecar = built[0].with_suffix(built[0].suffix + '.sha256')
+        self.assertTrue(sidecar.exists(), sidecar)
+        self.assertIn(built[0].name, sidecar.read_text())
 
     def test_missing_download_service_refuses_before_building(self):
         # The app path is a guess until something asks the server about it, and

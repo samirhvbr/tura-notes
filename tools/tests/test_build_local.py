@@ -133,6 +133,25 @@ class Fingerprint(unittest.TestCase):
         self.assertEqual(self.CONFIG.read_bytes(), original)
         self.assertEqual(before, self.fingerprint())
 
+    def test_the_rename_happens_before_anything_hashes_the_name(self):
+        # The sha256 sidecar, the updater payload name and the published URL all
+        # carry the filename. Renaming after any of them would publish a file
+        # under a name nothing else agrees with.
+        script = (ROOT / 'build-local.sh').read_text()
+        rename = script.index('tools/name-bundles.sh')
+        for later in ['_sha256 "$dmg" | awk', 'updater-release.py prepare', 'publish_release "$dmg"']:
+            self.assertLess(rename, script.index(later), f'the rename now happens after: {later}')
+
+    def test_the_application_bundle_keeps_its_name(self):
+        # ADR-069 froze the installed identities. `Tura Notes.app` is one: rename
+        # it and the next release installs beside the old one instead of over it.
+        # Only the tarball around it is renamed.
+        script = (ROOT / 'build-local.sh').read_text()
+        self.assertIn("""-C "$ROOT/target/release/bundle/macos" 'Tura Notes.app'""", script)
+        self.assertIn('TuraNotes.app.tar.gz', script)
+        helper = (ROOT / 'tools/name-bundles.sh').read_text()
+        self.assertIn('-type f', helper, 'the helper could reach a directory, and .app is one')
+
     def test_the_ingest_allocates_a_terminal_for_sudo(self):
         # `ssh host "cmd"` allocates no tty, so the remote sudo cannot prompt and
         # refuses — after the build, the notarisation and a verified upload.

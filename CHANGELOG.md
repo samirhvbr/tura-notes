@@ -8,6 +8,43 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.29 - the downloadable file loses the space the application keeps
+
+The bundler names artefacts after `productName`, and that name has a space in
+it, so the first published release put this in the updater feed:
+
+    .../1.1.27-darwin-aarch64-app-8758989e-Tura%20Notes.app.tar.gz
+
+A space in a released filename is `%20` in every URL that points at it and a
+word boundary in every script that has not been written carefully. ADR-071
+exists because one of those scripts was not: the Arch job split a path on
+whitespace and ended up asserting against a file belonging to another package.
+
+`tools/name-bundles.sh` takes the spaces out, on both pipelines, immediately
+after the bundler and before anything hashes, signs, records or publishes the
+name — `TuraNotes_1.1.29_aarch64.dmg`, and the same for .deb, .AppImage and
+.rpm.
+
+**What it does not rename is the point.** `Tura Notes.app`, the Debian package
+name, `br.com.samirhv.notes` and `Tura Notes.desktop` are installed identities,
+frozen by ADR-069: rename one and the next release installs *beside* the
+previous one instead of over it. The helper touches regular files only, so the
+application bundle — a directory — is out of reach by construction rather than
+by remembering. The `.app` inside the updater tarball keeps its name for the
+same reason; only the tarball around it changes.
+
+`productName` was the other way to do this and is the wrong one: it is what
+gives all four of those their names.
+
+Four cases. The Linux suite asserts the built package carries no space and that
+its checksum sidecar names the renamed file — the sidecar is written after the
+rename, so it agrees with what gets published. The macOS suite asserts the
+rename precedes the sidecar, the updater payload and the publication, and that
+the application bundle's name survives it.
+
+Feeds already published are unaffected: each entry carries its own payload URL,
+and the next publication writes a new one.
+
 ## 1.1.28 - the deploy warns about the vhost instead of overwriting half of it
 
 1.1.27 reinstalled `apache-tura.conf` whenever it differed from the repository's

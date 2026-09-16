@@ -148,6 +148,8 @@ if [ "${#pending[@]}" -gt 0 ]; then
   export APPIMAGE_EXTRACT_AND_RUN=1
   pending_bundles="$(IFS=,; echo "${pending[*]}")"
   (cd apps/notes-app && npm run tauri build -- --bundles "$pending_bundles")
+  # Same rename as the macOS side, before anything hashes or signs the name.
+  for target in "${pending[@]}"; do tools/name-bundles.sh "$output/release/bundle/$target"; done
   cp "$backup" "$config"; rm -f "$backup"; backup=""
   [ "$(python3 tools/build-cache.py fingerprint)" = "$source_hash" ] || {
     echo 'Sources changed during the build; retry before publishing.' >&2; exit 1;
