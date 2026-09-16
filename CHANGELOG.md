@@ -8,6 +8,32 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.18 - confirm the publication path and say where the download link comes from
+
+`ssh b3sys@100.64.100.125 test -f /srv/www/samirhv.com.br/samirhv/artisan`
+succeeds. **The path was never wrong** — the site's own `deploy.sh` puts the
+Laravel application at exactly that address, and `docs/AI-MEMORY.md` on that
+repository has been calling `artisan` there by its full path all along. The host
+was wrong, for six releases, and a wrong host reports itself as a missing path.
+That is why 1.1.14's preflight prints the host it asked as well as the path it
+asked for; it is also why this note had survived since 1.1.0 asking someone to
+confirm a directory that was already correct.
+
+So nothing stands between here and a published release except the act: a signed,
+notarised build, `--publish`, and the feed read back from samirhv.com.br.
+
+**The download link on the site is data, not code.** `samirhv.com.br/p/tura-notes`
+already renders tabs per operating system, groups by version with the newest
+expanded, detects the visitor's platform to recommend a build, and counts each
+download through `/d/{file}`. It shows "Em preparação" because `ProjectFile` has
+no rows for that project, and `php artisan files:add` — which is the second half
+of `--publish` — is what creates them. The `.dmg` will land under macOS with the
+right architecture without anyone configuring it: the site infers both from the
+filename, and Tauri's `Tura Notes_<version>_<arch>.dmg` carries both.
+
+Nothing in the site repository needs to change for the link to appear, which is
+the useful half of this entry: the work is one publication, not a feature.
+
 ## 1.1.17 - publish to the machine that actually answers for samirhv.com.br
 
 `--publish` has pointed at `b3sys@100.64.100.242` since 1.0.4 and that is a

@@ -139,13 +139,17 @@ signature verifier. The whole repository gate was run and still has the queued
 The changed CSS passes the contrast gate; the tracked version placeholder was
 verified again after packaging restored it.
 
-The live updater feed has **not** been published. The private host responds,
-but `/srv/www/samirhv.com.br/samirhv` does not exist there. From 1.1.14 that is
-what `--publish` reports, in its first second and before the build: the preflight
-asks the host for `<app>/artisan` and, when there is none, prints the command
-that lists the candidates and the variable to set. Until then this note was the
-only place the fact was written down, which is why it was still true. Confirm the
-site's actual application directory — and that `TURA_PUBLISH_HOST` names the host
-that serves it, which is the half a wrong path cannot distinguish from a wrong
-host. No installed upgrade or live updater transport is claimed by these local
-checks.
+The live updater feed has **not** been published, and as of 1.1.18 nothing
+stands in the way of publishing it. The application path was never wrong:
+`/srv/www/samirhv.com.br/samirhv` is exactly where the site's `deploy.sh` puts
+the Laravel application, and `ssh b3sys@100.64.100.125 test -f
+/srv/www/samirhv.com.br/samirhv/artisan` succeeds. The host was wrong, for six
+releases, and a wrong host reports itself as a missing path — which is what the
+previous version of this paragraph recorded, in good faith, as a path to
+confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
+against it.
+
+What remains is the act: a signed, notarised build published with `--publish`.
+No installed upgrade or live updater transport is claimed by these local checks,
+and none will be until that has run once and the feed has been read back from
+`https://samirhv.com.br`.

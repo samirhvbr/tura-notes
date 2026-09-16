@@ -14,7 +14,7 @@ are in Portuguese.
 
 | Item | What remains | Who unblocks it |
 |---|---|---|
-| **Publicação de release** | Instalar a chave em `b3sys@100.64.100.125` (recusou `publickey` a partir do Mac) e rodar `./build-local.sh --publish`: o preflight de 1.1.14 diz qual é o caminho da aplicação Laravel se o padrão estiver errado | Samir |
+| **Publicação de release** | Rodar `./build-local.sh --publish` uma vez. Host, caminho e chave estão confirmados (`test -f /srv/www/samirhv.com.br/samirhv/artisan` passa em `b3sys@100.64.100.125`); falta o ato — build assinado e notarizado, ingestão e feed. Enquanto não rodar, `samirhv.com.br/p/tura-notes` mostra "Em preparação", porque o link de download é dado e não código | Samir |
 | **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
 | **Release gate repairs** | Resolve the macOS watcher startup/index-under-change test failures in `notes-core/tests/deep.rs`; rerun the full gate (see [build verification](../docs/runbook.md#linux-build-verification-103)). The cross-platform Clippy blocker was resolved in 1.1.1. | Implementation |
 | [0.6 — sync](0.6-sync.md) | Installed-build and physical-device owner acceptance | Samir |

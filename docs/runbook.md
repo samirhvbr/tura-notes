@@ -302,7 +302,11 @@ machine** — a different ed25519 host key, and `shvia-site` rather than the hos
 that answers for samirhv.com.br. That is the whole of why `--publish` had never
 run: `docs/updater.md` recorded "the private host responds, but
 `/srv/www/samirhv.com.br/samirhv` does not exist there", which reads like a
-wrong path and was a wrong host. **The upload host and the public base are not
+wrong path and was a wrong host. The path was right the entire time — the site's
+own `deploy.sh` puts the Laravel application at exactly that address — and it is
+confirmed on `.125`, where `test -f <app>/artisan` succeeds. **A wrong host
+reports itself as a missing path**, which is why the preflight prints the host it
+asked as well as the path it asked for. **The upload host and the public base are not
 independent.** `tools/updater-release.py` fetches the feed back from
 `TURA_PUBLIC_BASE` after writing it and compares it byte for byte, then
 downloads the payload and checks its sha256 — so publishing to a host that does
