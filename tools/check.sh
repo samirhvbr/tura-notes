@@ -86,11 +86,10 @@ step "one .menu rule block"  bash -c '
 # once the moment anything selects. Native chrome does not select.
 step "chrome is not selectable" bash -c '
   grep -q "^\.menu, \.menu-item, \.rail, \.tabbar, \.statusbar, \.row-wrap {" apps/notes-app/src/styles.css'
-step "i18n keys match"      python3 -c '
-import json,sys
-en=json.load(open("apps/notes-app/src/i18n/en.json"))
-pt=json.load(open("apps/notes-app/src/i18n/pt-BR.json"))
-sys.exit(0 if set(en)==set(pt) else 1)'
+# Parity was checked here and resolution was not, so a key used by the code and
+# defined in neither language passed: `t()` returns the key, and the dialog
+# renders it as body text.
+step "i18n keys resolve"   python3 tools/i18n-keys.py
 step "Linux packaging orchestration" python3 tools/tests/test_build_linux.py
 step "updater publication" python3 tools/tests/test_updater_release.py
 step "macOS build script" python3 tools/tests/test_build_local.py

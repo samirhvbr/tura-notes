@@ -291,7 +291,11 @@ code { font-family: var(--font-mono); }
 .tree .row { flex: 1 1 auto; min-width: 0; }
 .row-wrap.on .row { color: var(--fg); }
 .tree .row:disabled { color: var(--fg-dim); cursor: default; }
-.tree .glyph { width: 12px; flex: 0 0 auto; color: var(--fg-dim); }
+/* 12px held a single character; an icon is 14 and needs to sit on the text
+   baseline rather than above it, which a bare inline svg does not do. */
+.tree .glyph { display: inline-flex; align-items: center; width: 14px; flex: 0 0 auto; color: var(--fg-dim); }
+/* A file the core does not consider a note: present, and not offered. */
+.tree .glyph .faint { opacity: .45; }
 .tree .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pad { padding: 8px; }
 

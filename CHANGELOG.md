@@ -8,6 +8,40 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.31 - a folder you can see, and put something into
+
+Three faults in the explorer, and the first one is the reason the other two were
+never found.
+
+**`tree.newNote.prompt` was rendering as body text.** `t()` returns the key when
+it does not resolve, so the New note dialog asked for a name under the label
+`tree.newNote.prompt`. It and `tree.newFolder.prompt` were used by
+`ExplorerToolbar` and defined in neither language. The gate checked that the two
+locales covered the SAME keys, which they did — both were missing it equally.
+`tools/i18n-keys.py` now resolves every literal `t("…")` against both, and
+replaces the parity check rather than joining it. Its regex carries a lookbehind
+worth the line it costs: without one, `closest("a")` and `keepDraft("conflict")`
+match, and a checker that cries wolf is a checker that gets skipped.
+
+**A folder could be expanded and could not be put into.** `create_note` has
+taken a directory since 0.1a, and the only interface reaching it was the
+toolbar's two buttons, which always pass the workspace root. So the capability
+existed, the folder was inert, and nothing said where a new note would land — it
+reads as a folder that does not work rather than one the interface forgot.
+A directory's context menu now offers **New note in {folder}** and **New folder
+in {folder}**, creating in that folder; the toolbar's dialogs say they create at
+the root and where to go instead.
+
+**And a folder did not look like one.** The row drew `▸` for a directory, `•`
+for a note and `·` for any other file — three characters a few pixels apart,
+which asks the reader to learn a legend before they can tell a folder from a
+file. Folders are drawn as folders, open when open, notes as documents, and a
+file the core does not consider a note is drawn faint: present, and not offered.
+
+`Tree.test.tsx` is new — the component had no suite. Three cases: the folder
+menu creates in the folder and not in the root, a note's menu does not offer it,
+and the two kinds draw different icons. 96 frontend tests pass.
+
 ## 1.1.30 - the context menu stops looking like a document
 
 A screenshot of the explorer's right-click menu had every item highlighted at
