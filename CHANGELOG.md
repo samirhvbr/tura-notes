@@ -8,6 +8,29 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.16 - record the reachability the cloud notes will be paired against
+
+ADR-076 left one thing open and named the cost of leaving it open: the sync
+client treats `100.64.0.0/10` as private, so a tailnet name needs
+`--allow-private` at pairing and a public name needs nothing, and changing the
+answer afterwards means re-pairing every device. The owner chose the public
+name — `notes.samirhv.com.br` at the public address, ACME certificate, no flag.
+
+Written into the ADR, into SERVER-0.5's reachability table, into the queue item
+so the deployment does not re-open it, and into ACCEPTANCE-0.5 as the one owner
+check this mode adds: 8787 on 127.0.0.1 only, the public name answering over
+TLS, and the same request without `X-Forwarded-Proto: https` refused. That
+header is what the whole arrangement rests on and it lives in a file the owner
+edits, which is the definition of a thing to verify rather than assume.
+
+A public name makes the credential the entire boundary — the server can read its
+notes and there is no end-to-end encryption — so the acceptance text says what
+follows from that: one credential per device, only the permissions that device
+needs, and revoke rather than rotate when one is lost.
+
+The publication host stays `b3sys@100.64.100.242` by the owner's call; what
+1.1.14's preflight has to establish there is the application path, not the host.
+
 ## 1.1.15 - run the notes server on the host that already serves the site
 
 Storing the `.md` files in the cloud has had an implementation since 0.18.0 and

@@ -149,10 +149,14 @@ are supported and the choice is not reversible without re-pairing:
 | Pairing | no flag | `--allow-private` |
 | Reachable from | anywhere, including a phone on mobile data | only a device on the tailnet |
 
-A phone off the tailnet is the case that decides it, which makes the public name
-the default for milestone 0.4 and the tailnet the choice for an owner who would
-rather have no public surface. Neither changes what the server exposes: bearer
-credentials, per-credential permissions and scopes, and the rate limits above.
+A phone off the tailnet is the case that decides it. **This project took the
+public name** (ADR-076): `notes.samirhv.com.br` at the public address, an ACME
+certificate for that name, and pairing with no flag. Neither column changes what
+the server exposes — bearer credentials, per-credential permissions and scopes,
+and the rate limits above — but the public one exposes it to the internet rather
+than to a tailnet, so the credential is the whole boundary. Create one per
+device, grant only what that device needs, and revoke rather than rotate the
+workspace when one is lost.
 
 ## REST contract
 
