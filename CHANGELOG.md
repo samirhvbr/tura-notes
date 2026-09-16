@@ -8,6 +8,48 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.14 - ask the download service whether it exists before publishing to it
+
+`--publish` had never run. `docs/updater.md` has carried the reason since 1.1.0
+— "the private host responds, but `/srv/www/samirhv.com.br/samirhv` does not
+exist there" — and that sentence was the only place it was written down, which
+is why it stayed true: nothing in the pipeline asked. `TURA_PUBLISH_APP` is a
+written-down guess, and the first thing that touched it was a `cd` inside the
+ingest, after the build, after a 20 MB upload, reporting `cd: no such file or
+directory`. That message is accurate and names neither the path it wanted nor
+the way to find the right one.
+
+Both pipelines now ask first: one `ssh … test -f <app>/artisan`, before the
+build on Linux and before the upload on macOS. A missing artisan prints the
+command that lists the candidate directories and the variable to set; an
+unreachable host says that instead, because exit 255 is ssh's own failure and
+not an answer about the path. A wrong destination now costs a second.
+
+**macOS also ingested before it verified, and that order publishes the failure
+it was written to catch.** The read-back exists because a truncated `scp` leaves
+a file that exists, that `files:add` ingests happily and that the downloads page
+links — it fails only in the user's browser. Verifying afterwards finds it once
+it is already on the page, and the script then exits non-zero over a release
+that is live and broken. `tools/build-linux.sh` verified before ingesting from
+the day it was written in 1.0.3; macOS did not, and the two now agree. On a
+mismatch the staged copy is removed and nothing is ingested.
+
+Every remote argument on the macOS side is quoted with `shlex.quote` the way
+Linux has quoted since 1.0.3, and the host, staging and application paths are
+validated against the same patterns on both sides — `--dest` and the five
+`TURA_*` variables all reach a remote POSIX shell. The header comment claiming
+"one password — a single scp connection, then a single ssh call" described a
+flow that already made four connections; it now describes the four steps.
+
+Nine new cases, all passing: three in the Linux suite (a missing service refuses
+before npm runs, an unreachable host is named as such, and a non-plain
+application path is refused) and a new `tools/tests/test_publish_preflight.py`
+with six that extract the two new functions from `build-local.sh` itself, so a
+rename fails the suite instead of quietly testing nothing. It is wired into
+`tools/check.sh`. The live publication is still unperformed: this release makes
+the pipeline able to say which host and which path are wrong, not which are
+right.
+
 ## 1.1.13 - cover the per-IP request budget, which no test reached
 
 The server enforces two rate limits and only one of them was tested.

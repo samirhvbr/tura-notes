@@ -80,7 +80,23 @@ if ! command -v cargo >/dev/null && [ -x "$HOME/.cargo/bin/cargo" ]; then export
 if [ "$publish" -eq 1 ]; then
   command -v scp >/dev/null; command -v ssh >/dev/null
   [[ "$stage" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish staging path without spaces or shell characters' >&2; exit 2; }
+  [[ "$app" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish application path without spaces or shell characters' >&2; exit 2; }
   [[ "$host" != -* && "$host" =~ ^[a-zA-Z0-9_.@-]+$ ]] || { echo 'Invalid publish host' >&2; exit 2; }
+  # Ask the destination whether it is the destination, before compiling anything.
+  # The app path is a written-down guess and nothing checked it: a wrong one used
+  # to survive the whole build and upload and then report `cd: no such file`,
+  # which is true and does not name the fix. The regexes above are what makes
+  # plain single quotes safe here; `quote` needs python3, checked further down.
+  probe=0; ssh "$host" "test -f '$app/artisan'" || probe=$?
+  if [ "$probe" -ne 0 ]; then
+    if [ "$probe" -eq 255 ]; then
+      echo "Could not reach $host over ssh; check the address and that the key is installed." >&2
+    else
+      echo "No download service at $app on $host (no artisan), so files:add cannot run." >&2
+      echo "Find it and set the path:  ssh $host 'ls -d /srv/www/*/ /var/www/*/ 2>/dev/null'" >&2
+    fi
+    exit 2
+  fi
 fi
 # Check completed packages before requiring the compilation toolchain.
 for tool in python3 rustc sha256sum; do

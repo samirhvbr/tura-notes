@@ -166,6 +166,36 @@ done
         self.assertNotEqual(self.run_build().returncode, 0)
         self.assertEqual(self.config.read_text(), self.original)
 
+    def test_missing_download_service_refuses_before_building(self):
+        # The app path is a guess until something asks the server about it, and
+        # asking after the build means paying for the build to learn it.
+        self.fake('ssh', 'exit 1')
+        self.fake('scp', 'exit 77')
+        Path(self.env['TEST_NPM_LOG']).write_text('')
+        result = self.run_build('--publish')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('no artisan', result.stderr.replace('(no artisan)', 'no artisan'))
+        self.assertIn('ls -d /srv/www/', result.stderr)
+        self.assertEqual(Path(self.env['TEST_NPM_LOG']).read_text(), '')
+        self.assertEqual(self.config.read_text(), self.original)
+
+    def test_unreachable_publish_host_is_named_as_such(self):
+        self.fake('ssh', 'exit 255')
+        result = self.run_build('--publish')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('Could not reach', result.stderr)
+        self.assertNotIn('artisan', result.stderr)
+
+    def test_publish_application_path_must_be_a_plain_absolute_path(self):
+        for path in ['relative/app', '/srv/www/my app', '/srv/$(id)/app']:
+            with self.subTest(path=path):
+                self.env['TURA_PUBLISH_APP'] = path
+                self.fake('ssh', 'exit 0')
+                result = self.run_build('--publish')
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn('absolute publish application path', result.stderr)
+        del self.env['TURA_PUBLISH_APP']
+
     def test_checksum_mismatch_prevents_ingestion(self):
         self.fake('scp', 'exit 0')
         self.fake('ssh', 'echo wrong-checksum')

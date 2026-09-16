@@ -1996,7 +1996,8 @@ the maintainer's Mac, because that is where the certificate lives.
 **keychain** of the machine that builds, signs and notarises the `.app`, staples
 the ticket into the `.dmg`, records a `.sha256` beside it, and — with
 `--publish` — uploads it to samirhv.com.br through `php artisan files:add`,
-reading the hash back from the server afterwards. **It refuses to publish an
+reading the hash back from the server first (until 1.1.14 it read back
+afterwards, which published a truncated image before noticing). **It refuses to publish an
 unsigned or unstapled image**, which is ADR-024 enforced by the tool rather than
 by remembering it. Linux continues to be built and published by `build.yml`;
 the macOS and Windows jobs there stay disabled.

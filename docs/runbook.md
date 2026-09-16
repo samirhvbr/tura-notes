@@ -81,10 +81,21 @@ built before 1.1.4 has no manifest and costs one rebuild to establish it.
 
 | | |
 |---|---|
-| `--publish` | upload to samirhv.com.br: `scp` to the server, then one `php artisan files:add`, then read the hash back. **Refuses an unsigned or unstapled image** — ADR-024, enforced rather than remembered |
+| `--publish` | upload to samirhv.com.br: ask the server for `<app>/artisan`, `scp` the image, read the hash back, then one `php artisan files:add`. **Refuses an unsigned or unstapled image** — ADR-024, enforced rather than remembered |
 | `--no-sign` | a test build. Not signed, not publishable |
 | `--force` | rebuild even when a verified DMG of this version is already on disk |
 | `--skip-npm-ci`, `--skip-git-pull` | an installed dependency tree; this checkout as it is |
+
+**The order of publication is the contract, and 1.1.14 corrected it.** The
+destination is asked whether it *is* the destination — one `test -f
+<app>/artisan` — before the build on Linux and before the upload on macOS,
+because `TURA_PUBLISH_APP` is a written-down guess and nothing had ever checked
+it: a wrong path used to spend the whole upload and then report `cd: no such
+file or directory`. The uploaded sha256 is then read back **before** the ingest.
+macOS ingested first and verified afterwards until 1.1.14, which publishes a
+truncated image to the downloads page and *then* reports the failure; Linux had
+the order right from 1.0.3. Both sides now refuse in the same place, and both
+quote every remote argument.
 
 **Credentials are read, never typed.** The signing identity comes from
 `security find-identity`; the notarisation password from the keychain entry

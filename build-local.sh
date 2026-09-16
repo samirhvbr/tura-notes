@@ -58,19 +58,26 @@
 # through a counting endpoint (`/d/{file}`), so publishing is not a copy into a
 # web root — the file has to be ingested by the application, which hashes it,
 # records its size and creates the `ProjectFile` row. That is exactly what
-# `php artisan files:add` does, so the upload is two steps over one connection:
+# `php artisan files:add` does, so publication is four steps, in this order:
 #
-#   1. `scp` the DMG (and its `.sha256`) to a staging directory on the server;
-#   2. `ssh` a single `php artisan files:add … --project=tura-notes` call.
+#   1. `ssh` one `test -f <app>/artisan` — does the download service exist here?
+#   2. `scp` the DMG (and its `.sha256`) to a staging directory on the server;
+#   3. `ssh` the sha256 back and compare it to the local one;
+#   4. `ssh` a single `php artisan files:add … --project=tura-notes` call.
 #
 # Re-publishing the same filename UPDATES the existing row and keeps its
 # download counter (FileIngestService), so a re-run after a partial upload is
 # safe and does not duplicate the file on the downloads page.
 #
-# AFTER uploading, the script reads the sha256 BACK from the server and compares
-# it to the local one. A truncated `scp` leaves a file that exists, that the
-# page happily links, and that fails only in the user's browser — the failure
-# has to be found here, not there.
+# STEPS 1 AND 3 EXIST BECAUSE OF WHAT THE ORDER COSTS. A truncated `scp` leaves
+# a file that exists, that `files:add` ingests happily and that the page then
+# links — it fails only in the user's browser, so it has to be found here. This
+# script found it one step too late until 1.1.14: it ingested first and verified
+# afterwards, which publishes the broken image and *then* reports the failure.
+# And `PUBLISH_APP` is a written-down guess that nothing checked, so a wrong
+# path spent the whole upload to say `cd: no such file or directory`.
+# `tools/build-linux.sh` verified before ingesting from the day it was written;
+# the two sides agree now, preflight included.
 #
 # GIT PULL (fleet default): the script runs `git pull --ff-only` before anything
 # else so an old checkout is not packaged by accident. It never fails the build
@@ -483,9 +490,51 @@ verify_macos_signature() {
 # See the header for why this is an ingest and not a copy. Refuses to publish an
 # unsigned or unstapled image: the whole reason macOS artefacts were withheld
 # until now is that an unsigned one teaches the user to click past Gatekeeper.
+
+# Quote a remote argument for the POSIX shell `ssh` runs it in. `--dest` and the
+# five TURA_* variables all reach a remote shell, and `tools/build-linux.sh` has
+# quoted them since 1.0.3 — this side interpolated them raw, which is the same
+# bug one platform had already fixed.
+_q() { python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$1"; }
+
+# THE DESTINATION IS CHECKED BEFORE THE UPLOAD, and until now it was not checked
+# at all. `PUBLISH_APP` is a written-down guess: 1.1.0 shipped with "live
+# publication awaits the correct application path on the private host" in the
+# changelog, because the first thing that touched the path was a `cd` inside the
+# ingest — after a 20 MB upload, reporting `cd: no such file or directory`,
+# which is true and does not name the fix. One `test -f artisan` answers it in
+# under a second, and the failure prints the command that finds the real path.
+publish_preflight() {
+  [[ "$PUBLISH_HOST" != -* && "$PUBLISH_HOST" =~ ^[a-zA-Z0-9_.@-]+$ ]] || {
+    echo "  ✗ invalid publish host: $PUBLISH_HOST" >&2; return 1; }
+  local path
+  for path in "$PUBLISH_STAGE" "$PUBLISH_APP"; do
+    [[ "$path" =~ ^/[a-zA-Z0-9_./-]+$ ]] || {
+      echo "  ✗ remote paths must be absolute, without spaces or shell characters: $path" >&2
+      return 1; }
+  done
+
+  local status=0
+  ssh "$PUBLISH_HOST" "test -f $(_q "$PUBLISH_APP/artisan")" || status=$?
+  [ "$status" -eq 0 ] && return 0
+
+  if [ "$status" -eq 255 ]; then
+    echo "  ✗ could not reach $PUBLISH_HOST over ssh." >&2
+    echo "    The host is on the private network; check the address and that the key is installed" >&2
+    echo "    (ssh-copy-id $PUBLISH_HOST). Override with --dest or TURA_PUBLISH_HOST." >&2
+    return 1
+  fi
+  echo "  ✗ $PUBLISH_HOST has no download service at $PUBLISH_APP" >&2
+  echo "    There is no artisan there, so 'php artisan files:add' cannot run and the" >&2
+  echo "    upload would be ingested by nothing. Find the application and set the path:" >&2
+  echo "      ssh $PUBLISH_HOST 'ls -d /srv/www/*/ /var/www/*/ 2>/dev/null'" >&2
+  echo "      TURA_PUBLISH_APP=/the/path/it/prints ./build-local.sh --publish" >&2
+  return 1
+}
+
 publish_release() {
   local dmg="$1" version="$2"
-  local name sum remote
+  local name sum remote staged
 
   name="$(basename "$dmg")"
   sum="$(_sha256 "$dmg")"
@@ -505,44 +554,53 @@ publish_release() {
   echo "    project: $PUBLISH_SLUG ($version)"
   echo "    file:    $name"
   echo "    sha256:  $sum"
-  echo "    (one password — a single scp connection, then a single ssh call)"
 
-  # One scp: one connection, one password prompt.
+  step "[publish] check the download service on the server"
+  publish_preflight || return 1
+  echo "    ✔ $PUBLISH_APP/artisan is there"
+
+  staged="$PUBLISH_STAGE/$name"
+  step "[publish] upload the image"
   scp "$dmg" "$dmg.sha256" "$PUBLISH_HOST:$PUBLISH_STAGE/"
+
+  # ── Read the hash back BEFORE the ingest ────────────────────────────────────
+  # A truncated scp leaves a file that exists, that `files:add` ingests happily,
+  # and that the downloads page then links — the failure belongs to whoever
+  # downloads it. Verifying afterwards, which is what this did until 1.1.14,
+  # finds it only once it is already published, and leaves the broken image on
+  # the page while the script exits non-zero. `tools/build-linux.sh` verified
+  # first from the day it was written; both sides agree now.
+  step "[publish] verify the uploaded file on the server"
+  remote="$(ssh "$PUBLISH_HOST" "shasum -a 256 -- $(_q "$staged") 2>/dev/null \
+            || sha256sum -- $(_q "$staged") 2>/dev/null" | awk '{print $1; exit}')" || remote=""
+  if [ -z "$remote" ] || [ "$remote" != "$sum" ]; then
+    echo "    ✗ the uploaded file does NOT match — nothing was ingested" >&2
+    echo "      expected: $sum" >&2
+    echo "      got:      ${remote:-<could not read it back>}" >&2
+    ssh "$PUBLISH_HOST" "rm -f -- $(_q "$staged") $(_q "$staged.sha256")" || true
+    return 1
+  fi
+  echo "    ✅ uploaded intact (${sum:0:16}…)"
 
   # Ingest. `files:add` hashes the file, writes it to the private downloads disk
   # under the project folder and creates or UPDATES the ProjectFile row — same
   # filename updates in place and keeps the download counter, so a re-run is
   # safe. Artisan runs as www-data because it writes into storage/.
-  ssh "$PUBLISH_HOST" "cd '$PUBLISH_APP' && sudo -u www-data php artisan files:add \
-      '$PUBLISH_STAGE/$name' --project='$PUBLISH_SLUG' --version='$version' \
-      --label='Tura Notes $version — macOS (Apple silicon)'" 2>&1 | sed 's/^/      /'
-
-  # ── Read the hash back from the server ──────────────────────────────────────
-  # A truncated scp leaves a file that exists and that the page links happily;
-  # the failure then belongs to whoever downloads it. It has to be found here.
-  step "[publish] verify the uploaded file on the server"
-  remote="$(ssh "$PUBLISH_HOST" "shasum -a 256 '$PUBLISH_STAGE/$name' 2>/dev/null \
-            || sha256sum '$PUBLISH_STAGE/$name' 2>/dev/null" | awk '{print $1; exit}')" || remote=""
-
-  if [ -n "$remote" ] && [ "$remote" = "$sum" ]; then
-    echo "    ✅ uploaded intact (${sum:0:16}…)"
-  else
-    echo "    ✗ the uploaded file does NOT match" >&2
-    echo "      expected: $sum" >&2
-    echo "      got:      ${remote:-<could not read it back>}" >&2
-    return 1
-  fi
+  step "[publish] ingest into the download service"
+  ssh "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
+      $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --version=$(_q "$version") \
+      --label=$(_q "Tura Notes $version — macOS (Apple silicon)")" 2>&1 | sed 's/^/      /'
 
   # The staging copy has been ingested into the downloads disk; leaving a second
   # copy of a 20 MB image in /tmp on every release is litter, not a backup.
-  ssh "$PUBLISH_HOST" "rm -f '$PUBLISH_STAGE/$name' '$PUBLISH_STAGE/$name.sha256'" || true
+  ssh "$PUBLISH_HOST" "rm -f -- $(_q "$staged") $(_q "$staged.sha256")" || true
 
   echo ""
   echo "    Published. It is listed at:"
   echo "      $PUBLIC_BASE/p/$PUBLISH_SLUG"
   echo "      $PUBLIC_BASE/downloads"
 }
+
 
 # ── Pipeline ─────────────────────────────────────────────────────────────────
 step "[git] sync with the remote (git pull --ff-only)"
