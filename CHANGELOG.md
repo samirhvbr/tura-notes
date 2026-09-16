@@ -8,6 +8,30 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.24 - remove the watcher probe a blanket add swept into the tree
+
+`crates/notes-fs/tests/probe_watch.rs` was a throwaway measurement written
+during a review to find out where `start_watch` spends its time on macOS. It
+was never meant to be committed; a blanket `git add` in the next commit picked
+it up and 1.1.23 published it.
+
+It is deleted rather than kept, because what it measured belongs in the record
+and not in the suite: `notify`'s FSEvents backend costs a **flat ~270 ms**
+inside `Watcher::watch`, on an empty directory and on 3 600 directories alike —
+280 ms for zero directories, 281 ms for 3 600. The cost is `FSEventStreamCreate`
+plus the run-loop thread that `run()` blocks on until it is scheduled, and it is
+constant in the size of the tree.
+
+That number is the diagnosis for the `deep.rs` failure the queue carries, and it
+contradicts the message the assertion prints: `start_watch` is not "walking the
+tree inline" on macOS — there is no walk, and the same 270 ms is paid for a
+workspace with nothing in it. The finding goes to the queue item; the file that
+produced it does not belong in `cargo test`.
+
+The stray 16-byte file at the repository root from the same commit is left
+untouched deliberately — reading it was refused as credential material, and a
+file nobody has read is not a file to delete on a guess.
+
 ## 1.1.23 - a credential wrapper a web administration screen can actually call
 
 The site on the publication host is getting a screen that creates and revokes
