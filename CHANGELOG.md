@@ -8,6 +8,25 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.6 - say why the credential store is re-read on every request
+
+A review raised `admin::load()` reparsing `tokens.json` per HTTP request as a
+thing to improve. Measured rather than assumed: at the documented ceiling of
+1024 credentials the file is 285 KB, and reading and parsing it costs well under
+a millisecond — on a request that has already taken a permit from a semaphore of
+eight, taken a file lock, and is about to do filesystem work. A real store is a
+handful of devices and a few kilobytes.
+
+**Declined, and the reasoning is now at the call site**, because the next person
+to look will reach for the same cache. `token revoke` runs in a separate process
+and `SERVER-0.5.md` promises it takes effect with no server restart. A cache
+keeps that promise only while its invalidation is right, and the failure mode of
+getting it wrong is a revoked credential that still works. Trading a correct
+security control for microseconds is how that bug gets written.
+
+Nothing else changed. An item closed by deciding against it is still closed, and
+a decision nobody wrote down gets re-raised.
+
 ## 1.3.5 - the ts-rs warnings stop being the only thing standing between a wrong type and the frontend
 
 Every `cargo clippy` prints ten `warning: failed to parse serde attribute` lines.

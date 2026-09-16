@@ -297,6 +297,21 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
         let _permit = permit;
         let lock = admin::lock(&server.data).map_err(|_| internal())?;
         let _guard = lock.read().map_err(|_| internal())?;
+        // RE-READ ON EVERY REQUEST, AND DELIBERATELY. Caching the parsed store
+        // is the obvious optimisation and it is the wrong trade here.
+        //
+        // The ceiling is 1024 credentials, which is a 285 KB file; reading and
+        // parsing it is well under a millisecond, on a request that has already
+        // taken a permit from a semaphore of eight, taken a file lock, and is
+        // about to do filesystem work. It is not the bottleneck, and nothing
+        // measured says otherwise.
+        //
+        // What a cache costs is the other side: `token revoke` is a separate
+        // process, and SERVER-0.5 promises it takes effect with **no server
+        // restart**. A cache keeps that promise only while its invalidation is
+        // right, and the failure mode of getting it wrong is a revoked
+        // credential that still works. Trading a correct security control for
+        // microseconds is how this kind of bug is born.
         let store = admin::load(&server.data).map_err(|_| internal())?;
         let credential = header(&parts.headers, "authorization")
             .and_then(|s| s.strip_prefix("Bearer "))
