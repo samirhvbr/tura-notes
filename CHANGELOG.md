@@ -8,6 +8,38 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.22 - the Apache template stops hand-writing a TLS vhost
+
+The publication host turns out to be the deployment host too: Debian 13, x86_64,
+**Apache** with more than eight sites and `certbot --apache`, which is visible in
+the `-le-ssl.conf` files beside every `.conf` in `sites-enabled`. That convention
+matters, because `apache-tura.conf` shipped a hand-written `<VirtualHost *:443>`
+naming a certificate under `/etc/letsencrypt/live/`.
+
+**On that host, enabling it would have taken the other sites down.** Apache
+refuses to start when a vhost names an `SSLCertificateFile` that is not on disk,
+and the certificate does not exist until certbot has run — which it cannot do
+until the HTTP vhost is enabled. The template was a deadlock whose failure mode
+is not "the new site does not work" but "samirhv.com.br, shvia.org and six
+others stop answering", which is the one kind of mistake a co-tenant deployment
+must not make.
+
+The template is HTTP-only now, with the three load-bearing directives and an
+exclusion so `/.well-known/acme-challenge/` is served from disk instead of being
+proxied into the notes server. `certbot --apache` clones it into the TLS vhost
+once the certificate exists. The header says what to do instead if you issue
+certificates another way, and repeats the Cloudflare caveat: HTTP-01 through a
+proxied record is answered by the CDN, so the record goes DNS-only for the
+issuance.
+
+`server/tests/cotenant.py` asserts the absence — no `<VirtualHost` line naming
+`:443`, and the ACME path excluded from the proxy. It matches directives rather
+than text, because the comment explaining why there is no TLS vhost necessarily
+contains the thing it is warning about, and the first version of the assertion
+failed on its own documentation.
+
+The queue carries the ordered sequence for this host, with the trap named.
+
 ## 1.1.21 - let the remote sudo ask for its password
 
 The first real publication got through the build, the notarisation, the

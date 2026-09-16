@@ -153,6 +153,14 @@ for line in ['RequestHeader set X-Forwarded-Proto "https"',
              "ProxyPass        / http://127.0.0.1:8787/",
              "LimitRequestBody 16777216"]:
     assert line in apache, f"apache-tura.conf no longer sets: {line}"
+# HTTP-only on purpose: `certbot --apache` clones this vhost into the TLS one.
+# A hand-written *:443 naming a certificate that is not on disk yet stops Apache
+# from starting, which on a co-tenant host takes the other sites with it.
+# A directive, not the comment that explains why there isn't one.
+tls_vhosts = [l for l in apache.splitlines()
+              if l.strip().startswith("<VirtualHost") and ":443" in l]
+assert not tls_vhosts, "the Apache template hand-writes a TLS vhost again"
+assert "ProxyPass /.well-known/acme-challenge/ !" in apache, "certbot's challenge path is proxied away"
 
 caddy = (cotenant / "Caddyfile").read_text()
 for line in ["reverse_proxy 127.0.0.1:8787", "header_up -Origin", "max_size 16MB"]:
