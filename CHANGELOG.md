@@ -8,6 +8,30 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.5 - the ts-rs warnings stop being the only thing standing between a wrong type and the frontend
+
+Every `cargo clippy` prints ten `warning: failed to parse serde attribute` lines.
+`ts-rs` cannot read `#[serde(transparent)]`, `try_from` or `into`, so it says so
+and then generates TypeScript for the **Rust** shape rather than the wire shape.
+
+They are harmless today: all three types that carry one of those attributes —
+`SearchId`, `RelPath` and the `uuid_newtype!` ids — also carry an explicit
+`#[ts(type = "…")]`, so the declarations are right. **The problem is the next
+one.** A `#[serde(transparent)]` newtype added without the override is described
+to the frontend as `{0: T}` while the wire carries a bare `T`, and nothing
+fails: the types compile, the IPC works at runtime, and the declaration is
+quietly wrong. The warning that would announce it arrives in the middle of ten
+identical ones everybody has learned to scroll past — which is what a warning
+nobody can act on costs, the attention of the one that matters.
+
+`tools/ts-serde.py` asserts the pairing instead, so failing the gate becomes the
+signal and the warnings can stay noise. It was run against the failure it exists
+for — `SearchId` with its `#[ts(type)]` removed — and names the type, the file
+and the line.
+
+Found by a review in another session, which had already checked that all three
+overrides are in place today.
+
 ## 1.3.4 - the five status words are five, and something checks
 
 Golden rule 3 lists five: `ACTIVE`, `HISTORICAL`, `PROPOSED`, `DEPRECATED`,

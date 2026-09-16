@@ -81,6 +81,7 @@ step "generated types"      bash -c '
   [ -z "$(git ls-files --others --exclude-standard -- apps/notes-app/src/ipc/generated)" ]'
 step "no fs capability"     bash -c '
   ! grep -rqE "\"fs:[a-z-]+\"" apps/notes-app/src-tauri/capabilities/'
+step "serde/ts pairing"    python3 tools/ts-serde.py
 # The bundle version is stamped from version.md at build time (ADR-035). What
 # is committed is the placeholder; a real number here is a second copy of the
 # version, and it is the copy that goes stale.
