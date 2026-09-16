@@ -8,6 +8,55 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.2.0 - a rename stops being able to delete a file nobody asked it to
+
+`LocalFs::rename` checked `b.exists()` and then called `fs::rename`, and
+everything between the two was a window. `fs::rename` **replaces** the
+destination on every platform — that is what POSIX `rename` and
+`MOVEFILE_REPLACE_EXISTING` both mean — so anything that created `b` in that gap
+had its bytes deleted, with no error raised anywhere.
+
+That is not a theoretical race here. This product's premise is that other tools
+write in that folder: a sync client that is now actually deployed, a `git
+checkout`, a restore, Dropbox. The window is ordinary rather than adversarial,
+and what it costs is a file the user wrote — ADR-001 failing silently, which is
+the worst way for it to fail.
+
+The operating system can say this in one call, and all four targets have a
+spelling for it: `renameat2(RENAME_NOREPLACE)` on Linux and Android,
+`renamex_np(RENAME_EXCL)` on macOS and iOS, and `MoveFileExW` with no
+`MOVEFILE_REPLACE_EXISTING` on Windows — which is precisely the flag
+`std::fs::rename` opts into. `create_new` thirty lines above had already
+answered the same question for creation with `persist_noclobber`; this is the
+rename half of it.
+
+**The fallback is a decision.** `RENAME_NOREPLACE` is not implemented by every
+filesystem — some network mounts and older overlay setups answer `EINVAL` — and
+refusing there would break renaming on those volumes in order to protect against
+a race. On that answer the code falls back to exactly what shipped before, so
+those volumes are no worse off and every other one loses the window. Recorded as
+ADR-077, along with the consequence that a Windows rename across volumes now
+fails rather than silently becoming a copy.
+
+The tests assert the primitive and not the race, and that is the point worth
+keeping: asserting through the public `rename` passes against the broken code
+too, because the pre-check catches the simple case. What removes the window is
+the syscall refusing, so that is what is tested — it refuses and leaves the
+destination's bytes, and it still renames when the destination is free. A guard
+that refused everything would satisfy the first half alone.
+
+`Y`, not `Z`: the `FileSystemAdapter` surface behaves differently on a
+destination that exists.
+
+Also gone: `TMP_COUNTER`, incremented on every atomic write and never read since
+the temporary file stopped having a random name.
+
+Found by a review in another session. Two of its findings were already fixed
+here — the stray credential fixture and the guard against a suite writing
+outside its temporary directory, both in 1.1.25 — and its reading of the queue's
+"Release gate repairs" was right: one of the two named failures passes now, and
+the item says which one is left and what it costs.
+
 ## 1.1.31 - a folder you can see, and put something into
 
 Three faults in the explorer, and the first one is the reason the other two were

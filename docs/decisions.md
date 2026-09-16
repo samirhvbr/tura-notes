@@ -2192,3 +2192,44 @@ written down before it is paid.
 [ADR-007](#adr-007--the-desktop-app-opens-no-network-port-by-default) is
 untouched either way — the desktop app still opens no port; this is a separate
 process on a separate machine.
+
+## ADR-077 — A rename refuses an occupied destination in the syscall, not before it
+
+**Status:** ACCEPTED · 16/09/2026
+
+**Decision.** `LocalFs::rename` asks the operating system for an exclusive
+rename — `renameat2(RENAME_NOREPLACE)` on Linux and Android,
+`renamex_np(RENAME_EXCL)` on macOS and iOS, `MoveFileExW` with no
+`MOVEFILE_REPLACE_EXISTING` on Windows — and reports `AlreadyExists` from its
+`EEXIST`. Where the call reports that the filesystem does not implement the flag
+(`ENOSYS`, `EINVAL`, `ENOTSUP`), it falls back to the previous check-then-rename
+rather than refusing the operation.
+
+**Reason.** It was `b.exists()` and then `fs::rename`, and everything between
+the two was a window. `fs::rename` *replaces* the destination on every platform
+— that is what POSIX `rename` and `MOVEFILE_REPLACE_EXISTING` both mean — so
+anything that created `b` in that gap had its bytes deleted with no error raised
+anywhere. This product's premise is that other tools write in that folder: a
+sync client, a `git checkout`, a restore, Dropbox. The window is ordinary rather
+than adversarial, and what it costs is a file the user wrote, which is
+[ADR-001](#adr-001--markdown-files-on-the-filesystem-are-the-source-of-truth)
+failing silently.
+
+The shape is [ADR-075](#adr-075--the-root-jail-is-enforced-again-at-the-open-not-only-at-the-path)
+again, one operation along: a check that approves a path, then a syscall that
+acts on the name rather than on what was checked. And `create_new` in the same
+file had already answered it for creation, with `persist_noclobber`.
+
+**The fallback is a decision and not an oversight.** `RENAME_NOREPLACE` is not
+implemented by every filesystem — some network mounts and older overlay setups
+answer `EINVAL` — and a rename that refuses there would break renaming on those
+volumes to protect against a race. The fallback is exactly what shipped before,
+so those volumes are no worse off, and every other one loses the window.
+
+**Consequences.** `MOVEFILE_COPY_ALLOWED` stays off on Windows, so a rename
+across volumes now fails rather than silently becoming a copy; a move inside one
+workspace root never crosses one. The unit tests assert the primitive rather
+than the race — that the syscall refuses and leaves the destination's bytes, and
+that it still renames when the destination is free — because the destroying case
+needs a window no test can schedule reliably, and asserting through the public
+`rename` would have passed against the broken code too.
