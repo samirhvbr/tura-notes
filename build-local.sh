@@ -586,10 +586,29 @@ publish_release() {
   # under the project folder and creates or UPDATES the ProjectFile row — same
   # filename updates in place and keeps the download counter, so a re-run is
   # safe. Artisan runs as www-data because it writes into storage/.
+  #
+  # `-t`, AND IT IS NOT PIPED, and both halves are the same bug. `ssh host "cmd"`
+  # allocates no terminal, so `sudo` cannot prompt and dies with "a terminal is
+  # required to read the password" — after the build, the notarisation and a
+  # verified upload, which is the most expensive place to learn it. The password
+  # is never a variable and never a file here, exactly as the scp one is not
+  # (see the header); `-t` is what lets sudo ask you for it.
+  #
+  # And the `| sed 's/^/      /'` that indented this output had to go, because a
+  # password prompt carries no newline: sed reads a line at a time and would
+  # hold "Password:" until something ended the line, so the build would sit
+  # there looking hung with nothing on screen to type into. Six spaces of
+  # indentation are not worth a prompt nobody can see.
   step "[publish] ingest into the download service"
-  ssh "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
+  if ! ssh -t "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
       $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --version=$(_q "$version") \
-      --label=$(_q "Tura Notes $version — macOS (Apple silicon)")" 2>&1 | sed 's/^/      /'
+      --label=$(_q "Tura Notes $version — macOS (Apple silicon)")"; then
+    echo "  ✗ the ingest failed; the uploaded file is still staged at $staged" >&2
+    echo "    If it was sudo asking and you would rather it stopped, one line on the server:" >&2
+    echo "      b3sys ALL=(www-data) NOPASSWD: /usr/bin/php $PUBLISH_APP/artisan files:add *" >&2
+    echo "    in /etc/sudoers.d/tura-publish, mode 0440, checked with visudo -c." >&2
+    return 1
+  fi
 
   # The staging copy has been ingested into the downloads disk; leaving a second
   # copy of a 20 MB image in /tmp on every release is litter, not a backup.

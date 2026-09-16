@@ -183,7 +183,9 @@ for artifact in "${artifacts[@]}"; do
     expected="$(sha256sum "$artifact" | awk '{print $1}')"
     actual="$(ssh "$host" "sha256sum -- $(quote "$remote_file")" | awk '{print $1}')"
     [ "$actual" = "$expected" ] || { echo 'Upload checksum mismatch; not ingested.' >&2; exit 1; }
-    ssh "$host" "cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))")"
+    # -t: ssh allocates no terminal by default, so sudo cannot prompt and dies
+    # with "a terminal is required to read the password". See build-local.sh.
+    ssh -t "$host" "cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))")"
     ssh "$host" "rm -f -- $(quote "$remote_file") $(quote "$remote_file.sha256")"
     python3 tools/updater-release.py publish --artifact "$artifact" --version "$version" --host "$host" --stage "$stage" --app "$app" --base "$base"
   fi

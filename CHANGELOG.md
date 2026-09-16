@@ -8,6 +8,38 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.21 - let the remote sudo ask for its password
+
+The first real publication got through the build, the notarisation, the
+staple, the preflight and a verified 6 MB upload, and then stopped on
+`sudo: a terminal is required to read the password`. `ssh host "cmd"` allocates
+no terminal, and `sudo` will not prompt into one that does not exist. The ingest
+runs `sudo -u www-data php artisan files:add` because artisan writes into
+`storage/`, so it has always needed this and has never had it — the step had
+simply never run.
+
+`ssh -t` on the two calls that use sudo: the ingest in both pipelines, and the
+feed install in `tools/updater-release.py`. The calls that do not use sudo keep
+their default, because a pty there only mangles the output they are parsed for.
+
+**The pipe had to go with it, and that is the half worth writing down.** The
+ingest's output was indented with `| sed 's/^/      /'`. A password prompt
+carries no newline, and sed reads a line at a time, so it would hold
+`Password:` until something ended the line — the build sits there looking hung,
+with nothing on screen to type into, which is a worse failure than the one being
+fixed because it looks like a different problem. Six spaces of indentation are
+not worth a prompt nobody can see.
+
+Failing the ingest now prints the one-line sudoers rule that makes it stop
+asking, which is what an unattended release wants, and says where the uploaded
+file is still staged. `docs/runbook.md` carries the rule for both commands and
+the warning against a blanket `NOPASSWD: ALL`.
+
+Two regression cases. The updater suite asserts that every sudo call carries
+`-t` and that no other call does; the build-script suite asserts the same of
+both pipelines' ingest lines — including that the ingest is one `ssh` call, so
+re-piping it fails the gate.
+
 ## 1.1.20 - write the self-hosting guide for the person who will run the server
 
 Pointing the app at your own server has been possible since the 0.6 pairing

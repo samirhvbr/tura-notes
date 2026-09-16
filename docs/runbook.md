@@ -86,6 +86,26 @@ built before 1.1.4 has no manifest and costs one rebuild to establish it.
 | `--force` | rebuild even when a verified DMG of this version is already on disk |
 | `--skip-npm-ci`, `--skip-git-pull` | an installed dependency tree; this checkout as it is |
 
+**The remote `artisan` runs under `sudo -u www-data`, so something has to let
+it ask.** `ssh host "cmd"` allocates no terminal and `sudo` refuses to prompt
+into one that does not exist — "a terminal is required to read the password",
+after the build, the notarisation and a verified upload. From 1.1.21 the ingest
+uses `ssh -t` and is not piped through `sed`, because a password prompt carries
+no newline and a line-buffered filter holds it until something ends the line:
+the build looks hung, with nothing on screen to type into.
+
+That makes it work by **asking**. To make it stop asking — which is what an
+unattended release needs — one line on the publication host, in
+`/etc/sudoers.d/tura-publish`, mode 0440 and checked with `visudo -c`:
+
+```
+b3sys ALL=(www-data) NOPASSWD: /usr/bin/php /srv/www/samirhv.com.br/samirhv/artisan files:add *
+```
+
+`tools/updater-release.py` needs the same for its `install`/`mv` of the feed, or
+it asks a second time in the same run. Grant the commands, never a blanket
+`NOPASSWD: ALL`.
+
 **The order of publication is the contract, and 1.1.14 corrected it.** The
 destination is asked whether it *is* the destination — one `test -f
 <app>/artisan` — before the build on Linux and before the upload on macOS,

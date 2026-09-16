@@ -133,6 +133,17 @@ class Fingerprint(unittest.TestCase):
         self.assertEqual(self.CONFIG.read_bytes(), original)
         self.assertEqual(before, self.fingerprint())
 
+    def test_the_ingest_allocates_a_terminal_for_sudo(self):
+        # `ssh host "cmd"` allocates no tty, so the remote sudo cannot prompt and
+        # refuses — after the build, the notarisation and a verified upload.
+        script = (ROOT / 'build-local.sh').read_text()
+        ingest = [l for l in script.splitlines() if 'php artisan files:add' in l and l.strip().startswith(('ssh', 'if ! ssh'))]
+        self.assertEqual(len(ingest), 1, 'build-local.sh no longer ingests with one ssh call')
+        self.assertIn('ssh -t ', ingest[0], 'the ingest cannot prompt for a sudo password')
+
+        linux = (ROOT / 'tools/build-linux.sh').read_text()
+        self.assertIn('ssh -t "$host" "cd $(quote "$app") && sudo -u www-data', linux)
+
     def test_the_placeholder_is_restored_before_the_fingerprint_is_compared(self):
         script = (ROOT / 'build-local.sh').read_text().splitlines()
         restore = [i for i, l in enumerate(script)

@@ -116,7 +116,9 @@ def publish(artifact, version, host, app, stage, base):
                 f'sudo -u www-data mv -f {q(feed_temp)} {q(destination + "/" + feed)}'
             )
             # mktemp creates mode 700; permit the service user to read staged files.
-            subprocess.run(['ssh', host, f'chmod 755 {q(remote)} && chmod 644 {q(staged_payload)} {q(remote + "/" + feed)} && ' + command], check=True)
+            # -t so the sudo in `command` can prompt: ssh allocates no terminal
+            # by default and sudo then refuses rather than asking.
+            subprocess.run(['ssh', '-t', host, f'chmod 755 {q(remote)} && chmod 644 {q(staged_payload)} {q(remote + "/" + feed)} && ' + command], check=True)
         finally:
             subprocess.run(['ssh', host, 'rm -rf -- ' + q(remote)], check=False)
     feed_url = base.rstrip('/') + '/updates/tura-notes/' + feed
