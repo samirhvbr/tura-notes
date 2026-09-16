@@ -17,7 +17,6 @@ are in Portuguese.
 | **Publicação de release** | Rodar `./build-local.sh --publish` uma vez. Host, caminho e chave estão confirmados (`test -f /srv/www/samirhv.com.br/samirhv/artisan` passa em `b3sys@100.64.100.125`); falta o ato — build assinado e notarizado, ingestão e feed. Enquanto não rodar, `samirhv.com.br/p/tura-notes` mostra "Em preparação", porque o link de download é dado e não código | Samir |
 | **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
 | [0.6 — sync](0.6-sync.md) | Installed-build and physical-device owner acceptance | Samir |
-| **Cloud deployment** | Run `notes-server` on `100.64.100.125`, the host that serves samirhv.com.br, behind `tura.samirhv.com.br`: the unit and the nginx/Apache/Caddy templates are in [`server/cotenant/`](../server/cotenant/) and the contract in [SERVER-0.5.md § Co-tenant deployment](../docs/SERVER-0.5.md#co-tenant-deployment-behind-an-existing-site). The DNS record exists and still answers from the default vhost; the vhost, the certificate and the running process do not | Samir |
 | **0.7 — remote MCP** | Expose the existing MCP capabilities through server authentication and workspace/subfolder scopes after sync is ready | Implementation |
 | **0.4 — mobile** | Turn the merged foundation into usable iOS/Android applications: entry points, generated projects, UI, folder adapters, lifecycle handling and physical-device validation | Mobile agent / Samir |
 | [0.1d — interface acceptance](0.1d-interface.md) | Installed-release owner walk and repeat on the following release | Samir |
@@ -28,9 +27,10 @@ are in Portuguese.
 
 ## Current implementation order
 
-1. Finish sync 0.6 according to [0.6-sync.md](0.6-sync.md), which now starts
-   with the cloud deployment: there is nothing to accept until a server is
-   running somewhere the devices can reach.
+1. Finish sync 0.6 according to [0.6-sync.md](0.6-sync.md). The cloud
+   deployment it was waiting on is done — `tura.samirhv.com.br` answers as the
+   `notes-server` behind its proxy — so what is left there is owner acceptance
+   on installed builds and physical devices.
 2. Build remote MCP 0.7.
 3. Continue the mobile 0.4 track.
 4. Perform owner acceptance and platform checks when the required installed

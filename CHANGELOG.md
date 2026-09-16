@@ -8,6 +8,26 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.8 - the cloud deployment leaves the queue, verified from outside
+
+The queue said, checked on the morning of 16/09/2026, that `tura.samirhv.com.br`
+resolved and still answered 404 from the default virtual host, that nothing
+listened on 8787 and that `notes-server` was not installed. All three have
+stopped being true, and a queue that describes a state the world left behind is
+worse than an empty one.
+
+Verified from this machine rather than assumed: `/healthz` returns
+`{"status":"ok"}`, and `/v1/workspaces` without a credential returns `401
+{"error":"unauthorized"}` as `application/json`. The second one is the proof.
+`/healthz` sits **behind** the trusted-proxy gate, so answering at all means the
+front end is setting `X-Forwarded-Proto`; and `{"error":"unauthorized"}` in JSON
+is this server's own error shape, where a default virtual host would have
+returned HTML.
+
+What that closes is the deployment, and only the deployment. Owner acceptance
+stays in the queue, because acceptance is somebody using the thing and `curl` is
+not somebody.
+
 ## 1.3.8 - a connection test that names the step that failed
 
 *"Não está claro se está funcionando, e se não está funcionando, por quê."* The
