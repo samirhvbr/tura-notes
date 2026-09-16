@@ -8,6 +8,27 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.2 - a damaged journal declines the prune instead of crashing
+
+`linear_payload_is_prunable` walked back from a note's head by indexing
+`journal.revisions[&next]`, with no check and no cap. Two shapes broke it: a
+parent naming a revision the vault does not hold panicked the command outright,
+and two revisions naming each other looped for ever, growing the backward list
+until the process died.
+
+Neither is reachable over HTTP — `sync-prune` is an offline operator command and
+ADR-063 keeps it that way, so this is robustness rather than surface. It is
+worth fixing anyway for where it lands: **a damaged vault is exactly the state
+someone runs a maintenance command in**, and a maintenance command that aborts
+the process is worse than one that declines to prune. Declining is also the safe
+direction, since it keeps the payload.
+
+The lookup returns rather than indexes, and the walk is bounded by the number of
+revisions — a linear chain cannot visit more than the journal holds, so anything
+longer is a cycle. Both shapes are built and asserted.
+
+Found by a review in another session.
+
 ## 1.3.1 - the rate budget follows the client instead of the proxy
 
 The server charges 120 requests a minute to an address, before authentication,

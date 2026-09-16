@@ -438,16 +438,30 @@ fn linear_payload_is_prunable(
         return false;
     }
     let mut backward = Vec::new();
+    // Bounded by the journal, and both halves of that matter. Indexing the map
+    // panicked when a parent named a revision the vault does not hold, and the
+    // walk had no cap at all — a cycle between two revisions grew `backward`
+    // until the process died. Neither is reachable over HTTP (ADR-063):
+    // `sync-prune` is an offline operator command. But a damaged or
+    // hand-repaired vault is exactly the state someone runs a maintenance
+    // command in, and a maintenance command that aborts the process is worse
+    // than one that declines to prune.
     while next != publication.revision.id {
-        let revision = &vault.journal.revisions[&next];
-        if revision.parents.len() != 1 {
+        let Some(revision) = vault.journal.revisions.get(&next) else {
+            return false;
+        };
+        if revision.parents.len() != 1 || backward.len() > vault.journal.revisions.len() {
             return false;
         }
         backward.push(next);
         next = *revision.parents.iter().next().unwrap();
     }
     backward.into_iter().all(|id| {
-        let parent = vault.journal.revisions[&id].parents.iter().next().copied();
+        let parent = vault
+            .journal
+            .revisions
+            .get(&id)
+            .and_then(|revision| revision.parents.iter().next().copied());
         parent.is_some_and(|parent| children.get(&parent).is_some_and(|rows| rows.len() == 1))
     })
 }
@@ -734,6 +748,79 @@ mod tests {
             &vault,
             &children,
             &vault.publications[2]
+        ));
+    }
+
+    /// A vault whose journal has been damaged — a parent naming a revision it
+    /// does not hold, or two revisions naming each other — must make the prune
+    /// decline, not abort the process or run for ever.
+    ///
+    /// Neither shape is reachable over HTTP (ADR-063): `sync-prune` is an
+    /// offline operator command. But a damaged vault is exactly the state
+    /// someone runs a maintenance command in, and a maintenance command that
+    /// panics is worse than one that declines to prune.
+    #[test]
+    fn a_damaged_journal_declines_the_prune_instead_of_crashing() {
+        let workspace = Uuid::new_v4();
+        let note = NoteId::default();
+        let device = Uuid::new_v4();
+        let path = RelPath::parse("note.md").unwrap();
+        let revision = |parent: Option<Uuid>, bytes: &[u8]| {
+            Revision::new(
+                note,
+                parent.into_iter().collect::<BTreeSet<_>>(),
+                Uuid::new_v4(),
+                path.clone(),
+                Some(ContentHash::from_bytes(*blake3::hash(bytes).as_bytes())),
+            )
+        };
+        let first = revision(None, b"one");
+        let second = revision(Some(first.id), b"two");
+        let head = revision(Some(second.id), b"three");
+        let build = |damage: &dyn Fn(&mut Journal)| {
+            let mut journal = Journal::new(workspace);
+            for (expected, value) in [
+                (None, first.clone()),
+                (Some(first.id), second.clone()),
+                (Some(second.id), head.clone()),
+            ] {
+                journal.commit(value, expected).unwrap();
+            }
+            journal
+                .acknowledge(device, BTreeMap::from([(note, head.id)]))
+                .unwrap();
+            damage(&mut journal);
+            Vault {
+                schema: 1,
+                journal,
+                publications: vec![publication(workspace, None, first.clone(), b"one")],
+                device_owners: BTreeMap::from([(device, Uuid::new_v4())]),
+            }
+        };
+
+        // The middle revision is gone, so walking back from the head reaches a
+        // parent the journal cannot resolve. This indexed the map and panicked.
+        let dangling = build(&|journal| {
+            journal.revisions.remove(&second.id);
+        });
+        assert!(!linear_payload_is_prunable(
+            &dangling,
+            &revision_children(&dangling.journal),
+            &dangling.publications[0]
+        ));
+
+        // The head and the middle name each other, so the walk never reaches
+        // the publication's revision. This looped, growing until the process
+        // died.
+        let cyclic = build(&|journal| {
+            if let Some(middle) = journal.revisions.get_mut(&second.id) {
+                middle.parents = BTreeSet::from([head.id]);
+            }
+        });
+        assert!(!linear_payload_is_prunable(
+            &cyclic,
+            &revision_children(&cyclic.journal),
+            &cyclic.publications[0]
         ));
     }
 }
