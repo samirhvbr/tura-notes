@@ -32,6 +32,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 BINARY = ROOT / "target/debug/notes-server"
 PROXY = {"X-Forwarded-Proto": "https"}
 
+repository_before = sorted(p.name for p in ROOT.iterdir())
+
 if not BINARY.exists():
     sys.exit("build it first: cargo build -p notes-server")
 
@@ -189,7 +191,13 @@ with tempfile.TemporaryDirectory() as temp:
     env = dict(os.environ, TURA_CREDENTIAL_BINARY=str(fake), TURA_CREDENTIAL_DATA=str(temp / "data"))
 
     def wrap(*args):
-        return subprocess.run(["sh", str(wrapper), *args], env=env, capture_output=True, text=True)
+        # cwd inside the temporary directory, deliberately. The first version of
+        # this suite ran here, and its fake CLI wrote the fixture secret to the
+        # wrong argument — so a file named `read,create,update,move,delete`
+        # appeared in the repository root and `git add -A` committed it. A test
+        # that writes relative paths should not be able to reach the checkout.
+        return subprocess.run(["sh", str(wrapper), *args], env=env, cwd=temp,
+                              capture_output=True, text=True)
 
     created = wrap("create", "samir", "personal", "read,create,update,move,delete")
     assert created.returncode == 0, created.stderr
@@ -221,5 +229,11 @@ with tempfile.TemporaryDirectory() as temp:
     ok = wrap("revoke", "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0")
     assert ok.returncode == 0, ok.stderr
     assert "token revoke 0f1e2d3c" in log.read_text()
+
+# And the guard for the whole class, not just that one mistake: nothing in this
+# suite may add a file to the checkout. A stray write is invisible in a passing
+# run and arrives in the next commit.
+assert sorted(p.name for p in ROOT.iterdir()) == repository_before, \
+    "this suite wrote into the repository root"
 
 print("co-tenant loopback deployment smoke passed")

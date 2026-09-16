@@ -8,6 +8,29 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.25 - stop the credential suite writing into the checkout
+
+1.1.23 committed a file called `read,create,update,move,delete`, sixteen bytes,
+at the root of the repository. It surfaced in a fresh clone on the deployment
+host, in an `ls` next to the real files, which is the only place a name like
+that is going to be noticed.
+
+It is the fixture string `the-secret-bytes` and not a credential — no secret
+was published — but the way it got there is worth the entry. The first draft of
+the wrapper suite had its fake CLI write to `$6` instead of `$7`, and `$6` in
+`token create LABEL WORKSPACE . PERMISSIONS OUTPUT` is the permissions list. The
+fake ran with the repository as its working directory, so it created a file
+named after that argument, and `git add -A` swept it in. The test was corrected
+the same hour; the file it had already left behind was not, because a passing
+suite says nothing about what it wrote on the way.
+
+Two changes, and the file is the smaller one. The suite now runs the wrapper
+with its temporary directory as the working directory, so a relative write
+cannot reach the checkout at all. And it snapshots the repository root before
+and after and asserts they match — the guard for the class rather than for the
+instance, because the next stray write will not be this one and will be just as
+invisible in a green run.
+
 ## 1.1.24 - remove the watcher probe a blanket add swept into the tree
 
 `crates/notes-fs/tests/probe_watch.rs` was a throwaway measurement written
