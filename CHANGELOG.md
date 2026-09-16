@@ -8,6 +8,45 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.27 - a deploy script for the server, and a checkout the orchestrator leaves alone
+
+The deployment host runs an orchestrator that executes every
+`/srv/www/*/deploy.sh` it finds. The Tura checkout had been put there, and the
+root of this repository has a `deploy.sh` — the desktop packaging entry point
+(ADR-072). So the fleet deploy ran the Tura build pipeline on the production web
+server. It failed, loudly, on `Missing prerequisite: rustc`, which is the good
+version of that outcome: on a machine with a Rust toolchain it would have
+compiled.
+
+Two names, one meaning each. `server/cotenant/deploy-server.sh` is the server
+deploy, and the checkout moves one level down — `/srv/www/tura.samirhv.com.br/`
+holds a `deploy.sh` symlink into `repo/server/cotenant/`, and the scanner, which
+walks one level, sees the symlink and nothing else.
+
+What the script does is narrower than it looks. It reinstalls the unit, the
+vhost and the credential wrapper **only when their contents differ**, compared
+with `cmp` rather than inferred from the commit — restarting a service that
+holds notes because of a commit that did not touch it is cost with nothing on
+the other side. It installs a binary only when the release line moves, deriving
+that release from `version.md` as `X.Y.0`, because assets are published on minor
+bumps; deriving instead of asking spends none of the sixty GitHub API calls an
+hour that this host shares with the site's release monitor.
+
+**It never writes into the data directory**, and the suite asserts it: the notes
+are there, and a deploy that touches them is a deploy that eventually loses
+someone's notes. Backup stays separate and explicit.
+
+Three more properties are pinned rather than trusted, each because its failure
+is silent or expensive: the release derivation against five versions, the
+checksum verified before anything reaches `/usr/local/bin` (a truncated tarball
+installs a binary that exists and does not execute), and the Apache reload gated
+on a configtest — that Apache serves eight other sites, and a bad vhost takes
+all of them down.
+
+It copies itself to `/run` and re-executes before pulling, the same guard the
+site's deploy carries and for the same reason: the script is inside the
+repository it updates, and bash reads a script as it runs.
+
 ## 1.1.26 - the pairing panel says what is missing instead of going grey
 
 The first person to pair against a real server filled in the credential file and

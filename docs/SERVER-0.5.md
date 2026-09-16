@@ -186,6 +186,35 @@ gets set wrong. `server/tests/cotenant.py` exercises the validation against a
 fake CLI and asserts that a refused call never reaches it and that the secret
 file does not outlive the call.
 
+### Keeping it up to date
+
+`server/cotenant/deploy-server.sh` updates a deployed server: it pulls the
+checkout, reinstalls the unit, the vhost and the credential wrapper **when their
+contents actually differ**, installs a new `notes-server` when the release line
+moves, and checks health on loopback and then on the public name. It never
+touches the data directory — a deploy that writes where the notes are is a
+deploy that eventually loses somebody's notes, and backup is a separate,
+explicit operation.
+
+Two details worth stating. It derives the release carrying the binary from
+`version.md` as `X.Y.0`, because assets are published on minor bumps, which
+costs no GitHub API call. And it copies itself to `/run` and re-executes before
+pulling: the script is inside the repository it updates, and bash reads a script
+as it runs, so a pull underneath it makes what runs afterwards not reliably the
+file that started.
+
+**Where the checkout goes matters on a host with a deploy orchestrator.** A
+scanner that runs every `/srv/www/*/deploy.sh` will find *this* repository's
+root `deploy.sh`, which is the desktop packaging entry point
+([ADR-072](decisions.md#adr-072--local-linux-packaging-shares-the-desktop-build-entry-point)),
+and try to build the application on the web server. One level down is enough:
+
+```
+/srv/www/tura.example.com/
+├── deploy.sh -> repo/server/cotenant/deploy-server.sh
+└── repo/
+```
+
 ### Reaching it from a client
 
 The sync origin is a bare `https://host` — no path, no query, no user info —

@@ -230,6 +230,39 @@ with tempfile.TemporaryDirectory() as temp:
     assert ok.returncode == 0, ok.stderr
     assert "token revoke 0f1e2d3c" in log.read_text()
 
+# ── The server-side deploy script ───────────────────────────────────────────
+deploy = (cotenant / "deploy-server.sh").read_text()
+assert os.access(cotenant / "deploy-server.sh", os.X_OK), "deploy-server.sh is not executable"
+
+# It derives the release that carries the binary from version.md rather than
+# asking the GitHub API, because assets are published on minor bumps. The
+# derivation is one line of shell and wrong by one character is a 404 at 2am.
+for version, expected in [("1.1.26", "1.1.0"), ("1.1.0", "1.1.0"), ("2.0.5", "2.0.0"),
+                          ("0.20.20", "0.20.0"), ("10.11.12", "10.11.0")]:
+    derived = subprocess.run(["sh", "-c", f'version={version}; echo "${{version%.*}}.0"'],
+                             capture_output=True, text=True, check=True).stdout.strip()
+    assert derived == expected, f"{version} derived {derived}, expected {expected}"
+
+# The notes live in the data directory. A deploy that writes there is a deploy
+# that eventually loses somebody's notes, so it may read the path and never
+# write it — backup and restore are separate, explicit operations.
+for line in deploy.splitlines():
+    bare = line.split("#", 1)[0]
+    if "/var/lib/notes-server" not in bare:
+        continue
+    assert not any(bare.lstrip().startswith(w) for w in ("install", "rm ", "mv ", "cp ", "chown", "chmod", "tar ")), \
+        f"deploy-server.sh writes into the data directory: {line.strip()}"
+
+# The checksum is verified before anything reaches /usr/local/bin: a truncated
+# tarball installs a binary that exists and does not execute.
+assert deploy.index("sha256sum -c") < deploy.index('install -m 0755 "$tmp/notes-server"'), \
+    "the binary is installed before its checksum is verified"
+
+# And the reload is gated on the configtest, because this Apache serves the
+# other sites on the machine.
+assert "apachectl configtest" in deploy and deploy.index("apachectl configtest") < deploy.index("systemctl reload apache2"), \
+    "the Apache reload is no longer gated on a configtest"
+
 # And the guard for the whole class, not just that one mistake: nothing in this
 # suite may add a file to the checkout. A stray write is invisible in a passing
 # run and arrives in the next commit.
