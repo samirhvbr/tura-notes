@@ -258,10 +258,15 @@ for line in deploy.splitlines():
 assert deploy.index("sha256sum -c") < deploy.index('install -m 0755 "$tmp/notes-server"'), \
     "the binary is installed before its checksum is verified"
 
-# And the reload is gated on the configtest, because this Apache serves the
-# other sites on the machine.
-assert "apachectl configtest" in deploy and deploy.index("apachectl configtest") < deploy.index("systemctl reload apache2"), \
-    "the Apache reload is no longer gated on a configtest"
+# It does not touch Apache at all. The vhost is co-managed by certbot, which
+# CLONES it into `-le-ssl.conf` at issuance — so reinstalling the original would
+# update the half almost nobody reaches and leave TLS on the old directives, in
+# silence. Half a configuration updated is worse than none, because nobody
+# suspects it. Warn, and leave it to a human.
+for forbidden in ["systemctl reload apache2", "systemctl restart apache2", "a2ensite"]:
+    for line in deploy.splitlines():
+        assert forbidden not in line.split("#", 1)[0], f"deploy-server.sh now touches Apache: {line.strip()}"
+assert "$VHOST" in deploy, "the vhost is no longer even compared"
 
 # And the guard for the whole class, not just that one mistake: nothing in this
 # suite may add a file to the checkout. A stray write is invisible in a passing

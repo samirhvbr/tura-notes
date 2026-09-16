@@ -8,6 +8,29 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.28 - the deploy warns about the vhost instead of overwriting half of it
+
+1.1.27 reinstalled `apache-tura.conf` whenever it differed from the repository's
+copy. That is wrong on any host where the certificate came from
+`certbot --apache`, which is to say the host it was written for.
+
+Certbot **clones** the HTTP vhost into `<name>-le-ssl.conf` at issuance, and it
+is the clone that serves 443. Reinstalling the original therefore updates the
+half almost nobody reaches and leaves TLS running the old directives — silently,
+with a deploy that reports success. Half a configuration updated is worse than
+none, because nobody suspects it. Certbot also edits the HTTP vhost when it
+configures a redirect, so the overwrite would delete that edit on the next
+deploy, and the site would quietly stop redirecting.
+
+The script now compares and says so, naming why the update is manual, and does
+not touch Apache at all — no install, no configtest, no reload. The suite
+asserts the absence rather than the ordering it asserted before: no
+`systemctl reload apache2`, no `restart`, no `a2ensite`, and the comparison
+still there so the warning cannot be dropped along with the write.
+
+The unit file and the credential wrapper are still installed automatically.
+Nothing else owns those two.
+
 ## 1.1.27 - a deploy script for the server, and a checkout the orchestrator leaves alone
 
 The deployment host runs an orchestrator that executes every

@@ -97,10 +97,25 @@ sync_file() {  # origem destino modo -> 1 quando escreveu
     return 0
 }
 
-restart_service=0; reload_apache=0
+restart_service=0
 sync_file "$REPO/server/cotenant/notes-server.service" "$UNIT" 0644 && { restart_service=1; changed=1; }
 sync_file "$REPO/server/cotenant/tura-credential" "$WRAPPER" 0755 && changed=1
-sync_file "$REPO/server/cotenant/apache-tura.conf" "$VHOST" 0644 && { reload_apache=1; changed=1; }
+
+# O VHOST É AVISO, NUNCA ESCRITA, e a razão é o certbot. Ele CLONA o vhost HTTP
+# num `-le-ssl.conf` no momento da emissão, e é essa cópia que serve a 443.
+# Reinstalar o original aqui atualizaria metade da configuração — a metade que
+# quase ninguém acessa — e deixaria o TLS com as diretivas antigas, em silêncio.
+# Pior: o certbot também edita o vhost HTTP quando configura o redirecionamento,
+# e sobrescrever apagaria essa edição no próximo deploy.
+#
+# Meia configuração atualizada é pior que nenhuma, porque ninguém desconfia.
+# Então este script compara, avisa, e não toca em nada do Apache — nem recarrega.
+if ! cmp -s "$REPO/server/cotenant/apache-tura.conf" "$VHOST" 2>/dev/null; then
+    log "  ⚠️  $VHOST difere do modelo do repositório."
+    log "      Ele é co-gerido pelo certbot (o -le-ssl.conf é um clone dele), então"
+    log "      a atualização é à mão: compare, aplique, 'apachectl configtest' e"
+    log "      recarregue. Este deploy não mexe em Apache."
+fi
 
 # ── 3. Binário do servidor ───────────────────────────────────────────────────
 if [ "$installed" != "$target" ]; then
@@ -126,14 +141,6 @@ if [ "$changed" -eq 0 ] && [ "$before" = "$after" ]; then
 fi
 
 # ── 4. Aplicar ───────────────────────────────────────────────────────────────
-if [ "$reload_apache" -eq 1 ]; then
-    # O configtest antes do reload não é zelo: este Apache serve mais de oito
-    # sites, e um vhost ruim derruba todos.
-    apachectl configtest >/dev/null 2>&1 || fail "vhost inválido — Apache NÃO recarregado"
-    systemctl reload apache2 || fail "reload do Apache falhou"
-    log "  ↻ Apache recarregado"
-fi
-
 if [ "$restart_service" -eq 1 ]; then
     systemctl daemon-reload
     systemctl restart notes-server || fail "notes-server não reiniciou"
