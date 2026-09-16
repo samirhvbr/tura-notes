@@ -8,6 +8,38 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.30 - the context menu stops looking like a document
+
+A screenshot of the explorer's right-click menu had every item highlighted at
+once — Rename, Move to, Duplicate and Delete all wearing a selection colour. Not
+a hover state: the highlight hugged the words rather than filling the rows,
+because it was **text selection**. `styles.css` set `user-select` on exactly two
+elements, both of them line numbers in the diff view, so a stray selection
+anywhere painted the labels of the chrome. No native menu, tab strip or tree row
+on this platform selects, and that is most of what made the menu look wrong —
+not any of its colours.
+
+`.menu`, `.menu-item`, `.rail`, `.tabbar`, `.statusbar` and `.row-wrap` no
+longer select. The editor, the preview and every input are untouched: those are
+the document.
+
+**And `.menu` had two rule blocks**, which is not a style question. The later
+wins on what it sets and the earlier survives on what it does not, so the menu
+rendered as a mix nobody designed: geometry from the live block, `display:flex`
+and a 2px gap between items from a block written for markup that no longer
+exists, and — by specificity — that dead block's `padding: 5px 8px` and
+`border-radius: 4px` beating the live `6px 8px` and `5px`.
+
+It was not dead enough to simply delete. `.menu button.danger` at (0,2,1) was
+the only rule giving Delete its colour, and nothing in the live block replaced
+it; removing the old block without noticing would have quietly turned the
+destructive item into ordinary text. It moves to `.menu-item.danger`.
+
+Two guards in `tools/check.sh`, because both failures are invisible in a passing
+build: `.menu` must have exactly one rule block, and the chrome must still carry
+its `user-select`. 93 frontend tests pass and the contrast gate is unchanged at
+42 pairs.
+
 ## 1.1.29 - the downloadable file loses the space the application keeps
 
 The bundler names artefacts after `productName`, and that name has a space in

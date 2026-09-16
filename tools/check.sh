@@ -76,6 +76,16 @@ step "version placeholder"  bash -c '
 # levels far enough apart to survive a bad panel (`ACCEPTANCE-0.1d.md`).
 step "contrast"            tools/contrast.sh
 step "no blocking dialogs" tools/no-blocking-dialogs.sh
+# Two rule blocks for the same selector is not a style question — the later one
+# wins on what it sets and the earlier survives on what it does not, so the
+# rendered result is a mix nobody designed. `.menu` was that for a while: a dead
+# block's padding and radius beat the live one's by specificity.
+step "one .menu rule block"  bash -c '
+  [ "$(grep -c "^\.menu {" apps/notes-app/src/styles.css)" -eq 1 ]'
+# A menu whose labels can be text-selected is a menu that paints every item at
+# once the moment anything selects. Native chrome does not select.
+step "chrome is not selectable" bash -c '
+  grep -q "^\.menu, \.menu-item, \.rail, \.tabbar, \.statusbar, \.row-wrap {" apps/notes-app/src/styles.css'
 step "i18n keys match"      python3 -c '
 import json,sys
 en=json.load(open("apps/notes-app/src/i18n/en.json"))
