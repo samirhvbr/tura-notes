@@ -305,9 +305,9 @@
   "update.unsupported": "Atualize esta instalação pelo gerenciador de pacotes ou baixe um novo instalador.",
   "update.error": "Não foi possível concluir a atualização. Verifique a conexão e tente novamente.",
   "update.title": "Atualização do Tura Notes",
-  "update.confirm": "Feche sua pasta de trabalho antes de instalar. O app vai baixar a atualização, instalar e reiniciar.",
+  "update.confirm": "O app vai fechar sua pasta de trabalho, baixar a atualização, instalar e reiniciar.",
   "update.install": "Instalar e reiniciar",
   "update.later": "Mais tarde",
-  "update.closeWorkspace": "Feche sua pasta de trabalho pelo fluxo normal de salvamento e tente novamente.",
+  "update.closeWorkspace": "Nada foi instalado: sua pasta de trabalho continua aberta.",
   "update.installing": "Baixando e instalando… Mantenha o aplicativo aberto."
 }

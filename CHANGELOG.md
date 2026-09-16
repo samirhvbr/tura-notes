@@ -8,6 +8,37 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.7 - the update closes the workspace instead of asking the user to
+
+The update banner could not be obeyed. It said *Close your workspace through the
+normal save flow, then try again*, and its only button — **Install and restart** —
+did nothing but say it again, because the one command that closes a workspace
+lives in a menu in the sidebar footer that nobody reading an update dialog would
+think to open. Every press produced the same sentence, which is exactly how it
+was reported: the update never installs.
+
+[ADR-074](docs/decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
+puts the installation *after* the normal workspace-close flow. It never said the
+user performs that flow, and now the button does: `install()` calls the same
+`leave()` the workspace menu calls, so unsaved work still stops the close and is
+still named in the question it asks, and declining still installs nothing. A
+guard that states a rule and offers no way to obey it is not read as a guard.
+
+The close is invisible across the restart — `restore_last_workspace` opens the
+same workspace on the way back — and when the installation fails instead of
+restarting, the workspace is reopened where it was. `update_install` never
+returns on success, so reaching that line at all means the failure path, and
+leaving somebody at the Welcome screen holding a failed update would be a second
+failure caused by the first.
+
+`update.closeWorkspace` now reports what happened rather than prescribing what to
+do, because it is only reachable when the user declined the close.
+
+Two of the three new tests fail against the old store, which is why they were
+written that way round. The third — *installs nothing when the close is
+declined* — passes against both, because that is the guarantee the change had to
+keep rather than the behaviour it changed.
+
 ## 1.3.6 - say why the credential store is re-read on every request
 
 A review raised `admin::load()` reparsing `tokens.json` per HTTP request as a

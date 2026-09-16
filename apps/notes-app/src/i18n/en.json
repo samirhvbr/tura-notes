@@ -305,9 +305,9 @@
   "update.unsupported": "Update this installation through its package manager or download a new installer.",
   "update.error": "The update could not be completed. Check your connection and try again.",
   "update.title": "Tura Notes update",
-  "update.confirm": "Close your workspace before installing. The app will download the update, install it and restart.",
+  "update.confirm": "The app will close your workspace, download the update, install it and restart.",
   "update.install": "Install and restart",
   "update.later": "Later",
-  "update.closeWorkspace": "Close your workspace through the normal save flow, then try again.",
+  "update.closeWorkspace": "Nothing was installed: your workspace is still open.",
   "update.installing": "Downloading and installing… Please keep the app open."
 }

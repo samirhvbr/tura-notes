@@ -1,6 +1,6 @@
 # Signed desktop updates
 
-> **Status:** ACTIVE · 1.1.0 · [ADR-074](decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
+> **Status:** ACTIVE · 1.3.7 · [ADR-074](decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
 
 ## Application behavior
 
@@ -11,8 +11,17 @@ that version. A manual check can show it again. Automatic failures stay silent;
 manual failures show a retryable status. Downloads/installations are never
 started by a timer.
 
-Close the workspace through its normal save/conflict flow before installation.
-Both frontend and native code enforce this condition. The editing/IPC barrier
+Installation closes the workspace through its normal save/conflict flow, and
+**Install and restart** is what runs that flow. Unsaved work still stops the
+close and is still named in the question it asks; declining leaves the workspace
+open and installs nothing. Until 1.3.7 the condition was stated to the user and
+left to them — the banner asked for a closed workspace and its only button
+repeated the sentence, while the command that closes one lives in a menu in the
+sidebar footer, so the update looked broken rather than guarded. The native side
+still refuses to install while a workspace is open, so the condition is enforced
+on both sides rather than assumed on one. The closed workspace is reopened by
+`restore_last_workspace` after the restart, and reopened in place when the
+installation fails instead of restarting. The editing/IPC barrier
 blocks new work during installation and is released on failure. The native
 plugin downloads over HTTPS, verifies the payload against the pinned Tura public
 key, installs and restarts. AppImage replaces the running image; deb/rpm may
@@ -114,9 +123,12 @@ orchestration suite continues to cover failed publication followed by reuse.
 
 Installed acceptance requires two signed releases: install the older one, publish
 the newer one for the same architecture/format, verify automatic and manual
-notices, postpone, close a dirty workspace through its save flow, install/restart
-and check version and note bytes. Repeat offline, with a corrupt payload, and
-with denied administrator authentication. Run separately on macOS, AppImage,
+notices, postpone, install with a dirty workspace and accept the save it asks for,
+restart, and check version and note bytes. Repeat declining that save, which
+must install nothing and leave the workspace open; offline; with a corrupt
+payload; and with denied administrator authentication — the last three leave the
+workspace closed for an installation that did not happen, so each one also
+checks that it came back. Run separately on macOS, AppImage,
 deb and rpm; confirm AUR delegates to pacman. Compilation and signature checks
 do not establish this installed acceptance. Remaining work is in `.continue/`.
 
