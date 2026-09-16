@@ -8,6 +8,44 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.20 - write the self-hosting guide for the person who will run the server
+
+Pointing the app at your own server has been possible since the 0.6 pairing
+panel shipped, and there has been nowhere to send someone who wanted to. What
+existed was `SERVER-0.5.md`, which is a contract: routes, limits, peer checks,
+backup restrictions. Correct, and not a route through itself — it never says
+which of three deployments to pick, never names a field on the screen, and opens
+by explaining what the process is rather than what it is for.
+
+`docs/SELF-HOSTING.md` is the route: what you get and what you do not, what you
+need, five steps, and the failures that actually happen. One recommended path
+end to end — Compose on a host with both ports free — with the co-tenant and
+tailnet deployments as short sections that say what each is *for* and link to
+the contract. The pairing panel is described by the labels on the screen,
+including the one that has to be right: the mode, which is upload, download or
+reconcile, and means three different things about what the two sides already
+hold.
+
+Three things it says that the contract states without emphasising, and that a
+person deciding to self-host has to read before they decide: **there is no
+end-to-end encryption and the server reads its own notes**; **one credential per
+device**, because two devices sharing one cannot be told apart and revoking the
+lost one cuts off the kept one; and **sync is not a backup** — it copies your
+mistakes to the other machine promptly and correctly.
+
+It stays English, like the rest of the repository. The Portuguese reader is
+served by product copy on the site, which is where product copy lives; the guide
+here is the contract's route and the thing the site's copy is written from.
+
+`tools/tests/test_selfhosting_doc.py` keeps it honest. Every on-screen label the
+guide tells a reader to look for is checked from both ends — it must still be a
+string the app ships, and it must still appear in the guide — so renaming a
+field fails the gate instead of stranding a reader in front of a panel that does
+not say what they were told. The transfer interval bounds are read off the
+control, and the `token create` argument order off the server's own usage line,
+because a swapped workspace and scope produces a credential that authenticates
+and reaches nothing. Five cases.
+
 ## 1.1.19 - unstamp the tree before asking whether it changed during the build
 
 A signed, notarised, stapled 1.1.17 DMG was refused with "sources changed during

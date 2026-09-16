@@ -114,6 +114,7 @@ Ubuntu, macOS, Windows and rolling Arch.
 | [docs/product.md](docs/product.md) | **What notes is** — the local-first constraint, the workspace model, the editor, and what the first version deliberately does not do |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **How it is put together** — layout, crates, core types, app-data schemas, the command contract, `CoreError`, the write and concurrency protocol, `Caps`, distribution |
 | [docs/roadmap.md](docs/roadmap.md) | **The order it gets built in** — seven milestones, from a desktop editor to an MCP server |
+| [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) | **Run your own sync server** — what it costs you to have notes on two machines with no account anywhere, in five steps, and what it does not give you |
 | [docs/decisions.md](docs/decisions.md) | **The ADRs** — what was decided, why, and what it cost |
 | [docs/](docs/README.md) | **The record** — the full index, plus security, versioning and runbooks |
 | [.continue/](.continue/README.md) | **The queue** — what is still open, and whose call it is |
