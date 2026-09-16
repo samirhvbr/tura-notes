@@ -8,6 +8,32 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.4 - the five status words are five, and something checks
+
+Golden rule 3 lists five: `ACTIVE`, `HISTORICAL`, `PROPOSED`, `DEPRECATED`,
+`NOT ADOPTED`. `architecture-v1.md` declared a sixth — `SUPERSEDED` — and
+`roadmap.md` declared its status in prose with no word in it at all. The three
+drafts under `docs/history/` declared nothing; the folder's index says they are
+superseded, which is true of the folder and not of a file opened directly.
+
+None of that is ambiguous to a human reading carefully, and that is not what the
+rule is for. It exists for one sentence: **a document with no declaration is
+read as ACTIVE**. A planning draft nobody has built, read as the thing that was
+built, is worse than a missing document, because it has the authority of being
+written down.
+
+`SUPERSEDED` becomes `HISTORICAL`, which means the same thing and is one of the
+five — a sixth word for one file costs more than the word it saves. `roadmap.md`
+gains `ACTIVE` in front of its prose, and each `history/` draft says what it is
+on its own first lines.
+
+`tools/doc-status.sh` joins the gate and checks the **vocabulary**, not only the
+presence: a sixth word is the same failure one step along, a word the reader
+interprets instead of looking up. First eight lines only — a status further down
+is a status nobody reads before they have started believing the document. It was
+run against both failures, a missing declaration and an unlisted word, and
+catches each.
+
 ## 1.3.3 - ask whether the pinned versions are vulnerable, not whether they are old
 
 `security.md` §10 names dependency maintenance as a control and nothing checked

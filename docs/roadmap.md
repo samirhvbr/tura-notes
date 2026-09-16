@@ -1,6 +1,6 @@
 # Roadmap — the order the product is built in
 
-> **Status:** delivered through the implemented portions of 0.6 at `0.20.20`.
+> **Status:** `ACTIVE` · delivered through the implemented portions of 0.6 at `0.20.20`.
 > Milestones 0.0, 0.1d, 0.2, 0.3 and 0.5 retain owner acceptance; 0.4, the
 > remaining 0.6 work and 0.7 remain queued in [`.continue/`](../.continue/README.md).
 

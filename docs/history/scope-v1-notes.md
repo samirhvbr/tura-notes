@@ -1,3 +1,9 @@
+# Scope — notas (rascunho v1)
+
+> **Status:** `HISTORICAL` · rascunho de planejamento preservado por procedência,
+> nunca autoridade de implementação. O documento vivo é
+> [`../SCOPE.md`](../SCOPE.md).
+
 - aplicativo desktop e mobile (iphone/android)
 - aplicativo para criacao de notas Markdown
 - estilo visual semelhante ao obsidian, somente theme escuro incial, unico, visual obsidian escuro

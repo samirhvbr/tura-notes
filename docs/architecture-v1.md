@@ -1,6 +1,6 @@
 # Architecture — how notes is put together
 
-> **Status:** `SUPERSEDED` · **Do not build against this file.** The architecture
+> **Status:** `HISTORICAL` · **Do not build against this file.** The architecture
 > document milestone 0.1a is built against is [`ARCHITECTURE.md`](ARCHITECTURE.md)
 > at the repository root — it is aligned to [SCOPE.md](SCOPE.md) v2.0 and
 > closes all of its §20. This page was derived from the **v1** draft and
