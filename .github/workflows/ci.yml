@@ -4,6 +4,13 @@ on:
   push:
     branches: [master]
   pull_request:
+  # Weekly, for the advisories job below: an advisory is published against code
+  # that has not changed, so a check that runs only on our commits learns about
+  # it whenever we happen to commit next. The rest of the workflow coming along
+  # is not waste — a suite that has not run in a fortnight is a suite nobody
+  # knows the state of.
+  schedule:
+    - cron: "17 6 * * 1"
 
 env:
   CARGO_TERM_COLOR: always
@@ -84,19 +91,12 @@ jobs:
           echo "bundle version is the placeholder"
 
       # Every user-visible string is a key, and a key missing from either
-      # catalogue is a blank label in one language (scope §9).
-      - name: the i18n catalogues have the same keys
-        run: |
-          python3 - <<'PY'
-          import json, sys
-          en = json.load(open("apps/notes-app/src/i18n/en.json"))
-          pt = json.load(open("apps/notes-app/src/i18n/pt-BR.json"))
-          missing_pt = sorted(set(en) - set(pt))
-          missing_en = sorted(set(pt) - set(en))
-          for k in missing_pt: print(f"::error::missing from pt-BR.json: {k}")
-          for k in missing_en: print(f"::error::missing from en.json: {k}")
-          sys.exit(1 if missing_pt or missing_en else 0)
-          PY
+      # catalogue is a blank label in one language (scope §9). Parity alone let
+      # a key used by the code and defined in NEITHER catalogue through: `t()`
+      # returns the key, so the dialog rendered `tree.newNote.prompt` as body
+      # text (1.1.31). This resolves them.
+      - name: every t() key resolves in both catalogues
+        run: python3 tools/i18n-keys.py
 
   server-container:
     name: server HTTPS container
@@ -245,6 +245,35 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: tools/crash-save-loop.sh
+
+  # Dependabot opens pull requests for new versions; it does not say whether the
+  # version we are pinned to has a known vulnerability. `security.md` §10 names
+  # dependency maintenance as a control, and until now nothing checked it.
+  #
+  # It runs on the weekly schedule as well as on push, for the reason at the top
+  # of this file.
+  advisories:
+    name: dependency advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: install cargo-audit
+        run: cargo install cargo-audit --locked
+      # The lockfile is what ships, so the lockfile is what is audited.
+      - name: rust advisories
+        run: cargo audit --deny warnings
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      # `--audit-level=high` and not `low`: a moderate advisory in a build-time
+      # dependency of a desktop application that opens no port is a queue item,
+      # and a gate that is red for one of those is a gate people learn to
+      # override.
+      - name: frontend advisories
+        run: npm audit --audit-level=high
+        working-directory: apps/notes-app
 
   ios-core:
     name: iOS simulator core

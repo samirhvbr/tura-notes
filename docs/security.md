@@ -228,6 +228,16 @@ the ecosystems this project actually uses). A dependency is added deliberately,
 pinned, and reviewed for its own transitive surface. An unmaintained package is
 a vulnerability with a delay.
 
+**Dependabot answers a different question from the one this section asks.** It
+opens a pull request when a newer version exists; it does not say whether the
+version pinned right now carries a known vulnerability. From 1.3.3 the gate and
+CI ask that one directly: `cargo audit --deny warnings` against the lockfile and
+`npm audit --audit-level=high` for the frontend. CI runs them weekly as well as
+on every push, because an advisory is published against code that has not
+changed — a check that runs only on our commits learns about it whenever we
+happen to commit next. Locally, a missing `cargo-audit` is a warning naming the
+install rather than a refusal to run the rest of the gate.
+
 ## 11. Incident response
 
 1. **Contain** — cut the exposure before explaining it.

@@ -8,6 +8,37 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.3 - ask whether the pinned versions are vulnerable, not whether they are old
+
+`security.md` §10 names dependency maintenance as a control and nothing checked
+it. Dependabot exists and covers five ecosystems, but it answers a different
+question: it opens a pull request when a newer version exists, which is not the
+same as saying the version pinned right now carries a known advisory.
+
+`cargo audit --deny warnings` against the lockfile — the lockfile is what ships,
+so the lockfile is what is audited — and `npm audit --audit-level=high` for the
+frontend, in both `tools/check.sh` and CI. The frontend is clean today, which is
+the cheap moment to add the step rather than the expensive one.
+
+**`--audit-level=high` and not `low`**, deliberately: a moderate advisory in a
+build-time dependency of a desktop application that opens no port is a queue
+item, and a gate that goes red for one of those is a gate people learn to
+override. A gate nobody overrides is worth more than a gate that catches more.
+
+**CI runs it weekly as well as on push.** An advisory is published against code
+that has not changed, so a check that runs only on our commits learns about it
+whenever we happen to commit next. The rest of the workflow coming along on that
+schedule is not waste — a suite that has not run in a fortnight is a suite whose
+state nobody knows.
+
+Locally a missing `cargo-audit` warns and names the one install command, the way
+the Windows cross-check already does: refusing to run the rest of the gate over
+an absent checker helps nobody.
+
+CI also stops duplicating the i18n parity check in shell and runs
+`tools/i18n-keys.py`, which resolves keys rather than comparing catalogues — the
+weaker check is what let `tree.newNote.prompt` ship missing from both.
+
 ## 1.3.2 - a damaged journal declines the prune instead of crashing
 
 `linear_payload_is_prunable` walked back from a note's head by indexing

@@ -52,6 +52,20 @@ else
   printf '\n== clippy (windows)\n   WARNING, not run — %s\n' "${why:-unknown}"
 fi
 step "cargo test"           cargo test --workspace
+# Dependabot opens pull requests for new versions; it does not say whether the
+# version pinned right now has a known vulnerability, and `security.md` §10 names
+# dependency maintenance as a control. Both degrade to a warning when the tool is
+# not installed — refusing to run the rest of the gate over a missing checker
+# helps nobody, and the message names the one command that fixes it.
+if command -v cargo-audit >/dev/null 2>&1; then
+  step "rust advisories"    cargo audit --deny warnings
+else
+  printf '\n== rust advisories\n   WARNING, not run — install it once: cargo install cargo-audit --locked\n'
+fi
+# `--audit-level=high`, not `low`: a moderate advisory in a build-time dependency
+# of a desktop application that opens no port is a queue item, and a gate that is
+# red for one of those is a gate people learn to override.
+step "frontend advisories" bash -c 'cd apps/notes-app && npm audit --audit-level=high'
 step "transport binaries"  cargo build -p notes-server -p notes-sync-client --locked
 step "server TCP smoke"    python3 server/tests/smoke.py
 step "co-tenant server"    python3 server/tests/cotenant.py
