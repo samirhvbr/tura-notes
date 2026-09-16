@@ -1495,12 +1495,12 @@ impl WorkspaceService {
         };
         let p = watch.progress();
         WatchStatus {
-            watching: watch.degraded.is_none(),
+            watching: p.degraded.is_none(),
             walking: p.walking,
             dirs: p.dirs,
             unreadable: p.unreadable,
             over_limit: p.over_limit,
-            degraded: watch.degraded.as_ref().map(|d| match d {
+            degraded: p.degraded.as_ref().map(|d| match d {
                 notes_fs::Degraded::Unsupported(m) | notes_fs::Degraded::WatchLimit(m) => m.clone(),
             }),
         }

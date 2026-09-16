@@ -2233,3 +2233,50 @@ than the race — that the syscall refuses and leaves the destination's bytes, a
 that it still renames when the destination is free — because the destroying case
 needs a window no test can schedule reliably, and asserting through the public
 `rename` would have passed against the broken code too.
+
+## ADR-078 — The watcher is established on its own thread, on every platform
+
+**Status:** ACCEPTED · 16/09/2026
+
+**Decision.** `notes_fs::watch()` creates the backend and installs the root
+watch on the watcher's own thread on every platform, not only where
+`PER_DIRECTORY` makes a walk necessary. `Watch::degraded` stops being a field
+known at construction and becomes a method reading a slot in the counters, the
+way `walking` already worked; `WatchProgress` carries it, so `watch_status()`
+reports it. `walking` now means "the watch is still being set up", which on
+Linux still includes the per-directory walk under the root.
+
+**Reason.** [D-09](DECISIONS-0.1c.md) moved the per-directory walk off the
+caller's thread on Linux because `RecursiveMode::Recursive` installed one
+inotify watch per directory inline, and on a large folder that was minutes with
+the service mutex held. D-10 recorded that macOS and Windows have no walk — one
+handle covers the subtree — and the module's comment concluded that the same
+call was therefore `O(1)`.
+
+That is true of handles and was never true of time. Measured on macOS:
+**280 ms for a workspace with 0 directories, 281 ms for one with 3 600.**
+Constant, and constant is not free. The cost is inside `FSEventStreamCreate`
+and the run loop `notify` waits to have scheduled, and `commands.rs` held
+`app.svc` across it while the frontend awaited it on workspace open — so every
+IPC command queued behind those 270 ms. It is exactly the hazard D-09 removed
+from Linux, left intact on macOS because the reasoning stopped at "no walk".
+
+`deep.rs` had been failing on this for some time, and its assertion message —
+"it is walking the tree inline" — pointed at a walk that does not exist there,
+which is part of why it stayed.
+
+**Consequences, and one of them is a real loss.** A change made between
+`start_watch` returning and the handle existing is **not seen by the watcher**.
+It is seen by the 5 s poll and the scan on focus, the same two mechanisms that
+already cover a watch lost silently, so the window costs latency rather than a
+missed change — but it is a window that did not exist before, and it is why the
+two watcher tests in `reconcile.rs` now wait for `walking` to clear before they
+write. A test that did not wait would be asserting the poll while claiming to
+assert the watcher.
+
+`start_watch` therefore usually returns `None`: not "this platform can watch"
+but "no answer yet". Only a failure visible without waiting — a thread that
+will not spawn — still comes back from the call. The interface reads the reason
+from `watch_status()`, which it was already polling for coverage, and the
+frontend keeps a reason from the start call rather than letting a later poll
+clear it.

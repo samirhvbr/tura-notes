@@ -8,6 +8,44 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.0 - the watcher stops holding the service mutex for 270 ms
+
+The gate has had one failing test for a while — `starting_the_watcher_returns_immediately_and_walks_behind`
+— and its assertion message was pointing at the wrong thing. It said "it is
+walking the tree inline", and on macOS there is no walk: one handle covers the
+subtree. Measured, the cost is **280 ms for a workspace with 0 directories and
+281 ms for one with 3 600**. Constant, inside `FSEventStreamCreate` and the run
+loop `notify` waits to have scheduled.
+
+Constant is not free. `commands.rs` held `app.svc` across the call and the
+frontend awaited it on workspace open, so every IPC command queued behind those
+270 ms. That is precisely the hazard D-09 removed from Linux in 0.1c, left
+intact on macOS because the reasoning stopped at "there is no walk here" — true
+of handles, never true of time.
+
+Creating the backend and installing the root watch now happen on the watcher's
+own thread on every platform. `start_watch` returns at once.
+
+**The design cost is real and is the interesting half.** `degraded` was known at
+construction and is not any more: it moves into the counters beside `walking`,
+`WatchProgress` carries it, and `watch_status()` reports it — which the
+interface was already polling for coverage. `start_watch` therefore usually
+returns `None`, meaning "no answer yet" rather than "this platform can watch".
+
+**And there is now a window that did not exist.** A change made between
+`start_watch` returning and the handle existing is not seen by the watcher. The
+5 s poll and the scan on focus cover it — the same two mechanisms that already
+cover a watch lost silently — so it costs latency and not a missed change. It is
+why the two watcher tests in `reconcile.rs` now wait for `walking` to clear
+before they write: a test that did not wait would be asserting the poll while
+claiming to assert the watcher. Recorded as ADR-078, along with the two module
+comments that were wrong about latency.
+
+`Y`: `Watch::degraded` is a method now and `WatchProgress` gained a field.
+
+The whole Rust suite passes, including the deep tests that gated this. The
+"Release gate repairs" item leaves the queue.
+
 ## 1.2.0 - a rename stops being able to delete a file nobody asked it to
 
 `LocalFs::rename` checked `b.exists()` and then called `fs::rename`, and

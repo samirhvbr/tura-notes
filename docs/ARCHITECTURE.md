@@ -530,6 +530,18 @@ and is reconciled by the 5 s poll and the scan on focus ([ADR-027](decisions.md)
 The poll and the focus scan run whether or not there is a watcher, so a watch
 silently lost degrades to 5 s rather than to nothing.
 
+**Establishing the watch is asynchronous on every platform, and that leaves a
+window.** `start_watch` returns before the platform handle exists — it costs
+~270 ms on macOS whatever the tree size, inside `FSEventStreamCreate`, and it
+used to be paid with the service mutex held, so every IPC command queued behind
+a workspace open ([ADR-078](decisions.md#adr-078--the-watcher-is-established-on-its-own-thread-on-every-platform)).
+A change made during that window is not seen by the watcher. It is seen by the
+5 s poll and by the scan on focus — the same two mechanisms that already cover a
+watch lost silently — so the window costs latency and never a missed change.
+The consequence for a caller is that `start_watch` usually returns `None`
+because the answer does not exist yet: `watch_status()` carries both the reason
+and `walking`, which stays true until the handle is up.
+
 ### The one-second rule, and what runs in the background
 
 **`workspace_open` returns and the tree appears in under one second, at any

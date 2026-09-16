@@ -260,7 +260,7 @@ fn starting_the_watcher_returns_immediately_and_walks_behind() {
     let (mut svc, _data) = opened(tree.path());
 
     let t = Instant::now();
-    let degraded = svc.start_watch().unwrap();
+    svc.start_watch().unwrap();
     let returned = t.elapsed();
 
     let deadline = Instant::now() + Duration::from_secs(30);
@@ -271,10 +271,15 @@ fn starting_the_watcher_returns_immediately_and_walks_behind() {
     }
     let walked = t.elapsed();
 
+    // The message used to say "it is walking the tree inline", and that was
+    // wrong on the platform this test actually failed on: macOS pays the same
+    // ~270 ms for an empty workspace, inside `FSEventStreamCreate`. There is no
+    // walk to blame. What the assertion measures is the only thing that
+    // matters to the caller — that establishing the watch is not on its thread.
     assert!(
         returned.as_millis() < 100 && (!cfg!(target_os = "linux") || returned * 5 < walked),
-        "start_watch returned in {} of a {} walk over {} directories — it is \
-         walking the tree inline",
+        "start_watch took {} of a {} setup over {} directories — establishing \
+         the watch is happening on the caller's thread",
         ms(returned),
         ms(walked),
         tree.dirs
@@ -284,7 +289,9 @@ fn starting_the_watcher_returns_immediately_and_walks_behind() {
     // `ReadDirectoryChangesW` watch a subtree with one handle, so there is no
     // walk to observe there and asking for one would be the same mistake
     // pointing the other way (D-10).
-    if degraded.is_none() && cfg!(target_os = "linux") {
+    // `start_watch` no longer knows: the handle is established on the watcher's
+    // thread, so the answer is in the status the loop above waited for.
+    if status.degraded.is_none() && cfg!(target_os = "linux") {
         assert!(!status.walking, "the walk finished: {status:?}");
         assert!(status.dirs > 100, "the walk installed watches: {status:?}");
         // `node_modules/` and `target/` are skipped by the watcher and only by
@@ -308,7 +315,7 @@ fn an_unreadable_directory_does_not_demote_the_workspace() {
     tree.add_hazards();
     let (mut svc, _data) = opened(tree.path());
 
-    let degraded = svc.start_watch().unwrap();
+    svc.start_watch().unwrap();
     let deadline = Instant::now() + Duration::from_secs(20);
     let mut status = svc.watch_status();
     while status.walking && Instant::now() < deadline {
@@ -317,9 +324,10 @@ fn an_unreadable_directory_does_not_demote_the_workspace() {
     }
     tree.release_hazards();
 
-    // A machine with no inotify budget left is a real skip, not a failure.
-    if degraded.is_some() {
-        eprintln!("skipped: this machine cannot watch ({degraded:?})");
+    // A machine with no inotify budget left is a real skip, not a failure. The
+    // reason arrives with the status now, not with `start_watch`.
+    if let Some(reason) = status.degraded.as_ref() {
+        eprintln!("skipped: this machine cannot watch ({reason})");
         return;
     }
     assert!(

@@ -76,13 +76,33 @@ const WATCH_SKIP: &[&str] = &[
 /// What the watcher has managed so far. Read while it is still walking.
 #[derive(Debug, Default)]
 pub struct WatchCounters {
+    /// True from the moment `watch()` is called until the platform handle is
+    /// established — and, where `PER_DIRECTORY`, until the walk below it is
+    /// done. It used to mean only the second, because the first was paid
+    /// before `watch()` returned.
     pub walking: AtomicBool,
+    /// Why there is no watch, once that is known. It is here rather than on
+    /// `Watch` because establishing the handle moved onto the thread: the
+    /// answer arrives after the caller already has its `Watch`.
+    pub degraded: std::sync::Mutex<Option<Degraded>>,
     pub dirs: AtomicUsize,
     /// Directories that could not be read or watched — a permission, a mount
     /// that vanished. Counted and skipped; never a reason to stop.
     pub unreadable: AtomicUsize,
     /// Directories left unwatched because the platform's watch table is full.
     pub over_limit: AtomicUsize,
+}
+
+impl WatchCounters {
+    /// Record why there is no watch, and stop claiming to be setting one up.
+    /// A poisoned lock is not worth a panic here: the worst it costs is a
+    /// reason the interface cannot show, and the caller is already polling.
+    fn fail(&self, reason: Degraded) {
+        if let Ok(mut slot) = self.degraded.lock() {
+            *slot = Some(reason);
+        }
+        self.walking.store(false, Ordering::Relaxed);
+    }
 }
 
 /// A snapshot of the above, for a caller that has to render it.
@@ -92,6 +112,9 @@ pub struct WatchProgress {
     pub dirs: usize,
     pub unreadable: usize,
     pub over_limit: usize,
+    /// `Some` once the watcher has failed to establish itself at all. `None`
+    /// while `walking` is still true means "not yet known", not "fine".
+    pub degraded: Option<Degraded>,
 }
 
 /// Why a workspace is not being watched.
@@ -111,10 +134,6 @@ pub enum Degraded {
 pub struct Watch {
     rx: Receiver<BTreeSet<RelPath>>,
     stop: Sender<()>,
-    /// Set when **no** watch could be established at all. A directory that
-    /// cannot be watched is not this: it is counted in `counters.unreadable`
-    /// and the rest of the workspace is watched normally.
-    pub degraded: Option<Degraded>,
     counters: Arc<WatchCounters>,
 }
 
@@ -123,12 +142,26 @@ impl Watch {
     pub fn none(reason: Degraded) -> Self {
         let (_tx, rx) = channel();
         let (stop, _) = channel();
+        let counters = WatchCounters::default();
+        counters.fail(reason);
         Self {
             rx,
             stop,
-            degraded: Some(reason),
-            counters: Arc::new(WatchCounters::default()),
+            counters: Arc::new(counters),
         }
+    }
+
+    /// Why **no** watch could be established at all, once that is known.
+    ///
+    /// A directory that cannot be watched is not this: it is counted in
+    /// `unreadable` and the rest of the workspace is watched normally.
+    ///
+    /// **`None` is not a promise while `progress().walking` is true.** The
+    /// handle is established on the thread, so at the moment a caller receives
+    /// its `Watch` the answer does not exist yet. That is the trade the
+    /// non-blocking start costs, and the counters are where the answer lands.
+    pub fn degraded(&self) -> Option<Degraded> {
+        self.counters.degraded.lock().ok().and_then(|d| d.clone())
     }
 
     /// The live counters, for a caller that has to read them **after** the
@@ -145,6 +178,7 @@ impl Watch {
             dirs: self.counters.dirs.load(Ordering::Relaxed),
             unreadable: self.counters.unreadable.load(Ordering::Relaxed),
             over_limit: self.counters.over_limit.load(Ordering::Relaxed),
+            degraded: self.degraded(),
         }
     }
 
@@ -199,47 +233,50 @@ impl Drop for Watch {
 /// directories that did not fit.
 ///
 /// On macOS and Windows there is no walk at all — one handle watches the
-/// subtree — so the same call is O(1) and neither hazard exists (D-10).
+/// subtree — so neither hazard exists (D-10). That call is O(1) in **handles**
+/// and was never O(1) in **time**: measured on macOS it costs ~270 ms whether
+/// the tree holds 0 directories or 3 600, inside `FSEventStreamCreate` and the
+/// run loop `notify` waits to have scheduled. Constant, and constant is not
+/// free — with the service mutex held it was 270 ms of every IPC command
+/// queueing behind a workspace open. So the setup moved onto the thread on
+/// every platform, not just where there is a walk.
 ///
 /// Symlinked directories are never descended into: the deep fixture has a loop,
 /// and a walk that follows one does not return.
 pub fn watch(root: &Path) -> Watch {
     let (batches, rx) = channel::<BTreeSet<RelPath>>();
     let (stop, stopped) = channel::<()>();
-    let (raw_tx, raw_rx) = channel::<notify::Result<notify::Event>>();
     let counters = Arc::new(WatchCounters::default());
-
-    let mut watcher = match notify::recommended_watcher(move |res| {
-        // A send failure means the debouncer thread is gone, which happens
-        // only while shutting down.
-        let _ = raw_tx.send(res);
-    }) {
-        Ok(w) => w,
-        Err(e) => return Watch::none(classify(&e)),
-    };
-
-    // The root, synchronously. If even this cannot be watched there is nothing
-    // to watch and the caller should poll. Where a subtree costs one handle,
-    // this single call is the entire watch.
-    let mode = if PER_DIRECTORY {
-        RecursiveMode::NonRecursive
-    } else {
-        RecursiveMode::Recursive
-    };
-    if let Err(e) = watcher.watch(root, mode) {
-        return Watch::none(classify(&e));
-    }
-    counters.dirs.store(1, Ordering::Relaxed);
-    counters.walking.store(PER_DIRECTORY, Ordering::Relaxed);
+    counters.walking.store(true, Ordering::Relaxed);
 
     let root_buf = root.to_path_buf();
     let walk_counters = Arc::clone(&counters);
-    std::thread::Builder::new()
+    let spawned = std::thread::Builder::new()
         .name("notes-watch".into())
         .spawn(move || {
-            // The watcher is moved into the thread so it lives exactly as long
-            // as the loop does.
-            let mut watcher = watcher;
+            let (raw_tx, raw_rx) = channel::<notify::Result<notify::Event>>();
+            let mut watcher = match notify::recommended_watcher(move |res| {
+                // A send failure means the debouncer thread is gone, which
+                // happens only while shutting down.
+                let _ = raw_tx.send(res);
+            }) {
+                Ok(w) => w,
+                Err(e) => return walk_counters.fail(classify(&e)),
+            };
+
+            // The root. If even this cannot be watched there is nothing to
+            // watch and the caller should poll. Where a subtree costs one
+            // handle, this single call is the entire watch.
+            let mode = if PER_DIRECTORY {
+                RecursiveMode::NonRecursive
+            } else {
+                RecursiveMode::Recursive
+            };
+            if let Err(e) = watcher.watch(&root_buf, mode) {
+                return walk_counters.fail(classify(&e));
+            }
+            walk_counters.dirs.store(1, Ordering::Relaxed);
+
             if PER_DIRECTORY {
                 // Cancellable, and it has to be: dropping a `Watch` — closing a
                 // workspace, opening another — must not leave a thread walking
@@ -247,8 +284,8 @@ pub fn watch(root: &Path) -> Watch {
                 // the same one the event loop below reads, so a `Watch` dropped
                 // three directories into a large walk stops there.
                 add_watches_below(&mut watcher, &root_buf, &walk_counters, &stopped);
-                walk_counters.walking.store(false, Ordering::Relaxed);
             }
+            walk_counters.walking.store(false, Ordering::Relaxed);
 
             let mut pending: BTreeSet<RelPath> = BTreeSet::new();
             loop {
@@ -286,15 +323,17 @@ pub fn watch(root: &Path) -> Watch {
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
-        })
-        .ok();
+        });
 
-    Watch {
-        rx,
-        stop,
-        degraded: None,
-        counters,
+    // A thread that will not start is the one failure this function can still
+    // report at once, and it is the one that means no watch at all.
+    if spawned.is_err() {
+        counters.fail(Degraded::Unsupported(
+            "the watcher thread could not be started".into(),
+        ));
     }
+
+    Watch { rx, stop, counters }
 }
 
 /// Walk `root` and install one non-recursive watch per directory.
