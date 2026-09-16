@@ -8,6 +8,48 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.15 - run the notes server on the host that already serves the site
+
+Storing the `.md` files in the cloud has had an implementation since 0.18.0 and
+no deployment, and the missing piece was not code. `server/compose.yml` assumes
+the host is the server's: Caddy binds 80 and 443 and reaches `notes-server` on a
+private Docker address nothing else can. The host this project actually has is
+the one already serving samirhv.com.br — the same machine whose download service
+`--publish` ingests into — and it has neither port to give. A second machine to
+avoid sharing one is a machine to pay for, patch and back up.
+
+`server/cotenant/` is the second deployment: the native binary on loopback under
+systemd, with whatever already terminates TLS there proxying one name to it. A
+unit, an nginx `server` block and a Caddy site block, all templates. The server
+did not change — `NOTES_SERVER_BIND` and `NOTES_SERVER_TRUSTED_PROXY` already
+described exactly this, which is also why nothing had ever exercised it.
+
+The container was the obvious alternative and it does not work: Docker rewrites
+the source address of a published port, so a container reached at
+`127.0.0.1:8787` sees the bridge gateway as its peer. `NOTES_SERVER_TRUSTED_PROXY`
+would have to name an address that changes with the network, and naming it
+wrongly fails closed on every request. The native process has no such gap.
+
+**Three properties of this mode are invisible until they fail in production, so
+`server/tests/cotenant.py` runs a real process and asserts each.** `/healthz` is
+checked *after* the proxy gate, so a plain `curl http://127.0.0.1:8787/healthz`
+returns 403 on a server that is working — the probe an operator would reach for
+to decide whether the server or the proxy is at fault is the one that lies.
+`Origin` is refused outright, so a front that passes a browser's through turns
+real requests into 403s. And nginx's 1 MiB body default refuses an attachment
+bundle before the server sees it, with an error page that names nginx. The suite
+also asserts that a created note lands as an ordinary file in
+`workspaces/<name>/` — ADR-001 on the server side — and that the three templates
+still carry the directives the assertions depend on, so dropping one fails the
+gate instead of production. It joins `tools/check.sh`.
+
+The reachability choice is recorded because it is not reversible without
+re-pairing: `notes-sync-client` treats `100.64.0.0/10` as private, so a tailnet
+name needs `--allow-private` while a public name needs nothing. A phone off the
+tailnet is the case that decides it. Recorded as ADR-076; the queue now carries
+the deployment itself, which is DNS, a certificate and a running process, and
+none of those exist yet.
+
 ## 1.1.14 - ask the download service whether it exists before publishing to it
 
 `--publish` had never run. `docs/updater.md` has carried the reason since 1.1.0

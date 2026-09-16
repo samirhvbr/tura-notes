@@ -54,6 +54,7 @@ fi
 step "cargo test"           cargo test --workspace
 step "transport binaries"  cargo build -p notes-server -p notes-sync-client --locked
 step "server TCP smoke"    python3 server/tests/smoke.py
+step "co-tenant server"    python3 server/tests/cotenant.py
 step "byte preservation"    tools/byte-preservation.sh
 step "full disk (ENOSPC)"   tools/enospc.sh
 step "generated types"      bash -c '

@@ -2136,3 +2136,56 @@ Windows has no `O_NOFOLLOW` at all, and `FILE_FLAG_OPEN_REPARSE_POINT` opens the
 reparse point rather than refusing it, which would return the link's own bytes
 as the note — worse than the gap. `docs/security.md` records the boundary in the
 control table rather than leaving the row claiming more than the code does.
+
+## ADR-076 — The cloud copy of the notes is a co-tenant on the site's own server
+
+**Status:** ACCEPTED · 15/09/2026
+
+**Context.** "Store the `.md` files in the cloud" has had an implementation
+since 0.18.0 and no deployment. `notes-server` is the process
+([ADR-043](#adr-043--a-separate-owner-operated-rest-server-reuses-core-policy)),
+sync 0.6 is the transport, and `server/compose.yml` is the way to run them —
+but that stack assumes the host is the server's: Caddy binds 80 and 443 and
+talks to `notes-server` on a private Docker address. The host this project
+actually has is the one already serving samirhv.com.br, where the download
+service that `--publish` ingests into lives. Both ports are taken, and a second
+machine to avoid sharing one is a machine to pay for, patch and back up.
+
+**Decision.** The supported second deployment is the native binary on loopback,
+run by systemd, with the host's existing TLS front proxying one name to it —
+`server/cotenant/` carries the unit and both front templates, and
+`docs/SERVER-0.5.md` documents it beside the Compose stack rather than instead
+of it. Nothing in the server changed: `NOTES_SERVER_BIND` and
+`NOTES_SERVER_TRUSTED_PROXY` already describe exactly this, and the trusted
+proxy is what turns the front's configuration from advice into a precondition.
+
+**Reason, and why it is not just "run the container on another port".** Docker
+rewrites the source address of a published port, so a container reached at
+`127.0.0.1:8787` sees the bridge gateway as its peer, not loopback — the trusted
+proxy would have to name an address that changes with the network, and naming it
+wrongly fails closed on every request. The native binary has no such gap: the
+peer *is* 127.0.0.1 and the unit says so. The sandbox costs nothing to state
+there either, and says something the container could not: `IPAddressDeny=any`
+with `IPAddressAllow=localhost`, which is a server holding private notes that
+cannot open an outbound connection at all.
+
+**Consequences.** Three properties of this mode are invisible until they fail in
+production, so `server/tests/cotenant.py` runs a real process and asserts each,
+then asserts the templates still carry the directives that produce them.
+`/healthz` sits *behind* the proxy gate, so the obvious monitoring probe reports
+a healthy server as down; `Origin` must be stripped by the front or every
+request from anything that sets one is refused; and the 1 MiB nginx body default
+refuses an attachment bundle before the server sees it. The per-address rate
+budget collapses to the proxy's address, exactly as it already does behind the
+bundled Caddy, and the per-credential budget remains the one that separates
+devices.
+
+**The reachability choice is the owner's and is not reversible without
+re-pairing.** `notes-sync-client` treats `100.64.0.0/10` as private, so a name
+that resolves to a tailnet address needs `--allow-private` at pairing time,
+while a public name needs nothing. A phone off the tailnet is the case that
+decides it: the public name is the default for milestone 0.4, and the tailnet is
+the choice for an owner who would rather have no public surface.
+[ADR-007](#adr-007--the-desktop-app-opens-no-network-port-by-default) is
+untouched either way — the desktop app still opens no port; this is a separate
+process on a separate machine.

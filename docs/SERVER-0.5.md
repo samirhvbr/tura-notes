@@ -79,6 +79,81 @@ trusted HTTPS; the separate test Caddyfile uses an internal CA only for CI.
 Container base images are pinned by digest; CI builds and tests the local image.
 No public image registry or hosted service is operated by this project.
 
+## Co-tenant deployment behind an existing site
+
+> Added in 1.1.15.
+
+The Compose stack above assumes the host is the server's: Caddy takes 80 and 443
+and reaches `notes-server` on a private Docker address nothing else can. **A host
+that already serves a website has neither port to give**, and that is the host
+this project actually has. The supported second shape is the native binary on
+loopback, with whatever already terminates TLS there proxying one name to it.
+
+Three files, all templates with `notes.example.com` to replace:
+
+| File | What it is |
+|---|---|
+| [`server/cotenant/notes-server.service`](../server/cotenant/notes-server.service) | systemd unit: a system user, `/var/lib/notes-server` as `StateDirectory`, loopback bind, and a sandbox that permits no outbound address at all |
+| [`server/cotenant/nginx-notes.conf`](../server/cotenant/nginx-notes.conf) | one nginx `server` block for the name |
+| [`server/cotenant/Caddyfile`](../server/cotenant/Caddyfile) | the same block when the existing front is Caddy |
+
+```sh
+sudo useradd --system --home-dir /var/lib/notes-server --shell /usr/sbin/nologin notes
+sudo install -m 0755 notes-server /usr/local/bin/notes-server
+sudo install -m 0644 server/cotenant/notes-server.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now notes-server
+sudo -u notes NOTES_SERVER_DATA=/var/lib/notes-server notes-server workspace create personal
+```
+
+`NOTES_SERVER_TRUSTED_PROXY=127.0.0.1` is what makes the front's configuration
+load-bearing instead of advisory, and it has consequences worth stating before
+they are discovered in production:
+
+- **`X-Forwarded-Proto: https` is required on every request, `/healthz`
+  included.** The health route is checked *after* the proxy gate, not in front
+  of it, so a plain `curl http://127.0.0.1:8787/healthz` returns 403
+  `https_required` on a server that is working perfectly. A front that omits the
+  header produces a server that refuses everything *and* refuses the probe you
+  would use to tell whether the server or the proxy is at fault.
+- **The front must strip `Origin`.** The API refuses any request carrying one:
+  it is a machine API with no CORS, and cookies there have no authority
+  ([ADR-043](decisions.md#adr-043--a-separate-owner-operated-rest-server-reuses-core-policy)).
+- **Raise the body limit.** A note is capped at 8 MiB and a request body at 16
+  MiB; nginx defaults to 1 MiB and answers 413 itself, so an attachment bundle
+  fails before the server sees it. Leave request *buffering* on: the server
+  gives a body 15 seconds to arrive and buffering absorbs a slow phone.
+- **The 120/min address budget collapses to the proxy's address**, exactly as it
+  does behind the bundled Caddy. The 60/min per-credential budget is unaffected
+  and is the one that separates devices.
+
+`python3 server/tests/cotenant.py` runs a real process in this configuration and
+asserts each of those, that a created note lands as an ordinary `.md` file in
+`workspaces/<name>/`, and that the three templates still carry the directives
+the assertions depend on.
+
+### Reaching it from a client
+
+The sync origin is a bare `https://host` — no path, no query, no user info —
+and the client refuses a plain-HTTP origin unless it is a literal loopback
+address with `--allow-private`.
+
+**A tailnet address is "private" to the client.** `100.64.0.0/10` is CGNAT, and
+`notes-sync-client` treats that range like RFC 1918: a name resolving into it is
+refused unless the workspace was paired with `--allow-private`. Both deployments
+are supported and the choice is not reversible without re-pairing:
+
+| | Public name | Tailnet only |
+|---|---|---|
+| DNS | `notes.example.com` at the public address | the name resolves to `100.64.x.y` |
+| Certificate | ACME against the public name | `tailscale cert`, or ACME DNS-01 |
+| Pairing | no flag | `--allow-private` |
+| Reachable from | anywhere, including a phone on mobile data | only a device on the tailnet |
+
+A phone off the tailnet is the case that decides it, which makes the public name
+the default for milestone 0.4 and the tailnet the choice for an owner who would
+rather have no public surface. Neither changes what the server exposes: bearer
+credentials, per-credential permissions and scopes, and the rate limits above.
+
 ## REST contract
 
 The complete [OpenAPI 3.1 contract](../server/notes-server/openapi.json) is also

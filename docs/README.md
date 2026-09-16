@@ -73,7 +73,7 @@ and the fleet adopted it the same day.
 
 ## Self-hosted server
 
-- [SERVER-0.5.md](SERVER-0.5.md) — operator CLI, REST, HTTPS and backup/restore.
+- [SERVER-0.5.md](SERVER-0.5.md) — operator CLI, REST, HTTPS, the two deployments (Compose, or a co-tenant behind an existing site) and backup/restore.
 - [ACCEPTANCE-0.5.md](ACCEPTANCE-0.5.md) — automated coverage and pending owner walk.
 
 ## Synchronization in progress

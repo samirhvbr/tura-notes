@@ -1,0 +1,20 @@
+# The same co-tenant deployment when the existing front is Caddy rather than
+# nginx: one site block added to the host's own Caddyfile, proxying to the
+# loopback notes-server from server/cotenant/notes-server.service.
+#
+# Caddy sets X-Forwarded-Proto itself, so only the two explicit controls remain.
+# See docs/SERVER-0.5.md § Co-tenant deployment.
+
+notes.example.com {
+	# A note is capped at 8 MiB and a request body at 16 MiB; refuse larger
+	# bodies at the edge rather than carrying them to the server to be refused.
+	request_body {
+		max_size 16MB
+	}
+
+	reverse_proxy 127.0.0.1:8787 {
+		# The API refuses any request carrying Origin — no CORS, and cookies
+		# with no authority. A browser must not be able to produce a 403 here.
+		header_up -Origin
+	}
+}

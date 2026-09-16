@@ -1062,6 +1062,12 @@ owns HTTP/authentication, request limits, audit and backup transport. Deployment
 and the versioned API are in [SERVER-0.5.md](SERVER-0.5.md); ADR-043 records the
 security boundary. No desktop listener or synchronization engine is added.
 
+It has two deployments, not one. The Compose stack owns the host's 80 and 443;
+`server/cotenant/` runs the same binary on loopback behind a front that already
+serves another site, which is the host this project has (ADR-076). The server
+code is identical — `NOTES_SERVER_BIND` and `NOTES_SERVER_TRUSTED_PROXY` already
+described both.
+
 ## Milestone 0.6 — causal domain boundary
 
 The first 0.6 block adds `notes-sync` as a dependency of core, beside `notes-fs`.
