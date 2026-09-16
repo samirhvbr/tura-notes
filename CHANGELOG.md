@@ -8,6 +8,35 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.26 - the pairing panel says what is missing instead of going grey
+
+The first person to pair against a real server filled in the credential file and
+the server address, and nothing happened. Not an error — nothing. The button
+stayed grey, and there was no way to find out which of its six preconditions was
+unmet.
+
+Six, and it stated none of them: five fields and a closed workspace. The notice
+about the workspace existed, but at the bottom of the panel and worded for a
+different moment ("close the workspace to review identities or apply received
+files"), so it read as a note about later rather than the reason for now. The
+panel now lists what is still needed, by the label of the field that supplies
+it, and the list disappears as the fields fill. "Disabled" is an answer to a
+question the person has not been allowed to ask yet.
+
+**A pairing that worked also said nothing**, which is the same failure from the
+other side: `task` clears the message and writes one only on failure, so success
+was indistinguishable from a button that did nothing. The phase in the summary
+does move, but on the next poll, up to fifteen seconds later. It says so now,
+immediately.
+
+The `Reconnect existing queue` button also gains the busy guard its neighbour
+had — it could be pressed during an in-flight pairing.
+
+Three cases: the missing list names the empty fields and clears as they fill, an
+open workspace appears in that list by name, and a successful pairing is
+reported. 93 frontend tests pass; the contrast gate covers the hint's colours
+already, which is why it uses existing tokens.
+
 ## 1.1.25 - stop the credential suite writing into the checkout
 
 1.1.23 committed a file called `read,create,update,move,delete`, sixteen bytes,

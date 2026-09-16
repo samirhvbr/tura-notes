@@ -72,8 +72,20 @@ export function DeviceSync() {
   async function pair() {
     await ipc.devicePair(request);await attach();
     if(request.mode!=="upload")setPreview(await ipc.devicePreview());
+    /* `task` clears the message and only writes one on failure, so a pairing
+       that worked said nothing at all — indistinguishable from a button that
+       did nothing. The phase in the summary moves too, but only after the next
+       poll. */
+    setMessage(t("device.paired"));
   }
   const blocked=busy||!!workspace;
+  /* The pair button has six preconditions and used to state none of them: it
+     rendered grey, and a filled-in field changed nothing anyone could see. The
+     panel now names what is still missing, because "disabled" is an answer to a
+     question the person has not been allowed to ask yet. */
+  const required=[["source","device.source"],["state_dir","device.state_dir"],["token_file","device.token_file"],["origin","device.server"],["workspace","device.remoteWorkspace"]] as const;
+  const missing=[...(workspace?[t("device.missing.workspace")]:[]),
+    ...required.filter(([key])=>!request[key]).map(([,label])=>t(label))];
   const conflicts=preview?.rows.some(r=>r.action==="conflict")||!!preview?.attachment_conflicts.length;
   const phase=snapshot?.phase??"disabled";
   return <details className="device-sync">
@@ -92,7 +104,8 @@ export function DeviceSync() {
           <label>{t("device.mode")}<select value={request.mode} onChange={e=>setRequest({...request,mode:e.target.value})}>{["upload","download","reconcile"].map(m=><option key={m} value={m}>{t(`device.mode.${m}`)}</option>)}</select></label>
         </div>
         <label><input type="checkbox" checked={request.allow_private} onChange={e=>setRequest({...request,allow_private:e.target.checked})}/>{t("device.private")}</label>
-        <div className="device-actions"><button disabled={blocked||!request.source||!request.state_dir||!request.token_file||!request.origin||!request.workspace} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
+        <div className="device-actions"><button disabled={busy||missing.length>0} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={busy||!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
+        {!!missing.length&&<p role="status" className="device-missing">{t("device.missing")} {missing.join(" · ")}</p>}
         {!!workspace&&<p>{t("device.closeFirst")}</p>}
       </fieldset>
       {settings&&<fieldset disabled={busy}><legend>{t("device.schedule")}</legend>

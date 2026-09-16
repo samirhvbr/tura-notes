@@ -23,6 +23,39 @@ it("reconnects with scheduling disabled and preserves conservative limits",async
   await waitFor(()=>expect(ipc.deviceConfigure).toHaveBeenCalledWith({state_dir:"/private/queue",token_file:"/private/token",enabled:false,interval_seconds:300,allow_metered:false,allow_battery:false,capture_saved:false,capture_new:false,capture_renames:false}));
   expect(ipc.deviceRun).not.toHaveBeenCalled();
 });
+it("names what is still missing instead of a grey button",async()=>{
+  // Six preconditions, stated none of them: a filled-in field changed nothing
+  // anyone could see, so the panel looked broken rather than incomplete.
+  show();
+  expect(screen.getByRole("button",{name:"Create pairing and review"})).toBeDisabled();
+  expect(screen.getByText(/Still needed before pairing/)).toHaveTextContent("Local notes folder");
+  expect(screen.getByText(/Still needed before pairing/)).toHaveTextContent("Server address");
+  for(const [label,value] of [[/Local notes folder/,"/notes"],[/Private sync queue folder/,"/queue"],[/Credential file/,"/token"],[/Server address/,"https://tura.example"],[/^Server workspace$/,"personal"]] as const){
+    fireEvent.change(screen.getByRole("textbox",{name:label}),{target:{value}});
+  }
+  expect(screen.queryByText(/Still needed before pairing/)).toBeNull();
+  expect(screen.getByRole("button",{name:"Create pairing and review"})).toBeEnabled();
+});
+it("names the open workspace as the thing standing in the way",async()=>{
+  useWorkspace.setState({info:{root:"/notes",name:"notes"} as never});
+  show();
+  for(const [label,value] of [[/Local notes folder/,"/notes"],[/Private sync queue folder/,"/queue"],[/Credential file/,"/token"],[/Server address/,"https://tura.example"],[/^Server workspace$/,"personal"]] as const){
+    fireEvent.change(screen.getByRole("textbox",{name:label}),{target:{value}});
+  }
+  expect(screen.getByText(/Still needed before pairing/)).toHaveTextContent("close the workspace");
+  expect(screen.getByRole("button",{name:"Create pairing and review"})).toBeDisabled();
+});
+it("says so when a pairing succeeded",async()=>{
+  // `task` clears the message and writes one only on failure, so a pairing that
+  // worked was indistinguishable from a button that did nothing.
+  vi.mocked(ipc.devicePreview).mockResolvedValue({confirmation:"c",rows:[],attachment_conflicts:[]});
+  show();
+  for(const [label,value] of [[/Local notes folder/,"/notes"],[/Private sync queue folder/,"/queue"],[/Credential file/,"/token"],[/Server address/,"https://tura.example"],[/^Server workspace$/,"personal"]] as const){
+    fireEvent.change(screen.getByRole("textbox",{name:label}),{target:{value}});
+  }
+  fireEvent.click(screen.getByRole("button",{name:"Create pairing and review"}));
+  await waitFor(()=>expect(screen.getByText(/Paired\./)).toBeInTheDocument());
+});
 it("requires review and refuses to confirm divergent pairing rows",async()=>{
   vi.mocked(ipc.devicePreview).mockResolvedValue({confirmation:"bound-snapshot",rows:[{action:"conflict",path:"a.md"}],attachment_conflicts:[]});
   show();
