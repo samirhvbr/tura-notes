@@ -94,11 +94,28 @@ the one you kept.
 
 ### 4. Point the app at it
 
-**Close your workspace first.** Pairing is disabled while a folder is open, and
-the panel says so.
-
 At the top of the window there is a collapsible **Device sync** strip. Open it
-and fill in **Pair or reconnect**:
+and fill in **Pair or reconnect**.
+
+**Start with Test connection, before you close anything.** Fill in just
+**Server address** and **Credential file (outside notes)** and press it. It is
+the one remote call that runs with your workspace open, because it writes
+nothing, and it answers the two questions the rest of this page cannot:
+
+- **Connected** — the address reaches your server and the credential works. It
+  also fills in **Server workspace** for you, because the credential decides
+  which workspace it is for and the server is the only thing that knows the
+  name. If that field already says something different, you are told rather than
+  overruled.
+- Anything else names the step that failed — an address that cannot be used, a
+  credential file the wrong permissions or the wrong contents, nothing
+  answering, a credential the server rejected, or *something answered and it was
+  not this API*. That last one is the common case on a host that already serves
+  other sites: the name resolves, the web server answers, and what answers is
+  the default site rather than Tura.
+
+**Then close your workspace.** Pairing is disabled while a folder is open, and
+the panel says so.
 
 | Field | What goes in it |
 |---|---|

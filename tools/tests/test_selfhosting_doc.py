@@ -31,6 +31,7 @@ LABELS = [
     'Send local folder to empty inbox',
     'Receive into empty local folder',
     'Reconcile existing folders',
+    'Test connection',
     'Create pairing and review',
     'Confirm this pairing',
     'Background transfer',

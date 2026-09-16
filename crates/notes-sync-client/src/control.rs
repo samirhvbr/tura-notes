@@ -1,6 +1,6 @@
 //! Desktop-owned coordination. No editor buffer access and no implicit source writes.
 use crate::{
-    remote::{Endpoint, Remote, Transport},
+    remote::{Endpoint, Remote, SyncProbe, Transport},
     state::{Mode, Store},
     Error, Result,
 };
@@ -562,6 +562,19 @@ impl Controller {
             None => store.export(id)?,
         };
         Ok(path.to_string_lossy().into_owned())
+    }
+
+    /// Ask the server what this credential is for, and report whichever step
+    /// answered first.
+    ///
+    /// **Takes no lock and no workspace.** It writes nothing, reads no client
+    /// state and touches no note, so holding the operation mutex would only
+    /// mean that a transfer already running turns a diagnostic into `Busy` —
+    /// the one moment somebody most wants to run it. For the same reason it is
+    /// the only remote call that works with the workspace open: pairing needs
+    /// the workspace closed because pairing writes.
+    pub fn probe(&self, origin: String, allow_private: bool, token_file: String) -> SyncProbe {
+        Remote::probe(&origin, allow_private, Path::new(&token_file), None)
     }
 }
 fn validate_connection(c: &SyncConnection) -> Result<()> {

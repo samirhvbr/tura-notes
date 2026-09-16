@@ -599,6 +599,25 @@ pub async fn sync_control_run(app: State<'_, App>) -> R<()> {
         .await
         .map_err(sync_error)?
 }
+/// A connection test. Separate from pairing, and available with the workspace
+/// open, because the question "is the server there and does this credential
+/// work" is the one people ask *before* they are willing to close everything
+/// and commit to a pairing.
+#[tauri::command]
+pub async fn sync_control_probe(
+    app: State<'_, App>,
+    origin: String,
+    allow_private: bool,
+    token_file: String,
+) -> R<notes_sync_client::remote::SyncProbe> {
+    let controller = app.network.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        controller.probe(origin, allow_private, token_file)
+    })
+    .await
+    .map_err(sync_error)
+}
+
 #[tauri::command]
 pub async fn sync_control_pair(
     app: State<'_, App>,

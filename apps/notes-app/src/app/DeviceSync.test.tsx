@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { DeviceSync, conditions } from "./DeviceSync";
 import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
-vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{})}));
+vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn()}));
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
 const empty:ipc.DeviceSnapshot={receive:false,connection:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[]};
 const old=useWorkspace.getState();
@@ -44,6 +44,42 @@ it("names the open workspace as the thing standing in the way",async()=>{
   }
   expect(screen.getByText(/Still needed before pairing/)).toHaveTextContent("close the workspace");
   expect(screen.getByRole("button",{name:"Create pairing and review"})).toBeDisabled();
+});
+const granted:ipc.SyncProbe={outcome:"granted",status:200,workspace:"personal",scope:null,permissions:["read","create"],review:false};
+it("tests the connection with the workspace open and before a workspace name is known",async()=>{
+  // The two questions the panel could not answer: is the server there, and what
+  // is this credential for. Pairing answered both at once, in one of three
+  // sentences, and only after the workspace had been closed.
+  useWorkspace.setState({info:{root:"/notes",name:"notes"} as never});
+  vi.mocked(ipc.deviceProbe).mockResolvedValue(granted);
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Server address/}),{target:{value:"https://tura.example"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/token"}});
+  const test=screen.getByRole("button",{name:"Test connection"});
+  expect(test).toBeEnabled();
+  fireEvent.click(test);
+  await waitFor(()=>expect(screen.getByText(/Connected\./)).toBeInTheDocument());
+  // The server named the workspace, so the owner does not have to guess it.
+  expect(screen.getByRole("textbox",{name:/^Server workspace$/})).toHaveValue("personal");
+});
+it("reports a rejected credential as rejected, not as an unusable address",async()=>{
+  vi.mocked(ipc.deviceProbe).mockResolvedValue({...granted,outcome:"refused",status:401,workspace:null,permissions:[]});
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Server address/}),{target:{value:"https://tura.example"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/token"}});
+  fireEvent.click(screen.getByRole("button",{name:"Test connection"}));
+  await waitFor(()=>expect(screen.getByText(/rejected this credential/)).toBeInTheDocument());
+  expect(screen.getByText(/rejected this credential/)).toHaveTextContent("HTTP 401");
+});
+it("reports a workspace name that disagrees with the credential instead of replacing it",async()=>{
+  vi.mocked(ipc.deviceProbe).mockResolvedValue(granted);
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Server address/}),{target:{value:"https://tura.example"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/token"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/^Server workspace$/}),{target:{value:"work"}});
+  fireEvent.click(screen.getByRole("button",{name:"Test connection"}));
+  await waitFor(()=>expect(screen.getByText(/credential is for personal/)).toBeInTheDocument());
+  expect(screen.getByRole("textbox",{name:/^Server workspace$/})).toHaveValue("work");
 });
 it("says so when a pairing succeeded",async()=>{
   // `task` clears the message and writes one only on failure, so a pairing that

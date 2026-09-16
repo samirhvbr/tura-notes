@@ -8,6 +8,53 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.8 - a connection test that names the step that failed
+
+*"Não está claro se está funcionando, e se não está funcionando, por quê."* The
+panel could say what was still empty on this machine and nothing at all about
+the server. The only way to find out whether the address, the credential and the
+workspace were right was to close everything, press **Create pairing and
+review**, and read one of three sentences.
+
+Three, for about thirty causes. `Error::Invalid` stands for a bad URL, a path or
+query on the origin, a workspace name with the wrong characters, a scope
+starting with a dot, plain HTTP, a name resolving to a private address, too many
+addresses, and four ways a trust anchor can be wrong. `Error::Denied` stands for
+a credential file that is missing, relative, too large, group-readable or
+unreadable, contents that are not a credential, a credential the server
+rejected, a workspace name that does not match, a scope that does not match, and
+a review credential. That is the right shape for a transport — it retries, and
+it must not narrate what it found in a secret file — and the wrong shape for a
+person asking whether the thing works.
+
+**Test connection** is a seventh `sync_control_*` command and the only remote
+call that runs with a workspace open, because it writes nothing. It takes the
+address, the credential file and the private-address permission — deliberately
+**not** a workspace name. The name is the one field the owner cannot know: the
+credential decides it and the server is the only thing that can say it. So the
+test reports it, fills the empty field, and reports a disagreement rather than
+overwriting a field somebody typed.
+
+Seven outcomes, one per thing to go and fix: `address`, `credential_file`,
+`credential_shape`, `unreachable`, `refused`, `unexpected`, `granted`. The one
+worth naming is `unexpected` — the name resolves, a web server answers, and what
+answers is not this API. On a host that already serves eight other sites that is
+the default virtual host, and until now it was indistinguishable from a bad
+credential.
+
+**Every check is the function `connect` calls.** `Endpoint::validate`'s address
+half, the credential file checks, the address policy and `decode` were split out
+and are now called from both, because a test that approves what the transport
+refuses is worse than no test: it moves the search for the cause to somewhere
+the cause is not. The refactor is behaviour-preserving — the crate's 77 tests
+passed before the probe existed.
+
+The frontend maps the outcomes through a `Record<SyncProbeOutcome, string>` over
+the generated union, so a variant added in Rust fails the TypeScript build
+instead of rendering its own key at the user, which is how `tree.newNote.prompt`
+shipped. The keys inside it are literals, so `tools/i18n-keys.py` checks that
+both languages have them.
+
 ## 1.3.7 - a received workspace stops outliving the workspace it belongs to
 
 Found while fixing the update banner, on the same path and one step further
