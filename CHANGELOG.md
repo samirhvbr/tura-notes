@@ -8,6 +8,41 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.23 - a credential wrapper a web administration screen can actually call
+
+The site on the publication host is getting a screen that creates and revokes
+sync credentials, so enrolling a device becomes downloading a file rather than
+opening an ssh session. That screen runs as `www-data`, and the obvious way to
+let it reach the CLI does not work.
+
+`/var/lib/notes-server` is 0700 and owned by `notes`, so the web user cannot run
+`notes-server` at all. Granting it `(notes) NOPASSWD: notes-server token create
+*` gets past that and into the second half of the problem: `token create` writes
+the secret to a **new** file at mode 0600 owned by whoever ran it, which the web
+user then cannot read. The sudoers line buys a file nobody can open.
+
+`server/cotenant/tura-credential` is the answer: it returns the secret over the
+pipe, removes the file whatever happens next, sets the `NOTES_SERVER_DATA` that
+sudo strips, and validates its own arguments. That last part is the reason it
+is a script rather than a wildcard — the caller is a web application, so "the
+caller validated it" is not a property this side may assume. The grant becomes
+one reviewed script with no path argument, and the web user cannot choose where
+a secret is written.
+
+The permission list is spelled out rather than matched: a pattern accepting
+"anything comma-separated and lowercase" also accepts a permission invented
+later, and that failure is a credential quietly holding more than the screen
+offered. Scope is always the whole workspace, because a flag no interface sets
+is a flag that gets set wrong.
+
+Eleven refusals are asserted against a fake CLI — a label carrying a shell
+metacharacter, an uppercase workspace, two unknown permissions, wrong arity in
+both directions, a malformed id, an unknown subcommand and no subcommand — plus
+that a refused call never reaches the CLI, and that the secret file does not
+outlive the call. `mktemp` takes a full template, because BSD appends its own
+suffix to a `-t` prefix and GNU deprecates the flag: one line, two meanings, and
+this script runs on Linux while its tests run here.
+
 ## 1.1.22 - the Apache template stops hand-writing a TLS vhost
 
 The publication host turns out to be the deployment host too: Debian 13, x86_64,

@@ -166,4 +166,60 @@ caddy = (cotenant / "Caddyfile").read_text()
 for line in ["reverse_proxy 127.0.0.1:8787", "header_up -Origin", "max_size 16MB"]:
     assert line in caddy, f"the co-tenant Caddyfile no longer sets: {line}"
 
+# ── The credential wrapper the site's admin screen calls ────────────────────
+# It runs as `notes` behind one sudoers line and is handed arguments by a web
+# application, so "the caller validated it" is not a property it may assume.
+# Exercised against a fake notes-server: what is asserted is the validation and
+# the handling of the secret, not the CLI it wraps.
+wrapper = ROOT / "server/cotenant/tura-credential"
+assert os.access(wrapper, os.X_OK), "tura-credential is not executable"
+
+with tempfile.TemporaryDirectory() as temp:
+    temp = pathlib.Path(temp)
+    fake = temp / "notes-server"
+    log = temp / "calls.log"
+    fake.write_text(
+        "#!/bin/sh\n"
+        f'echo "$@" >> {log}\n'
+        'if [ "$1" = token ] && [ "$2" = create ]; then\n'
+        '  umask 077; printf %s "the-secret-bytes" > "$7"; echo "credential-uuid"\n'
+        "fi\n"
+    )
+    fake.chmod(0o755)
+    env = dict(os.environ, TURA_CREDENTIAL_BINARY=str(fake), TURA_CREDENTIAL_DATA=str(temp / "data"))
+
+    def wrap(*args):
+        return subprocess.run(["sh", str(wrapper), *args], env=env, capture_output=True, text=True)
+
+    created = wrap("create", "samir", "personal", "read,create,update,move,delete")
+    assert created.returncode == 0, created.stderr
+    assert created.stdout == "the-secret-bytes", repr(created.stdout)
+    # The only durable copy is the one just handed over.
+    assert not list(temp.glob("tura-credential.*")), "the secret file outlived the call"
+    assert "token create samir personal . read,create,update,move,delete" in log.read_text()
+
+    # A web application supplies these. Each one reaches a shell and the server's
+    # own argument list, and each is refused here rather than there.
+    for bad in [("create", "samir; rm -rf /", "personal", "read"),
+                ("create", "samir", "Personal", "read"),
+                ("create", "samir", "personal", "read,root"),
+                ("create", "samir", "personal", "read,create,admin"),
+                ("create", "samir", "personal", "READ"),
+                ("create", "samir", "personal"),
+                ("revoke", "not-a-uuid"),
+                ("revoke",),
+                ("list", "extra"),
+                ("destroy", "everything"),
+                ()]:
+        refused = wrap(*bad)
+        assert refused.returncode == 2, f"accepted {bad!r}: {refused.stdout!r}"
+
+    before = log.read_text()
+    wrap("create", "samir", "personal", "read,delete-everything")
+    assert log.read_text() == before, "a refused call still reached notes-server"
+
+    ok = wrap("revoke", "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0")
+    assert ok.returncode == 0, ok.stderr
+    assert "token revoke 0f1e2d3c" in log.read_text()
+
 print("co-tenant loopback deployment smoke passed")

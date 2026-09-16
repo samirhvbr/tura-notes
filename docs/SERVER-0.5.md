@@ -159,6 +159,33 @@ A proxied record also complicates ACME HTTP-01, because the challenge is
 answered by whatever the CDN forwards it to. Issue the certificate with the
 record set to DNS-only and re-enable the proxy afterwards, or use DNS-01.
 
+### Minting credentials from a web administration screen
+
+`server/cotenant/tura-credential` exists for one deployment shape: a site on the
+same host whose own administration screen creates and revokes sync credentials,
+so a device is enrolled by downloading a file rather than by an ssh session.
+
+It is a wrapper and not a sudoers line on `notes-server` itself, because the CLI
+cannot be reached that way. `/var/lib/notes-server` is 0700 and owned by
+`notes`, and `token create` writes the secret to a **new** file at mode 0600
+owned by whoever ran it — so granting the web user `(notes) NOPASSWD:
+notes-server token create *` buys it a file it cannot open. The secret has to
+return over the pipe and the file has to be removed, which is what the wrapper
+does. It also sets `NOTES_SERVER_DATA`, which sudo strips, and validates label,
+workspace, permissions and credential id itself: the caller is a web
+application, so "the caller validated it" is not a property this side may
+assume. The grant is one reviewed script with no path argument:
+
+```
+www-data ALL=(notes) NOPASSWD: /usr/local/bin/tura-credential
+```
+
+The scope is always the whole workspace. Subfolder scoping is a real feature of
+the server and not of that screen, and a flag no interface sets is a flag that
+gets set wrong. `server/tests/cotenant.py` exercises the validation against a
+fake CLI and asserts that a refused call never reaches it and that the secret
+file does not outlive the call.
+
 ### Reaching it from a client
 
 The sync origin is a bare `https://host` — no path, no query, no user info —
