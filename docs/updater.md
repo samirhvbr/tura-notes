@@ -55,11 +55,34 @@ neither a private signing key nor npm/Cargo compilation. `--force` rebuilds.
 
 ## Hosting and publication
 
-Upload remains SCP/SSH to `b3sys@100.64.100.242`. Public clients read:
+Upload remains SCP/SSH to `b3sys@100.64.100.125`. Public clients read:
 
 ```
 https://samirhv.com.br/updates/tura-notes/{{target}}-{{arch}}-{{bundle_type}}.json
 ```
+
+**That URL is compiled into every build**, in `tauri.conf.json` under
+`plugins.updater.endpoints`, so it is fixed at build time and an installed
+application cannot be told to look somewhere else. The upload host does not
+appear in it, which is the property worth being precise about: **publishing
+works from any machine, to any path, as long as the bytes end up somewhere
+`https://samirhv.com.br` serves them.** `100.64.100.125` is that machine — it
+answers for both shvia.org and samirhv.com.br — so the download page and the
+updater feed both work with no redirection and no second name. Uploading to a
+host that serves a *different* domain does not: the feed would be readable, at
+a URL no installed build asks for.
+
+That is enforced rather than documented. After writing the feed,
+`tools/updater-release.py` fetches it back from `TURA_PUBLIC_BASE` over HTTPS,
+compares it byte for byte with the manifest it generated, then downloads the
+payload and checks its SHA-256. A host that does not serve the base fails the
+publish; it does not produce a feed nobody reads.
+
+Moving the feed to another name — `tura.samirhv.com.br`, for instance — means
+editing `endpoints` and rebuilding, and only builds made after that change would
+follow it. It is free today because nothing has ever been published, and it stops
+being free the moment something is. It is also not needed: the name that is
+already in every build is served by the machine the files are going to.
 
 Examples: `darwin-aarch64-app.json`, `linux-x86_64-deb.json`,
 `linux-aarch64-appimage.json`, `linux-x86_64-rpm.json`. Each feed contains version,

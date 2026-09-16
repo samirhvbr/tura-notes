@@ -8,6 +8,46 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.17 - publish to the machine that actually answers for samirhv.com.br
+
+`--publish` has pointed at `b3sys@100.64.100.242` since 1.0.4 and that is a
+different machine: a different ed25519 host key, and `shvia-site` rather than
+the host serving samirhv.com.br. `docs/updater.md` recorded the symptom in 1.1.0
+— "the private host responds, but `/srv/www/samirhv.com.br/samirhv` does not
+exist there" — which reads like a wrong path and was a wrong host. The default
+is now `b3sys@100.64.100.125`, the machine that answers for both shvia.org and
+samirhv.com.br.
+
+**That also answers whether the download page and auto-update still work.** The
+updater endpoint is compiled into every build — `plugins.updater.endpoints` in
+`tauri.conf.json`, `https://samirhv.com.br/updates/tura-notes/…` — so it is
+fixed at build time and an installed application cannot be told to look
+elsewhere. The upload host does not appear in it: publication works from any
+machine to any path, as long as the bytes land somewhere that URL serves them.
+`.125` is that machine, so nothing needs redirecting. And the combination is
+enforced rather than trusted: `tools/updater-release.py` fetches the feed back
+from `TURA_PUBLIC_BASE`, compares it byte for byte with what it generated and
+re-downloads the payload to check its hash, so uploading to a host that serves
+a different domain fails the publish instead of leaving a feed nobody reads.
+
+Moving the feed to `tura.samirhv.com.br` would mean editing `endpoints` and
+rebuilding, and only later builds would follow it — free today because nothing
+has been published, and not free afterwards. It is also unnecessary.
+
+`tura.samirhv.com.br` exists in DNS and **answers from the server's default
+vhost, which is a Matomo instance**, because no vhost claims the name yet. The
+templates now carry that name instead of a placeholder, and
+`server/cotenant/apache-tura.conf` joins them, because the host may be running
+Apache rather than nginx. The suite asserts its directives like the others'.
+
+The name also resolves to Cloudflare rather than to the host, and
+`docs/SERVER-0.5.md` now says what that costs. `X-Forwarded-Proto: https` is an
+assertion the front makes, not something it observes: under Cloudflare's
+Flexible mode the CDN-to-origin hop is plain HTTP and the server is told `https`
+anyway, then sends HSTS on the strength of it. Full (strict), or a DNS-only
+record. TLS terminating at the CDN also means the CDN sees the note bytes, which
+is a second party where the design had one.
+
 ## 1.1.16 - record the reachability the cloud notes will be paired against
 
 ADR-076 left one thing open and named the cost of leaving it open: the sync

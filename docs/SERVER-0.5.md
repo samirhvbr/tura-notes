@@ -89,13 +89,19 @@ that already serves a website has neither port to give**, and that is the host
 this project actually has. The supported second shape is the native binary on
 loopback, with whatever already terminates TLS there proxying one name to it.
 
-Three files, all templates with `notes.example.com` to replace:
+Four files. The hostname below is this project's; it is the one thing to change on another host:
 
 | File | What it is |
 |---|---|
 | [`server/cotenant/notes-server.service`](../server/cotenant/notes-server.service) | systemd unit: a system user, `/var/lib/notes-server` as `StateDirectory`, loopback bind, and a sandbox that permits no outbound address at all |
-| [`server/cotenant/nginx-notes.conf`](../server/cotenant/nginx-notes.conf) | one nginx `server` block for the name |
-| [`server/cotenant/Caddyfile`](../server/cotenant/Caddyfile) | the same block when the existing front is Caddy |
+| [`server/cotenant/nginx-tura.conf`](../server/cotenant/nginx-tura.conf) | one nginx `server` block for the name |
+| [`server/cotenant/apache-tura.conf`](../server/cotenant/apache-tura.conf) | the same, as an Apache vhost |
+| [`server/cotenant/Caddyfile`](../server/cotenant/Caddyfile) | the same, when the existing front is Caddy |
+
+The name is `tura.samirhv.com.br`, and it exists in DNS already. **No vhost
+claims it yet**, so it currently answers from the server's default vhost — a
+Matomo instance — which is worth knowing before a certificate request or a
+pairing attempt is aimed at it and believed.
 
 ```sh
 sudo useradd --system --home-dir /var/lib/notes-server --shell /usr/sbin/nologin notes
@@ -128,8 +134,30 @@ they are discovered in production:
 
 `python3 server/tests/cotenant.py` runs a real process in this configuration and
 asserts each of those, that a created note lands as an ordinary `.md` file in
-`workspaces/<name>/`, and that the three templates still carry the directives
-the assertions depend on.
+`workspaces/<name>/`, and that all four templates still carry the directives the
+assertions depend on.
+
+### The CDN in front, if there is one
+
+`tura.samirhv.com.br` resolves to Cloudflare, not to the host. Two consequences,
+neither of which the server can detect:
+
+- **`X-Forwarded-Proto: https` is an assertion the front makes, not something it
+  observes.** The templates set it unconditionally, which is correct when the
+  front *is* the TLS endpoint. Behind a proxying CDN it is only true if the hop
+  from the CDN to this host is also TLS — Cloudflare's **Full (strict)** mode.
+  Under Flexible, the browser's connection is encrypted, the CDN-to-origin hop
+  is plain HTTP, and the server is told `https` anyway. It then sends HSTS and
+  accepts the request, having been lied to by its own configuration.
+- **TLS terminates at the CDN, so the CDN sees the note bytes.** This server
+  already reads its own notes — there is no end-to-end encryption — but that is
+  one party the owner runs. A proxying CDN is a second one. Setting the record
+  to DNS-only moves the TLS endpoint back to this host, and is the choice to
+  make if that matters more than the CDN does.
+
+A proxied record also complicates ACME HTTP-01, because the challenge is
+answered by whatever the CDN forwards it to. Issue the certificate with the
+record set to DNS-only and re-enable the proxy afterwards, or use DNS-01.
 
 ### Reaching it from a client
 
@@ -144,13 +172,13 @@ are supported and the choice is not reversible without re-pairing:
 
 | | Public name | Tailnet only |
 |---|---|---|
-| DNS | `notes.example.com` at the public address | the name resolves to `100.64.x.y` |
+| DNS | `tura.samirhv.com.br` at the public address | the name resolves to `100.64.x.y` |
 | Certificate | ACME against the public name | `tailscale cert`, or ACME DNS-01 |
 | Pairing | no flag | `--allow-private` |
 | Reachable from | anywhere, including a phone on mobile data | only a device on the tailnet |
 
 A phone off the tailnet is the case that decides it. **This project took the
-public name** (ADR-076): `notes.samirhv.com.br` at the public address, an ACME
+public name** (ADR-076): `tura.samirhv.com.br` at the public address, an ACME
 certificate for that name, and pairing with no flag. Neither column changes what
 the server exposes — bearer credentials, per-credential permissions and scopes,
 and the rate limits above — but the public one exposes it to the internet rather

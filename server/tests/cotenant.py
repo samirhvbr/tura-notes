@@ -140,12 +140,19 @@ for line in ["Environment=NOTES_SERVER_BIND=127.0.0.1:8787",
              "StateDirectory=notes-server"]:
     assert line in unit, f"notes-server.service no longer sets: {line}"
 
-nginx = (cotenant / "nginx-notes.conf").read_text()
+nginx = (cotenant / "nginx-tura.conf").read_text()
 for line in ["proxy_set_header X-Forwarded-Proto https;",
              'proxy_set_header Origin "";',
              "proxy_pass http://127.0.0.1:8787;",
              "client_max_body_size 16m;"]:
-    assert line in nginx, f"nginx-notes.conf no longer sets: {line}"
+    assert line in nginx, f"nginx-tura.conf no longer sets: {line}"
+
+apache = (cotenant / "apache-tura.conf").read_text()
+for line in ['RequestHeader set X-Forwarded-Proto "https"',
+             "RequestHeader unset Origin",
+             "ProxyPass        / http://127.0.0.1:8787/",
+             "LimitRequestBody 16777216"]:
+    assert line in apache, f"apache-tura.conf no longer sets: {line}"
 
 caddy = (cotenant / "Caddyfile").read_text()
 for line in ["reverse_proxy 127.0.0.1:8787", "header_up -Origin", "max_size 16MB"]:

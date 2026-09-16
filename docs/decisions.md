@@ -2185,7 +2185,7 @@ re-pairing.** `notes-sync-client` treats `100.64.0.0/10` as private, so a name
 that resolves to a tailnet address needs `--allow-private` at pairing time,
 while a public name needs nothing. A phone off the tailnet is the case that
 decides it, and **the owner chose the public name on 15/09/2026**:
-`notes.samirhv.com.br` at the public address, an ACME certificate for it, and
+`tura.samirhv.com.br` at the public address, an ACME certificate for it, and
 pairing with no flag. The tailnet path stays documented because choosing it
 later means re-pairing every device, which is the kind of cost that has to be
 written down before it is paid.

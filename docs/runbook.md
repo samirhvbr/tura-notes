@@ -291,10 +291,23 @@ source contents and SHA-256 checksums match, through the same
 `tools/build-cache.py`. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
 The tracked Tauri version placeholder is restored on exit and interruption.
 
-The default SCP/SSH destination is `b3sys@100.64.100.242`, on the private
-network. `https://samirhv.com.br` is the public download URL, not the upload
-host. An explicit `--dest` or `TURA_PUBLISH_HOST` overrides this default; update
-any saved override that still points to the public host.
+The default SCP/SSH destination is `b3sys@100.64.100.125`, on the private
+network — the machine that serves both shvia.org and samirhv.com.br.
+`https://samirhv.com.br` is the public download URL, not the upload host. An
+explicit `--dest` or `TURA_PUBLISH_HOST` overrides this default; update any
+saved override that still points to the public host.
+
+**It was `100.64.100.242` from 1.0.4 to 1.1.16, and that is a different
+machine** — a different ed25519 host key, and `shvia-site` rather than the host
+that answers for samirhv.com.br. That is the whole of why `--publish` had never
+run: `docs/updater.md` recorded "the private host responds, but
+`/srv/www/samirhv.com.br/samirhv` does not exist there", which reads like a
+wrong path and was a wrong host. **The upload host and the public base are not
+independent.** `tools/updater-release.py` fetches the feed back from
+`TURA_PUBLIC_BASE` after writing it and compares it byte for byte, then
+downloads the payload and checks its sha256 — so publishing to a host that does
+not serve that base fails the publish instead of leaving a feed nobody can
+read.
 
 Publishing uses the same `TURA_PUBLISH_HOST`, `TURA_PUBLISH_STAGE`,
 `TURA_PUBLISH_APP`, `TURA_PUBLISH_SLUG` and `TURA_PUBLIC_BASE` settings as the

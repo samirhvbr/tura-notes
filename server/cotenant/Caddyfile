@@ -5,7 +5,7 @@
 # Caddy sets X-Forwarded-Proto itself, so only the two explicit controls remain.
 # See docs/SERVER-0.5.md § Co-tenant deployment.
 
-notes.example.com {
+tura.samirhv.com.br {
 	# A note is capped at 8 MiB and a request body at 16 MiB; refuse larger
 	# bodies at the edge rather than carrying them to the server to be refused.
 	request_body {
