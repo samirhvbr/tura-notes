@@ -8,6 +8,37 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.1.19 - unstamp the tree before asking whether it changed during the build
+
+A signed, notarised, stapled 1.1.17 DMG was refused with "sources changed during
+the build; retry before publishing", and nothing had changed. The guard compares
+`build-cache.py fingerprint` against the `SOURCE_HASH` taken before the build —
+but `tools/stamp-version.sh` writes the version into
+`apps/notes-app/src-tauri/tauri.conf.json`, that file is under one of the
+fingerprint's INPUTS, and `SOURCE_HASH` is read *before* stamping while the
+comparison was made *while still stamped*. Two different files, two different
+hashes. **The guard therefore fired on every macOS build that actually
+compiled**, after the notarisation round-trip, and the build it refused to
+record was correct every time.
+
+Two things hid it. The reuse path skips the entire block, so a second run of an
+unchanged version never reaches the check. And no macOS build has ever been
+published, so the failure had nowhere to become visible — the DMG was produced,
+signed and stapled, and only the bookkeeping step said no.
+
+`tools/build-linux.sh` restores the placeholder on the line before its own
+check, and has since 1.0.3. `build-local.sh` now does the same, immediately
+after `tauri build` rather than only in the exit trap, which also returns the
+tree to its committed state sooner. Same asymmetry as the publication ordering
+in 1.1.14, same fix: do what the other platform already does.
+
+`tools/tests/test_publish_preflight.py` becomes `test_build_local.py`, because
+it now covers two unrelated things that share a cause — both bugs lived where
+they did because a full macOS build is expensive to fake. One new test stamps
+the real tree, asserts the fingerprint moves, and restores it; a second asserts
+the restore precedes the comparison in the script, which is an ordering and
+cannot be checked by running the parts. Eight cases pass.
+
 ## 1.1.18 - confirm the publication path and say where the download link comes from
 
 `ssh b3sys@100.64.100.125 test -f /srv/www/samirhv.com.br/samirhv/artisan`

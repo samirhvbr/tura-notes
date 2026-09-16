@@ -668,6 +668,27 @@ else
   if [ "$NO_SIGN" -eq 0 ]; then python3 tools/updater-release.py preflight; fi
   (cd apps/notes-app && npm run tauri build -- --bundles app,dmg)
 
+  # ── Unstamp BEFORE anything fingerprints the tree ───────────────────────────
+  # `tauri.conf.json` lives under `apps/notes-app/src-tauri`, which is one of
+  # `tools/build-cache.py`'s INPUTS, and `stamp-version.sh` rewrites it. So the
+  # fingerprint taken below described a tree with `"version": "1.1.17"` in it
+  # while `SOURCE_HASH` was taken before stamping, off `"version": "0.0.0"` —
+  # two different files, two different hashes, every single time. The
+  # "sources changed during the build" guard therefore fired on **every** macOS
+  # build that actually compiled, after the notarisation round-trip, and the
+  # build it refused to record was correct.
+  #
+  # Nobody saw it because the reuse path skips this whole block, and because a
+  # macOS build has never been published. `tools/build-linux.sh` restores on the
+  # line before its own check and always has; this is the same asymmetry as the
+  # publish ordering 1.1.14 fixed, and it is fixed the same way — by doing what
+  # the other platform already does.
+  #
+  # The trap still restores on failure; clearing CONFIG_BACKUP is what tells it
+  # the work is already done.
+  cp "$CONFIG_BACKUP" "$CONFIG_PATH"; rm -f "$CONFIG_BACKUP"; CONFIG_BACKUP=""
+  echo "    tauri.conf.json → 0.0.0 restored"
+
   artifact_dir="target/release/bundle/dmg"
   dmg="$(find "$artifact_dir" -maxdepth 1 -type f -name "*_${version}_*.dmg" -print -quit)"
   if [ -z "$dmg" ]; then

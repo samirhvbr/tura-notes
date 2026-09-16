@@ -1,11 +1,12 @@
-"""Exercise the macOS publication preflight without a server or a build.
+"""Exercise the parts of build-local.sh that do not need a real macOS build.
 
 `build-local.sh` is the macOS pipeline end to end, so running it in a test means
-faking a keychain, `xcrun`, `hdiutil` and notarisation. The two functions that
-1.1.14 added are separable and are the part with the failure modes worth
-pinning: one quotes remote arguments, the other decides whether the destination
-is the destination. They are extracted from the script itself — so a rename or
-a deletion fails this suite rather than silently testing nothing.
+faking a keychain, `xcrun`, `hdiutil` and notarisation — which is why the two
+bugs this file covers both survived so long. What is testable is separable: the
+publication preflight's two functions, extracted from the script itself so a
+rename fails this suite rather than silently testing nothing, and the ordering
+of the version stamp against the source fingerprint, which is an ordering and
+not a computation.
 """
 import os
 from pathlib import Path
@@ -99,6 +100,50 @@ class Preflight(unittest.TestCase):
         echoed = subprocess.run(['bash', '-c', f'printf %s {quoted}'],
                                 capture_output=True, text=True).stdout
         self.assertEqual(echoed, "a b'c")
+
+
+class Fingerprint(unittest.TestCase):
+    """The stamp is inside the fingerprint, so the order of the two is the bug.
+
+    `tools/stamp-version.sh` rewrites `apps/notes-app/src-tauri/tauri.conf.json`,
+    which is under one of `tools/build-cache.py`'s INPUTS. `SOURCE_HASH` is taken
+    before stamping. Comparing it against a fingerprint taken while the tree is
+    still stamped compares two different files — so the "sources changed during
+    the build" guard fired on every macOS build that compiled, after the
+    notarisation round-trip, and refused to record a build that was correct.
+    """
+
+    CONFIG = ROOT / 'apps/notes-app/src-tauri/tauri.conf.json'
+
+    def fingerprint(self):
+        return subprocess.run(['python3', str(ROOT / 'tools/build-cache.py'), 'fingerprint'],
+                              cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+
+    def test_stamping_moves_the_fingerprint(self):
+        original = self.CONFIG.read_bytes()
+        before = self.fingerprint()
+        try:
+            subprocess.run(['bash', str(ROOT / 'tools/stamp-version.sh')], cwd=ROOT,
+                           check=True, stdout=subprocess.DEVNULL)
+            self.assertNotEqual(self.CONFIG.read_bytes(), original, 'stamping wrote nothing')
+            self.assertNotEqual(before, self.fingerprint(),
+                                'the stamped config is outside the fingerprint; this test is moot')
+        finally:
+            self.CONFIG.write_bytes(original)
+        self.assertEqual(self.CONFIG.read_bytes(), original)
+        self.assertEqual(before, self.fingerprint())
+
+    def test_the_placeholder_is_restored_before_the_fingerprint_is_compared(self):
+        script = (ROOT / 'build-local.sh').read_text().splitlines()
+        restore = [i for i, l in enumerate(script)
+                   if 'cp "$CONFIG_BACKUP" "$CONFIG_PATH"; rm -f' in l]
+        # The assignment on line ~621 also mentions both; the comparison is the
+        # one that tests the hash rather than producing it.
+        compare = [i for i, l in enumerate(script) if '= "$SOURCE_HASH" ]' in l]
+        self.assertEqual(len(restore), 1, 'build-local.sh no longer restores the config inline')
+        self.assertEqual(len(compare), 1, 'build-local.sh no longer compares the fingerprint')
+        self.assertLess(restore[0], compare[0],
+                        'the fingerprint is compared against a stamped tree and can never match')
 
 
 if __name__ == '__main__':
