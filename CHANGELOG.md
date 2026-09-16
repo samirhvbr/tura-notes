@@ -8,6 +8,35 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.7 - a received workspace stops outliving the workspace it belongs to
+
+Found while fixing the update banner, on the same path and one step further
+along. The Tauri shell holds the received-queue client's store in
+`App.received`. `sync_open` sets it; **nothing ever set it back to `None`.** So
+`Some` meant "a received workspace was opened at some point in this session",
+while both readers were asking "is one open now".
+
+`update_install` was one of those readers, and it refuses to restart while a
+workspace is open. A session that opened a received workspace once could
+therefore never install an update again — not by closing the received workspace,
+not by closing every workspace, not by anything short of restarting the
+application by hand. The dialog fixed above would have run its close flow
+correctly and then been refused natively, with a message about a workspace that
+was not open.
+
+`sync_apply` was the other reader, and there the stale store was worse than a
+refusal: it would have applied one workspace's received state into whichever
+workspace happened to be open. The frontend never let it, because `ReceivedSync`
+compares workspace ids before it offers the control — but that made the guard a
+property of the caller rather than of the command.
+
+The store now carries the `WorkspaceId` it was opened for, and both readers
+compare it against what is open now. `update_install` needs no check of its own
+any more: `sync_open` opens the workspace through the same service, so a live
+received store implies an open workspace, which the existing refusal already
+covers. The check that was deleted is the one that could not answer the question
+it was asked.
+
 ## 1.3.7 - the update closes the workspace instead of asking the user to
 
 The update banner could not be obeyed. It said *Close your workspace through the

@@ -1106,7 +1106,12 @@ apply or upgrade in place. See the host contract in [SYNC-0.6.md](SYNC-0.6.md).
 
 In 0.20.6 the Tauri shell delegates received queue/session operations to
 `notes-sync-client`. It shares the core service mutex with ordinary commands;
-there is no second workspace service for app application. React's synchronous
+there is no second workspace service for app application. The shell holds that
+client's store paired with the `WorkspaceId` it was opened for, and every reader
+compares the pair against the workspace open now: an `Option` that is only ever
+set answers *was one opened* rather than *is one open*, and until 1.3.7 the
+updater read the first as the second and refused to install for the rest of the
+session (`commands::Received`). React's synchronous
 input/IPC barrier spans snapshot, bounded application and verified reload, with
 a persistent recovery control after unknown outcomes (ADR-050). The current
 single-buffer editor supplies its complete inventory; Split is a preview.

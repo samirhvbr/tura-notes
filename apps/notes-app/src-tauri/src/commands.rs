@@ -14,15 +14,33 @@ use notes_core::{
     Reconciled, Rendered, SaveResult, Session, Settings, WorkspaceEntry, WorkspaceInfo,
     WorkspaceService,
 };
-use notes_model::{BaseRev, CoreError, Entry, NoteId, RelPath};
+use notes_model::{BaseRev, CoreError, Entry, NoteId, RelPath, WorkspaceId};
 use serde::Serialize;
 use tauri::State;
 
 pub struct App {
     pub svc: Mutex<WorkspaceService>,
     pub network: std::sync::Arc<notes_sync_client::control::Controller>,
-    pub received: Mutex<Option<notes_sync_client::state::Store>>,
+    pub received: Mutex<Option<Received>>,
     pub dmabuf: DmabufReport,
+}
+
+/// A received workspace opened for editing, **with the workspace it was opened
+/// as**.
+///
+/// The pairing is the whole point. `sync_open` fills this in and nothing ever
+/// put it back to `None`, so `Some` answered "a received workspace was opened
+/// at some point in this session" while every reader was asking "is one open
+/// now". `update_install` asked exactly that, and refuses to restart while a
+/// workspace is open — so a session that had opened a received workspace once
+/// could never install an update again, whatever the user closed.
+///
+/// Holding the id turns that question back into one the state can answer: the
+/// store describes this workspace and no other, and a reader compares it with
+/// what is open now instead of trusting the `Option`'s shape.
+pub struct Received {
+    pub workspace: WorkspaceId,
+    pub store: notes_sync_client::state::Store,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -499,7 +517,10 @@ pub async fn sync_open(app: State<'_, App>, state_dir: String) -> R<WorkspaceInf
     let info = store.open_for_editor(&mut service).map_err(sync_error)?;
     *app.received
         .lock()
-        .map_err(|_| sync_error("sync state lock failed"))? = Some(store);
+        .map_err(|_| sync_error("sync state lock failed"))? = Some(Received {
+        workspace: info.id,
+        store,
+    });
     Ok(info)
 }
 fn sync_error(error: impl std::fmt::Display) -> CoreError {
@@ -517,10 +538,14 @@ pub async fn sync_apply(
         .received
         .lock()
         .map_err(|_| sync_error("sync state lock failed"))?;
-    Ok(received
+    // The workspace has to be the one this store was opened for. Without the
+    // comparison a store left behind by an earlier received workspace would
+    // apply into whichever workspace happens to be open now.
+    let received = received
         .as_ref()
-        .ok_or_else(|| sync_error("no received workspace open"))?
-        .apply_for_editor(&mut service, buffers))
+        .filter(|r| Some(r.workspace) == service.workspace_id())
+        .ok_or_else(|| sync_error("no received workspace open"))?;
+    Ok(received.store.apply_for_editor(&mut service, buffers))
 }
 #[tauri::command]
 pub async fn sync_reload(
