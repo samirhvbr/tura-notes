@@ -46,9 +46,19 @@ fail() { log "❌ $*"; exit 1; }
 # A CONSEQUÊNCIA, ESCRITA: uma alteração NESTE arquivo vale no deploy SEGUINTE,
 # nunca no que a trouxe. É a troca desejada.
 if [ "${TURA_DEPLOY_PINNED:-0}" != "1" ]; then
-    REPO="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../.." && pwd)"
-    PINNED=$(mktemp /run/tura-deploy.XXXXXX)
-    cp -- "$(realpath "${BASH_SOURCE[0]}")" "$PINNED"
+    REPO="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../.." && pwd)" \
+        || fail "não achei a raiz do repositório a partir de ${BASH_SOURCE[0]}"
+    PINNED=$(mktemp /run/tura-deploy.XXXXXX) || fail "não consegui criar a cópia fixada em /run"
+    cp -- "$(realpath "${BASH_SOURCE[0]}")" "$PINNED" || fail "não consegui copiar o script para $PINNED"
+    # E a propriedade, não só o comando que deveria produzi-la. `mktemp` deixa
+    # um arquivo VAZIO, e `bash` num arquivo vazio sai 0 — então um `cp` que
+    # falhasse faria o `exec` abaixo rodar nada, com sucesso, e o orquestrador
+    # reportaria um deploy em que passo nenhum aconteceu. Que é exatamente o
+    # caso que este bloco existe para evitar, uma volta mais acima.
+    #
+    # `/run` é tmpfs: cheio, `cp` pode retornar 0 tendo escrito zero byte. Por
+    # isso a asserção é sobre o conteúdo e não sobre o código de saída.
+    [ -s "$PINNED" ] || fail "a cópia fixada em $PINNED saiu vazia"
     export TURA_DEPLOY_PINNED=1 TURA_DEPLOY_PINNED_FILE="$PINNED" TURA_REPO="$REPO"
     exec bash "$PINNED" "$@"
 fi
@@ -130,7 +140,11 @@ if [ "$installed" != "$target" ]; then
     ( cd "$tmp" && sha256sum -c "$name.sha256" >/dev/null ) || fail "checksum de $name não confere"
     ( cd "$tmp" && tar -xzf "$name" ) || fail "não consegui extrair $name"
     install -m 0755 "$tmp/notes-server" "$BINARY" || fail "não consegui instalar $BINARY"
-    mkdir -p "$(dirname "$STAMP")" && printf '%s\n' "$target" > "$STAMP"
+    # Sem isto, um `mkdir` que falha pula o `printf` e não falha nada: o stamp
+    # fica ausente, e o deploy seguinte rebaixa e reinstala o binário e reinicia
+    # o serviço de novo, achando que nunca instalou.
+    mkdir -p "$(dirname "$STAMP")" || fail "não consegui criar $(dirname "$STAMP")"
+    printf '%s\n' "$target" > "$STAMP" || fail "não consegui gravar o stamp $STAMP"
     log "  ✎ $BINARY → $target"
     restart_service=1; changed=1
 fi
@@ -142,7 +156,9 @@ fi
 
 # ── 4. Aplicar ───────────────────────────────────────────────────────────────
 if [ "$restart_service" -eq 1 ]; then
-    systemctl daemon-reload
+    # A unidade acabou de ser reescrita; um `daemon-reload` que falha faz o
+    # `restart` abaixo subir a unidade ANTIGA e reportar sucesso.
+    systemctl daemon-reload || fail "systemctl daemon-reload falhou"
     systemctl restart notes-server || fail "notes-server não reiniciou"
     log "  ↻ notes-server reiniciado"
 fi

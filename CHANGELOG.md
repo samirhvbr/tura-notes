@@ -8,6 +8,52 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.3 - the deploy stops instead of reporting success when a step fails
+
+`deploy-server.sh` runs under `set -uo pipefail` and deliberately not `-e`, so
+every failure path is explicit and the message names the step. Three commands
+had been left without their `|| fail`, and the worst was inside the block that
+exists to prevent exactly this.
+
+**The self-pinning copy could report a successful deploy in which nothing ran.**
+The block copies the script to `/run` and `exec`s the copy, so a `git pull`
+cannot swap the file underneath a running deploy — the header cites a real case
+where that skipped a step in silence and still reported success. But `cp` was
+unchecked, `mktemp` leaves an **empty** file, and `bash` on an empty file exits
+**0**. A failed copy therefore made `exec` run nothing, successfully, and the
+orchestrator printed a green deploy. Measured against the previous version of
+the block with a `cp` that returns 0 without writing: **exit 0, no output**.
+After: exit 1, `a cópia fixada em … saiu vazia`.
+
+The content is asserted, not just the exit code, and that is the point rather
+than belt-and-braces: `/run` is a tmpfs, and a full one lets `cp` return 0
+having written zero bytes. The check is on the property the next line depends
+on.
+
+The other two are the same shape one step down. `mkdir -p "$(dirname "$STAMP")"
+&& printf … > "$STAMP"`: a failed `mkdir` skipped the `printf` and failed
+nothing, leaving no stamp — so the next deploy re-downloaded the binary and
+restarted a service that holds notes, believing it had never installed. And
+`systemctl daemon-reload` was unchecked immediately after the unit file had been
+rewritten, so a failure there would have had the `restart` below bring the
+**old** unit up and report success.
+
+`server/tests/cotenant.py` asserts the class rather than the three lines,
+because the next one is a fourth command somebody adds without the suffix: every
+line starting `cp`/`mkdir`/`install`/`systemctl`/`mv`/`tar`/`printf`, outside
+comments and across `\` continuations, must carry `|| fail`. Plus the one
+property no exit code reports — that the pinned copy has content, checked before
+the `exec` rather than after. Both verified by removing them: the first names
+the line and the command, the second says the copy is exec'd unchecked.
+
+Finding 2 of the same review is deliberately **not** here. The server binary is
+verified by a checksum fetched from the same URL as the tarball, which catches
+truncation and not substitution, while the desktop updater has a pinned key and
+signature verification (ADR-074). Closing that asymmetry decides where a private
+key lives, who signs in the release pipeline, and what a deploy does when a
+signature fails on a host that is already serving. That is an ADR, not a line in
+this script.
+
 ## 1.5.2 - one session per worktree
 
 Two agent sessions shared this working tree for the length of a review, and the

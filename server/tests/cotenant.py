@@ -269,6 +269,40 @@ for forbidden in ["systemctl reload apache2", "systemctl restart apache2", "a2en
         assert forbidden not in line.split("#", 1)[0], f"deploy-server.sh now touches Apache: {line.strip()}"
 assert "$VHOST" in deploy, "the vhost is no longer even compared"
 
+# A DEPLOY THAT CANNOT DO ITS WORK MUST NOT REPORT SUCCESS.
+#
+# `deploy-server.sh` runs under `set -uo pipefail` and deliberately not `-e`:
+# the failure paths are explicit, so the message names the step. That only holds
+# while every state-changing command actually carries its `|| fail`, and three
+# did not. The worst was in the self-pinning block that exists to prevent
+# silence: `cp` was unchecked, `mktemp` leaves an EMPTY file, and `bash` on an
+# empty file exits 0 — so a failed copy made `exec` run nothing, successfully,
+# and the orchestrator reported a deploy in which no step happened. Measured
+# before the fix: exit 0, no output.
+#
+# The check is over the class rather than the three lines, because the next one
+# will be a fourth command somebody adds without the suffix.
+GUARDED = ("cp ", "cp -", "mkdir ", "install ", "systemctl ", "mv ", "tar ", "printf ")
+deploy_lines = deploy.splitlines()
+for number, raw in enumerate(deploy_lines, 1):
+    bare = raw.split("#", 1)[0].strip()
+    if not any(bare.startswith(command) for command in GUARDED):
+        continue
+    joined, index = bare, number
+    while joined.endswith("\\") and index < len(deploy_lines):
+        joined = joined[:-1] + " " + deploy_lines[index].split("#", 1)[0].strip()
+        index += 1
+    assert "|| fail" in joined, \
+        f"deploy-server.sh:{number} changes state without `|| fail`: {bare[:70]}"
+
+# And the property the pinned copy needs, which no exit code reports: `cp` can
+# return 0 having written nothing when /run — a tmpfs — is full. The assertion
+# is on the content, and it has to come before the `exec` that would run it.
+assert "[ -s \"$PINNED\" ]" in deploy, \
+    "the pinned copy is exec'd without checking that it has any content"
+assert deploy.index("[ -s \"$PINNED\" ]") < deploy.index('exec bash "$PINNED"'), \
+    "the pinned copy is checked after it is already running"
+
 # And the guard for the whole class, not just that one mistake: nothing in this
 # suite may add a file to the checkout. A stray write is invisible in a passing
 # run and arrives in the next commit.
