@@ -110,6 +110,7 @@ step "Linux packaging orchestration" python3 tools/tests/test_build_linux.py
 step "updater publication" python3 tools/tests/test_updater_release.py
 step "macOS build script" python3 tools/tests/test_build_local.py
 step "self-hosting guide"  python3 tools/tests/test_selfhosting_doc.py
+step "hand-written IPC shape" python3 tools/tests/test_env_report.py
 step "development version" node --test tools/tauri.test.mjs
 step "frontend tests"       bash -c 'cd apps/notes-app && npm test -- --run >/dev/null'
 step "frontend"             bash -c 'cd apps/notes-app && npm run build >/dev/null'

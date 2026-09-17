@@ -70,6 +70,9 @@ export type {
 
 /** Diagnostics, and the only shape here that is not generated. */
 export interface EnvReport {
+  /** The running version. `tools/tests/test_env_report.py` keeps this
+   *  interface and the Rust struct in step; nothing else can. */
+  version: string;
   os: string;
   arch: string;
   tauriVersion: string;

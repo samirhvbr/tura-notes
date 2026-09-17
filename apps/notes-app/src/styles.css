@@ -901,6 +901,10 @@ code { font-family: var(--font-mono); }
 .update-banner { position: fixed; z-index: 2000; top: 1rem; right: 1rem; max-width: min(30rem, calc(100vw - 2rem)); padding: 1rem; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 24px var(--shadow); }
 .update-banner p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .update-manual { margin-block: .5rem; }
+/* The version you are on, beside the one being offered. Quieter than the
+   offer, because it is context rather than a thing to act on — but never
+   `--muted` faint: it is the line somebody opened this screen to read. */
+.update-banner .update-running, .update-manual .update-running { margin: 0 0 .35rem; color: var(--fg); font-variant-numeric: tabular-nums; }
 .update-banner .actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 .update-banner button, .update-manual button { color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font: inherit; cursor: pointer; }
 .update-banner button:focus-visible, .update-manual button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

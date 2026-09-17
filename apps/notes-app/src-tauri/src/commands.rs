@@ -53,6 +53,11 @@ pub struct DmabufReport {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvReport {
+    /// The running version, stamped into the bundle from `version.md` at build
+    /// time (ADR-035). Read from the package rather than from a constant,
+    /// because the constant in `Cargo.toml` is the `0.0.0` placeholder and a
+    /// diagnostic that confidently reports `0.0.0` is worse than none.
+    pub version: String,
     pub os: String,
     pub arch: String,
     pub tauri_version: String,
@@ -76,8 +81,9 @@ fn svc<'a>(app: &'a State<'_, App>) -> R<std::sync::MutexGuard<'a, WorkspaceServ
 }
 
 #[tauri::command]
-pub fn env_report(app: State<'_, App>) -> R<EnvReport> {
+pub fn env_report(app: State<'_, App>, handle: tauri::AppHandle) -> R<EnvReport> {
     Ok(EnvReport {
+        version: handle.package_info().version.to_string(),
         os: std::env::consts::OS.into(),
         arch: std::env::consts::ARCH.into(),
         tauri_version: tauri::VERSION.into(),

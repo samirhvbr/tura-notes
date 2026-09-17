@@ -8,6 +8,47 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.3.9 - About in the Help menu, where macOS left it empty
+
+Tauri's default menu puts About in the application menu on macOS and leaves Help
+with nothing in it; on Linux and Windows it puts About *in Help*, because there
+is no application menu to hold it. macOS is the one platform where opening Help
+opens nothing, which is where the request came from.
+
+The item is the platform's own About panel rather than a window of ours. It
+already carries the name, the version stamped from `version.md` and the
+copyright, and a dialog we drew would be one more thing to translate, style and
+keep in step with a number it does not own.
+
+It appends to the default menu rather than rebuilding one. The default carries
+Edit with cut, copy, paste and select-all, and a WebView whose menu loses those
+loses the shortcuts with them.
+
+Compile-checked here; a menu is confirmed by opening it, on the installed build.
+
+## 1.3.9 - the update screen says which version is running
+
+*"Na tela de update é obrigatório mostrar a versão."* It was not there. The
+banner announced the version being offered and the Settings panel offered to
+check for one, and neither said what the application was. *Tura Notes update
+1.3.6* above something already running 1.3.6 reads as a loop rather than as an
+offer.
+
+`env_report` gains it, read from the package rather than `CARGO_PKG_VERSION` —
+the constant in `Cargo.toml` is the `0.0.0` placeholder, and a diagnostic that
+confidently reports `0.0.0` is worse than one that reports nothing. The banner,
+the Settings check and the Diagnostics list all show it; a failed read leaves the
+line out rather than the panel.
+
+`EnvReport` is the one IPC shape the frontend hand-writes, so the drift it
+invites is now a test. Add a field in Rust and forget the TypeScript and it is
+invisible; rename one and the frontend reads `undefined`, which React renders as
+nothing — and a blank where the version should be is indistinguishable from a
+screen that never had one, which is the complaint this answers. The Rust struct
+and the TypeScript interface are compared by name through serde's camelCase, and
+the version field is asserted by name as well, because both sides agreeing it is
+absent would pass the comparison.
+
 ## 1.3.8 - the cloud deployment leaves the queue, verified from outside
 
 The queue said, checked on the morning of 16/09/2026, that `tura.samirhv.com.br`
