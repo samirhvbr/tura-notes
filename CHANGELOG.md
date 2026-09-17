@@ -8,6 +8,46 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.3 - the Linux-only watcher test still read `degraded` as a field
+
+Moving the watcher's setup onto its own thread — the fix that stopped
+`start_watch` costing 270 ms of held service mutex on macOS — turned
+`Watch::degraded` from a public field into a method, because the answer now
+arrives after the caller already holds its `Watch`.
+`crates/notes-fs/tests/watch_walk.rs` still read it as a field, in four places,
+and the file is `#![cfg(target_os = "linux")]`.
+
+**So the macOS gate compiled none of it and was green.** CI was red on
+`rust (ubuntu-latest)` and on the Arch job for two versions, with
+`error[E0615]: attempted to take value of method `degraded``.
+
+The fix is not the parentheses. `degraded()` is `None` until the thread has
+tried, which the API says in as many words, so a guard that asks the moment
+`watch()` returns reads `None` on a machine that cannot watch at all — it would
+have compiled and stopped skipping, and the test would have failed on the
+assertions instead. `fail()` records the reason and clears `walking` together,
+so each test asks where its own shape allows:
+
+- `the_walk_reports_its_progress_and_finishes` already polls until `!walking`;
+  the guard moved below that loop and reads `WatchProgress::degraded`.
+- `dropping_the_watch_stops_the_walk_where_it_is` drops the `Watch` before the
+  walk starts, which is its whole point, so there is no moment at which asking
+  the `Watch` would have an answer. It reads the reason from the counters it
+  already keeps for the count.
+
+Verified by reproducing the failure on this machine before fixing it:
+`rustup target add x86_64-unknown-linux-gnu` and `cargo check --target
+x86_64-unknown-linux-gnu -p notes-fs --all-targets` gave the same four E0615s,
+and pass after. `notes-model`, `notes-markdown` and `notes-sync` cross-check
+clean too; the rest of the workspace needs a Linux C cross-compiler for SQLite,
+which this machine does not have.
+
+**The gate cross-checks Windows and not Linux, and that is the gap this fell
+through.** `tools/check.sh` says why the Windows round exists — `cfg`-gated code
+the native target cannot see, two CI rounds spent on exactly that — and the same
+argument covers Linux, where `PER_DIRECTORY` puts the watcher's only per-directory
+walk. Adding the round is its own commit; this one repairs the break.
+
 ## 1.4.2 - eight contracts the local gate checked and no pull request did
 
 `tools/check.sh` and `.github/workflows/ci.yml` are two lists of the same

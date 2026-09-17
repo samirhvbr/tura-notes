@@ -33,16 +33,22 @@ fn the_walk_reports_its_progress_and_finishes() {
     let fs = LocalFs::open(d.path()).unwrap();
 
     let watch = fs.watch();
-    if watch.degraded.is_some() {
-        eprintln!("skipped: this machine cannot watch ({:?})", watch.degraded);
-        return;
-    }
 
     let deadline = Instant::now() + Duration::from_secs(30);
     let mut p = watch.progress();
     while p.walking && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(2));
         p = watch.progress();
+    }
+
+    // **After the walk, not before it.** Establishing the handle moved onto the
+    // thread, so at the moment `watch()` returns the answer does not exist yet
+    // and `degraded` is `None` on a machine that cannot watch at all. Asking
+    // first is how this skip stopped skipping. `fail()` clears `walking` as it
+    // records the reason, so the loop above has already waited for it.
+    if let Some(reason) = p.degraded {
+        eprintln!("skipped: this machine cannot watch ({reason:?})");
+        return;
     }
 
     assert!(!p.walking, "the walk finished: {p:?}");
@@ -65,17 +71,20 @@ fn dropping_the_watch_stops_the_walk_where_it_is() {
     let fs = LocalFs::open(d.path()).unwrap();
 
     let watch = fs.watch();
-    if watch.degraded.is_some() {
-        eprintln!("skipped: this machine cannot watch ({:?})", watch.degraded);
-        return;
-    }
-    // Kept, so the count can be read after the `Watch` is gone.
+    // Kept, so the count — and the reason — can be read after the `Watch` is
+    // gone. This test drops the `Watch` before the walk has started, which is
+    // the point of it, so there is no moment at which asking the `Watch` itself
+    // would have an answer.
     let counters = watch.counters();
     drop(watch);
 
     // Long enough that an uncancelled walk of 8 000 directories would have
     // finished several times over — it takes about 30 ms here.
     std::thread::sleep(Duration::from_millis(600));
+    if let Some(reason) = counters.degraded.lock().ok().and_then(|d| d.clone()) {
+        eprintln!("skipped: this machine cannot watch ({reason:?})");
+        return;
+    }
     let dirs = counters.dirs.load(std::sync::atomic::Ordering::Relaxed);
     let walking = counters.walking.load(std::sync::atomic::Ordering::Relaxed);
 
