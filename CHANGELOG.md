@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.62 - the agent instructions understated the project by a whole milestone
+
+The sweep that found the macOS claim in three places, turned on the milestone
+count. `README.md` was corrected at `1.6.57`; `CLAUDE.md` and `AGENTS.md` said
+the same thing and were not.
+
+*"Milestones 0.1a–0.1d, 0.2, 0.3 and 0.5 are implemented"* — **0.7 is missing**,
+and it is missing from a paragraph that then spends twenty lines on individual
+`0.20.x` sync blocks. Remote MCP shipped at `1.6.5`, has an `ACTIVE` contract, an
+acceptance page and an end-to-end smoke in CI as of today. An agent reading its
+own instructions would not know the endpoint exists.
+
+The acceptance line in the same paragraph had the second half of the same
+problem: *"owner verification remains tracked in the acceptance documents"* is
+true and says nothing about scale. There are eight of them and not one box is
+ticked, which is the fact that decides whether a session treats "implemented" as
+"finished".
+
+And the sentence naming broader retention, mobile lifecycle and device
+acceptance as open now says where that lives — `.continue/0.6-sync.md`, as the
+gap `1.6.58` wrote there, with the three product questions it turns on. Naming
+open work in an instruction file without saying where its specification is, is
+how the reader concludes there must be one.
+
+Both twins, byte-identical below the H1, checked by the gate.
+
+Two claims were swept in the same pass and came back correct: the eight MCP tool
+names in `crates/notes-mcp/src/lib.rs` are exactly the eight the roadmap and the
+contract list, and the sixteen interface areas `docs/README.md` advertises are
+the sixteen rows `ACCEPTANCE-0.1d.md` holds.
+
 ## 1.6.61 - two pages still described an ADR with the word the ADRs stopped using
 
 The same sweep method as `1.6.60`, turned on the other facts corrected today.

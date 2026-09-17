@@ -397,6 +397,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   ponto: mudança de vocabulário cai num arquivo e é citada em outros, e as citações
   são a metade que ninguém edita
 
+- [x] R6e — as instruções do agente subcontavam o projeto num marco inteiro
+  (1.6.62). A varredura que achou o macOS em três lugares, virada para a contagem
+  de marcos: o `README.md` foi corrigido no 1.6.57, e o `CLAUDE.md`/`AGENTS.md`
+  diziam a mesma coisa e não foram. **O 0.7 não aparece** num parágrafo que depois
+  gasta vinte linhas com blocos `0.20.x` individuais — um agente lendo as próprias
+  instruções não saberia que o endpoint existe. A linha de aceite tinha a segunda
+  metade do mesmo problema: *"remains tracked in the acceptance documents"* é
+  verdade e não diz escala; são oito, e nenhuma caixa marcada. Duas afirmações
+  varridas no mesmo passe voltaram certas: as oito ferramentas MCP conferem com o
+  código, e as dezesseis áreas de interface conferem com a tabela
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

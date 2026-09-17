@@ -77,7 +77,7 @@ one-line version of both:
   logic lives) · `server/notes-server/` (standalone REST process, milestone 0.5).
   [ADR-003](docs/decisions.md#adr-003--the-rust-logic-lives-in-crates-and-the-tauri-shell-stays-thin).
 - **Runs locally with:** `cd apps/notes-app && npm ci && npm run tauri dev`.
-  Milestones 0.1a–0.1d, 0.2, 0.3 and 0.5 are implemented; 0.4 has its mobile core foundation. The 0.6 blocks provide causal planning, a server inbox and a durable CLI transfer client;
+  Milestones 0.1a–0.1d, 0.2, 0.3, 0.5 and **0.7** are implemented; 0.4 has its mobile core foundation. Remote MCP answers at `POST /v1/mcp` from the same catalogue, credential and scopes the REST API uses ([MCP-0.7.md](docs/MCP-0.7.md)). The 0.6 blocks provide causal planning, a server inbox and a durable CLI transfer client;
   0.20.1 adds guarded closed-workspace application of creations/updates.
   0.20.3 adds device acknowledgments; 0.20.5 adds the exclusive open-session
   core API. In 0.20.6 the app applies prepared receive queues with an editing
@@ -100,8 +100,12 @@ one-line version of both:
   Version 0.20.19 adds unanimous resolved-branch payload pruning on the server
   and matching receiver compaction. Version 0.20.20 adds explicit revoked-device
   retirement and scoped receiver recovery. Broader retention, mobile lifecycle and
-  broader device acceptance remain open. Owner verification on installed
-  releases remains tracked in the acceptance documents and the queue.
+  broader device acceptance remain open — **named here and in two sections of
+  `SYNC-0.6.md`, and specified nowhere**, which is why `.continue/0.6-sync.md`
+  carries the gap and the three product questions it turns on. Owner verification
+  on installed releases remains open for **every** delivered milestone — 0.0,
+  0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`, none
+  of them ticked.
   The whole gate is `tools/check.sh`; see [docs/roadmap.md](docs/roadmap.md).
 - **Never do, without an ADR that reverses the one named:**
   - store a note anywhere but as a `.md` file on the filesystem, or put the only
