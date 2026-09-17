@@ -285,6 +285,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   comentário ter sido aposentada. **Sem regra nova no gate:** quatro links legítimos
   para três defeitos dá lista de exceção maior que os achados, e aí o check é pulado
 
+- [x] R5r — o `decisions.md` usava duas palavras para o mesmo estado, 26 vezes
+  (1.6.49). O `ADR-043` ao `ADR-068`, um bloco contíguo, dizia `ACTIVE`; todo ADR
+  dos dois lados dizia `ACCEPTED`. É o argumento que o `doc-status.sh` já faz sobre
+  o outro vocabulário, um arquivo adiante. **As palavras de ADR não são as de
+  documento, de propósito, e agora está escrito:** documento é `ACTIVE` porque
+  alguém decide se constrói contra ele *agora*; ADR é `ACCEPTED` porque a decisão
+  foi tomada *então*, e continua tomada depois de ser substituída. E é por isso que
+  o `SUPERSEDED` no preâmbulo **não** era violação — que foi o que pareceu na
+  entrada. Medir antes de editar impediu de "consertar" uma linha certa.
+  `tools/adr-status.py` no gate, provado contra as duas formas de falha
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.49 - the decision record used two words for the same state, twenty-six times
+
+`docs/decisions.md` is the file every *"do not re-litigate a decided direction"*
+points at, and its status line is how a reader tells a decision in force from one
+that was replaced. It carried two words for the same state: `ADR-043` through
+`ADR-068` — one contiguous block of twenty-six — said `ACTIVE`, and every ADR on
+either side of that block said `ACCEPTED`. `ADR-039` said
+`Accepted, implemented in 0.14.0` in a third shape again.
+
+This is the argument `tools/doc-status.sh` already makes about the other
+vocabulary, one file along: a second word for one state is a word the reader has
+to interpret rather than look up.
+
+**The ADR words are deliberately not the document words, and that is now written
+down.** A document is `ACTIVE` because somebody is deciding whether to build
+against it *now*; an ADR is `ACCEPTED` because a decision was taken *then*, and
+it stays taken after something replaces it. `ACTIVE` on an ADR reads as a claim
+that the decision is still in force — a claim about the code, when the ADR is the
+argument for that code rather than a report on it. The preamble names the four:
+`PROPOSED`, `ACCEPTED`, `SUPERSEDED`, `REVERSED`.
+
+That distinction is why the preamble's mention of `SUPERSEDED` is **not** a
+vocabulary violation, which is what it looked like on the way in. Measuring
+before editing is what kept a correct line from being "fixed".
+
+`tools/adr-status.py` joins the gate: every `## ADR-` block carries a
+`**Status:**` line and its word is one of the four. Proved against both failure
+shapes before shipping — an ADR with `ACTIVE` and an ADR with no status line each
+fail by name, and the file passes at 84 ADRs once restored.
+
 ## 1.6.48 - three citations named a file that exists and is not the one they point at
 
 Sweeping for live documents that link into superseded ones — the defect found in

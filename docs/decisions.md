@@ -10,6 +10,22 @@ the ADR.
 Numbering is sequential and never reused. A superseded ADR is not deleted: its
 status changes to `SUPERSEDED` and it names the ADR that replaced it.
 
+**The four words an ADR may carry are `PROPOSED`, `ACCEPTED`, `SUPERSEDED` and
+`REVERSED`, and they are deliberately not the five a document carries.** A
+document is `ACTIVE` or `HISTORICAL` because a reader is deciding whether to
+build against it *now*; an ADR is `ACCEPTED` because a decision was taken *then*,
+and it stays taken even after something replaces it. Using `ACTIVE` here reads as
+"this decision is still in force", which is a claim about the code rather than
+about the record — and the code is what the ADR is the argument for, not a fact
+the status line gets to assert.
+
+Twenty-six ADRs — `043` through `068`, one contiguous block — said `ACTIVE` until
+`1.6.49`, and everything on either side of that block said `ACCEPTED`. Normalized
+rather than left, for the reason `tools/doc-status.sh` already gives about the
+other vocabulary: a second word for one state is a word the reader has to
+interpret instead of look up, and `tools/adr-status.py` now fails the gate on a
+sixth one.
+
 ---
 
 ## ADR-001 — Markdown files on the filesystem are the source of truth
@@ -1235,7 +1251,7 @@ and a user who cannot see the shape of what is coming.
 
 ## ADR-039 — SQLite stores facts; the core owns workspace I/O
 
-**Status:** Accepted, implemented in 0.14.0 (milestone 0.2).
+**Status:** `ACCEPTED` · implemented in 0.14.0 (milestone 0.2).
 
 **Context.** ADR-003 deferred the index boundary until real code needed it;
 ADR-015 requires operational identity to move to a separate SQLite database.
@@ -1355,7 +1371,7 @@ Tauri shell, Android runtime integration and device flows remain future work.
 
 ## ADR-043 — A separate owner-operated REST server reuses core policy
 
-**Status:** ACTIVE · 10/09/2026 · Implemented in 0.18.0.
+**Status:** `ACCEPTED` · 10/09/2026 · Implemented in 0.18.0.
 
 **Context.** The owner requested milestone 0.5 after reviewing and merging the
 mobile foundation. Server access needs revocable, scoped credentials without
@@ -1402,7 +1418,7 @@ following-release repeat remain open in ACCEPTANCE-0.5.md.
 
 ## ADR-044 — Synchronization starts with causal plans and explicit pairing
 
-**Status:** ACTIVE · Implemented domain boundary in 0.19.0; milestone 0.6 open.
+**Status:** `ACCEPTED` · Implemented domain boundary in 0.19.0; milestone 0.6 open.
 
 **Context.** The owner requested the next queued items after the 0.5 server.
 ADR-005 already requires identity, revisions, tombstones and no clock-based
@@ -1434,7 +1450,7 @@ See SYNC-0.6.md for the implemented contract and limits.
 
 ## ADR-045 — The first server sync transport stores revisions before application
 
-**Status:** ACTIVE · Implemented in 0.19.1; milestone 0.6 remains open.
+**Status:** `ACCEPTED` · Implemented in 0.19.1; milestone 0.6 remains open.
 
 **Context.** After causal planning, replication needs durable original bytes and
 an authenticated resumable exchange. A storage acknowledgment cannot honestly
@@ -1471,7 +1487,7 @@ needs a documented migration and recovery path. See SYNC-0.6.md and OpenAPI.
 
 ## ADR-046 — Device transfer uses durable queues before source application
 
-**Status:** ACTIVE · Implemented in 0.20.0; milestone 0.6 remains open.
+**Status:** `ACCEPTED` · Implemented in 0.20.0; milestone 0.6 remains open.
 Explicit source application is added separately by ADR-047 in 0.20.1.
 
 **Context.** The server inbox can store immutable revisions, but a device must
@@ -1517,7 +1533,7 @@ TCP and the existing HTTPS proxy, in addition to fault-injected lost receipts.
 
 ## ADR-047 — Apply received notes only through guarded closed-workspace writes
 
-**Status:** ACTIVE · Implemented in 0.20.1; milestone 0.6 remains open.
+**Status:** `ACCEPTED` · Implemented in 0.20.1; milestone 0.6 remains open.
 
 **Context.** Durable transfer is not proof that a note was safely applied. The
 editor owns buffers outside the transport process, and a crash can separate a
@@ -1552,7 +1568,7 @@ checkpoints.
 
 ## ADR-048 — Application acknowledgments report durable device receipts
 
-**Status:** ACTIVE · Implemented in 0.20.3; milestone 0.6 remains open.
+**Status:** `ACCEPTED` · Implemented in 0.20.3; milestone 0.6 remains open.
 
 **Context.** Storage acceptance and a successful local application are different
 facts. The server needs explicit device progress without inferring it from
@@ -1584,7 +1600,7 @@ ADR-047's existing closed-workspace guard.
 
 ## ADR-049 — Admit exclusive sync hosts before opening buffers
 
-**Status:** ACTIVE · Core foundation in 0.20.5; frontend integration follows in ADR-050.
+**Status:** `ACCEPTED` · Core foundation in 0.20.5; frontend integration follows in ADR-050.
 
 **Context.** Applying with an editor open needs a coherent snapshot of buffers
 that live outside core. Upgrading an existing shared OS lock risks a gap in
@@ -1613,7 +1629,7 @@ data are excluded for the entire exclusive session, not just its writes.
 
 ## ADR-050 — The editor owns an input barrier around received application
 
-**Status:** ACTIVE · Implemented in 0.20.6.
+**Status:** `ACCEPTED` · Implemented in 0.20.6.
 
 **Context.** Exclusive core ownership does not freeze the frontend's document.
 A batch may apply some revisions before a later failure, and a missing response
@@ -1648,7 +1664,7 @@ listener, or server acknowledgment follows from the UI action.
 
 ## ADR-051 — Import divergent history only with its explicit resolution
 
-**Status:** ACTIVE · Implemented in 0.20.7; extends ADR-045's inbox protocol.
+**Status:** `ACCEPTED` · Implemented in 0.20.7; extends ADR-045's inbox protocol.
 
 **Context.** A rejected linear publication remains queued, but its peer cannot
 resolve with two parents until the divergent history is available. Importing a
@@ -1678,7 +1694,7 @@ pairing and editor conflict controls remain open.
 
 ## ADR-052 — A rename or deletion resolution requires an explicit result choice
 
-**Status:** ACTIVE · Implemented in 0.20.8; extends ADR-051's client workflow.
+**Status:** `ACCEPTED` · Implemented in 0.20.8; extends ADR-051's client workflow.
 
 **Context.** A file-only resolution cannot express which path survives a rename,
 or distinguish an intentionally empty note from deletion. Inferring either
@@ -1700,7 +1716,7 @@ remain queued. Existing source guards and wire/schema versions are unchanged.
 
 ## ADR-053 — Receiver conflicts retain capture and application progress separately
 
-**Status:** ACTIVE · Implemented in 0.20.9 for closed-workspace same-path live notes.
+**Status:** `ACCEPTED` · Implemented in 0.20.9 for closed-workspace same-path live notes.
 
 **Context.** A local receiver edit differs from its last source-application receipt.
 Replacing that receipt with a captured edit would falsely claim remote progress;
@@ -1744,7 +1760,7 @@ application receipt for the earlier published choice.
 
 ## ADR-054 — Receiver path effects have durable intent before source changes
 
-**Status:** ACTIVE · Implemented in 0.20.12.
+**Status:** `ACCEPTED` · Implemented in 0.20.12.
 
 **Decision.** Apply explicit move/tombstone resolutions only in a closed exclusive
 core session, retaining captured bytes in history. A move creates the chosen target
@@ -1757,7 +1773,7 @@ rename cycles and automatic source deletion capture remain separate work.
 
 ## ADR-055 — Pairing confirms observed identities within a pinned namespace
 
-**Status:** ACTIVE · Implemented in 0.20.12.
+**Status:** `ACCEPTED` · Implemented in 0.20.12.
 
 **Decision.** Pin the credential's exact workspace/subfolder scope and translate
 all paths at the transport boundary. Preserve the server's global cursor even
@@ -1772,7 +1788,7 @@ is introduced, and enrollment does not imply automatic two-way synchronization.
 
 ## ADR-056 — Explicit note effects use ordered recoverable publications
 
-**Status:** ACTIVE · Implemented in 0.20.13.
+**Status:** `ACCEPTED` · Implemented in 0.20.13.
 
 **Decision.** Missing inventory entries require an explicit current-head tombstone
 request. Correlate closed rename cycles only with unique native identities and
@@ -1783,7 +1799,7 @@ not inferred from hashes alone.
 
 ## ADR-057 — Referenced attachments travel with immutable note revisions
 
-**Status:** ACTIVE · Implemented in 0.20.13.
+**Status:** `ACCEPTED` · Implemented in 0.20.13.
 
 **Decision.** The shared Markdown parser selects local references. Capture exact
 binary bytes through core, retaining optional bounded manifests with primary
@@ -1795,7 +1811,7 @@ retain branch exports. Do not delete assets merely because references disappear.
 
 ## ADR-058 — The desktop schedules transfer independently of source application
 
-**Status:** ACTIVE · Implemented in 0.20.14.
+**Status:** `ACCEPTED` · Implemented in 0.20.14.
 
 **Decision.** A native worker in `notes-sync-client` owns bounded transport passes,
 serialized independently of the editor mutex. Persist one active queue and an
@@ -1810,7 +1826,7 @@ pairing, review, explicit application, capture/resolution and recovery exports.
 
 ## ADR-059 — Server rollback recovery replays only an exact retained prefix
 
-**Status:** ACTIVE · Implemented in 0.20.15.
+**Status:** `ACCEPTED` · Implemented in 0.20.15.
 
 **Decision.** Make older-server recovery an explicit CLI maintenance operation.
 An unscoped queue audits the complete server prefix before and after a bounded
@@ -1825,7 +1841,7 @@ this operation does not authorize pruning or older-client recovery.
 
 ## ADR-060 — Saved receiver edits are publications, not implicit file application
 
-**Status:** ACTIVE · Implemented in 0.20.16.
+**Status:** `ACCEPTED` · Implemented in 0.20.16.
 
 **Decision.** Capture already applied same-path receiver edits under existing
 identity and closed-workspace guards. Use the applied revision as the causal
@@ -1840,7 +1856,7 @@ not authorize automatic creation, movement or deletion.
 
 ## ADR-061 — Receiver additions and renames require independent capture choices
 
-**Status:** ACTIVE · Implemented in 0.20.17.
+**Status:** `ACCEPTED` · Implemented in 0.20.17.
 
 **Decision.** Extend ADR-060 with separate default-off choices for new local notes
 and recognized renames. Presence of a new path alone does not grant publication
@@ -1856,7 +1872,7 @@ remain outside these choices.
 
 ## ADR-062 — Restored client recovery audits history without applying files
 
-**Status:** ACTIVE · Implemented in 0.20.18.
+**Status:** `ACCEPTED` · Implemented in 0.20.18.
 
 **Decision.** Provide explicit unscoped client recovery complementary to ADR-059.
 Verify the complete retained prefix and recover one additional page per atomic
@@ -1871,7 +1887,7 @@ repair or replacement of local files after an application-data rollback.
 
 ## ADR-063 — Pruning starts with unanimously acknowledged resolved branches
 
-**Status:** ACTIVE · Implemented in 0.20.19.
+**Status:** `ACCEPTED` · Implemented in 0.20.19.
 
 **Decision.** The first sync retention operation removes payload bytes only from
 divergent branches enclosed by a resolution that every known device has applied.
@@ -1890,7 +1906,7 @@ baseline/cursor protocol and is not implied by this decision.
 
 ## ADR-064 — Device retirement requires prior credential revocation
 
-**Status:** ACTIVE · Implemented in 0.20.20.
+**Status:** `ACCEPTED` · Implemented in 0.20.20.
 
 **Decision.** Let an offline operator list registered sync devices and retire a
 specific device only after revoking the credential that owns it. Hold the server
@@ -1905,7 +1921,7 @@ registration. Zero remaining devices still authorize no pruning under ADR-063.
 
 ## ADR-065 — Scoped client recovery follows the visible sequence and absolute cursor
 
-**Status:** ACTIVE · Implemented in 0.20.20.
+**Status:** `ACCEPTED` · Implemented in 0.20.20.
 
 **Decision.** Extend ADR-062 client recovery to a queue with a pinned subfolder
 scope. Compare every retained publication against the ordered sequence visible
@@ -1920,7 +1936,7 @@ does not repair restored application identities or infer missing publications.
 
 ## ADR-066 — Linear retention keeps append positions and the live baseline
 
-**Status:** ACTIVE · Implemented in 0.20.22.
+**Status:** `ACCEPTED` · Implemented in 0.20.22.
 
 **Decision.** Extend the offline server retention operation to acknowledged,
 strictly linear history. Keep every publication and revision in its original
@@ -1939,7 +1955,7 @@ deletion or restored-application identity repair.
 
 ## ADR-067 — Reconcile restored application identity explicitly
 
-**Status:** ACTIVE · Implemented in 0.20.23.
+**Status:** `ACCEPTED` · Implemented in 0.20.23.
 
 **Decision.** Provide a local `reconcile-application` operation for a fully
 applied receive queue after its application data was restored. Re-observe each
@@ -1958,7 +1974,7 @@ truth by timestamp.
 
 ## ADR-068 — PDF import saves reviewed plain text only
 
-**Status:** ACTIVE · Implemented in 0.20.27.
+**Status:** `ACCEPTED` · Implemented in 0.20.27.
 
 **Decision.** Select PDFs through the native dialog, extract only plain text in
 the desktop backend, and show that text in an editable import view before any
@@ -1969,7 +1985,7 @@ new Markdown note; cancellation writes nothing. Bound the selected input to
 
 ## ADR-069 — Tura Notes branding preserves installed identities
 
-**Status:** ACCEPTED · 11/09/2026
+**Status:** `ACCEPTED` · 11/09/2026
 
 **Decision.** Adopt Tura Notes, the ribbon-T identity and the repository name
 `tura-notes` for the owner-selected 1.0.0 release. Keep `br.com.samirhv.notes`,
@@ -1980,7 +1996,7 @@ and regeneration instructions live in [brand.md](brand.md).
 
 ## ADR-070 — macOS releases are signed, notarised and published by the local pipeline
 
-**Status:** ACCEPTED · 11/09/2026
+**Status:** `ACCEPTED` · 11/09/2026
 
 **Context.** [ADR-024](#adr-024--no-unsigned-macos-or-windows-artefact-is-published)
 withheld every macOS artefact until one could be signed and notarised, and named
@@ -2016,7 +2032,7 @@ the downloads page carry different platform sets until CI can sign.
 
 ## ADR-071 — Packaging reads the bundler's filenames instead of asserting them
 
-**Status:** ACCEPTED · 11/09/2026
+**Status:** `ACCEPTED` · 11/09/2026
 
 **Context.** The Tauri bundler names the Linux desktop entry after
 `productName`. `packaging/aur/notes-bin/PKGBUILD.in` and the Arch job's
@@ -2042,7 +2058,7 @@ on one of them. The generated tarball layout documented in
 
 ## ADR-072 — Local Linux packaging shares the desktop build entry point
 
-**Status:** ACCEPTED · 12/09/2026 · Build reuse amended by ADR-073.
+**Status:** `ACCEPTED` · 12/09/2026 · Build reuse amended by ADR-073.
 
 **Decision.** Extend ADR-070 with a Linux dispatch in `build-local.sh` and a
 `deploy.sh` compatibility entry point. The existing macOS pipeline remains
@@ -2062,7 +2078,7 @@ cross-compilation is introduced by this script. Existing CI handles Arch package
 
 ## ADR-073 — Persist completed Linux builds before publication
 
-**Status:** ACCEPTED · 12/09/2026
+**Status:** `ACCEPTED` · 12/09/2026
 
 **Decision.** Replace ADR-072's unconditional Linux rebuild with per-format
 completed-build manifests. Verify version, host, source content and artifact
@@ -2076,7 +2092,7 @@ preserved timestamps. Missing or unverifiable manifests require a fresh build.
 
 ## ADR-074 — Signed desktop updates with explicit installation
 
-**Status:** ACCEPTED · 12/09/2026
+**Status:** `ACCEPTED` · 12/09/2026
 
 **Decision.** Reverse the MVP's no-updater boundary and ADR-072's exclusion of
 updater signing. Add the Tauri updater in the native desktop shell. Check after
@@ -2099,7 +2115,7 @@ acceptance remains distinct from compilation, signing and transport tests.
 
 ## ADR-075 — The root jail is enforced again at the open, not only at the path
 
-**Status:** ACCEPTED · 15/09/2026
+**Status:** `ACCEPTED` · 15/09/2026
 
 **Decision.** Keep `LocalFs::resolve` as the path half of the jail and add a
 second enforcement at the moment of use. Reads open with `O_NOFOLLOW` on Unix
@@ -2141,7 +2157,7 @@ control table rather than leaving the row claiming more than the code does.
 
 ## ADR-076 — The cloud copy of the notes is a co-tenant on the site's own server
 
-**Status:** ACCEPTED · 15/09/2026
+**Status:** `ACCEPTED` · 15/09/2026
 
 **Context.** "Store the `.md` files in the cloud" has had an implementation
 since 0.18.0 and no deployment. `notes-server` is the process
@@ -2197,7 +2213,7 @@ process on a separate machine.
 
 ## ADR-077 — A rename refuses an occupied destination in the syscall, not before it
 
-**Status:** ACCEPTED · 16/09/2026
+**Status:** `ACCEPTED` · 16/09/2026
 
 **Decision.** `LocalFs::rename` asks the operating system for an exclusive
 rename — `renameat2(RENAME_NOREPLACE)` on Linux and Android,
@@ -2238,7 +2254,7 @@ needs a window no test can schedule reliably, and asserting through the public
 
 ## ADR-078 — The watcher is established on its own thread, on every platform
 
-**Status:** ACCEPTED · 16/09/2026
+**Status:** `ACCEPTED` · 16/09/2026
 
 **Decision.** `notes_fs::watch()` creates the backend and installs the root
 watch on the watcher's own thread on every platform, not only where
@@ -2285,7 +2301,7 @@ clear it.
 
 ## ADR-079 — The About dialog is ours, and Help is where it opens
 
-**Status:** ACCEPTED · 16/09/2026 · reverses the approach shipped in 1.3.9
+**Status:** `ACCEPTED` · 16/09/2026 · reverses the approach shipped in 1.3.9
 
 **Decision.** Replace the platform's About panel with a dialog of ours on every
 desktop platform. Tauri's default Help submenu is emptied and given one item,
@@ -2599,7 +2615,7 @@ step, in the queue with the other installed-release checks.
 
 ## ADR-083 — `.loop/` is versioned memory, in the language it is thought in
 
-**Status:** ACCEPTED · 17/09/2026
+**Status:** `ACCEPTED` · 17/09/2026
 
 **Decision.** `.loop/` is committed. It is not added to `.gitignore`, and it is
 written in the language its author thinks in — the same ressalva `.continue/`
@@ -2658,7 +2674,7 @@ erased without anybody noticing.
 
 ## ADR-084 — A step that publishes, installs or deletes is verified by reading back what it changed
 
-**Status:** ACCEPTED · 18/09/2026
+**Status:** `ACCEPTED` · 18/09/2026
 
 **Decision.** A step whose purpose is to change something outside this
 repository — publish an artifact, install a binary, delete a remote file — is
