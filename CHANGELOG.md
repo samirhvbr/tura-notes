@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.17 - say out loud when a backend cannot replace a file in one step
+
+`docs/MOBILE-0.4.md` said `Caps` "grows a flag" for whether writes are atomic on
+a backend. It does not: **`Caps::atomic_replace` has existed all along**, and
+`notes-core`'s sync path has gated on it in three places since before that page
+was written. Reading the type before writing the adapter is what found it, and
+the page is corrected rather than left describing a change nobody needs to make.
+
+What genuinely did not exist is the part that page promised: **anybody telling
+the user.** A backend that cannot replace a file in one step is a backend where a
+crash mid-save can leave a truncated note, and until now that fact reached only
+the sync code. A workspace whose backend answers `false` now opens with a banner
+saying what still holds — saving checks for outside changes and refuses to
+overwrite them — and what does not: a whole note after a crash in the middle of a
+save.
+
+`LocalFs` answers `true` on every platform, including Android, because a path
+there is still a path and `rename(2)` is still atomic. It is the SAF tree that
+cannot, so this stays invisible until that adapter exists or another backend
+says otherwise. That is also why the banner could not be tested against a real
+`false` today, and why it is written against `info.caps` rather than a platform
+check — the platform is not what decides this.
+
 ## 1.6.16 - the mobile entry point, and the warning it exposed
 
 On desktop `main.rs` calls `run()`. On Android and iOS there is no `main`: the

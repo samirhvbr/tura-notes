@@ -38,11 +38,17 @@ written. SAF has no such rename. `DocumentsContract` can create, delete and move
 a document, and a provider may implement `moveDocument` or refuse it — a cloud
 provider commonly refuses.
 
-So the adapter must not claim what it cannot do. `Caps` grows a flag saying
-whether writes are atomic on this backend, the adapter reports it honestly per
-tree, and the core treats a non-atomic backend as a backend where a crash mid-write
-can leave a truncated note. That is a real degradation and the user is told about
-it once, when the workspace opens, not silently.
+So the adapter must not claim what it cannot do. **`Caps::atomic_replace`
+already exists** — this page said it would have to "grow a flag", which was
+wrong, and checking before writing the adapter is what found it. `LocalFs`
+answers `true` on every platform, because a path on Android is still a path; it
+is the SAF tree that cannot, and it reports that per tree.
+
+`notes-core`'s sync path has gated on the flag since before this page existed, in
+three places. What did **not** exist was anybody telling the user, which this
+page had promised: from 1.6.17 a workspace whose backend answers `false` opens
+with a banner saying that saving still refuses to overwrite an outside change,
+and that what it cannot promise is a whole note after a crash mid-save.
 
 The `expect: Option<&BaseRev>` half still works and still matters: re-read,
 hash, compare, refuse on mismatch. It is the divergence check, not the atomicity,

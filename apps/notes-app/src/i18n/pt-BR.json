@@ -19,6 +19,8 @@
   "browser.recent": "Recentes",
   "browser.tags": "Tags",
   "browser.title": "Navegação do workspace",
+  "caps.notAtomic.body": "Salvar continua conferindo mudanças de fora e recusando sobrescrevê-las. O que não dá para prometer é que uma queda no meio de um salvamento deixe a nota inteira.",
+  "caps.notAtomic.title": "Esta pasta não substitui um arquivo de uma vez só.",
   "command.closeTab": "Fechar a aba atual",
   "command.cycleView": "Alternar Source / Preview / Split",
   "command.newFolder": "Nova pasta",

@@ -247,6 +247,19 @@ export default function App() {
           {panel === "graph" ? <Graph/> : <>
           <Tabs onNew={newNote} />
           <NoteHeader />
+          {/* A backend that cannot replace a file atomically is a backend where
+              a crash mid-write can leave a truncated note. The contract in
+              docs/MOBILE-0.4.md promises the user hears this once, when the
+              workspace opens, rather than never — and a promise made only in
+              prose is the kind that is kept only in prose. `LocalFs` answers
+              true everywhere, so this stays invisible until a SAF tree or
+              another backend says otherwise. */}
+          {info && !info.caps.atomic_replace && (
+            <div className="banner warn">
+              <strong>{t("caps.notAtomic.title")}</strong>
+              <span>{t("caps.notAtomic.body")}</span>
+            </div>
+          )}
           {doc?.draft && (
             <div className="banner">
               <span>{t("draft.found", { name: doc.path })}</span>

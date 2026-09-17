@@ -19,6 +19,8 @@
   "browser.recent": "Recent",
   "browser.tags": "Tags",
   "browser.title": "Workspace navigation",
+  "caps.notAtomic.body": "Saving still checks for outside changes and refuses to overwrite them. What it cannot promise is that a crash in the middle of a save leaves the note whole.",
+  "caps.notAtomic.title": "This folder cannot replace a file in one step.",
   "command.closeTab": "Close the current tab",
   "command.cycleView": "Cycle Source / Preview / Split",
   "command.newFolder": "New folder",
