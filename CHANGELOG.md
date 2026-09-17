@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.54 - update lucide-react to 1.45.0
+
+The icon set the interface draws every control from. Two minors behind, with a
+Dependabot pull request open since 14/09 that nobody was going to merge, because
+this repository takes dependency bumps by hand as versioned commits — `1.1.6` for
+`uuid` and `1.1.7` for `trash` are the shape — rather than through a merge commit
+that cannot carry an `X.Y.Z` subject.
+
+`npm audit` reports zero vulnerabilities before and after, so this is currency
+rather than a fix. The whole gate is green on it, including the frontend suite
+and the build, which is what the update is being checked against: `lucide-react`
+is imported by the rail, the explorer toolbar, the tab bar and the note header,
+so a renamed or removed icon fails the TypeScript build rather than rendering a
+blank.
+
 ## 1.6.53 - the signing script was being run by a shell that cannot read it
 
 With `minisign` installed, `cotenant.py` got twenty-eight lines further into the
