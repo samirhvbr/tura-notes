@@ -7,6 +7,56 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.4 - write the contract remote MCP is measured against
+
+`docs/MCP-0.7.md`, status `PROPOSED`: nothing in it is built, and it moves to
+`ACTIVE` only when the thing exists. It exists now because reading the two halves
+made the milestone smaller than the queue item implied, and that is worth writing
+down before building rather than discovering twice.
+
+The finding: `server/notes-server` already builds the same `AgentConfig` out of a
+credential — workspace, scope, permissions, review — and calls the same
+`AgentService` the stdio MCP calls. Its REST routes are already a verb-to-tool
+mapping. So remote MCP is a second envelope over a call path that is already
+authenticated, already scoped and already shared, not new behavior over notes.
+
+What the contract settles: one endpoint, `POST /v1/mcp`, one JSON-RPC message per
+request, and no SSE stream, because none of the eight tools notifies, samples or
+elicits and an idle stream is a listener to maintain for no behavior. The bearer
+credential is the one REST already uses. `Mcp-Session-Id` is echoed when sent and
+never required, because over HTTP each request carries its own credential and
+making correctness depend on state the transport does not keep is a bug waiting
+for a proxy to expose it.
+
+## 1.6.4 - answer tools/list from one catalogue instead of two
+
+`fn tools()` and the JSON-RPC envelope were private to
+`crates/notes-mcp/src/main.rs`, which is where they had to stop being: the server
+cannot call into a binary. Building the remote transport against a copy would put
+two descriptions of every tool's schema in the tree, and a schema that drifts
+gives no sign until an agent sends an argument the other half rejects.
+
+They move to `crates/notes-mcp/src/lib.rs`. The binary keeps its stdio loop and
+nothing else. `Session` carries what the handshake established, with
+`Session::stateless()` for a transport that authenticates every request on its
+own — the gate stays real where the connection is the session, and is open where
+there is none, rather than being silently absent.
+
+No behavior changes, and the proof is that the six stdio tests pass untouched:
+they spawn the real binary and speak the protocol, so they cannot tell a refactor
+from a rewrite except by its results.
+
+## 1.6.4 - the roadmap named six MCP tools and the code has eight
+
+`roadmap.md` §0.7 listed `notes_list`, `notes_search`, `notes_read`,
+`notes_create`, `notes_update` and `notes_move`. The stdio server has shipped
+`notes_append` and `notes_delete` since 0.3, each behind its own permission.
+
+Correcting it is part of producing 0.7 rather than a separate tidy: a contract
+written against a stale roadmap would have specified a remote surface two tools
+narrower than the local one, and the milestone's whole rule is that MCP is a layer
+over the same calls, not a second implementation with its own inventory.
+
 ## 1.6.3 - name only the release that is actually missing its attachments
 
 The queue's **Anexos minor perdidos no Build** item said 1.4.0 and 1.5.0 both
