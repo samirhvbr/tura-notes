@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.90 - the gate now notices a version that was written and never committed
+
+`1.6.89` folded away a `CHANGELOG.md` heading for `1.6.87`, a version that had an
+entry, a `version.md` bump and a green gate, and no commit. Nothing could have
+caught it: `release.sh` walks `version.md` across history and never saw that
+number, and `pre-push` compares against the remote where the following bump was a
+legitimate increment.
+
+`tools/changelog-versions.py` catches it: every `## X.Y.Z` heading must be a
+version some commit actually carried, **except the one `version.md` currently
+names**, which is the commit being written and has not been made yet.
+
+**Its first draft asked the tags, and the first run failed on the version it had
+just shipped.** A tag is created by the release workflow *after* the push, so a
+gate run in the minutes between is red for a version that is perfectly fine — and
+fetching tags would put the network inside a check that has to work offline, which
+is the reasoning `doc-links.py` already carries about not resolving external
+links. `git log -p -- version.md` is local, is one call, and is the same source of
+truth `release.sh` walks. A version is real if that file ever held it.
+
+Today: 265 headings, 264 carried by a commit, `1.6.90` in flight. Proved
+non-vacuous against the real failure — reinserting the orphaned `1.6.87` heading
+fails by version number and says which way to fix it: fold the entry into the
+version that shipped the work, or, if the work really did ship under that number,
+the commit is what is missing rather than the entry.
+
+Seventh checker, and the first of them that guards the release mechanism rather
+than the documentation. In the gate and in CI, which `ci-parity.py` would have
+insisted on anyway.
+
 ## 1.6.89 - a version existed as a heading, in no commit, and could never have a Release
 
 `1.6.87` had a `CHANGELOG.md` entry, a `version.md` bump and a green gate, and

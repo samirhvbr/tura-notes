@@ -648,6 +648,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   afirmação, achadas em três varreduras, num repositório onde a regra sobre isso
   está escrita — por mim. A varredura é barata; lembrar de rodá-la é que não
 
+- [x] R7a — o gate passou a notar versão escrita e nunca commitada (1.6.90). O
+  1.6.89 dobrou um heading do `1.6.87` que tinha entrada, bump e gate verde e
+  **nenhum commit**. Nada podia pegar: o `release.sh` caminha o `version.md` pelo
+  histórico e nunca viu aquele número, e o `pre-push` compara com o remoto, onde o
+  bump seguinte era incremento legítimo. O `changelog-versions.py` exige tag para
+  todo `## X.Y.Z`, **menos o que o `version.md` nomeia agora** — esse é o commit
+  sendo escrito, cuja tag só existe depois do push. Hoje: 264 headings, 263 com tag.
+  Provado contra a falha real, e os dois remédios vêm nomeados porque as duas causas
+  pedem consertos opostos: versão nunca commitada quer a entrada dobrada na que
+  levou o trabalho; versão commitada que perdeu a Release quer o `release.sh`
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
