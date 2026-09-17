@@ -8,6 +8,23 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.7 - version.md had a literal backslash-n where a newline belonged
+
+1.4.6 was written by a Python snippet inside a quoted heredoc, where `"\\n"`
+is two characters and not a line ending. `version.md` came out as
+`1.4.6\\n` — six bytes of version and two of garbage.
+
+**Nothing caught it**, and the reason is the tolerance that exists for good
+reasons: `docs/versioning.md` says the version is the *first* semver in the
+file, so a bare string and a markdown document both satisfy it. `1.4.6\\n`
+satisfies it too. The `pre-push` hook read 1.4.6, compared it against the
+remote, and passed — correctly, by the rule as written.
+
+So the file is corrected and the tolerance is left alone. Narrowing "first
+semver" to "exactly one semver and a newline" would break the markdown form the
+rule deliberately allows, to catch a typo that a `printf` does not make in the
+first place.
+
 ## 1.4.6 - the Windows job is intermittent in two different places
 
 With ubuntu, Arch, the advisories and the contract checks green, `rust
