@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.47 - the page you must read before changing product behaviour was formally powerless
+
+`docs/product.md` declared `Status: PROPOSED` and opened with **"Nothing
+described here has been built yet."** True the day it was written; false since
+the desktop MVP, the index, knowledge, self-hosting, sync and remote MCP all
+shipped.
+
+**The status was not a formality.** Golden rule 2 says an `ACTIVE` document wins
+a contradiction and a `PROPOSED` one does not — so the page `CLAUDE.md` names as
+the thing to read *before changing product behaviour* was, on paper, the page
+that gives way to anything disagreeing with it. That is the opposite of its job,
+and it had been that way silently.
+
+Promoted by its own rule rather than by decision: the header already said *a
+section becomes `ACTIVE` when its code exists and works*, and the specification
+this page was the worked-out form of left `.continue/` when the work was produced.
+
+**The promotion names what it does not claim**, because that is the only honest
+way to flip a whole document at once. The mobile application of §5 is still not
+shipped — the responsive layout, the drawer and the Markdown row exist on the
+desktop build and the Android project compiles, but nothing installs on a phone
+yet. Everything in §15 is absent by decision, not pending.
+
+Two smaller repairs in the same header. It called the project `notes`, which it
+stopped being at `1.0.0`. And *"how it is built is in architecture.md"* linked
+`architecture-v1.md` — the `HISTORICAL` one, whose own banner says **do not build
+against this file**. A live document routing readers into a superseded one is the
+failure mode the status vocabulary exists to prevent, and it was doing it from
+its first paragraph.
+
 ## 1.6.46 - the self-hosting guide had no entry for the failure a third device causes
 
 `SELF-HOSTING.md` §*When it does not work* is where somebody goes when their

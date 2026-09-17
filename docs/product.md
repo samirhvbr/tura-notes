@@ -1,16 +1,29 @@
-# Product — what notes is
+# Product — what Tura Notes is
 
-> **Status:** `PROPOSED` · **Nothing described here has been built yet.** This
-> document is the worked-out form of a specification that still lives in the
-> queue, [`../.continue/`](../.continue/README.md), and **the queue is the
-> authority on intent while both exist** — intent changes there, and this page is
-> updated when the thing is built ([ADR-009](decisions.md#adr-009--an-item-leaves-continue-only-when-it-has-been-built)).
-> A section becomes `ACTIVE` when its code exists and works.
+> **Status:** `ACTIVE` · This page said `PROPOSED` and *"nothing described here
+> has been built yet"* until `1.6.47`, which was true the day it was written and
+> had stopped being true several milestones earlier. Its own promotion rule —
+> *a section becomes `ACTIVE` when its code exists and works* — is what is being
+> applied, and the specification it was the worked-out form of left
+> [`../.continue/`](../.continue/README.md) when the work was produced
+> ([ADR-009](decisions.md#adr-009--an-item-leaves-continue-only-when-it-has-been-built)).
+>
+> **Why the status was not a formality.** Golden rule 2 says a `PROPOSED`
+> document loses any contradiction with an `ACTIVE` one — so the page
+> `CLAUDE.md` tells you to read *before changing product behaviour* was, on
+> paper, the one that gives way. That is the opposite of what it is for.
+>
+> **What is described here and not yet shipped**, so the promotion does not
+> quietly claim it: the **mobile application** of §5. The responsive layout below
+> 720px, the drawer and the Markdown row all exist on the desktop build, and the
+> Android project compiles, but there is no installable mobile application yet —
+> [ACCEPTANCE-0.4.md](ACCEPTANCE-0.4.md) tracks what remains and why. Everything
+> in §15 is absent by decision rather than pending.
 >
 > The product definition. What the application is, what it
 > does, and what it deliberately does not do. The order in which it gets built is
 > in [roadmap.md](roadmap.md); how it is built is in
-> [architecture.md](architecture-v1.md); why each irreversible choice was made is in
+> [ARCHITECTURE.md](ARCHITECTURE.md); why each irreversible choice was made is in
 > [decisions.md](decisions.md).
 
 ## 1. What it is

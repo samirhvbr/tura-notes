@@ -263,6 +263,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   vai falhar — que é exatamente o que a torna perigosa. As duas já estavam no
   `SERVER-0.5.md`; faltavam na página que alguém lê quando algo está errado
 
+- [x] R5p — o `docs/product.md` estava `PROPOSED` dizendo *"nothing described here
+  has been built yet"* (1.6.47). **Não era formalidade:** a regra de ouro 2 diz que
+  `PROPOSED` perde qualquer contradição para um `ACTIVE`, então a página que o
+  `CLAUDE.md` manda ler *antes de mudar comportamento de produto* era, no papel, a
+  que cede. Promovido pela regra da própria página (*a section becomes ACTIVE when
+  its code exists and works*), e nomeando o que **não** reivindica: o aplicativo
+  móvel do §5 continua sem existir. Mais duas: chamava o projeto de `notes`, e
+  *"how it is built is in architecture.md"* apontava para o `architecture-v1.md`,
+  que é `HISTORICAL` e cujo banner diz **não construa contra este arquivo** —
+  documento vivo despachando leitor para um superseded, no primeiro parágrafo
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
