@@ -7,6 +7,28 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.65 - the rest of the test counts, swept and mostly right
+
+Having found `ACCEPTANCE-0.1b.md` undercounting by half at `1.6.64`, the same
+sweep across every `N tests` claim in `docs/`: sixteen of them.
+
+**Thirteen were correct**, and worth saying so rather than only reporting the
+misses. Every per-file count in `ACCEPTANCE-0.1d.md` checks out against the files
+— `Menu.test.tsx` 14, `DialogHost.test.tsx` 6, `About.test.tsx` 4,
+`ui.narrow.test.ts` 4, `markdown-actions.test.ts` 14, `switch.rs` 6 — and so does
+`notes-markdown --test xss` at 22. Three more are dated snapshots inside
+verification records (`0.14.0`'s smoke, `1.1.0`'s verification) and are correct
+*as records*: they say what a past run measured, which is what a record is for.
+
+**Two were stale, both in `ACCEPTANCE-0.1a.md`**, and both the same number:
+`cargo test --workspace` recorded as **123 tests** where it is now **526**.
+
+The criterion that count sits under is *"passes with no Tauri"*, and that is still
+met — the number was never the claim. But a measurement left alone for four
+hundred versions stops reading as a measurement and starts reading as a property
+of the suite, which is how somebody later concludes the suite shrank. Both
+occurrences now carry the original beside the new one, as `1.6.64` did.
+
 ## 1.6.64 - an acceptance document undercounted its own test suite by half
 
 `ACCEPTANCE-0.1b.md` said *"`cargo test --workspace` is **262 tests**; `npm test`

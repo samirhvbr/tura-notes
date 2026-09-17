@@ -20,7 +20,7 @@
 | 5 | Disk full / permission denied → visible error, recoverable buffer | **met** — automated at `0.7.5` |
 | 6 | No command accepts a path outside the root | **met** — automated |
 | 7 | Opening a folder creates no file in it | **met** — automated |
-| 8 | `cargo test` passes with no Tauri | **met** — 123 tests |
+| 8 | `cargo test` passes with no Tauri | **met** — 123 tests at `0.7.5`, 526 at `1.6.64` |
 
 **The application window has never been launched.** Every result below comes
 from the core and the corpus; the interface compiles and typechecks and has not
@@ -219,7 +219,11 @@ This is the criterion that made the case-sensitivity probe read-only
 
 ## 8. `cargo test` passes with no Tauri
 
-**Automated** — `cargo test --workspace`, 123 tests, no window and no display.
+**Automated** — `cargo test --workspace`, no window and no display. **123 tests**
+when this page was written; **526** re-measured at `1.6.64`. The criterion is that
+it passes without Tauri, not the size of the number — but a count left alone for
+four hundred versions stops reading as a measurement and starts reading as a
+property of the suite.
 No crate under `crates/` depends on `tauri`, and the suite is **green on Ubuntu,
 macOS, Windows and an Arch container against rolling `webkit2gtk-4.1`**.
 

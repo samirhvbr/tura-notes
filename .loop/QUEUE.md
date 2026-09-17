@@ -431,6 +431,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   operacionais verdes não fecham a matriz de capacidade, porque **a lacuna é sistema
   de arquivos** — segue sem run em SMB, NFS, exFAT ou FUSE
 
+- [x] R6h — o resto das contagens de teste, varridas e quase todas certas (1.6.65).
+  Dezesseis afirmações `N tests` em `docs/`: **treze certas**, e vale dizer isso em
+  vez de só reportar os erros — todas as contagens por arquivo do `0.1d` batem, e o
+  `xss` bate em 22. Três são instantâneos datados dentro de registros de verificação
+  e estão certos **como registro**. **Duas estavam velhas**, as duas no
+  `ACCEPTANCE-0.1a.md` e as duas o mesmo número: `cargo test --workspace` como 123
+  onde hoje são 526. O critério ali é *"passa sem Tauri"* e continua atendido — o
+  número nunca foi a afirmação. Mas medição parada por quatrocentas versões deixa de
+  se ler como medição e passa a se ler como propriedade da suíte, que é como alguém
+  depois conclui que a suíte encolheu
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
