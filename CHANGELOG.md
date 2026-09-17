@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.72 - the advice I shipped an hour ago is wrong on the platform this is built on
+
+`1.6.69` replaced *"check your connection"* with *"the application is probably
+running from somewhere it cannot replace itself — move it to Applications"*. That
+is the right advice on macOS and meaningless on Linux, where there is no
+Applications folder and the failure is a password prompt that never appeared.
+
+One sentence cannot serve both, so it stopped trying. `env_report` already
+answers which platform this is — `std::env::consts::OS` — and the banner already
+calls it for the running version, so the hint now follows the platform with no
+new Rust:
+
+- **macOS** keeps the translocation advice, which is the common cause there.
+- **Linux** says installing a package needs a password, and that no prompt
+  appearing means this session has no way to ask — which is the `pkexec` /
+  `zenity` / terminal-`sudo` chain giving up.
+- **Anything else, or an unreachable report**, gets a neutral *"nothing was
+  installed, the error is below"*.
+
+The verbatim error shows in all three, which is the part that does not depend on
+guessing the platform right.
+
+**Worth naming rather than quietly fixing:** the message shipped at `1.6.69` was
+written while diagnosing a macOS problem, and it generalised a macOS remedy to
+everybody. It was still an improvement — it stopped blaming the connection — and
+it was wrong on the machine it was written on, which is the kind of wrong that
+survives review because the author never sees it.
+
 ## 1.6.71 - the troubleshooting section aged one commit after it was written
 
 `1.6.67` wrote *When "the update could not be completed"* around a single

@@ -18,6 +18,26 @@ function useRunning(): string | null {
 }
 
 /**
+ * Which platform's advice to give when an installation fails.
+ *
+ * The hint has to be platform-specific or it is wrong somewhere: *"move it to
+ * Applications"* means nothing on Linux, and *"a package install needs your
+ * password"* means nothing on macOS. `1.6.69` shipped one sentence carrying the
+ * macOS advice to everybody, which was an improvement over blaming the
+ * connection and still wrong on the platform this is developed on.
+ *
+ * `env_report` already answers this — `std::env::consts::OS`, so `"macos"` or
+ * `"linux"` — and the banner already calls it. Unknown or unreachable falls
+ * back to the neutral sentence, and the verbatim error is shown either way:
+ * it is the part that does not depend on guessing right.
+ */
+function useErrorKey(): string {
+  const [os, setOs] = useState<string | null>(null);
+  useEffect(() => { ipc.envReport().then(r => setOs(r.os)).catch(() => {}); }, []);
+  return os === "macos" || os === "linux" ? `update.error.${os}` : "update.error";
+}
+
+/**
  * The message the failure actually carried.
  *
  * Shown verbatim and untranslated, under the sentence that is translated. It
@@ -35,17 +55,19 @@ function Detail({ detail }: { detail: string | null }) {
 export function UpdateButton() {
   const { phase, detail, check } = useUpdater();
   const running = useRunning();
+  const errorKey = useErrorKey();
   return <div className="update-manual">
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     <button type="button" disabled={phase === "checking" || phase === "installing"} onClick={() => void check(true)}>{t("update.check")}</button>
-    {["checking", "current", "unsupported", "error"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
-    {phase === "error" && <Detail detail={detail} />}
+    {["checking", "current", "unsupported"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
+    {phase === "error" && <><p role="status">{t(errorKey)}</p><Detail detail={detail} /></>}
   </div>;
 }
 
 export function UpdaterShell({ children }: { children: ReactNode }) {
   const { phase, version, notes, detail, check, dismiss, install } = useUpdater();
   const running = useRunning();
+  const errorKey = useErrorKey();
   useEffect(() => {
     const initial = setTimeout(() => void check(), 20_000);
     const periodic = setInterval(() => void check(), 6 * 60 * 60 * 1000);
@@ -59,7 +81,7 @@ export function UpdaterShell({ children }: { children: ReactNode }) {
         1.3.6 reads as a loop rather than as an offer. */}
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     {notes && <p>{notes}</p>}
-    <p role="status">{t(`update.${phase === "available" ? "confirm" : phase}`)}</p>
+    <p role="status">{t(phase === "available" ? "update.confirm" : phase === "error" ? errorKey : `update.${phase}`)}</p>
     {phase === "error" && <Detail detail={detail} />}
     {phase !== "installing" && <div className="actions">
       <button type="button" onClick={() => void install()}>{t("update.install")}</button>

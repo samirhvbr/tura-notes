@@ -475,6 +475,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   padrão: **commit que muda o que o usuário vê deixa velha a página que descreve
   aquela tela, e essa página nunca é o arquivo que você está editando**
 
+- [x] R6l — a dica que eu subi uma hora antes está errada na plataforma onde isto é
+  construído (1.6.72). O 1.6.69 trocou *"verifique a conexão"* por *"mova para
+  Aplicativos"* — advice certo no macOS e sem sentido no Linux, onde não existe
+  pasta Applications e a falha é um pedido de senha que não apareceu. Uma frase não
+  serve as duas, então parou de tentar: o `env_report` já responde a plataforma
+  (`std::env::consts::OS`) e o banner já o chama, então a dica segue a plataforma
+  **sem Rust novo**. O erro literal aparece nos três casos, que é a parte que não
+  depende de acertar o palpite. **Vale nomear em vez de consertar calado:** a
+  mensagem do 1.6.69 foi escrita diagnosticando um problema de macOS e generalizou
+  um remédio de macOS para todo mundo — errada justamente na máquina onde foi
+  escrita, que é o tipo de erro que passa por revisão porque o autor nunca o vê
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
