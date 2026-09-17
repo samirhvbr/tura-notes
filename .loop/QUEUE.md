@@ -348,6 +348,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   O corpo em português fica, como a regra de idioma manda: o que já existe não se
   reescreve pela regra, e a edição sai em inglês — que é o cabeçalho
 
+- [x] R5z — o `README.md` subcontava o que está pronto e supercontava o que dá para
+  baixar (1.6.57). Parava em *"milestones 0.1, 0.2 and 0.3 are implemented"* — dois
+  marcos e meio invisíveis para quem só lê a capa — e a linha de aceite citava três
+  passeios pendentes onde há sete. E dizia **macOS is published** enquanto, medido:
+  nenhuma Release carrega `.dmg` (conferi 1.4.0, 1.5.0 e 1.6.0), não há feed de
+  macOS (404) e o `/p/tura-notes` ainda diz *In preparation*. A build existe,
+  assinada e notarizada; o que não existe é lugar de pegar. É a mesma confusão dos
+  dois passos de publicação que o 1.6.32 teve de desfazer no `updater.md`, agora no
+  lugar mais público do repositório
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

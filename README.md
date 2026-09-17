@@ -19,7 +19,12 @@ by us.
 
 ## Status
 
-**Milestones 0.1, 0.2 and 0.3 are implemented.** The desktop shell now includes
+**Milestones 0.1, 0.2, 0.3, 0.5 and 0.7 are implemented, and 0.6 substantially.**
+Beyond the desktop application there is a self-hosted REST server you run
+yourself ([0.5](docs/SERVER-0.5.md)), device synchronization with causal
+revisions and explicit conflict resolution ([0.6](docs/SYNC-0.6.md)), and the
+same eight agent tools offered over the network as well as over stdio
+([0.7](docs/MCP-0.7.md)). The desktop shell now includes
 Files, Recent and Outline, incremental SQLite word search, and a review of
 incoming/outgoing Markdown references before rename or move. Literal and Regex
 retain their scan semantics; editing and Quick Open do not depend on the index.
@@ -27,16 +32,25 @@ retain their scan semantics; editing and Quick Open do not depend on the index.
 wiki links, backlinks, graph navigation, clipboard images and standalone
 `notes-mcp` with scoped permissions and guarded writes.
 
-Owner verification on installed Linux releases, repeated on the following
-release, remains pending in [0.1d acceptance](docs/ACCEPTANCE-0.1d.md) and
-[0.2 acceptance](docs/ACCEPTANCE-0.2.md) and
-[0.3 acceptance](docs/ACCEPTANCE-0.3.md). Automated tests are recorded separately.
+Owner verification on installed releases, repeated on the following release,
+remains pending for every one of them:
+[0.1d](docs/ACCEPTANCE-0.1d.md) · [0.2](docs/ACCEPTANCE-0.2.md) ·
+[0.3](docs/ACCEPTANCE-0.3.md) · [0.4](docs/ACCEPTANCE-0.4.md) ·
+[0.5](docs/ACCEPTANCE-0.5.md) · [0.6](docs/ACCEPTANCE-0.6.md) ·
+[0.7](docs/ACCEPTANCE-0.7.md). Automated tests are recorded separately, and
+none of them ticks an owner's box.
 
-**macOS is published**, signed with a Developer ID and notarised by Apple, from
-[samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes). It is built
-by `./build-local.sh` on the machine whose keychain holds the certificate rather
-than by CI, because that is where a signing key should live
-([ADR-070](docs/decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)); the `build.yml` job stays disabled and the
+**Linux is downloadable; macOS is not yet.** Every Release carries the `.deb`,
+the AppImage and the Arch package, and the desktop updater feeds are live at
+`1.6.3`. The macOS `.dmg` is signed with a Developer ID and notarised by Apple —
+built by `./build-local.sh` on the machine whose keychain holds the certificate
+rather than by CI, because that is where a signing key should live
+([ADR-070](docs/decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)) — but it has not reached anywhere you can
+download it from: no Release carries a `.dmg`, there is no macOS updater feed,
+and [samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes) still
+says *In preparation*. The cause is fixed at `1.6.28` and what remains is
+re-running the publish; the state is tracked in
+[updater.md](docs/updater.md). The `build.yml` job stays disabled and the
 GitHub Release carries the Linux artefacts only.
 
 **Windows is not published.** An unsigned build teaches its user to click past

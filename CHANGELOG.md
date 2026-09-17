@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.57 - the front door understated what is built and overstated what you can download
+
+`README.md` is what someone reads first. Two claims in it had drifted in opposite
+directions.
+
+**It stopped counting at 0.3.** *"Milestones 0.1, 0.2 and 0.3 are implemented"*
+has been true and incomplete since `0.18.0`: there is also a self-hosted REST
+server, device synchronization with causal revisions and explicit conflict
+resolution, and the same eight agent tools served over the network as well as
+over stdio. Two and a half milestones of work were invisible to anybody who
+only read the front page. The acceptance line had the same shape — it named
+three pending walks where there are seven.
+
+**It said macOS is published, and nothing is downloadable.** Measured rather
+than assumed: no GitHub Release carries a `.dmg` (checked `1.4.0`, `1.5.0` and
+`1.6.0`), there is no macOS updater feed — `darwin-aarch64*.json` answers `404` —
+and `/p/tura-notes` still reads *In preparation*. The build exists, signed and
+notarised; what does not exist is a place to get it. That distinction is exactly
+the one `1.6.32` had to draw in `updater.md`, and the README was making the same
+conflation in the most public place in the repository.
+
+What replaced it says what is true in both halves: the `.deb`, the AppImage and
+the Arch package ship on every Release with live updater feeds at `1.6.3`, and
+the macOS half names the missing step and links where it is tracked.
+
+An overstatement on a front page is worse than on an internal one. Internally it
+costs a wrong assumption; here it costs somebody going to look for a download
+that is not there and concluding the project does not work.
+
 ## 1.6.56 - the permanent specification still called the product's name provisional
 
 `docs/SCOPE.md` opened with `# SCOPE — Notes (nome provisório)`. The name stopped
