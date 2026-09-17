@@ -20,7 +20,7 @@ The ten interface areas, in the order the eye meets them.
 
 | # | Area | Expected | Verified |
 |---|---|---|---|
-| I1 | **The rail** | Files and Search each show their panel; clicking the icon of the panel already open collapses the sidebar; Settings opens the panel; **Graph is visibly disabled and its tooltip says 0.3** | ☐ |
+| I1 | **The rail** | Files, Search and **Graph** each show their panel; clicking the icon of the panel already open collapses the sidebar; Settings opens the panel. Graph read *disabled, tooltip says 0.3* here until `1.6.78` — 0.3 shipped, and a row asking the owner to confirm a feature is still missing is a row they can only fail | ☐ |
 | I2 | **Explorer toolbar** | New note creates *and opens* it; new folder appears; sort flips A→Z / Z→A and directories stay first; collapse-all folds every open directory | ☐ |
 | I3 | **Workspace selector** | The footer shows the current workspace; the menu opens with *Open folder…*, *Create workspace…*, recents and *Close workspace* — and each of the four does what it says | ☐ |
 | I4 | **Workspace selector, with a dirty buffer** | *Close* and switching both ask, **in the application's own modal**, and name the note; declining leaves the workspace exactly as it was | ☐ |

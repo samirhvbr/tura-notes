@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.78 - an acceptance row asked the owner to confirm a feature that shipped
+
+Measuring the catalogue the other way round — not *does every `t()` resolve*,
+which `tools/i18n-keys.py` has checked since `1.1.31`, but *does every string
+reach a screen* — found six that do not. Five are the old top-bar view controls,
+`Source`/`Preview`/`Split`, replaced at 0.1d by the note header's toggle
+(`ACCEPTANCE-0.1d.md` §3 records that move as `U9`). The sixth is worse than
+dead.
+
+`rail.graphSoon` reads **"Graph view arrives at 0.3, with backlinks"**. 0.3
+shipped. `Rail.tsx` renders Graph as an ordinary enabled panel with no tooltip,
+and the string has no caller at all.
+
+**And `ACCEPTANCE-0.1d.md`'s I1 still told the owner to verify that "Graph is
+visibly disabled and its tooltip says 0.3".** That is a row they can only fail:
+walk it today and the feature works, which reads as a defect against the
+document rather than as the document being three milestones behind.
+
+The row now says Graph shows its panel like the other two, and says what it used
+to say and why it changed — a corrected expectation that hides its own history
+invites the next reader to wonder whether the walk was ever right.
+
+Both catalogues lose the six, so a translator stops maintaining text nobody
+shows. `i18n-keys.py` is green either way, because its direction is the other
+one; the 133 frontend tests and `tsc` confirm nothing referenced them.
+
+**No new checker for this.** Reaching a key through `t(\`prefix.${…}\`)` or
+through a variable is normal here — `Toolbar.tsx` holds its six labels in an
+array — so the measurement needs prefix reasoning and a literal scan, and gets
+false positives from both. Six findings in 349 keys is a sweep worth repeating by
+hand, not a gate step worth trusting.
+
 ## 1.6.77 - the two decisions taken without the owner are in the file that exists for them
 
 `.loop/ASSUMPTIONS.md` is the ledger of what an agent decided while nobody was

@@ -529,6 +529,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   workflow para arquivo que o gate nunca executa. Agora descarta comentário antes —
   conserto de correção, não de arrumação
 
+- [x] R6q — uma linha de aceite mandava o dono confirmar um recurso que já entregou
+  (1.6.78). Medi o catálogo ao contrário — não *toda `t()` resolve*, que o
+  `i18n-keys.py` já faz, mas *toda string chega a uma tela* — e seis não chegam.
+  Cinco são os controles de vista do topo que o 0.1d substituiu. A sexta é pior que
+  morta: `rail.graphSoon` diz *"Graph view arrives at 0.3"*, o 0.3 entregou, e o
+  `Rail.tsx` mostra Graph como painel normal. **E o I1 do `ACCEPTANCE-0.1d.md` ainda
+  mandava verificar que "Graph is visibly disabled"** — linha que o dono só pode
+  reprovar: percorre hoje, o recurso funciona, e isso se lê como defeito contra o
+  documento em vez de documento três marcos atrasado. **Sem checador novo:** chave
+  alcançada por template ou por variável é normal aqui, então a medição precisa de
+  prefixo e de varredura literal, e erra nos dois. Seis achados em 349 chaves é
+  varredura para repetir à mão, não passo de gate para confiar
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
