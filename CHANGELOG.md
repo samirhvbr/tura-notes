@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.5.7 - the connection test, against a server that is actually running
+
+Every other test of `Remote::probe` answers it from a `TcpListener` with canned
+bytes. That proves the mapping from a response to an outcome and says nothing
+about DNS, TLS, a proxy in front of the server, or a credential a real server
+issued — which is the half that fails in the field, and the half that cannot be
+faked usefully.
+
+`NOTES_PROBE_URL` and `NOTES_PROBE_TOKEN_FILE`, ignored by default, the same
+shape `deep.rs` already uses for `NOTES_DEEP_ROOT`. It prints the outcome, the
+status, the workspace, the scope, the permissions and the review flag, and never
+the credential.
+
+It earned itself immediately. The owner reported the panel saying nothing on a
+real pairing attempt, and this separated the two halves in one run: against
+`tura.samirhv.com.br` the Rust side answered `Granted · 200 · workspace
+"personal"` with all five permissions. The fault is between the button and that
+function, which is a much smaller place to look than "the connection test does
+not work".
+
+`SyncProbeOutcome` derives `Debug` so the outcome can be printed at all.
 
 ## 1.5.6 - the connection test's answer stops looking like the advice around it
 

@@ -276,7 +276,7 @@ impl Remote {
 /// for a transport, which retries and must not narrate what it found in a
 /// secret file, and the wrong shape for a person asking whether the thing works.
 /// Each variant here is a different thing for the owner to go and fix.
-#[derive(Clone, Copy, Serialize, TS)]
+#[derive(Clone, Copy, Debug, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncProbeOutcome {
