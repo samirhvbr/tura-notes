@@ -145,3 +145,53 @@ efêmero, e em português.
 **Como reverter.** Commitar é um comando. Se o dono quiser, o caminho limpo é
 uma ADR dizendo se `.loop/` é memória versionada e em que idioma — ou traduzir o
 que vale e deixar o resto fora.
+
+## #0013 — 2026-09-17T15:26:13-03:00
+- **Pergunta:** (handoff sem pergunta explícita)
+- **Premissa:** ⛔ a preencher pelo agente nesta iteração
+- **Como reverter:** ⛔ a preencher
+
+
+## 17/09 — as duas linhas que o loop colheu do meu relato
+
+**Pergunta.** O hook colheu duas frases do meu fecho e as pôs na fila como itens.
+Chegaram truncadas (`- [ ] o   não cobre nada da interface…`), porque a colheita
+cortou os nomes de arquivo entre crases. São duplicatas de R4d, R4e e R4f, que já
+estavam na fila. Mantenho, reescrevo, ou removo?
+
+**Decisão.** Remover as duas. R4d, R4e e R4f já descrevem o mesmo trabalho com o
+arquivo nomeado e o formato dito.
+
+**Alternativa descartada.** Reescrevê-las. Descartada porque duas linhas
+dizendo o mesmo que três outras é exatamente o tipo de fila que faz um turno
+futuro trabalhar duas vezes — e o item colhido não tem o que os originais têm,
+que é dizer qual documento e em que formato.
+
+**Como reverter.** Estão no `git log` a partir do próximo commit do `.loop/`, e
+o texto original está em `.loop/entries/0013-ASK-*.md`.
+
+## 17/09 — o `.loop/` existia em duas cópias, e a commitada era a mais pobre
+
+**Pergunta.** A rodada foi armada no tree principal (`~/x/tura-notes`), onde o
+hook escreve; o trabalho aconteceu no worktree `tura-notes-mobile`, que é onde o
+`.loop/` **commitado** vive desde 1.6.19. As duas divergiram: o R4a, o R4b e o
+R4c estavam `- [x]` com o que mediram na cópia do tree principal e `- [ ]` com o
+texto original na commitada, e a do tree principal ainda tinha um bloco a mais em
+`ASSUMPTIONS.md`, uma linha a mais no `INDEX.md` e a entrada `0013`. Qual das
+duas é a fila?
+
+**Decisão.** A commitada, reconciliada contra a viva. As linhas R4a/R4b/R4c/R4g e
+os três arquivos vieram do tree principal; R4d/R4e/R4f, que só existem aqui,
+ficaram. Nada foi descartado dos dois lados: a cópia viva era superconjunto
+estrito nos arquivos e a commitada era superconjunto estrito nos itens.
+
+**Alternativa descartada.** Deixar as duas e reconciliar no fim da rodada.
+Descartada porque o `.loop/` do tree principal é **não rastreado** ali — ele
+antecede o commit de 1.6.19 — e um `git pull` naquele tree recusa quando um
+arquivo rastreado que chega sobreescreveria um não rastreado que está lá. Ou
+seja: a divergência não era só desarrumação, era um `git pull` que ia falhar na
+próxima vez que o dono puxasse no tree principal.
+
+**Como reverter.** A cópia viva inteira, como estava antes desta reconciliação,
+está em `scratchpad/loop-backup/` da sessão; e o estado commitado anterior está
+no `git log` do `.loop/`.

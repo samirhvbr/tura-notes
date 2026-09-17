@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.24 - the loop queue existed twice, and the committed copy was the poorer one
+
+`.loop/` became tracked at 1.6.19, in the worktree the work was happening in.
+The round itself was armed in the main checkout, which is where the Stop hook
+writes — so from 1.6.19 onward there were two directories with the same name and
+different contents. The live one had R4a, R4b and R4c ticked with what they
+measured; the committed one still carried their original unstarted text.
+
+Reconciled rather than chosen between, because neither was a superset of the
+other: the live copy was ahead on `ASSUMPTIONS.md`, `INDEX.md` and one entry
+file, the committed one on three finished items that exist nowhere else.
+
+**The part that was not untidiness.** The main checkout's `.loop/` is
+*untracked* there — it predates the commit that started tracking it — and `git
+pull` refuses when an incoming tracked file would overwrite an untracked local
+one. The next pull in `~/x/tura-notes` was going to fail, on a directory the
+owner never edits and would have had no reason to suspect. Removing the stale
+untracked copy after this push is what clears it; the content is in git now, so
+nothing is lost by removing it.
+
 ## 1.6.23 - the 0.5 walk covers the deployment that is actually running
 
 `ACCEPTANCE-0.5.md` was written against 0.18.0, when 0.5 was a server. What

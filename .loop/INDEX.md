@@ -16,3 +16,4 @@ Uma linha por vez que o agente encerrou o turno.
 | 0010 | DOC | relato | encerrou: fila zerada | — | [entry](entries/0010-DOC-relato.md) |
 | 0011 | DOC | relato | continuou | 0.4f — ponto de entrada mobile: `#[cfg_attr(mobile, tauri::mobile_entr | [entry](entries/0011-DOC-0-4f-ponto-de-entrada-mobile-cfg-attr-mobile-tau.md) |
 | 0012 | DOC | relato | encerrou: fila zerada | — | [entry](entries/0012-DOC-relato.md) |
+| 0013 | ASK | handoff | continuou | R4d — roteiro de aceite do **0.1d** (interface), no formato que o `ACC | [entry](entries/0013-ASK-r4d-roteiro-de-aceite-do-0-1d-interface-no-forma.md) |
