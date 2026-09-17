@@ -8,6 +8,45 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.2 - eight contracts the local gate checked and no pull request did
+
+`tools/check.sh` and `.github/workflows/ci.yml` are two lists of the same
+contracts, and two lists drift. Comparing them command by command found eight
+checks that existed only in the local gate:
+
+- `tools/ts-serde.py` — a serde wrapper declares its wire shape
+- `tools/doc-status.sh` — every document declares one of the five statuses
+- `server/tests/cotenant.py` — the co-tenant templates and the credential wrapper
+- `tools/tests/test_build_linux.py` — Linux packaging orchestration
+- `tools/tests/test_updater_release.py` — updater publication
+- `tools/tests/test_build_local.py` — the macOS build script
+- `tools/tests/test_selfhosting_doc.py` — the guide matches the code
+- `tools/tests/test_env_report.py` — the env report is not a hand-written IPC shape
+
+**A pull request that broke any of them merged green.** Three of the eight guard
+things a reviewer cannot see by reading the diff — that the Apache template does
+not take the other eight sites down, that the self-hosting guide still describes
+the commands the code actually has, that a newly generated binding matches the
+wire — and the local gate only runs when somebody remembers to run it. That is a
+convention, not a gate, and the distinction is the whole reason this repository
+writes checks instead of rules.
+
+They run in `contracts`, the job that deliberately builds nothing: all eight are
+pure `python3`/`bash`, with no toolchain, no system package and no network. They
+are one step rather than eight because a failing step hides the ones after it,
+and "what else is broken" should not cost another push — every check reports,
+and the step fails if any did.
+
+Verified by running the block exactly as the workflow will: eight green and exit
+0, then with `RelPath`'s `#[ts(type = "string")]` deleted — one `::error::`, the
+other seven still reported, exit 1. A grouped step that swallowed a failure
+would have looked identical to a passing one from the outside.
+
+The first comparison was wrong in the other direction and worth recording: it
+matched step *names* rather than commands and reported `i18n keys resolve` as
+missing when CI already runs `tools/i18n-keys.py`. Redoing it against the
+commands is what produced the eight above.
+
 ## 1.4.1 - the serde/ts check could not see the two ids every payload carries
 
 `tools/ts-serde.py` asserts that a type ts-rs cannot parse — `transparent`,

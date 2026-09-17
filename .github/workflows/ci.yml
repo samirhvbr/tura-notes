@@ -98,6 +98,35 @@ jobs:
       - name: every t() key resolves in both catalogues
         run: python3 tools/i18n-keys.py
 
+      # WHY THESE ARE HERE AND NOT ONLY IN `tools/check.sh`. The local gate and
+      # this job are two lists of the same contracts, and lists drift: every
+      # check below existed in `check.sh` and in no workflow, so a pull request
+      # that broke one was merged green. A check that only runs when somebody
+      # remembers to run it is a convention, not a gate.
+      #
+      # They are grouped in one step on purpose. As separate steps the first
+      # failure hides the rest, and the answer to "what else is broken" costs
+      # another push; here every one of them reports, and the step fails if any
+      # did. All are pure python3/bash — no toolchain, no system package, no
+      # network — which is why they belong in the job that deliberately does not
+      # build the application.
+      - name: the contracts the local gate checks and this job did not
+        run: |
+          fail=0
+          run() {
+            printf '\n== %s\n' "$1"; shift
+            if "$@"; then echo '   ok'; else echo "::error::$*"; fail=1; fi
+          }
+          run "a serde wrapper declares its wire shape"  python3 tools/ts-serde.py
+          run "every document declares one of the five statuses" tools/doc-status.sh
+          run "the co-tenant templates and credential wrapper" python3 server/tests/cotenant.py
+          run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py
+          run "updater publication"                     python3 tools/tests/test_updater_release.py
+          run "macOS build script"                      python3 tools/tests/test_build_local.py
+          run "the self-hosting guide matches the code" python3 tools/tests/test_selfhosting_doc.py
+          run "the env report is not a hand-written IPC shape" python3 tools/tests/test_env_report.py
+          exit "$fail"
+
   server-container:
     name: server HTTPS container
     runs-on: ubuntu-latest
