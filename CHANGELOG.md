@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.70 - the updater should refuse before it fails, and that one needs MinGW
+
+`1.6.69` makes the failure legible. The step after it is not failing at all:
+`supported()` in `apps/notes-app/src-tauri/src/updater.rs` already refuses on
+Arch, where the package manager owns the installation — and it does **not** ask
+the question that matters on macOS, which is whether the application is somewhere
+it can replace itself from.
+
+Running from a mounted `.dmg`, or from a Gatekeeper-translocated path under
+`/private/var/folders/…/AppTranslocation/`, the rename that swaps the bundle
+returns `EXDEV` and the plugin gives up without even asking for a password. The
+app currently offers the update, closes the workspace, downloads it and *then*
+discovers this. It has everything it needs to know beforehand.
+
+Queued rather than written, and the reason is the one that has now stopped two
+pieces of real work today: this touches Rust, `clippy (windows)` cannot run on
+this machine without MinGW, and `NOTES_NO_WINDOWS_CHECK=1` is only for commits
+that do not touch Rust. The `reqwest` bump was the first at `1.6.55`.
+
+The queue item names the shape so it is not re-derived: `supported()` answers
+`false` when `current_exe()` resolves under `AppTranslocation` or `/Volumes/`,
+and `update.unsupported` gains the sentence about moving to `/Applications` —
+which the interface already has a place for, since that phase is rendered.
+
 ## 1.6.69 - the updater threw away the one thing that would have answered the question
 
 Reported from use: *Install and restart* answers **"The update could not be

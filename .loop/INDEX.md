@@ -21,3 +21,4 @@ Uma linha por vez que o agente encerrou o turno.
 | 0015 | DOC | relato | continuou | R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulad | [entry](entries/0015-DOC-r4g-parqueado-bloqueado-por-ato-do-dono-nao-por.md) |
 | 0016 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0016-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
 | 0017 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0017-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
+| 0018 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0018-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
