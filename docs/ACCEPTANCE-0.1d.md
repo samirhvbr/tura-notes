@@ -31,6 +31,24 @@ The ten interface areas, in the order the eye meets them.
 | I9 | **Status bar** | The state, the words and the characters — **and nothing else**. No backlink count | ☐ |
 | I10 | **Focus** | Every menu and modal returns focus to the control that opened it; the focus ring is visible on every control, on every surface | ☐ |
 
+### Interface that shipped after this document was written
+
+0.1d was delivered at `0.13.0` and this table stopped there, while interface kept
+arriving. These four are walked the same way and by the same rule — an installed
+build, then repeated on the following release.
+
+**The first three need no phone.** The drawer is decided by window width, not by
+platform, so dragging a desktop window narrower than 720px is the whole setup —
+and doing it that way is better than a device, because the boundary is what is
+being checked.
+
+| # | Area | Expected | Verified |
+|---|---|---|---|
+| I11 | **Narrow window, at the boundary** | Narrow the window below 720px: the sidebar stops being a column and overlays the editor with a dimmed scrim behind it; the editor takes the whole width underneath; split view stacks one pane over the other instead of side by side. Drag back: everything returns to columns, with nothing left overlapping | ☐ |
+| I12 | **The drawer hands the screen back** | Narrow, with the drawer open, click a note in the tree: the drawer closes and the note is in front of you. **Wide, the same click must not close the sidebar** — that is the app fighting you, and it is the half of this behaviour most likely to be got wrong | ☐ |
+| I13 | **The Markdown row** | Narrow, with a note open: a row of six sits under the editor — bold, italic, heading, list, link, code. Each applies to the selection; pressing the same one again **undoes it**; link leaves the caret on `url` so typing replaces it; one press is one `Ctrl+Z`. Wide, the row is not there at all | ☐ |
+| I14 | **A backend that cannot replace a file in one step** | Not walkable on a local folder, and that is correct: `LocalFs` is atomic on every platform, so the banner stays invisible until a SAF tree or another backend answers otherwise. It is listed here so that the first person who opens such a workspace knows the banner is expected rather than a bug | ☐ n/a |
+
 ### The test that cannot be automated
 
 > *"Alguém que usa Obsidian todo dia abre o app e encontra tudo sem pensar. Se
@@ -51,6 +69,9 @@ Automated behavioral coverage complements the owner walk; it does not replace it
 | Welcome creation | `Welcome.test.tsx` | Initial workspace naming modal is mounted and usable; cancellation makes no create call |
 | Settings/palette focus and asynchronous results | `modal.test.tsx`, `Palette.test.tsx` | Modal Tab trapping/restoration; Quick Open refreshes while its path cache builds |
 | Divider lifecycle | `Divider.test.tsx` | Keyboard bounds/reset and drag cursor cleanup on unmount |
+| The drawer's one decision | `src/stores/ui.narrow.test.ts`, 4 tests | Collapses only when narrow; leaves a wide window alone; asks `matchMedia` for the **same query string** the stylesheet opens its mobile block with; does nothing where there is no `window` to measure |
+| One drawer breakpoint | `tools/check.sh`, step `one drawer breakpoint` | Reads the query out of `stores/ui.ts` and fails unless `styles.css` opens its mobile block with that exact query. CSS cannot read a TypeScript constant, so this is what keeps the number single |
+| Markdown row actions | `src/editor/markdown-actions.test.ts`, 14 tests | Wrap and unwrap from either side; a second press undoes the first from the state the first leaves; an empty selection still produces marks; a single mark is not mistaken for a pair; prefixes apply to every touched line and clear only when all of them carry it; the caret never slides behind a prefix; CRLF is left alone |
 | Search startup cancellation | `SearchPanel.test.tsx` | A late start response is cancelled after the panel closes |
 | Contrast and the palette | `tools/contrast.sh`, in `check.sh` and CI | 42 pairs: AA for every text/surface pair, AA for the focus ring and for disabled controls, an 8/255 sRGB step between the three dark levels — **and a build failure if any colour is written outside `:root`** |
 | No blocking dialogs | `tools/no-blocking-dialogs.sh` | A browser script dialog anywhere in the frontend fails the build. Six flows of 0.1b were behind one |

@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.21 - the 0.1d walk covers the interface that shipped after it was written
+
+`ACCEPTANCE-0.1d.md` stopped at I10, where 0.13.0 left it. Three pieces of
+interface have shipped since — the drawer at 1.6.14, the Markdown row at 1.6.15,
+the non-atomic-backend banner at 1.6.17 — and none of them had a box. An
+acceptance document that silently stops tracking is worse than a short one,
+because it still reads as the full list.
+
+I11–I14 are added in the table's own format, with the automated rows that pair
+with them.
+
+**The first three need no phone, and that is the point of how they are written.**
+The drawer is decided by window width, not by platform: `collapseOnNarrow()` asks
+`matchMedia` the same query the stylesheet opens its mobile block with. So the
+walk is dragging a desktop window under 720px and back, which exercises the
+boundary in both directions — something a phone, which is only ever on one side
+of it, cannot do.
+
+I12 is split out from I11 deliberately. Closing the drawer when a note is opened
+is correct *narrow* and wrong *wide*, and the wide half is the one a change is
+likely to break without anybody noticing: the symptom is the sidebar collapsing
+under you on a desktop, which reads as a glitch rather than as a regression in a
+mobile feature.
+
+**I14 is marked `n/a` rather than left open, with the reason written down.**
+`LocalFs` answers `atomic_replace = true` on every platform, Android included,
+so the banner cannot appear on a local folder and no walk can produce it. It is
+listed so the first person to open a SAF tree or another non-atomic backend reads
+the banner as expected rather than as a bug — an invisible feature with no entry
+is indistinguishable from one nobody built.
+
 ## 1.6.20 - the two owner acts, written against the scripts rather than the queue
 
 `docs/OWNER-ACTS.md` carries the steps for signing the server binary and for
