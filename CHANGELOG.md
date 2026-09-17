@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.64 - an acceptance document undercounted its own test suite by half
+
+`ACCEPTANCE-0.1b.md` said *"`cargo test --workspace` is **262 tests**; `npm test`
+is 8"*. Measured now: **526** and **127**.
+
+A count in an acceptance document is a measurement with a date attached, and this
+one had stopped being either — it carried `0.9.1`'s numbers with no sign they
+were a snapshot. The direction matters: understating automated coverage by half,
+and the frontend suite by sixteen times, makes a reader think the machine-checked
+half is thinner than it is, and reach for a manual walk that already exists.
+
+Re-measured rather than adjusted: both suites run locally, and the CI matrix
+claim — green on Ubuntu, macOS, Windows and Arch — was re-checked against run
+`8fd6b0e` at `1.6.63`, eleven jobs green. The original stamps stay visible beside
+the new ones, because a measurement that quietly replaces its own history stops
+being evidence.
+
+`ACCEPTANCE-0.1a.md` carried the same matrix claim at `0.7.3` and gets the same
+treatment, with the sentence that actually matters sharpened: three more green
+operating systems do not close the capability matrix, because **the gap is a
+filesystem**. There is still no run on SMB, NFS, exFAT or FUSE, so those rows of
+`ARCHITECTURE.md` §11 remain asserted rather than observed.
+
 ## 1.6.63 - the page every session reads first said it was last reviewed fifty versions ago
 
 `CLAUDE.md` opens by naming the reading order, and `.continue/README.md` is

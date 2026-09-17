@@ -29,8 +29,16 @@ Every result below comes from the core, the corpora and `vitest`. What that
 leaves unverified is listed under *Not verified*, in the same terms 0.1a used,
 and it is the reason criterion 1 is qualified rather than ticked.
 
-`cargo test --workspace` is **262 tests**; `npm test` is 8. The CI matrix is
-green on Ubuntu, macOS, Windows and Arch as of `0.9.1`.
+`cargo test --workspace` is **526 tests**; `npm test` is **127**. The CI matrix is
+green on Ubuntu, macOS, Windows and Arch, re-measured at `1.6.63` — run
+`8fd6b0e`, all eleven jobs green.
+
+Those two numbers read **262** and **8** until `1.6.64`, measured at `0.9.1` and
+left there. A count in an acceptance document is a measurement with a date on it,
+and this one had stopped being either: it understated the Rust suite by half and
+the frontend suite by sixteen times, which is the direction that makes a reader
+think the automated half is thinner than it is and reach for a manual check that
+already exists.
 
 ---
 

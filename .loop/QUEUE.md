@@ -419,6 +419,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   só citava o aceite e não a lacuna de retenção; e o **MinGW** não tinha linha
   nenhuma, apesar de já ter segurado trabalho de verdade
 
+- [x] R6g — um documento de aceite subcontava a própria suíte pela metade (1.6.64).
+  O `ACCEPTANCE-0.1b.md` dizia *"262 tests; npm test is 8"*; medido agora: **526** e
+  **127**. Contagem em documento de aceite é medição com data, e esta tinha deixado
+  de ser as duas coisas. A direção importa: subcontar a cobertura automatizada faz
+  o leitor achar que a metade verificada por máquina é mais magra do que é, e buscar
+  passeio manual que já existe. Remedido, não ajustado — as duas suítes rodaram, e a
+  afirmação da matriz de CI foi reconferida contra a run `8fd6b0e`. Os carimbos
+  originais ficam ao lado dos novos: medição que apaga o próprio histórico deixa de
+  ser evidência. E no `0.1a` a frase que importa ficou afiada: três sistemas
+  operacionais verdes não fecham a matriz de capacidade, porque **a lacuna é sistema
+  de arquivos** — segue sem run em SMB, NFS, exFAT ou FUSE
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

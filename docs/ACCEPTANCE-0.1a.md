@@ -250,10 +250,12 @@ Everything listed under 0.1a in [SCOPE.md](SCOPE.md) §17:
   bundles; no human has driven it. Every result above is from the core and the
   corpus. To run it: `cd apps/notes-app && npm run tauri dev`.
 - **The capability matrix is still a specification.** The CI matrix is green on
-  Ubuntu, macOS, Windows and Arch as of `0.7.3`, which means the suite passes on
-  ext4, APFS and NTFS — but no run exists on SMB, NFS, exFAT or a FUSE mount, so
-  the rows of `ARCHITECTURE.md` §11 for those backends are asserted rather than
-  observed.
+  Ubuntu, macOS, Windows and Arch — measured at `0.7.3` and re-measured at
+  `1.6.63`, run `8fd6b0e` — which means the suite passes on ext4, APFS and NTFS.
+  **No run exists on SMB, NFS, exFAT or a FUSE mount**, so the rows of
+  `ARCHITECTURE.md` §11 for those backends are asserted rather than observed, and
+  three more green platforms do not change that: the gap is a filesystem, not an
+  operating system.
 - **The permission-denied criterion does not run as root**, and the Arch CI
   container is root — it skips there rather than passing for the wrong reason
   ([DECISIONS-0.1a.md](DECISIONS-0.1a.md) D-21). It runs on Ubuntu and macOS.
