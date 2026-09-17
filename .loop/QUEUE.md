@@ -455,6 +455,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   E isso explica o que parecia coincidência: todo app Tauri 2 troca o bundle do
   mesmo jeito, então hábito de instalação que quebra um quebra os três
 
+- [x] R6j — o updater jogava fora justamente o que responderia a pergunta (1.6.69).
+  O `stores/updater.ts` terminava os dois caminhos de falha em `catch { set({ phase:
+  "error" }) }`. É o defeito que o 1.6.10 consertou no cliente de sync, onde 29
+  `.map_err(|_| …)` tornavam um intermitente indiagnosticável por construção — aqui
+  era uma linha, e transformava toda falha possível numa frase que **nomeia a causa
+  errada**. Nada rio acima escondia nada: o `updater.rs` já faz `.map_err(|e|
+  e.to_string())`, então o texto do plugin atravessa o IPC inteiro e era descartado
+  nos últimos três metros. Agora é guardado e mostrado literal, sem tradução, embaixo
+  da frase traduzida — erro parafraseado é um segundo erro. Três testes, provados
+  não-vácuos: com o comportamento antigo restaurado eles falham
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

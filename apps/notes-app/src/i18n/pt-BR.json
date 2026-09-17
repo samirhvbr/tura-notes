@@ -315,7 +315,7 @@
   "update.closeWorkspace": "Nada foi instalado: sua pasta de trabalho continua aberta.",
   "update.confirm": "O app vai fechar sua pasta de trabalho, baixar a atualização, instalar e reiniciar.",
   "update.current": "Você está na versão mais recente.",
-  "update.error": "Não foi possível concluir a atualização. Verifique a conexão e tente novamente.",
+  "update.error": "Não foi possível concluir a atualização. Se nada pediu sua senha, provavelmente o aplicativo está rodando de um lugar de onde não consegue se substituir — mova para Aplicativos e tente de novo.",
   "update.install": "Instalar e reiniciar",
   "update.installing": "Baixando e instalando… Mantenha o aplicativo aberto.",
   "update.later": "Mais tarde",

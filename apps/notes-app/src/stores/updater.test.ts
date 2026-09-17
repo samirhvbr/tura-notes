@@ -81,6 +81,38 @@ describe("desktop updates", () => {
     expect(useUpdater.getState().phase).toBe("error");
     expect(workspace.switchTo).toHaveBeenCalledWith("/notes");
   });
+  /**
+   * The message is the whole point of the error state.
+   *
+   * `update_install` returns `Result<(), String>`, so what arrives here is the
+   * updater plugin's own text — and on macOS that is the difference between
+   * `EXDEV`, which means the application cannot replace itself where it is
+   * running from, and a permission failure, which means it asked and was
+   * refused. Both used to arrive as *"check your connection"*.
+   */
+  it("keeps the message the installation failed with", async () => {
+    openWorkspace();
+    vi.mocked(invoke).mockRejectedValue("Io Error: Invalid cross-device link (os error 18)");
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(useUpdater.getState().detail).toBe("Io Error: Invalid cross-device link (os error 18)");
+  });
+  it("keeps the message a manual check failed with, and clears it on the next attempt", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("Could not fetch a valid release JSON"));
+    await useUpdater.getState().check(true);
+    expect(useUpdater.getState().phase).toBe("error");
+    expect(useUpdater.getState().detail).toBe("Could not fetch a valid release JSON");
+    vi.mocked(invoke).mockResolvedValueOnce({ supported: true, version: "9.0.0", notes: null });
+    await useUpdater.getState().check(true);
+    expect(useUpdater.getState().detail).toBeNull();
+  });
+  it("shows something rather than nothing when the rejection is not a string or an Error", async () => {
+    openWorkspace();
+    vi.mocked(invoke).mockRejectedValue({ code: 7 });
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(useUpdater.getState().detail).toBe('{"code":7}');
+  });
   it("does not install across pending edits or another exclusive operation", async () => {
     useUpdater.setState({ phase: "available", version: "9.0.0" });
     vi.mocked(beginSyncBarrier).mockReturnValue(false);

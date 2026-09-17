@@ -8,25 +8,54 @@ interface State {
   phase: Phase;
   version: string | null;
   notes: string | null;
+  /**
+   * What actually failed, kept instead of thrown away.
+   *
+   * `update_install` already hands the plugin's own message across the IPC —
+   * `.map_err(|e| e.to_string())` in `updater.rs` — and this store used to
+   * `catch { set({ phase: "error" }) }` and drop it, leaving one sentence for
+   * every cause: *"check your connection"*. On macOS the common failure has
+   * nothing to do with the connection. The bundle is replaced by renaming the
+   * running `.app` out of the way, and a `PermissionDenied` there escalates to
+   * an administrator prompt while **any other error returns immediately with no
+   * prompt at all** — usually `EXDEV`, a rename across filesystems, which is
+   * what an application running from a mounted `.dmg` or from a
+   * Gatekeeper-translocated path produces. Told to check their connection, a
+   * user retries forever; told the real error, they move the app to
+   * `/Applications`.
+   */
+  detail: string | null;
   check: (manual?: boolean) => Promise<void>;
   dismiss: () => void;
   install: () => Promise<void>;
 }
 const dismissedKey = "tura-dismissed-update";
+/**
+ * The rejection value of a Tauri command is whatever the Rust side returned —
+ * a plain string here, because `update_install` returns `Result<(), String>`.
+ * Anything else is still shown rather than swallowed: an unrecognised shape is
+ * a worse thing to hide than to print.
+ */
+function describe(e: unknown): string | null {
+  if (typeof e === "string") return e.trim() || null;
+  if (e instanceof Error) return e.message.trim() || null;
+  if (e == null) return null;
+  try { return JSON.stringify(e); } catch { return String(e); }
+}
 function dismissed(): string | null { try { return localStorage.getItem(dismissedKey); } catch { return null; } }
 export const useUpdater = create<State>((set, get) => ({
-  phase: "idle", version: null, notes: null,
+  phase: "idle", version: null, notes: null, detail: null,
   check: async (manual = false) => {
     if (["checking", "installing"].includes(get().phase)) return;
     const previous = get();
-    set({ phase: "checking" });
+    set({ phase: "checking", detail: null });
     try {
       const result = await checkUpdate();
       if (!result.supported) { set({ phase: manual ? "unsupported" : "idle", version: null, notes: null }); return; }
       const show = result.version && (manual || result.version !== dismissed());
       set({ version: result.version, notes: result.notes, phase: show ? "available" : manual ? "current" : "idle" });
-    } catch {
-      set({ phase: manual ? "error" : previous.phase });
+    } catch (e) {
+      set({ phase: manual ? "error" : previous.phase, detail: describe(e) });
     }
   },
   dismiss: () => {
@@ -53,12 +82,12 @@ export const useUpdater = create<State>((set, get) => ({
     const root = useWorkspace.getState().info?.root ?? null;
     if (root && !(await useWorkspace.getState().leave())) { set({ phase: "closeWorkspace" }); return; }
     if (beginSyncBarrier()) {
-      set({ phase: "installing" });
+      set({ phase: "installing", detail: null });
       try { await installUpdate(); }
-      catch { set({ phase: "error" }); }
+      catch (e) { set({ phase: "error", detail: describe(e) }); }
       finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
     } else {
-      set({ phase: "error" });
+      set({ phase: "error", detail: null });
     }
     // Still running, so the restart did not happen and the workspace was closed
     // for an installation that did not take place. Put it back: `update_install`

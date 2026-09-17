@@ -17,18 +17,34 @@ function useRunning(): string | null {
   return version;
 }
 
+/**
+ * The message the failure actually carried.
+ *
+ * Shown verbatim and untranslated, under the sentence that is translated. It
+ * comes from the updater plugin through `update_install`, so it names the real
+ * cause — `EXDEV` on a rename, or *"Failed to move the new app into place"* —
+ * and it is the half of the report that makes the difference between retrying
+ * forever and moving the application to `/Applications`. Not translated because
+ * it is not ours to translate, and a paraphrase of an error is a second error.
+ */
+function Detail({ detail }: { detail: string | null }) {
+  if (!detail) return null;
+  return <p className="update-detail"><code>{detail}</code></p>;
+}
+
 export function UpdateButton() {
-  const { phase, check } = useUpdater();
+  const { phase, detail, check } = useUpdater();
   const running = useRunning();
   return <div className="update-manual">
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     <button type="button" disabled={phase === "checking" || phase === "installing"} onClick={() => void check(true)}>{t("update.check")}</button>
     {["checking", "current", "unsupported", "error"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
+    {phase === "error" && <Detail detail={detail} />}
   </div>;
 }
 
 export function UpdaterShell({ children }: { children: ReactNode }) {
-  const { phase, version, notes, check, dismiss, install } = useUpdater();
+  const { phase, version, notes, detail, check, dismiss, install } = useUpdater();
   const running = useRunning();
   useEffect(() => {
     const initial = setTimeout(() => void check(), 20_000);
@@ -44,6 +60,7 @@ export function UpdaterShell({ children }: { children: ReactNode }) {
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     {notes && <p>{notes}</p>}
     <p role="status">{t(`update.${phase === "available" ? "confirm" : phase}`)}</p>
+    {phase === "error" && <Detail detail={detail} />}
     {phase !== "installing" && <div className="actions">
       <button type="button" onClick={() => void install()}>{t("update.install")}</button>
       <button type="button" onClick={dismiss}>{t("update.later")}</button>

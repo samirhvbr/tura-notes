@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.69 - the updater threw away the one thing that would have answered the question
+
+Reported from use: *Install and restart* answers **"The update could not be
+completed. Check your connection and try again."** The connection was fine. The
+same message appeared in two other applications built the same way.
+
+`stores/updater.ts` ended both failure paths with `catch { set({ phase: "error"
+}) }` — the error caught and dropped. This is the defect `1.6.10` fixed in the
+sync client, where twenty-nine `.map_err(|_| …)` threw away the cause and made an
+intermittent undiagnosable by construction. Here it was one line, and it turned
+every possible failure into one sentence that names the wrong cause.
+
+**Nothing upstream was hiding anything.** `updater.rs` already does
+`.map_err(|e| e.to_string())`, so the plugin's own text crosses the IPC and
+arrives as the rejection value. It travelled the whole way and was discarded in
+the last three metres.
+
+The message it carries is the difference between two answers. On macOS the bundle
+is replaced by renaming the running `.app` out of the way: `PermissionDenied`
+escalates and macOS asks for a password, while **any other error returns
+immediately with no prompt** — typically `EXDEV`, a rename across filesystems,
+which is what an application launched from a mounted `.dmg` or from a
+Gatekeeper-translocated path produces. *"Check your connection"* sends that user
+into a retry loop; `Invalid cross-device link` sends them to `/Applications`.
+
+So the detail is kept and shown, verbatim and untranslated, under the sentence
+that is translated — an error paraphrased is a second error, and this is the line
+somebody pastes into a report. The generic sentence stops blaming the connection
+and names the likely cause instead, in both catalogues.
+
+Three tests, proved non-vacuous: with the old `detail: null` behaviour restored
+they fail, and pass again with it undone. They cover the install path, the check
+path including that a new attempt clears a stale message, and a rejection that is
+neither a string nor an `Error` — which is shown as JSON rather than swallowed,
+because an unrecognised shape is worse to hide than to print.
+
+The diagnosis this came from is written up in
+[updater.md](docs/updater.md) at `1.6.67`; this is the half that means a user
+does not have to read it.
+
 ## 1.6.68 - a second Windows intermittent, and it is the test that is wrong
 
 CI failed twice today on `rate_limit_bounds_authenticated_requests`
