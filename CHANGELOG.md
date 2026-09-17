@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.15 - a Markdown row for the keyboard that has no Markdown keys
+
+Last line of the interface bullet in `ACCEPTANCE-0.4.md`. `**`, `` ` `` and `[`
+are two or three taps deep on a phone keyboard, so a row of six sits under the
+editor below 720px — bold, italic, heading, list, link, inline code — and is
+hidden by CSS above it, where a physical keyboard has all of them and the row
+would be clutter.
+
+**The logic is a pure module, and that is the point of the split.** CodeMirror
+does not run meaningfully under jsdom, so anything left inside a click handler is
+untested by construction. `markdown-actions.ts` takes a document and a selection
+and returns a document and a selection; fourteen tests cover where the caret
+lands, what an empty selection does, and whether a second press undoes the first.
+
+One of them found a real bug before any of this ran in a browser. Unwrapping
+computed the new selection end from the *old* start — symmetric-looking and wrong
+by the length of the selection, so pressing bold twice left the selection running
+past the text it had just unwrapped. The test that caught it is the one that
+presses twice from exactly the state the first press leaves behind.
+
+Every action toggles. A toolbar whose bold button only ever adds asterisks
+teaches the user to reach for the keyboard to undo it, which on a phone is the
+keyboard the row exists to avoid. A mixed block finishes the job rather than
+undoing the half already done, because that is the useful move.
+
+Two details that are about phones rather than Markdown: the press is one
+transaction, so it is one undo instead of a rewrite backed out character by
+character; and `mousedown` is prevented, because taking focus off the editor
+would dismiss the keyboard before the press ever lands.
+
+What is not tested is the dispatch into CodeMirror itself, and it stays that way
+until there is a device to run it on — which is in the queue as its own item, not
+assumed away here.
+
 ## 1.6.14 - below 720px the sidebar is a drawer, not a column
 
 The application had no width-based media query at all — 933 lines of stylesheet

@@ -27,10 +27,13 @@ The following implementation and owner checks remain pending:
   and `keystore.properties`, so no build output and no signing material follows.
   The Apple project still requires macOS.
 - Tauri mobile entry point, and the generated Apple project.
-- ~~Drawer navigation and a full-width editor~~ — **done at 1.6.14**: below
-  720px the sidebar leaves the flow and overlays, the editor takes the window,
-  split view stacks, and opening a note from the drawer closes it. The
-  Markdown keyboard toolbar remains.
+- ~~Full-screen editor, drawer navigation and Markdown keyboard toolbar~~ —
+  **done at 1.6.14 and 1.6.15**: below 720px the sidebar leaves the flow and
+  overlays, the editor takes the window, split view stacks, opening a note from
+  the drawer closes it, and a Markdown row sits under the editor with the six
+  marks a phone keyboard buries. Every action is a toggle and the logic is pure
+  and tested; what remains untested is the CodeMirror dispatch, which needs a
+  device.
 - Application-container workspace flows and background flush.
 - iOS security-scoped bookmarks, and Android SAF with persisted
   authorization — the Android half now has a written contract in

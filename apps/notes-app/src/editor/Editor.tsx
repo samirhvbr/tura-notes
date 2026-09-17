@@ -11,6 +11,7 @@ import { languages } from "@codemirror/language-data";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { useEditor } from "../stores/editor";
+import { Toolbar } from "./Toolbar";
 import { pendingCursor, useTabs } from "../stores/tabs";
 import { useSettings } from "../stores/settings";
 import { t } from "../i18n";
@@ -205,7 +206,13 @@ function EditorBody({
       </div>
     );
   }
-  return <div className="editor" ref={host} />;
+  return (
+    <div className="editor-wrap">
+      <div className="editor" ref={host} />
+      {/* Hidden by CSS above the drawer breakpoint; see Toolbar. */}
+      <Toolbar view={() => view.current} />
+    </div>
+  );
 }
 
 /**
