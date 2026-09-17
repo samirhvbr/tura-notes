@@ -565,6 +565,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   leitura sem conceder listagem, e não dá. É defeito de documentação que vira de
   segurança: não deixa o código errado, deixa errado o modelo que o operador tem dele
 
+- [x] R6t — a prévia de sync cumpre todas as promessas da página dela, conferido
+  rodando (1.6.81). Mesmo método do 1.6.79 e do 1.6.80, e desta vez **voltou limpo**
+  — o que vale registrar em vez de descartar: verificação que não acha nada é
+  evidência, e esta converte quatro afirmações em observações. Rodei o comando como
+  o `SYNC-0.6.md` imprime, contra duas pastas reais: as três ações significam o que
+  a tabela diz; a saída **nunca** traz texto de nota (plantei marcadores nos dois
+  corpos e nenhum aparece no JSON); nada é criado dentro das pastas de origem; e
+  repetir devolve **os mesmos UUIDs**, que é a promessa em que o pareamento inteiro
+  se apoia. Registrado no `ACCEPTANCE-0.6.md` como checagem de máquina datada e
+  **não** como caixa marcada — a regra de que o passeio é do dono não dobra porque
+  uma máquina concordou com a página
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

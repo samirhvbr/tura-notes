@@ -246,6 +246,25 @@ of it substitutes for an installed-release walk.
 | The connection test | `sync_control_probe` | Every check it reports is the one `Remote::connect` performs — `Endpoint::validate`, the credential file checks, the address policy and `decode` are each called from both, so a test cannot approve what the transport would refuse |
 | The outcome vocabulary | the frontend build | The probe outcomes are a `Record<SyncProbeOutcome, string>`; a variant added in Rust fails `tsc` instead of rendering its own key |
 
+### The preview, run from the page that documents it — 19/09/2026
+
+Not a walk and not a tick: a machine check of the four promises
+[SYNC-0.6.md](SYNC-0.6.md#run-the-preview) makes about `notes-sync-plan`,
+performed by running the command exactly as that page prints it against two real
+folders — one note identical on both sides, one with the same path and different
+bytes, one only on the left.
+
+| Promise | Observed |
+|---|---|
+| The three actions mean what the mode table says | `link` for the identical pair, `conflict` for the divergent one, `upload` for the local-only note |
+| Output carries paths, identities and hashes, **never note text** | The two bodies held planted markers; neither appears anywhere in the JSON |
+| Nothing is created inside the source folders | Both folders held exactly the files put there, before and after |
+| Repeated previews retain note IDs | Second run, same state directory: identical UUIDs |
+
+It says nothing about whether two machines end the day agreeing, which is what
+§1 is for. What it does say is that the owner's walk can start from the pairing
+step instead of re-checking the command underneath it.
+
 **What none of it knows:** whether the status the owner reads matches what the
 machine is doing, whether a conflict is *resolvable by a person* rather than
 merely representable, and whether two real machines with two real folders and one

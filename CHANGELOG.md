@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.81 - the sync preview keeps every promise its page makes, checked by running it
+
+Same method as `1.6.79` and `1.6.80`: run the documented path instead of reading
+it. This time it came back clean, and that is worth recording rather than
+discarding — a verification that finds nothing is evidence, and this one converts
+four asserted claims into observed ones.
+
+`SYNC-0.6.md` §*Run the preview* promises four things about `notes-sync-plan`.
+Run against two real folders — one note identical on both sides, one with the
+same path and different bytes, one only on the left:
+
+- the three actions mean what the mode table says: `link`, `conflict`, `upload`,
+  each on the pair it should be on;
+- the output carries paths, identities and hashes and **never note text** — both
+  bodies held planted markers and neither appears anywhere in the JSON;
+- nothing is created inside the source folders, before or after;
+- a repeated preview against the same state directory returns **identical note
+  UUIDs**, which is the claim the whole pairing rests on.
+
+Recorded in `ACCEPTANCE-0.6.md` as a dated machine check under the automated
+section, explicitly **not** as a ticked box — the rule that a walk is the owner's
+does not bend because a machine agreed with the page. What it buys them is a
+starting point: the walk can begin at the pairing step instead of re-checking the
+command underneath it.
+
+Three documented paths have now been executed rather than read — the clean clone,
+the MCP configuration, this. Two found defects and one did not, which is about
+the ratio that makes the method worth continuing.
+
 ## 1.6.80 - eight tools, six permissions, and three documents said otherwise
 
 Ran the MCP configuration exactly as `KNOWLEDGE-0.3.md` prints it — the same
