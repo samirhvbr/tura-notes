@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.2 - one session per worktree
+
+Two agent sessions shared this working tree for the length of a review, and the
+rule is written from what that produced rather than from principle:
+
+- A blanket `git add -A` in one session swept the other's scratch file into its
+  commit and published it, with a stray 16-byte file from the repository root
+  alongside.
+- The `rustls` security bump of 1.4.4 was reverted in `Cargo.lock` underneath
+  the session that made it, between the command that wrote it and the command
+  that read it back. It was caught only because the version was re-read; a
+  commit two seconds earlier would have shipped an empty fix.
+- Two `cargo test` runs against one `target/` produced a failure that twelve
+  subsequent runs could not reproduce, and it is still queued as unexplained.
+
+None of those was anybody's mistake. They are what concurrent writers to one
+tree produce, and care inside a session cannot prevent them, because the other
+session is not in it.
+
+The rule goes in `CLAUDE.md` and `AGENTS.md` **outside the marked echo blocks**:
+it is local, and written inside the markers it would be erased by the next fleet
+regeneration with nobody noticing. It carries the practical form —
+`git worktree add`, and the `core.hooksPath` a fresh worktree needs the same way
+a fresh clone does — and what to do when a session inherits a shared tree
+anyway: say so before committing, `git add <path>` rather than `-A`, and re-read
+`version.md` and `git log` immediately before writing a commit.
+
 ## 1.5.1 - a missing tool is a failure, not a warning
 
 `tools/check.sh` had two steps that printed `WARNING, not run` and let the gate
