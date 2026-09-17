@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.20 - the two owner acts, written against the scripts rather than the queue
+
+`docs/OWNER-ACTS.md` carries the steps for signing the server binary and for
+recovering the 1.4.0 attachments. Neither is something an agent does — one holds
+a private key that must never reach this repository or CI, the other publishes
+artifacts — but both can be got right before an evening is spent on them.
+
+**Reading the script found the queue wrong about its own procedure.** The item
+said to sign "the current version". `tools/sign-server-release.sh` refuses
+anything that is not `X.Y.0`, because attachments are built on minors only
+(ADR-036) and a patch Release carries none. The version to sign is **1.6.0**,
+and its `notes-server-1.6.0-x86_64-linux.tar.gz` and `.sha256` are both attached
+— checked against the Release, not assumed from the workflow.
+
+The page records the order the script works in, because the order is the
+substance: checksum verified **before** signing, since signing a truncated
+download publishes a valid signature over wrong bytes and that passes the
+deploy's verification and installs a binary that does not run; and the signature
+verified against the **committed public half** rather than the key that just
+signed, which is what catches a restored backup or an old pair here instead of on
+a host that is serving.
+
+Both queue items now point at the page instead of carrying half the commands, and
+the signing one no longer names the wrong version.
+
 ## 1.6.19 - `.loop/` is committed, and ADR-083 says in which language
 
 The `loop-work` skill writes four things into `.loop/`: the queue a round works
