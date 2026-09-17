@@ -296,6 +296,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   entrada. Medir antes de editar impediu de "consertar" uma linha certa.
   `tools/adr-status.py` no gate, provado contra as duas formas de falha
 
+- [x] R5s — três documentos não estavam no índice, e um deles fui eu que escrevi
+  (1.6.50). O `OWNER-ACTS.md` nasceu no 1.6.20, foi estendido no 1.6.31, é citado
+  de três lugares — e nunca entrou no `docs/README.md`, em quatro dias e dois passes
+  que foram cuidadosos com a regra do mesmo passe em tudo o mais. Isso é o argumento
+  para checagem em vez de hábito. `tools/doc-index.py` no gate, provado não-vácuo.
+  O `docs/history/` fica de fora de propósito: são rascunhos superados, e listar três
+  páginas mortas ao lado de trinta vivas piora o índice. Mais um conserto do mesmo
+  passe: a tabela *where a new document goes* ainda dizia que ADR é `ACTIVE`, o que
+  o 1.6.49 mudou uma hora antes
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

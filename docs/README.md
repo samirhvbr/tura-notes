@@ -33,10 +33,20 @@ that lists everything stops being read.
 | [updater.md](updater.md) | Signed desktop update behavior, publisher setup, retry rules and installed acceptance. |
 | [SELF-HOSTING.md](SELF-HOSTING.md) | **Run your own sync server, written for the person who will run it** — the one recommended path end to end, the fields of the app's pairing panel by name, what to do when a device is lost, and the failures that actually happen. [SERVER-0.5.md](SERVER-0.5.md) remains the contract; this is the route through it. |
 | [runbook.md](runbook.md) | From a clean machine to a running environment; **the release** — what ships, what does not and why, how to build the packages locally, and what to do when it fails halfway; the pre-flight checklist before making the repository public. |
+| [OWNER-ACTS.md](OWNER-ACTS.md) | **The three acts only the owner can perform** — signing the server binary with a key CI never holds, recovering the `1.4.0` attachments, and turning SVM back on in the firmware so the Android emulator can boot. Each checked against the script or the kernel log rather than against what the queue said. |
+| [brand.md](brand.md) | **The name and the mark** — why Tura Notes, what the folded ribbon is, and what the identity deliberately does not claim. |
 | [repodocs.md](repodocs.md) | **What in this repository came from the fleet standard, and where each piece lives.** The map of the relationship: what travels out of repodocs by copy, what by stamp, and what is only ever linked; the manifest of files and what is lost when one is missing; how to bring an existing repository in; how a fleet rule reaches this one. |
 
 <!-- Add the project's own pages as they are written. The recurring ones across
      this fleet are architecture.md, glossary.md and a playbook. -->
+
+**Every `.md` at the top of `docs/` appears above or in a section below, and
+`tools/doc-index.py` fails the gate when one does not.** Three had slipped —
+`OWNER-ACTS.md`, `MOBILE-0.4.md` and `brand.md`, one of them written four days
+after the page it should have been added to. An unindexed document is a document
+nobody finds by browsing, which for a record that exists to be found is the same
+as not having written it. `history/` is linked as a directory on purpose: those
+are superseded drafts kept for provenance, not pages to browse.
 
 ## The norm
 
@@ -55,7 +65,7 @@ regenerated, and which questions are answered upstream rather than here.
 | It describes… | It goes to |
 |---|---|
 | something that has been **built** — a measurement, a contract, a runbook | `docs/`, marked `ACTIVE` |
-| a decision that has been taken | `docs/decisions.md`, as an ADR, `ACTIVE` — a decision exists the moment it is taken, code or no code |
+| a decision that has been taken | `docs/decisions.md`, as an ADR, `ACCEPTED` — a decision exists the moment it is taken, code or no code. The ADR words are `PROPOSED`, `ACCEPTED`, `SUPERSEDED`, `REVERSED`, and they are **not** the five a document carries; `tools/adr-status.py` holds that line |
 | something planned but **not built yet** | `.continue/`, in Portuguese. A worked-out copy may also live here as `PROPOSED`, and the queue is the authority while both exist |
 | something that happened, with its date and its why | `CHANGELOG.md` |
 
@@ -71,6 +81,7 @@ and the fleet adopted it the same day.
 - [Acceptance — milestone 0.3](ACCEPTANCE-0.3.md): automated evidence and pending installed-release owner flows.
 
 - [Mobile acceptance](ACCEPTANCE-0.4.md): merged compilation foundation and remaining usable-mobile scope.
+- [The Android folder adapter](MOBILE-0.4.md) `PROPOSED`: the contract the SAF adapter is measured against — including the one thing that does not map, since SAF has no atomic rename. Nothing in it is built.
 
 ## Self-hosted server
 

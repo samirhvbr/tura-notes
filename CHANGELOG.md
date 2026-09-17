@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.50 - three documents were not in the index, and one of them I wrote
+
+`docs/README.md` is the index — the page somebody opens to find out what has been
+written down here. Three pages were not in it: `OWNER-ACTS.md`, `MOBILE-0.4.md`
+and `brand.md`.
+
+**`OWNER-ACTS.md` is mine.** Written at `1.6.20`, extended at `1.6.31`, cited
+from `ACCEPTANCE-0.5.md`, `ACCEPTANCE-0.4.md` and the queue — and never added to
+the index, across four days and two passes that were otherwise careful about
+fixing what they made stale. A document found only by somebody who already knows
+its filename is, for a record that exists to be found, close to not having been
+written.
+
+`tools/doc-index.py` joins the gate: every `.md` at the top of `docs/` is linked
+from the index. Proved non-vacuous — an empty page dropped into `docs/` fails it
+by name and removing it passes.
+
+`docs/history/` stays out of scope on purpose. The index links that directory as
+a whole and says why: superseded planning drafts kept for provenance, never
+implementation authority. Listing three dead pages beside thirty live ones in the
+place a reader browses would make the index worse, not more complete.
+
+One same-pass repair caught while editing the file: the *where a new document
+goes* table still said an ADR is recorded `ACTIVE`, which `1.6.49` changed to
+`ACCEPTED` an hour earlier. It now names all four ADR words and says they are
+deliberately not the five a document carries.
+
 ## 1.6.49 - the decision record used two words for the same state, twenty-six times
 
 `docs/decisions.md` is the file every *"do not re-litigate a decided direction"*
