@@ -549,6 +549,15 @@ size.** This is an acceptance criterion, not an aspiration
 ([ADR-034](decisions.md), `ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3), and
 it is stated in this section because reconciliation is where it was broken.
 
+**It is asserted on Linux and published everywhere** ([ADR-080](decisions.md)).
+The ceiling is a wall clock, and a wall clock on a shared CI runner reports the
+runner: 2 160 directories that open in ~10 ms on the owner's machine measured
+1 243 ms on a contended `windows-latest`, on a commit that could not have
+slowed an open. `deep.rs::the_tree_appears_in_well_under_a_second` therefore
+asserts the ceiling on the platform the rule's numbers came from, and writes the
+measurement — directory count, cost, and whether it was asserted — into the CI
+job summary on all three.
+
 Everything that has to walk the **whole tree** runs off the critical path — on
 its own thread, cancellable, with its progress visible in the status bar:
 

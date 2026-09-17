@@ -1028,9 +1028,11 @@ size, so did the user.
 **Decision.** Three rules, and the first is an acceptance criterion:
 
 1. **`workspace_open` returns and the tree appears in under one second, at any
-   size.** `crates/notes-core/tests/deep.rs` asserts it against the deep fixture;
+   size.** `crates/notes-core/tests/deep.rs` asserts it on Linux and publishes
+   the measurement on every platform
+   ([ADR-080](#adr-080--a-timing-criterion-is-asserted-where-its-numbers-came-from-and-published-everywhere-else));
    `docs/ACCEPTANCE-0.1b.md` and `docs/ACCEPTANCE-0.1c.md` carry it with the
-   number.
+   number, and the owner's walk is where it is judged on real hardware.
 2. **Anything that needs the whole tree runs off the critical path** — on its own
    thread, cancellable, with its progress visible in the status bar. That is the
    watcher's per-directory walk and quick open's path list today, and it is the
@@ -2324,3 +2326,66 @@ translating one item inside an English menu reads worse than not translating it.
 `EnvReport` grows two fields, and it is the one IPC shape the frontend
 hand-writes. `tools/tests/test_env_report.py` compares the two declarations by
 name, because a field added on one side only is invisible rather than broken.
+
+---
+
+## ADR-080 — A timing criterion is asserted where its numbers came from, and published everywhere else
+
+**Status:** `ACCEPTED` · 17/09/2026 · amends
+[ADR-034](#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work)
+
+**Context.** ADR-034's first rule is an acceptance criterion: `workspace_open`
+returns and the tree appears in **under one second, at any size**. It was
+asserted as a wall clock on every platform, in
+`deep.rs::the_tree_appears_in_well_under_a_second`.
+
+On `windows-latest` the same 2 160 directories that open in ~10 ms on the
+owner's machine took **1 243 ms**, and the commit it failed on touched a
+Linux-only test file, a queue row and `Cargo.lock` — nothing that could slow an
+open. The following commit was green and the one after it red again, on a
+different test. The number was not reporting the code; it was reporting a
+contended shared runner with a virus scanner mid-scan on a tree created
+milliseconds earlier.
+
+**Why that is not a small problem.** This repository has just paid for the
+answer. `cargo audit --deny warnings` sat red on eight advisories nobody could
+act on, and a real `rustls` TLS 1.3 handshake flaw — on the path every device
+sync request and every signed update download takes — lived inside that red for
+two versions before anyone read past it (1.4.4, 1.4.5). A check that is red for
+a reason which is not the code does not merely annoy: **it spends the attention
+that the next real finding needs.** `tools/check.sh` has said so in its own
+header since it was written.
+
+**Decision.** The criterion does not move. Where the number is a *verdict*
+does.
+
+1. **The one-second ceiling is asserted on Linux.** It is the platform the rule's
+   numbers were measured on — `DECISIONS-0.1c.md` D-09, `fixtures/deep`, the
+   per-directory inotify walk that caused the freeze in the first place — and
+   the least contended of the three runners.
+2. **Every platform measures it and publishes the measurement into the CI job
+   summary**, with its directory count and whether it was asserted. A criterion
+   that stops being asserted must not stop being *visible*: an unmeasured
+   criterion decays faster than a flaky one, because nothing reports its drift
+   at all.
+3. **A test that is intermittent on one platform is ignored on that platform,
+   with the investigation queued and named in the `ignore` reason** — never
+   weakened, and never ignored everywhere.
+   `control::tests::received_bytes_remain_pending_until_explicit_application`
+   is the first: `#[cfg_attr(windows, ignore = …)]`, intact on Linux and macOS,
+   queued in `.continue/README.md`.
+
+**Consequences.** A regression that slows `workspace_open` on macOS or Windows
+without slowing it on Linux is a row in a job summary rather than a red build.
+That is a real reduction in coverage and it is the price: the alternative was a
+red that had already been overridden in practice, and a red nobody acts on is
+zero coverage wearing the costume of full coverage. The owner's acceptance walk
+(`ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3) is where the criterion is
+judged on real hardware, and that was always true — the automated check was
+never the thing the promise rested on.
+
+**What this is not.** It is not a licence to move an assertion to a friendlier
+platform whenever it goes red. The test here was measuring the runner and not
+the code, demonstrably: same input, three different verdicts across commits that
+could not have changed it. A test that fails because the code is slow on one
+platform is a bug on that platform, and it is fixed there.

@@ -8,6 +8,53 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.0 - the one-second rule is asserted where its numbers came from
+
+ADR-080, amending ADR-034. **The criterion does not move** — `workspace_open`
+returns and the tree appears in under one second, at any size. What moves is
+where that number is a verdict.
+
+The ceiling was asserted as a wall clock on all three platforms. On
+`windows-latest` the same 2 160 directories that open in ~10 ms here measured
+**1 243 ms**, on a commit whose contents were a Linux-only test file, a queue
+row and `Cargo.lock` — nothing that could slow an open. The next commit was
+green and the one after red again on a different test. The number was reporting
+a contended runner scanning a tree created milliseconds earlier, not the code.
+
+**Why that gets an ADR instead of a bigger number.** This repository has just
+paid for the answer: `cargo audit --deny warnings` sat red on eight advisories
+nobody could act on, and a real `rustls` TLS 1.3 flaw — on the path every sync
+request and every signed update takes — lived inside that red for two versions
+before anyone read past it. A check that is red for a reason which is not the
+code spends the attention the next real finding needs.
+
+So: asserted on Linux, the platform whose numbers the rule was written from and
+the least contended runner; **measured and published on every platform** into
+the CI job summary, with the directory count and whether it was asserted. An
+assertion that is dropped without a reading in its place leaves a criterion
+nothing reports the drift of, which decays faster than a flaky one.
+
+`received_bytes_remain_pending_until_explicit_application` gets
+`#[cfg_attr(windows, ignore = …)]` with the queue item named in the reason —
+intact on Linux and macOS, skipped only where it is intermittent, and not
+weakened anywhere. It has no diagnosis and the honest ways to get one need a
+Windows machine.
+
+The ADR says what this is not: a licence to move an assertion to a friendlier
+platform when it goes red. The test here was measuring the runner and not the
+code, demonstrably — same input, three verdicts across commits that could not
+have changed it. A test that fails because the code is slow on a platform is a
+bug on that platform, and it is fixed there.
+
+Verified both halves. The assertion still fails when it should: forcing the
+Linux branch on with an impossible ceiling produces
+`2 160 directories took 11.01 ms … over the one-second rule`. The publication
+produces a markdown table in `$GITHUB_STEP_SUMMARY` and is silent outside
+Actions. Both changes cross-check clean against `x86_64-pc-windows-gnu`.
+
+`ADR-034` rule 1, `ARCHITECTURE.md`'s one-second section and
+`ACCEPTANCE-0.1b.md`'s test row are corrected in the same pass.
+
 ## 1.4.7 - version.md had a literal backslash-n where a newline belonged
 
 1.4.6 was written by a Python snippet inside a quoted heredoc, where `"\\n"`

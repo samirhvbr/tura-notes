@@ -221,9 +221,29 @@ fn opened(root: &Path) -> (WorkspaceService, tempfile::TempDir) {
     (svc, data)
 }
 
-/// **ADR-034, the rule itself.** The tree appears in under a second at any
-/// size. Measured on `fixtures/deep` (20 962 directories) it is 1.13 ms; here it
-/// is a smaller corpus in CI, and the budget is the same one second.
+/// **ADR-034's first rule.** The tree appears in under a second at any size.
+///
+/// The criterion is unchanged and so is the number. What [ADR-080] changed is
+/// **where the number is a verdict and where it is a reading**: asserted on
+/// Linux, measured and published everywhere.
+///
+/// A wall clock on a shared CI runner answers a question about the runner. The
+/// same 2 160 directories that open in ~10 ms on the owner's machine took
+/// **1 243 ms** on a contended `windows-latest`, against this 1 000 ms ceiling,
+/// on a commit that touched a Linux-only test file, a queue row and
+/// `Cargo.lock` — nothing that could have slowed an open. Keeping that as a
+/// verdict on every platform is how a gate becomes background noise, and this
+/// repository has the receipt: eight unactionable advisories hid a real
+/// `rustls` TLS flaw for two versions (1.4.4).
+///
+/// **Linux is where it is asserted** because it is the platform whose numbers
+/// the rule was written from (`DECISIONS-0.1c.md` D-09, `fixtures/deep`, the
+/// per-directory inotify walk), and because it is the least contended of the
+/// three runners. The other platforms publish the measurement into the job
+/// summary, so a regression on them is visible in the run rather than silent —
+/// a reading nobody has to chase, and nobody has to override.
+///
+/// [ADR-080]: ../../../docs/decisions.md
 #[test]
 fn the_tree_appears_in_well_under_a_second() {
     let tree = DeepTree::build(120);
@@ -236,12 +256,57 @@ fn the_tree_appears_in_well_under_a_second() {
     let elapsed = t.elapsed();
 
     assert_eq!(top.len(), 120, "the root listed");
-    assert!(
-        elapsed.as_secs_f64() < 1.0,
-        "{} directories took {} to a usable tree, over the one-second rule",
-        tree.dirs,
-        ms(elapsed)
+    publish_open_cost(tree.dirs, elapsed);
+    println!(
+        "the tree appeared in {} over {} directories",
+        ms(elapsed),
+        tree.dirs
     );
+
+    if cfg!(target_os = "linux") {
+        assert!(
+            elapsed.as_secs_f64() < 1.0,
+            "{} directories took {} to a usable tree, over the one-second rule",
+            tree.dirs,
+            ms(elapsed)
+        );
+    }
+}
+
+/// Put the measurement in the CI run's own summary, on every platform.
+///
+/// This is the other half of ADR-080: dropping the assertion off Linux would
+/// have made the number invisible on the two platforms where it is no longer a
+/// verdict, and an unmeasured criterion decays faster than a flaky one. Each
+/// job writes its own summary file, so the header belongs with the row.
+///
+/// Silent outside Actions, and never a reason to fail: this reports, and the
+/// assertion above judges.
+fn publish_open_cost(dirs: usize, elapsed: Duration) {
+    use std::io::Write;
+    let Ok(path) = std::env::var("GITHUB_STEP_SUMMARY") else {
+        return;
+    };
+    let os = std::env::var("RUNNER_OS").unwrap_or_else(|_| std::env::consts::OS.to_string());
+    let verdict = if cfg!(target_os = "linux") {
+        "asserted, ceiling 1 000 ms"
+    } else {
+        "measured, not asserted (ADR-080)"
+    };
+    let row = format!(
+        "{}\n\n{}\n{}\n{}\n",
+        "### ADR-034 — the tree appears in under a second",
+        "| platform | directories | open + list root | |",
+        "|---|---|---|---|",
+        format_args!("| {os} | {dirs} | {} | {verdict} |", ms(elapsed).trim()),
+    );
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = f.write_all(row.as_bytes());
+    }
 }
 
 /// **0.1b's criterion.** Starting the watcher returns immediately, because the
