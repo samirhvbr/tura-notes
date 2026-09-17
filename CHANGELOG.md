@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.3 - name only the release that is actually missing its attachments
+
+The queue's **Anexos minor perdidos no Build** item said 1.4.0 and 1.5.0 both
+carry no attachment at all, and told whoever picks it up to dispatch the Build
+for 1.5.0. Measured against the releases today: 1.4.0 has zero, 1.5.0 has
+fourteen, 1.6.0 has fourteen. Only 1.4.0 is still empty, and the recovery it
+names would have rebuilt a version that no longer needs it while leaving the one
+that does.
+
+The item now names 1.4.0, carries the measurement and its date, and keeps the
+consequence that makes it worth doing: `deploy-server.sh` derives `X.Y.0` and
+would fetch a file that is not there. The cause stays fixed in 1.5.5 and the act
+stays the owner's.
+
+A queue item is the only place unbuilt work exists, so an item that describes the
+wrong target is worse than a missing one — it sends the next person to rebuild
+something that is already whole.
+
 ## 1.6.2 - correct the claim that the old pull test passed for the wrong reason
 
 The 1.1.11 entry ends by saying the earlier `test_failed_pull_stops_before_stamping`
