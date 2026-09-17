@@ -534,7 +534,7 @@ against a registry that knows every file; this one is populated when a note is
 note the user has never opened is "not in the registry". Announcing them would
 report the whole workspace as created on every window focus. A scan re-lists the
 tree, which is what the sidebar needs, and a file that appeared as half of a
-rename is found by correlation, which walks for it — [ADR-026](decisions.md).
+rename is found by correlation, which walks for it — [ADR-026](decisions.md#adr-026--reconciliation-is-driven-from-what-vanished-and-a-full-scan-announces-no-creations).
 
 Budget: at most 50 files hashed per reconciliation tick; the rest is queued.
 The UI never waits on reconciliation to open or edit a note.
@@ -544,7 +544,7 @@ poll for that workspace and the UI says so with the `sysctl` to raise it.
 **Not being able to watch is a state of the workspace rather than a failure of
 the call**: `FileSystem::watch()` returns a `Watch` carrying an optional
 `degraded` reason, never an `Err`, so a backend with no watcher opens normally
-and is reconciled by the 5 s poll and the scan on focus ([ADR-027](decisions.md)).
+and is reconciled by the 5 s poll and the scan on focus ([ADR-027](decisions.md#adr-027--not-being-able-to-watch-is-a-state-of-the-workspace-not-a-failure)).
 The poll and the focus scan run whether or not there is a watcher, so a watch
 silently lost degrades to 5 s rather than to nothing.
 
@@ -564,10 +564,10 @@ and `walking`, which stays true until the handle is up.
 
 **`workspace_open` returns and the tree appears in under one second, at any
 size.** This is an acceptance criterion, not an aspiration
-([ADR-034](decisions.md), `ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3), and
+([ADR-034](decisions.md#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work), `ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3), and
 it is stated in this section because reconciliation is where it was broken.
 
-**It is asserted on Linux and published everywhere** ([ADR-080](decisions.md)).
+**It is asserted on Linux and published everywhere** ([ADR-080](decisions.md#adr-080--a-timing-criterion-is-asserted-where-its-numbers-came-from-and-published-everywhere-else)).
 The ceiling is a wall clock, and a wall clock on a shared CI runner reports the
 runner: 2 160 directories that open in ~10 ms on the owner's machine measured
 1 243 ms on a contended `windows-latest`, on a commit that could not have
@@ -644,7 +644,7 @@ never enter this algorithm; they update the registry directly.
 **Computed from the vanished side.** "Disk paths not in the registry" is nearly
 every file here, because the registry is lazy; driving the loop from what
 vanished gives the same answer and costs nothing on every tick where nothing
-has ([ADR-026](decisions.md)).
+has ([ADR-026](decisions.md#adr-026--reconciliation-is-driven-from-what-vanished-and-a-full-scan-announces-no-creations)).
 
 ```
 vanished := registry paths not on disk
@@ -898,7 +898,7 @@ all. `build.yml` triggers on `workflow_run` rather than `on: release`, because
 `release.yml` creates the Release with the built-in `GITHUB_TOKEN` and GitHub
 fires no workflow events for what a `GITHUB_TOKEN` did.
 
-**Artifacts are built for a minor bump, and on request** ([ADR-036](decisions.md)).
+**Artifacts are built for a minor bump, and on request** ([ADR-036](decisions.md#adr-036--release-artifacts-are-built-for-minor-bumps-and-on-request)).
 Every commit is a version and every version gets a Release, so most versions are
 a step inside a working session; nine minutes and a 105 MB AppImage for each of
 those buys nobody anything. A version whose patch component is `0` is built, as
@@ -929,7 +929,7 @@ engineering, and a job that does not exist is a job nobody can cost.
 `tools/stamp-version.sh` writes it into `tauri.conf.json` at build time; the
 committed value is `0.0.0` and both CI and `tools/check.sh` fail if it is
 anything else. The `PKGBUILD` is generated the same way, checksum included
-([ADR-035](decisions.md)).
+([ADR-035](decisions.md#adr-035--the-bundle-version-is-stamped-from-versionmd-never-maintained-beside-it)).
 
 The release tarball is unpacked **from the `.deb`** rather than assembled:
 the binary, the `.desktop` entry and the icon set are produced by the Tauri
@@ -1018,7 +1018,7 @@ Resolved by the owner on 07/09/2026; [SCOPE.md](SCOPE.md) is not edited
 | §12 | Draft written on conflict or write failure | Also on 30 s dirty, and on exit (§4.2) | **This document wins** — a superset. More situations in which a buffer survives cannot make the guarantee weaker |
 | §9 | Every write carries `(buffer_version, BaseRev)` | `note_save(..., base_rev)` (§5, §7.1) | **The scope wins**; this document was changed to match |
 | §7.6 | Default ignore list | `IGNORE_DEFAULT` in `notes-core` (§16) | Same list; the scope did not say where it lives |
-| §8.4 | "Outros esquemas recusados" | `mailto:` renders as **text**, not as a link | **The scope wins, and it is worth spelling out**: `shell:allow-open` permits only `http(s)`, so a rendered `mailto:` would be a link that does nothing. Widening the capability is the owner's act ([ADR-029](decisions.md)) |
+| §8.4 | "Outros esquemas recusados" | `mailto:` renders as **text**, not as a link | **The scope wins, and it is worth spelling out**: `shell:allow-open` permits only `http(s)`, so a rendered `mailto:` would be a link that does nothing. Widening the capability is the owner's act ([ADR-029](decisions.md#adr-029--mailto-and-every-scheme-but-https-render-as-text)) |
 | §8.1 | "autolinks" among the GFM features | A bare `https://`/`http://` is linkified; a bare `www.` is **not** | GFM guesses `http://` for `www.`, and guessing an insecure scheme for the user is not something this application does quietly |
 | §7.7 | Delete reports which happened | `DeleteOutcome`, and the trash is attempted whenever `caps.trash` | Same rule; the fallback exists because a removable stick has no bin, and it is never silent ([DECISIONS-0.1b.md](DECISIONS-0.1b.md) D-11) |
 

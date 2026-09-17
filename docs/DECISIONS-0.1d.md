@@ -27,7 +27,7 @@ immediately.
 path — `open_workspace` called while another workspace is open, which replaces
 `self.open` outright — could drop an unwritten registry change. With the
 debounce as documented, it could: identity is **operational** state
-([ADR-015](decisions.md)), and a lost `NoteId` is a tab that cannot find its
+([ADR-015](decisions.md#adr-015--the-registry-is-operational-state-and-moves-to-its-own-database-at-02)), and a lost `NoteId` is a tab that cannot find its
 note and, at 0.6, a file re-uploaded as new. Without it, there is nothing
 unwritten to drop.
 

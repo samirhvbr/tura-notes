@@ -184,7 +184,7 @@ repositories with `node_modules/`, `target/` and `.git/` — and the Welcome scr
 stayed on screen for **more than two minutes** before the tree appeared. That is
 not a notes workload, and it does not have to be: the rule this criterion states
 is that the application does not freeze on **any** folder
-([ADR-034](decisions.md), [DECISIONS-0.1c.md](DECISIONS-0.1c.md) D-09).
+([ADR-034](decisions.md#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work), [DECISIONS-0.1c.md](DECISIONS-0.1c.md) D-09).
 
 Two halves belong to 0.1b, because both are the watcher's:
 
@@ -192,7 +192,7 @@ Two halves belong to 0.1b, because both are the watcher's:
 
 | Test | What it holds to |
 |---|---|
-| `notes-core`, `deep.rs::the_tree_appears_in_well_under_a_second` | opening a workspace of 2 160 directories and listing its root, **under 1 s** — asserted on Linux, measured and published into the CI job summary on macOS and Windows ([ADR-080](decisions.md)) |
+| `notes-core`, `deep.rs::the_tree_appears_in_well_under_a_second` | opening a workspace of 2 160 directories and listing its root, **under 1 s** — asserted on Linux, measured and published into the CI job summary on macOS and Windows ([ADR-080](decisions.md#adr-080--a-timing-criterion-is-asserted-where-its-numbers-came-from-and-published-everywhere-else)) |
 | `notes-core`, `deep.rs::starting_the_watcher_returns_immediately_and_walks_behind` | `start_watch` returns in under a fifth of the walk it then waits for, over **7 200 directories** |
 | `notes-core`, `deep.rs::an_unreadable_directory_does_not_demote_the_workspace` | a mode-000 subdirectory is **counted and skipped**; `degraded` stays `None` and the rest stays watched |
 | `notes-fs`, `watch_walk.rs::the_walk_reports_its_progress_and_finishes` | the counters the status bar reads are real: over 300 directories walked, and `walking` turns off |

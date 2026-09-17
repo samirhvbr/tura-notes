@@ -16,7 +16,7 @@ scan · tabs with restoration · command palette · minimum settings · `en`/`pt
 **Not in this milestone**, and not pulled forward: `notes-index`, SQLite, FTS5
 and the `registry.db` move. §17 puts them at **0.2**, §10 says the 0.1c search is
 a scan (`ignore` + `regex`) and that FTS5 takes over word search at 0.2, and
-[ADR-015](decisions.md) is `ACTIVE` saying the registry moves at 0.2.
+[ADR-015](decisions.md#adr-015--the-registry-is-operational-state-and-moves-to-its-own-database-at-02) is `ACTIVE` saying the registry moves at 0.2.
 
 ## Summary
 

@@ -36,11 +36,11 @@ release, remains pending in [0.1d acceptance](docs/ACCEPTANCE-0.1d.md) and
 [samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes). It is built
 by `./build-local.sh` on the machine whose keychain holds the certificate rather
 than by CI, because that is where a signing key should live
-([ADR-070](docs/decisions.md)); the `build.yml` job stays disabled and the
+([ADR-070](docs/decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)); the `build.yml` job stays disabled and the
 GitHub Release carries the Linux artefacts only.
 
 **Windows is not published.** An unsigned build teaches its user to click past
-the warning that exists to protect them ([ADR-024](docs/decisions.md)); the
+the warning that exists to protect them ([ADR-024](docs/decisions.md#adr-024--no-unsigned-macos-or-windows-artefact-is-published)); the
 missing piece is an OV code-signing certificate, and it is named in
 `.github/workflows/build.yml`.
 
@@ -59,7 +59,7 @@ shasum -a 256 ~/Downloads/Tura\ Notes_*.dmg
 Linux, from the
 [latest release that carries packages](https://github.com/samirhvbr/tura-notes/releases):
 every commit is a version, and **packages are built for minor bumps** (`X.Y.0`)
-and on request — a patch release says so in its own description ([ADR-036](docs/decisions.md)).
+and on request — a patch release says so in its own description ([ADR-036](docs/decisions.md#adr-036--release-artifacts-are-built-for-minor-bumps-and-on-request)).
 
 ```bash
 # Debian, Ubuntu and derivatives

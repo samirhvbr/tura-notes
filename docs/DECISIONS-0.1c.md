@@ -27,7 +27,7 @@ otherwise, and one of them is binding:
 - §10 says the 0.1c global search is a **scan** (`ignore` + `regex`) and that
   FTS5 takes over word search at **0.2**, with the scanner staying for literal
   and regex;
-- **[ADR-015](decisions.md) is `ACTIVE`** and says the registry moves to
+- **[ADR-015](decisions.md#adr-015--the-registry-is-operational-state-and-moves-to-its-own-database-at-02) is `ACTIVE`** and says the registry moves to
   `registry.db` at 0.2.
 
 Building them here would contradict an ACTIVE ADR, which is a stop condition,
@@ -135,7 +135,7 @@ place — correct, and four more moving parts.
 
 ## D-07 — A tab strip is not a reason to make the editor multi-document
 
-**Decided.** See [ADR-030](decisions.md). Recorded here as the call it was:
+**Decided.** See [ADR-030](decisions.md#adr-030--tabs-are-a-list-beside-the-editor-not-a-second-document-model). Recorded here as the call it was:
 tabs are a **separate store** that owns the list, and the editor keeps owning the
 one loaded document.
 
@@ -192,7 +192,7 @@ on any workspace with a build directory in it.
 
 ## D-09 — The tree in under a second, and everything that needs the whole tree in the background
 
-**Decided.** See [ADR-034](decisions.md). `workspace_open` returns and the tree
+**Decided.** See [ADR-034](decisions.md#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work). `workspace_open` returns and the tree
 appears in **under one second at any size**. Everything that has to walk the
 whole tree — the watcher's per-directory watches, the quick-open path list —
 runs on its own thread, is cancellable, and reports its progress to the status

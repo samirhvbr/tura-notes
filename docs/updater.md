@@ -218,7 +218,7 @@ been read back, which is what the previous paragraph said would end the claim.
 3. **The acceptance**, which no script infers: an installed upgrade between two
    versions on macOS, AppImage, deb and rpm, and confirming the `1.6.1` `.deb`
    removes the pre-`1.0.0` `notes` package on the machine that still carries it
-   ([ADR-082](decisions.md)).
+   ([ADR-082](decisions.md#adr-082--the-renamed-package-takes-over-the-one-it-was-renamed-from-and-the-binary-keeps-its-name)).
 
 A feed that is published and a client that upgrades are not the same claim, and
 this page has now been wrong in both directions about that — first claiming

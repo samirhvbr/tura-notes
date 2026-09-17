@@ -45,8 +45,16 @@ EXPECTED_MISSING = {
 
 FENCE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE = re.compile(r"`[^`]*`")
-LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")
+LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)\s]+)\)")
 HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+
+# `[ADR-071](decisions.md)` resolves, and is still the wrong link: it lands the
+# reader at the top of a file with eighty-odd decisions in it. The rule this
+# repository runs on is *"do not re-litigate a decided direction — link the
+# ADR"*, and a citation that makes someone search for the ADR they were pointed
+# at is a citation that gets skipped, after which the direction gets
+# re-litigated. Twenty-three of these existed when the check was written.
+ADR_CITATION = re.compile(r"^ADR-\d+$")
 
 
 def slug(text: str) -> str:
@@ -115,8 +123,15 @@ def main() -> int:
         p = ROOT / rel
         for lineno, line in strip_code(p.read_text(errors="replace").splitlines()):
             for m in LINK.finditer(line):
-                target = m.group(1)
+                text, target = m.group(1), m.group(2)
                 if target.startswith(("http://", "https://", "mailto:", "tel:")):
+                    continue
+                if (ADR_CITATION.match(text.strip())
+                        and target.split("#")[0].endswith("decisions.md")
+                        and "#" not in target):
+                    problems.append(
+                        f"{rel}:{lineno}: [{text}]({target}) — cites an ADR but "
+                        f"links the whole file; add the #anchor")
                     continue
                 frag = ""
                 if target.startswith("#"):
@@ -135,12 +150,12 @@ def main() -> int:
                         continue
                     if not dest.exists():
                         problems.append(
-                            f"{rel}:{lineno}: {m.group(1)} — no such file")
+                            f"{rel}:{lineno}: {target} — no such file")
                         continue
                 if frag and dest.suffix == ".md":
                     if frag not in anchors.get(dest, set()):
                         problems.append(
-                            f"{rel}:{lineno}: {m.group(1)} — no such heading")
+                            f"{rel}:{lineno}: [{text}]({m.group(2)}) — no such heading")
 
     if problems:
         print(f"doc-links: {len(problems)} broken link(s)", file=sys.stderr)

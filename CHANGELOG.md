@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.44 - twenty-three ADR citations linked the file instead of the decision
+
+`CLAUDE.md` states the rule the decision record runs on: *do not re-litigate a
+decided direction — link the ADR*. Twenty-three links wrote `[ADR-071]` and
+pointed at `decisions.md` with no anchor, landing the reader at the top of a
+2,600-line file holding eighty-odd decisions.
+
+That resolves, so `1.6.43`'s checker passed it, and it is still the wrong link. A
+citation that makes somebody search for the decision they were just pointed at is
+a citation that gets skipped — and the direction gets re-litigated, which is the
+one outcome the rule exists to prevent.
+
+All twenty-three now carry the anchor, derived from the ADR headings rather than
+typed: `README.md`, `ARCHITECTURE.md` (eight of them), `roadmap.md`,
+`updater.md`, three acceptance and decision pages, and `.continue/README.md`.
+
+**And the class is closed rather than cleaned.** `doc-links.py` gains one rule: a
+link whose text is exactly `ADR-<n>` and whose target ends in `decisions.md`
+without a fragment fails the gate. Proved non-vacuous before shipping — reverting
+one anchor made the check fail with that file and line, and restoring it made it
+pass.
+
+This is the second class of documentation error to become mechanical in two
+versions, and both were found the same way: by noticing that a correction being
+made by hand had been made by hand before.
+
 ## 1.6.43 - a broken anchor renders as the top of the page, which reads as a working link
 
 `tools/doc-links.py` joins the gate. It resolves every relative link in the

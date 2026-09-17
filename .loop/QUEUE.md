@@ -230,6 +230,15 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   e código em bloco é sintaxe e não link) e um caminho na allowlist com o porquê: o
   `.pub` que só existe depois do OWNER-ACTS §1
 
+- [x] R5m — 23 citações de ADR apontavam para o arquivo, não para a decisão
+  (1.6.44). `[ADR-071](decisions.md)` resolve — o checker do 1.6.43 passava — e
+  ainda é o link errado: cai no topo de um arquivo de 2.600 linhas com oitenta e
+  tantas decisões. A regra do `CLAUDE.md` é *"não re-litigue direção decidida —
+  linke a ADR"*, e citação que obriga a procurar é citação que se pula, e aí a
+  direção é re-litigada. As 23 ganharam âncora derivada dos títulos, não digitada.
+  **E a classe foi fechada, não limpa:** o `doc-links.py` ganhou a regra, provada
+  não-vácua antes de subir (revertendo uma âncora o gate falha com arquivo e linha)
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

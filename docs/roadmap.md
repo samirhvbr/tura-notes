@@ -38,13 +38,13 @@ and one who stops after 0.3 has a good one.
 > conflicts) and 0.1c (tabs, quick open, global search, palette, settings,
 > `en`/`pt-BR`). Packaged for Linux: `.deb`, AppImage and the AUR `notes-bin`;
 > macOS and Windows are tested in CI and **not published**
-> ([ADR-024](decisions.md)).
+> ([ADR-024](decisions.md#adr-024--no-unsigned-macos-or-windows-artefact-is-published)).
 >
 > **0.1d — Interface** was added to the scope on 08/09/2026
-> ([ADR-037](decisions.md)) and the desktop MVP is now `0.1a + 0.1b + 0.1c +
+> ([ADR-037](decisions.md#adr-037--milestone-01d-exists-the-interface-is-a-milestone-not-a-finishing-pass)) and the desktop MVP is now `0.1a + 0.1b + 0.1c +
 > 0.1d`. The editor works; what it did not have was a way to reach it. Graph
 > view moved from "out of scope" to 0.3 in the same pass
-> ([ADR-038](decisions.md)).
+> ([ADR-038](decisions.md#adr-038--graph-view-leaves-out-of-scope-and-becomes-03-after-backlinks)).
 
 Linux, macOS, Windows.
 
