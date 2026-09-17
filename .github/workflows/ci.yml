@@ -351,6 +351,16 @@ jobs:
             echo "== $t"
             cargo check --locked --target "$t" -p notes-model -p notes-fs -p notes-markdown -p notes-index -p notes-core
           done
+          # The Tauri shell on one ABI rather than four. The reason the core is
+          # checked on all of them is SQLite's C cross-compile, which breaks per
+          # architecture; the shell is Rust over a JNI boundary and does not, so
+          # four full Tauri dependency trees would buy repetition rather than
+          # coverage. arm64 is what a real device runs.
+          echo "== notes-app on aarch64-linux-android"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android24-clang
+          export CC_aarch64_linux_android=aarch64-linux-android24-clang
+          export AR_aarch64_linux_android=llvm-ar
+          cargo check --locked --target aarch64-linux-android -p notes-app
 
   ios-core:
     name: iOS simulator core

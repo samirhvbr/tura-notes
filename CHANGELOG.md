@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.16 - the mobile entry point, and the warning it exposed
+
+On desktop `main.rs` calls `run()`. On Android and iOS there is no `main`: the
+generated project's activity loads this library and calls a symbol that has to
+exist, which is what `#[cfg_attr(mobile, tauri::mobile_entry_point)]` exports. A
+second function for mobile would have been the start of the second application
+ADR-042 exists to prevent, so the attribute goes on the one that is already
+there.
+
+Checking it for Android surfaced something the desktop build could never see.
+Every use of `app` inside `.setup(|app| ...)` sits behind `cfg(desktop)`, so on
+mobile the binding is unused — and `-D warnings` turns that into a build failure
+on the platform this change exists to serve. Renaming it `_app` would read as
+"unused" on the platform where it is used the most, so the closure now starts
+with `let _ = &app;` and a comment saying which platform it is for.
+
+CI gains `notes-app` on **one** ABI rather than four, and the asymmetry is
+deliberate. The core is checked on all four because `notes-index` bundles SQLite
+and a C cross-compile is what breaks per architecture; the shell is Rust over a
+JNI boundary and does not, so four full Tauri dependency trees would buy
+repetition rather than coverage. arm64 is what a real device runs.
+
+Measured here on NDK 28.2: the shell checks for Android in 27 seconds warm, and
+clippy stays clean for the desktop target with `-D warnings`.
+
 ## 1.6.15 - a Markdown row for the keyboard that has no Markdown keys
 
 Last line of the interface bullet in `ACCEPTANCE-0.4.md`. `**`, `` ` `` and `[`

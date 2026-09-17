@@ -26,7 +26,10 @@ The following implementation and owner checks remain pending:
   `.gitignore` inside it excludes `build`, `local.properties`, `key.properties`
   and `keystore.properties`, so no build output and no signing material follows.
   The Apple project still requires macOS.
-- Tauri mobile entry point, and the generated Apple project.
+- ~~Tauri mobile entry point~~ — **done at 1.6.16**: `run()` carries
+  `#[cfg_attr(mobile, tauri::mobile_entry_point)]`, and CI checks the shell for
+  arm64 Android alongside the core's four ABIs. The generated **Apple** project
+  still needs macOS.
 - ~~Full-screen editor, drawer navigation and Markdown keyboard toolbar~~ —
   **done at 1.6.14 and 1.6.15**: below 720px the sidebar leaves the flow and
   overlays, the editor takes the window, split view stacks, opening a note from

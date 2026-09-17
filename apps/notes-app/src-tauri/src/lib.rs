@@ -11,6 +11,14 @@ use std::sync::Mutex;
 use commands::{App, DmabufReport};
 use notes_core::WorkspaceService;
 
+/// The one entry point, for every platform.
+///
+/// On desktop `main.rs` calls this. On Android and iOS there is no `main`: the
+/// generated project's activity loads this library and calls the symbol the
+/// macro exports, which is why the attribute is `cfg_attr(mobile, ...)` rather
+/// than a second function — ADR-042 keeps mobile inside this application, and a
+/// separate mobile entry would be the beginning of a second one.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // The service is built before the window so the settings that govern the
     // WebView are readable before it exists. A settings file that cannot be read
@@ -45,6 +53,11 @@ pub fn run() {
             _ => {}
         })
         .setup(|app| {
+            // Every use of `app` below is behind `cfg(desktop)`, so on Android
+            // and iOS the binding is unused and `-D warnings` turns that into a
+            // build failure. Naming it `_app` would then read as "unused" on the
+            // platform where it is used the most.
+            let _ = &app;
             #[cfg(desktop)]
             {
                 use tauri::Manager;
