@@ -2596,3 +2596,60 @@ protects is the declaration. The built 1.6.1 package was read back with
 the machine that still carries 0.11.11, which answered *"yes, will remove notes
 in favour of tura-notes"*. The install itself needs root and remains an owner
 step, in the queue with the other installed-release checks.
+
+## ADR-083 — `.loop/` is versioned memory, in the language it is thought in
+
+**Status:** ACCEPTED · 17/09/2026
+
+**Decision.** `.loop/` is committed. It is not added to `.gitignore`, and it is
+written in the language its author thinks in — the same ressalva `.continue/`
+already has, rather than a fourth exception with its own criterion.
+
+**Context.** The `loop-work` skill writes four things into `.loop/`: the queue it
+is working from, an index of every stop, the archived report of each one, and
+`ASSUMPTIONS.md` — the decisions an agent took **without the owner**, each with
+its alternative and how to undo it. The directory was left untracked for a whole
+round while the question was open.
+
+**Why it is versioned.** `.gitignore`'s own header says a directory holding an
+open question or a verdict is memory rather than execution, and that keeping one
+out of git has already cost this fleet real work. `ASSUMPTIONS.md` is precisely a
+ledger of verdicts, and it is the one artefact that explains *why* a series of
+commits looks the way it does. Reading `git log` a year from now answers what
+changed; only this answers what was decided instead. Leaving it on one machine's
+disk makes the record of unsupervised decisions the most perishable thing in the
+project, which is backwards.
+
+**Why the language question was not obvious.** Everything in this repository is
+English (US), with three carve-outs, and `.loop/` is none of them. Taken
+literally that makes a Portuguese `.loop/` a violation. But the reason
+`.continue/` is carved out applies here word for word: it is work being thought
+through, written in the language the thinking happens in, and translating it
+before the thinking is finished destroys the only place that thinking exists. A
+stop report and a queue item are the same kind of artefact as a queue document —
+unfinished, addressed to the next turn, not to a collaborator or a tool.
+
+The line this draws is not "agent files are exempt". It is narrower: **a
+directory whose content is work in progress rather than a product of the work**
+is written in the author's language, and becomes English when its content
+graduates into `docs/`, a commit message, or a changelog entry — exactly as
+`.continue/` does. Everything `.loop/` produces already crosses that line as
+English: the commits, the entries in `CHANGELOG.md`, the documents in `docs/`.
+
+**Consequences.** `.loop/` is tracked from 1.6.19 and shows in `git status`
+during a round; that is diff noise, which the `.gitignore` header already answers
+as a commit-granularity question rather than a reason to ignore a file. The
+directory is committed when a round closes, not on every stop, so it does not
+compete with the commit of the work itself.
+
+**This decision is local, and deliberately says so.** The language rule lives in
+a marked echo block regenerated from
+[samirhvbr/repodocs](https://github.com/samirhvbr/repodocs); nothing written into
+that block survives the next fleet pass, so this ADR does not touch it. The
+precedent is exact: `.continue/` in Portuguese and an item leaving the queue only
+when built were decided **here first**, as
+[ADR-009](#adr-009--an-item-leaves-continue-only-when-it-has-been-built) and
+[ADR-010](#adr-010--continue-is-written-in-portuguese-everything-else-is-english),
+and the fleet adopted both later. If this one is worth generalising, the route is
+the same and it runs through repodocs, not through an edit here that would be
+erased without anybody noticing.

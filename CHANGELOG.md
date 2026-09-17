@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.19 - `.loop/` is committed, and ADR-083 says in which language
+
+The `loop-work` skill writes four things into `.loop/`: the queue a round works
+from, an index of every stop, the archived report of each one, and
+`ASSUMPTIONS.md` — the decisions an agent took **without the owner**, each with
+its alternative and how to undo it. It sat untracked for a whole round while the
+question was open, which is the worst of the three possible answers.
+
+It is committed because `.gitignore`'s own header already decided this class: a
+directory holding an open question or a verdict is memory, not execution.
+`git log` answers what changed; only this answers what was decided instead, and
+leaving it on one machine's disk made the record of unsupervised decisions the
+most perishable thing in the project.
+
+The language question was the harder half and is why an ADR exists rather than a
+line. Everything here is English (US) with three carve-outs and `.loop/` is none
+of them — taken literally, a Portuguese `.loop/` is a violation. But the reason
+`.continue/` is carved out applies word for word: work being thought through,
+written in the language the thinking happens in, where translating before the
+thinking is finished destroys the only place it exists. ADR-083 draws the line
+narrowly — *a directory whose content is work in progress rather than a product
+of the work* — and notes that everything `.loop/` produces already crosses into
+English: the commits, the changelog, the documents.
+
+**The ADR is local and says so.** The language rule lives in a marked echo block
+regenerated from repodocs, and nothing written inside it survives the next fleet
+pass, so this touches none of it. The precedent is exact: `.continue/` in
+Portuguese was decided here first as ADR-009 and ADR-010, and the fleet adopted
+both later. If this deserves generalising, the route runs through repodocs, not
+through an edit that would be erased without anybody noticing.
+
 ## 1.6.18 - the gate names the missing dependency instead of leaking a shell error
 
 A fresh `git worktree add` has no `node_modules` — it is gitignored, and nothing
