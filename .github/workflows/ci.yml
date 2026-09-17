@@ -168,6 +168,16 @@ jobs:
       # `contracts` because it starts a real `notes-server` on loopback, and an
       # Apache template that would take the other eight sites on that host down
       # is not something a diff shows you.
+      # `cotenant.py` signs and verifies a throwaway artifact with a real
+      # `minisign`, which is the only honest way to test the deploy's refusal
+      # path (ADR-081). The runner does not ship it, and without this line the
+      # step dies on a `FileNotFoundError` before reaching anything it is about.
+      # That is what happened: this job was red from `1.6.0`, the commit that
+      # added the signature check, until `1.6.52` — forty-seven consecutive runs
+      # — while the local gate stayed green because the owner had installed
+      # `minisign` on that machine.
+      - name: install the signature tool the co-tenant check needs
+        run: sudo apt-get update && sudo apt-get install -y minisign
       - name: the co-tenant templates and the credential wrapper
         run: |
           cargo build -p notes-server --locked

@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.52 - CI had been red for forty-seven consecutive runs, and the local gate hid it
+
+`server HTTPS container` failed on every push since `1.6.0` — the commit that
+made `server/tests/cotenant.py` sign and verify a throwaway artifact with a real
+`minisign`, which is the only honest way to test the deploy's refusal path
+(ADR-081). The runner does not ship `minisign` and nothing installed it, so the
+step died on `FileNotFoundError: 'minisign'` before reaching a single assertion.
+
+Measured: 74 of the last 100 runs failed, the last green one is `dcdd1fa`
+(`1.5.7`), and every run after it is red. Forty-seven in a row, about sixteen
+hours and fifty versions.
+
+**The local gate stayed green the whole time**, because `minisign` is installed
+on this machine — the same missing dependency was noticed locally, fixed locally,
+and never fixed where it also mattered. A red CI that nobody reads is worse than
+no CI: it is a signal that has been trained into noise, and the next real
+regression lands in the same colour.
+
+One line installs it, with the story in a comment so it does not get tidied away.
+
+**This was found by `1.6.51`, one commit earlier, and not by looking at CI.**
+That commit added `server/tests/mcp.py` to this job and I watched the run to
+check the new step actually passed there — which is when the job turned out to
+have been failing on something else entirely, for reasons that predate today.
+Watching a run because *my* change might break it is what surfaced forty-seven
+runs of somebody else's breakage.
+
 ## 1.6.51 - the remote MCP smoke ran in the gate and in no workflow
 
 `.github/workflows/ci.yml` carries a comment explaining why some checks are

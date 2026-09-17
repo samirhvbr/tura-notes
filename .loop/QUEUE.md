@@ -318,6 +318,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   `check.sh` e exige que cada um apareça em algum workflow. Não checa *como* nem
   *em qual job* — colocar uma checagem é julgamento; só a presença é mecânica
 
+- [x] R5u — **o CI estava vermelho há 47 execuções seguidas e o gate local escondia**
+  (1.6.52). O job `server HTTPS container` falha desde o 1.6.0 — o commit que fez o
+  `cotenant.py` assinar e verificar com `minisign` de verdade — porque o runner não
+  tem `minisign` e nada instalava. O passo morria em `FileNotFoundError` antes da
+  primeira asserção. Medido: 74 das últimas 100 execuções vermelhas, último verde
+  no `dcdd1fa` (1.5.7), e tudo depois vermelho. O gate local ficou verde o tempo
+  todo porque a mesma dependência foi notada e resolvida **aqui** e nunca lá. CI
+  vermelho que ninguém lê é pior que CI nenhum: é sinal treinado a virar ruído.
+  **E não achei olhando o CI:** achei porque o 1.6.51 pôs um passo novo nesse job e
+  eu fui ver se o *meu* passo passava
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
