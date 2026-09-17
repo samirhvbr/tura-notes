@@ -8,6 +8,47 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.1 - the serde/ts check could not see the two ids every payload carries
+
+`tools/ts-serde.py` asserts that a type ts-rs cannot parse — `transparent`,
+`try_from`, `into` — also carries an explicit `#[ts(type = "…")]`, because
+without one the generated binding describes `{0: T}` while the wire carries a
+bare `T`. It was green. It was green over a blind spot.
+
+The parser read one line at a time and ended an attribute block at the first
+line that was not an attribute, so a derive written across lines ended at its
+own second line:
+
+    #[derive(
+        Debug, Clone, Copy, …, Serialize, Deserialize, TS,
+    )]
+
+That is exactly how `notes-model/src/ids.rs` writes `uuid_newtype!`, and the two
+types it declares are `WorkspaceId` and `NoteId` — the identifiers on nearly
+every IPC payload there is. A second miss compounded it: the item line inside
+the macro reads `pub struct $name(Uuid);`, and a pattern requiring `\w` after
+the keyword does not match a metavariable. Removing the `#[ts(type = "string")]`
+from either one left the check reporting success.
+
+Attributes are now accumulated until their brackets balance, string literals are
+removed before those brackets are counted, and `$name` is accepted as a name.
+Verified the way the claim deserves — by deleting the override at each of the
+three real sites in turn and watching the check name the file and the line:
+`SearchId`, `$name` in `ids.rs`, `RelPath`. Before the fix, `ids.rs` was missed.
+
+**The reason the blind spot survived is that nothing ever asserted a failure.**
+So `SELF_TEST` runs first, on seven synthetic blocks including both the
+multi-line derive and the macro form, in their violating and their compliant
+shapes. A run that cannot tell the two apart exits non-zero and says its silence
+means nothing, before it has looked at the repository at all. A check that has
+never been seen to fail is a check nobody has tested — this one now tests itself
+every time it runs.
+
+The ten `warning: failed to parse serde attribute` lines stay. They are noise,
+and they are allowed to be noise precisely because the pairing they announce is
+asserted here instead — silencing them would have hidden the same signal one
+level further down.
+
 ## 1.4.0 - the MIT licence the metadata had been claiming for 78 versions
 
 `Cargo.toml` says `license = "MIT"`. `tauri.conf.json` says `"license": "MIT"`.
