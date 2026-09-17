@@ -2280,3 +2280,47 @@ will not spawn — still comes back from the call. The interface reads the reaso
 from `watch_status()`, which it was already polling for coverage, and the
 frontend keeps a reason from the start call rather than letting a later poll
 clear it.
+
+## ADR-079 — The About dialog is ours, and Help is where it opens
+
+**Status:** ACCEPTED · 16/09/2026 · reverses the approach shipped in 1.3.9
+
+**Decision.** Replace the platform's About panel with a dialog of ours on every
+desktop platform. Tauri's default Help submenu is emptied and given one item,
+`about`, which emits `menu://about` to the frontend; the frontend opens
+`AboutDialog`. macOS keeps the system About in its application menu, which
+belongs to the system and is left alone. The dialog states the version, the
+platform, the engine, the data directory and the open workspace, and copies
+those same lines to the clipboard. Its copyright line is read from
+`bundle.copyright` rather than written in the component.
+
+**Reason.** 1.3.9 put `PredefinedMenuItem::about` in Help, on the argument that
+the panel already carries the name, the version and the copyright and that a
+dialog of ours would be one more thing to translate, style and keep in step.
+That argument answers only the question the owner asked first — *which version
+am I on* — and the platform panel answers nothing else. The questions that
+actually arrive with a problem have no surface anywhere in the application:
+which engine is drawing this window, where the data directory is, which folder
+is open. They were readable, if at all, from three different screens, and a
+person reading five values off three screens transcribes one of them wrong.
+
+The Copy button is the reason the dialog exists rather than a convenience on
+top of it. These lines are written down in order to be sent to somebody else,
+and the platform panel cannot be copied at all.
+
+**Consequences.** The shell emits one event to the frontend — the first
+Rust-to-frontend event in this application, where every other exchange is the
+frontend asking and a command answering. A command cannot carry this one: the
+menu is on the shell's side and nothing in the WebView knows it was clicked.
+`core:default` already includes `core:event:default`, so listening grants no new
+capability and `capabilities/default.json` does not change (golden rule 7).
+
+The menu is built by appending to `Menu::default` rather than by constructing
+one, because the default carries Edit with cut, copy, paste and select-all, and
+a WebView whose menu loses those loses the shortcuts with them. The item's label
+is English like the rest of the native menu, which Tauri builds in English;
+translating one item inside an English menu reads worse than not translating it.
+
+`EnvReport` grows two fields, and it is the one IPC shape the frontend
+hand-writes. `tools/tests/test_env_report.py` compares the two declarations by
+name, because a field added on one side only is invisible rather than broken.

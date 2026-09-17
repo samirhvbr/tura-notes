@@ -52,36 +52,46 @@ pub fn run() {
                     .plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.manage(updater::Pending::default());
             }
-            // Tauri's default menu puts About in the application menu on macOS
-            // and leaves Help **empty**; on Linux and Windows it puts About in
-            // Help, where there is no application menu to hold it. So the one
-            // platform with a Help menu that opens on nothing is this one.
+            // Help ▸ About, and it is ours rather than the platform's.
             //
-            // The item is the platform's own About panel, not a window of ours:
-            // it already shows the name, the version stamped from `version.md`
-            // (ADR-035) and the copyright, and a dialog we drew would be one
-            // more thing that has to be translated, styled and kept in step
-            // with a number it does not own.
-            #[cfg(target_os = "macos")]
+            // Tauri's default menu puts a predefined About in Help on Linux and
+            // Windows and leaves Help EMPTY on macOS, where the standard one
+            // lives in the application menu. Either way the panel it opens says
+            // the name and the version and stops, and the questions that arrive
+            // with a problem — which engine is drawing this, where is the data,
+            // which folder is open — have no surface at all (ADR-079).
+            //
+            // So Help is emptied and given one item, which is the same item on
+            // every platform. macOS keeps its own About in the application menu;
+            // that one is the system's and is left alone.
+            #[cfg(desktop)]
             {
-                use tauri::menu::{
-                    AboutMetadataBuilder, Menu, MenuItemKind, PredefinedMenuItem, HELP_SUBMENU_ID,
-                };
+                use tauri::menu::{Menu, MenuItem, MenuItemKind, HELP_SUBMENU_ID};
+                use tauri::Emitter;
                 let handle = app.handle();
                 let menu = Menu::default(handle)?;
-                // Appending rather than rebuilding, deliberately: the default
-                // carries Edit with cut, copy, paste and select-all, and a
-                // WebView whose menu lost those loses the shortcuts with them.
+                // Appending to the default rather than building a menu: the
+                // default carries Edit with cut, copy, paste and select-all, and
+                // a WebView whose menu loses those loses the shortcuts too.
                 if let Some(MenuItemKind::Submenu(help)) = menu.get(HELP_SUBMENU_ID) {
-                    let info = handle.package_info();
-                    let about = AboutMetadataBuilder::new()
-                        .name(Some(info.name.clone()))
-                        .version(Some(info.version.to_string()))
-                        .copyright(handle.config().bundle.copyright.clone())
-                        .build();
-                    help.append(&PredefinedMenuItem::about(handle, None, Some(about))?)?;
+                    while help.remove_at(0)?.is_some() {}
+                    help.append(&MenuItem::with_id(
+                        handle,
+                        "about",
+                        "About Tura Notes",
+                        true,
+                        None::<&str>,
+                    )?)?;
                 }
                 app.set_menu(menu)?;
+                // The one place the shell speaks to the frontend instead of
+                // answering it. A command cannot carry this: the menu is on this
+                // side and nothing in the webview knows it was clicked.
+                app.on_menu_event(|app, event| {
+                    if event.id() == "about" {
+                        let _ = app.emit("menu://about", ());
+                    }
+                });
             }
             Ok(())
         })

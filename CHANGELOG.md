@@ -8,6 +8,60 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.0 - the MIT licence the metadata had been claiming for 78 versions
+
+`Cargo.toml` says `license = "MIT"`. `tauri.conf.json` says `"license": "MIT"`.
+There was no licence text anywhere in the repository, which is the one thing MIT
+actually requires: *the above copyright notice and this permission notice shall
+be included in all copies or substantial portions of the Software.* A licence
+named in metadata and shipped nowhere grants nothing — the reader has to guess
+which MIT, from which year, held by whom.
+
+`LICENSE` now says it, and `bundle.copyright` carries the same line into the
+installers and the About dialog, which reads it back rather than holding a
+second copy of the year.
+
+Found while looking for a copyright string to suggest, which is the only reason
+it was noticed at all.
+
+## 1.4.0 - Help ▸ About is a dialog of ours, and it can be copied
+
+1.3.9 put the platform's own About panel in Help, on the argument that it
+already carries the name, the version and the copyright and that a dialog of
+ours would be one more thing to translate, style and keep in step with a number
+it does not own. That argument answers the question the owner asked first —
+*which version am I on* — and nothing else, which is the flaw in it.
+
+The questions that actually arrive with a problem had no surface anywhere:
+which engine is drawing this window, where the data directory is, which folder
+is open. They were readable, if at all, from three different screens, and
+somebody reading five values off three screens transcribes one of them wrong.
+
+So the dialog states all five and **copies them**, and the Copy button is the
+reason it exists rather than a convenience on top of it. These lines get written
+down in order to be sent to somebody else, and a platform panel cannot be copied
+at all. The copied text is built from the rendered rows, so the paste cannot
+drift from the screen.
+
+The engine line is read from the window's own user agent, because a rendering
+fault is an engine fault and "macOS 26" does not say which WebKit shipped inside
+it. Windows is matched first: WebView2's user agent carries `AppleWebKit` too,
+and checking that first would report every Windows install as WebKit. There is a
+test for exactly that.
+
+Help is emptied before the item is added. Linux and Windows get a predefined
+About there from Tauri's default and macOS gets an empty Help, so without the
+clearing the two platforms that already had one would have two. macOS keeps the
+system About in its application menu, which belongs to the system.
+
+The menu emits `menu://about` — the first Rust-to-frontend event in this
+application, where every other exchange is the frontend asking and a command
+answering. A command cannot carry this one: the menu is on the shell's side and
+nothing in the WebView knows it was clicked. `core:default` already includes
+`core:event:default`, so nothing was granted and `capabilities/default.json` did
+not change. [ADR-079](docs/decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens),
+which reverses 1.3.9 and is why this is a minor rather than a patch.
+
 ## 1.3.9 - About in the Help menu, where macOS left it empty
 
 Tauri's default menu puts About in the application menu on macOS and leaves Help

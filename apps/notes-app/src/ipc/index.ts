@@ -73,6 +73,8 @@ export interface EnvReport {
   /** The running version. `tools/tests/test_env_report.py` keeps this
    *  interface and the Rust struct in step; nothing else can. */
   version: string;
+  /** `bundle.copyright` from `tauri.conf.json`; empty when it is not set. */
+  copyright: string;
   os: string;
   arch: string;
   tauriVersion: string;

@@ -768,6 +768,13 @@ built from. Because that costs an open, **the id is filled in by `stat`, not by
 - `commands/*.rs` — one function per §7.1 row: parse → call core → map
   `CoreError` to the response. No branching on business state.
 - `asset_protocol.rs` — `notes-asset://` handler (§10).
+- the native menu — Tauri's default with one item appended: Help ▸ About, which
+  emits `menu://about`. **It is the only thing here that speaks to the frontend
+  rather than answering it**, and it has to be: the menu is on this side and
+  nothing in the WebView knows it was clicked
+  ([ADR-079](decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens)).
+  Emptying Help first is deliberate — Linux and Windows get a predefined About
+  there from the default, and two would be worse than none.
 - `linux.rs` — before the WebView exists: if `WAYLAND_DISPLAY` is set and an
   NVIDIA driver is present (`/proc/driver/nvidia/version`, `/sys/module/nvidia`,
   or `nvidia-smi` on `PATH`), set `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Logged

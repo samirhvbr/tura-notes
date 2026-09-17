@@ -12,8 +12,10 @@ offered. Until 1.3.9 neither did, and *Tura Notes update 1.3.6* above an
 application already on 1.3.6 reads as a loop rather than as an offer. The number
 comes from `env_report`, which reads it from the package — stamped from
 `version.md` at build time (ADR-035) — rather than from `CARGO_PKG_VERSION`,
-which is the `0.0.0` placeholder. Settings repeats it under Diagnostics, and on
-macOS **Help → About** shows it too. A new version shows its release notes and
+which is the `0.0.0` placeholder. Settings repeats it under Diagnostics, and
+**Help → About** shows it beside the engine, the data directory and the open
+workspace, with a button that copies all of them
+([ADR-079](decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens)). A new version shows its release notes and
 an **Install and restart** action; **Later** suppresses automatic notices for
 that version. A manual check can show it again. Automatic failures stay silent;
 manual failures show a retryable status. Downloads/installations are never

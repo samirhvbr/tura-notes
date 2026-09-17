@@ -58,6 +58,10 @@ pub struct EnvReport {
     /// because the constant in `Cargo.toml` is the `0.0.0` placeholder and a
     /// diagnostic that confidently reports `0.0.0` is worse than none.
     pub version: String,
+    /// `bundle.copyright`, read back from the same configuration the installers
+    /// carry. The About dialog shows this rather than a string of its own, so
+    /// there is one year to change and no way for the two to disagree.
+    pub copyright: String,
     pub os: String,
     pub arch: String,
     pub tauri_version: String,
@@ -84,6 +88,7 @@ fn svc<'a>(app: &'a State<'_, App>) -> R<std::sync::MutexGuard<'a, WorkspaceServ
 pub fn env_report(app: State<'_, App>, handle: tauri::AppHandle) -> R<EnvReport> {
     Ok(EnvReport {
         version: handle.package_info().version.to_string(),
+        copyright: handle.config().bundle.copyright.clone().unwrap_or_default(),
         os: std::env::consts::OS.into(),
         arch: std::env::consts::ARCH.into(),
         tauri_version: tauri::VERSION.into(),

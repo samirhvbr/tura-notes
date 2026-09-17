@@ -6,7 +6,7 @@ import { UpdateButton, UpdaterShell } from "./Updater";
 import { useUpdater } from "../stores/updater";
 import * as ipc from "../ipc";
 vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),envReport:vi.fn()}));
-const env={version:"1.3.9",os:"macos",arch:"aarch64",tauriVersion:"2",session:"other",nvidia:false,nouveau:false,dmabufApplied:false,dmabufExplanation:"not applicable — linux only",dataDir:"/data"};
+const env={version:"1.3.9",copyright:"",os:"macos",arch:"aarch64",tauriVersion:"2",session:"other",nvidia:false,nouveau:false,dmabufApplied:false,dmabufExplanation:"not applicable — linux only",dataDir:"/data"};
 beforeEach(()=>{vi.mocked(ipc.envReport).mockResolvedValue(env);useUpdater.setState({phase:"idle",version:null,notes:null});});
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 
