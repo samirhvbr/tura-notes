@@ -2389,3 +2389,102 @@ platform whenever it goes red. The test here was measuring the runner and not
 the code, demonstrably: same input, three different verdicts across commits that
 could not have changed it. A test that fails because the code is slow on one
 platform is a bug on that platform, and it is fixed there.
+
+---
+
+## ADR-081 — The server binary is signed with a key CI never holds, and a deploy that cannot verify changes nothing
+
+**Status:** `ACCEPTED` · 17/09/2026 · extends
+[ADR-074](#adr-074--signed-desktop-updates-with-explicit-installation) to the
+server artifacts · **not yet implemented** — the work is queued in
+[`.continue/`](../.continue/README.md) as *Assinatura do binário do servidor*.
+
+**Context.** `server/cotenant/deploy-server.sh` downloads
+`notes-server-X.Y.0-x86_64-linux.tar.gz` and its `.sha256` from the same GitHub
+Releases URL, verifies the checksum, and installs the binary into
+`/usr/local/bin`. `.github/workflows/build.yml` produces both in one step, on
+one runner, and uploads them together.
+
+**The checksum answers "did this arrive intact", and nothing else.** It is
+generated beside the artifact it describes, published beside it, and fetched
+beside it, so anyone in a position to serve a different tarball is in a position
+to serve its matching digest. The script's own comment claims only truncation,
+and is right to; this ADR is about the claim nobody was making.
+
+ADR-074 already settled the principle for the desktop: a pinned public key, a
+private key outside the repository, signature verified before installation. The
+server did not get it, and the reason is not a difference of principle but of
+**where each artifact is built**. The macOS and Windows jobs are `if: false`
+(ADR-024) and those bundles are produced by `build-local.sh` on the owner's
+machine — where the key is. The Linux job runs in CI, where it is not.
+
+What the artifact controls raises the stakes rather than lowering them: the
+binary is a long-lived daemon holding every note of every paired device, running
+on a host that also serves eight other sites.
+
+**Decision.** Three questions, because "sign it" answers none of them.
+
+### 1. The private key never enters CI
+
+A key in a GitHub Actions secret is usable by anything that can cause a workflow
+to run, which includes a change to the workflow itself. Signing there would move
+the trust boundary from GitHub-the-CDN to GitHub-the-CI and call it provenance:
+the signature would attest that a workflow ran, which is what the checksum
+already attests to.
+
+**The key lives where ADR-074's does — outside the repository, on the owner's
+machine** — and it is a **separate** key from the updater's. The updater key is
+embedded in every installed desktop application; a key that can push desktop
+updates and server binaries is one compromise with two blast radii, for no
+saving. The public half is **committed**, so the host verifies against a pinned
+value rather than one it downloads alongside the thing it is checking.
+
+**minisign**, for the same reason Tauri's updater uses it and because Debian
+packages it: the verifier on the host is a shell script, not a Rust binary that
+would itself need to be delivered and trusted first.
+
+### 2. The published artifact is signed locally; CI keeps building it unsigned
+
+CI continues to build `notes-server` on every minor bump — that is a check that
+it compiles and links, and it must not be lost. What changes is that **the
+Release asset is produced and signed by the same local act that already produces
+the desktop bundles**, so publishing a server binary is a thing a person did,
+not a thing a pipeline did.
+
+The `.sha256` stays. It is still the right tool for a truncated download, it
+fails faster and with a clearer message than a signature check, and a deploy
+that has to distinguish "the network cut out" from "this is not our binary" is
+better for having both.
+
+### 3. A deploy that cannot verify changes nothing, and does not stop the service
+
+Verification happens **before anything touches `/usr/local/bin`** — the same
+ordering the checksum already has, which `server/tests/cotenant.py` already
+asserts and which extends to cover the signature.
+
+On failure the deploy **exits non-zero, names the artifact, and leaves the host
+exactly as it was**: the running service keeps serving the binary it already
+has. It deliberately does *not* stop the service as a precaution. A signature
+mismatch is far more likely to be a publishing mistake than an attack, and
+converting one into an outage of the notes of every paired device — on a host
+that is already serving — is a second failure caused by the first. Refusing to
+install is the whole of the protection; stopping is a different decision nobody
+asked for.
+
+**Consequences.** The owner cannot publish a server binary from a machine
+without the key, which is the point and is also a single point of failure: the
+recovery path is the same as the updater's, and it is key rotation with a
+committed public half, not a bypass. `deploy-server.sh` gains a `minisign -V`
+against the pinned key and a `minisign` dependency on the host. Hosts running a
+binary published before this ADR keep running it; the first signed release is
+the first one a deploy will verify.
+
+**A precondition this ADR does not itself fix.** 1.4.0 and 1.5.0 carry **no**
+server tarball at all: `build.yml`'s `concurrency: cancel-in-progress: true`
+cancelled the minor's artifact build when the next push arrived, and every
+version after it was a patch, which deliberately builds nothing. The workflow's
+comment accepts that "an intermediate version can end up with no artifacts" on
+the grounds that "what has to be installable is the newest" — which does not
+hold for **minor** versions, because the newest is usually a patch and patches
+never rebuild them. Signing an artifact that is not being published is not worth
+doing first; that is queued separately.

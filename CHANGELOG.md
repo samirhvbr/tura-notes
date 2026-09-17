@@ -8,6 +8,51 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.4 - ADR-081: the server binary is signed with a key CI never holds
+
+The review of 1.5.3 left one finding unfixed on purpose, because "sign it"
+answers none of the three questions inside it. This is the decision; the work is
+queued.
+
+**What the checksum was actually claiming.** `deploy-server.sh` fetches the
+tarball and its `.sha256` from the same GitHub Releases URL, and `build.yml`
+produces both in one step on one runner. Anyone in a position to serve a
+different tarball is in a position to serve its digest. The script's comment
+claims only truncation and is right to; the ADR is about the claim nobody was
+making.
+
+**Why the asymmetry with ADR-074 exists at all** turns out not to be a
+difference of principle. The macOS and Windows jobs are `if: false` (ADR-024),
+so those bundles come from `build-local.sh` on the owner's machine — where the
+key is. The Linux job runs in CI, where it is not. The artifact is built where
+the key is absent, and the signature went missing with it.
+
+The three decisions: **the key never enters CI**, because a key in a workflow
+secret is usable by anything that can make a workflow run, and signing there
+would move the trust boundary from GitHub-the-CDN to GitHub-the-CI and call it
+provenance. It is a **separate** minisign key from the updater's, whose public
+half ships inside every installed desktop application — one compromise should
+not have two blast radii. **CI keeps building the binary unsigned** as a check
+that it compiles, and the published asset comes from the same local act that
+already produces the desktop bundles. And **a deploy that cannot verify changes
+nothing and does not stop the service**: a mismatch is far likelier to be a
+publishing mistake than an attack, and turning one into an outage of every
+paired device's notes is a second failure caused by the first.
+
+**A precondition the ADR names and does not fix.** 1.4.0 and 1.5.0 carry no
+server tarball at all. `build.yml` has `concurrency: cancel-in-progress: true`,
+and the minor's artifact build was cancelled by the next push; everything after
+was a patch, which builds nothing by design. The workflow's comment accepts
+losing artifacts on an intermediate version because "what has to be installable
+is the newest" — which does not hold for a **minor**, since the newest is
+usually a patch and a patch never rebuilds it. `deploy-server.sh` derives
+`X.Y.0` and would download an asset that does not exist. Signing something that
+is not being published is not worth doing first, so both go to the queue in
+order.
+
+Nothing is implemented here. The ADR says so on its status line and the queue
+carries the work, because `.continue/` is where work that does not exist lives.
+
 ## 1.5.3 - the deploy stops instead of reporting success when a step fails
 
 `deploy-server.sh` runs under `set -uo pipefail` and deliberately not `-e`, so
