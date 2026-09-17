@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.30 - round 4 of the loop closes, and says what it is waiting on
+
+`.loop/STATUS.md` records how the round ended, which is what that file is for.
+Eleven items: the seven the queue was armed with, minus the emulator one, plus
+four the refill measured after the queue had emptied.
+
+**The refill is the part worth keeping.** With one blocked item left, the choice
+was to end or to measure whether anything else was in scope — and measuring found
+a shipped milestone with no acceptance page at all. 0.7 landed at `1.6.5`, its
+queue item left `.continue/`, and `MCP-0.7.md` was not even listed in
+`docs/README.md`. Three more came from running the same measurement over the
+acceptance pages nobody had touched since 9–11/09: PDF import with no box
+anywhere, two desktop interface flows, and a sentence in `ACCEPTANCE-0.1a.md`
+that had become the opposite of what the code does.
+
+The round is ended rather than left armed, because what remains needs `sudo`:
+`/dev/kvm` for the emulator, and the updater signing environment for the publish.
+Neither is a thing an agent waits for productively, and a loop that keeps waking
+to report the same block is worse than one that stopped and said so.
+
 ## 1.6.29 - the 0.1a jail section said the check does not run at the open, and since 1.1.5 it does
 
 Measuring the older acceptance pages against what shipped afterwards found one

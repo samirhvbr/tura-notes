@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "ativo": true,
+  "ativo": false,
   "fase": "rodando",
   "objetivo": "Rodada 4: executar o que as seis respostas autorizaram - emulador Android, ADR do .loop, runbook dos atos do dono, roteiros de aceite 0.1d/0.6/0.5, e a primeira evidencia de execucao do app Android",
   "armado_em": "2026-09-17T15:08:49-03:00",
@@ -22,7 +22,7 @@
   "colher_itens": true,
   "notificar": true,
   "notificado": false,
-  "encerrado_por": null,
-  "encerrado_detalhe": null,
-  "encerrado_em": null
+  "encerrado_por": "parada manual",
+  "encerrado_detalhe": "pelo operador",
+  "encerrado_em": "2026-09-17T16:02:02-03:00"
 }
