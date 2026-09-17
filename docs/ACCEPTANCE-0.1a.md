@@ -186,8 +186,26 @@ halves separately:
   outside the root is byte-identical afterwards.
 
 Both halves are needed: a symlink is a perfectly well-formed relative path that
-resolves somewhere else, and the check runs on **every** call rather than at open
-time.
+resolves somewhere else, and the check runs on **every** call, not once at open.
+
+**A third half arrived at `1.1.5`, and this section said the opposite of it until
+`1.6.29`.** Checking every segment with `symlink_metadata` and then handing the
+path to `fs::read` or `fs::File::create` leaves the gap between the check and the
+syscall, and that gap *was* the jail's whole coverage — in a product whose premise
+is that other tools write in that folder. The check now also happens **at the
+open**: reads use `O_NOFOLLOW` and report `ELOOP` as the same
+`SymlinkNotFollowed` the path check produces, and the temporary file is unlinked
+and then created with `O_CREAT|O_EXCL`, which refuses a symlink outright — losing
+the race between the two refuses the write rather than redirecting it.
+
+The temporary file needed no race at all: `tmp_path` is deterministic by design,
+so it is also predictable, and a symlink left at that name received the next
+save's bytes outside the workspace through a path the jail had already approved.
+Three more tests in the same file hold that line —
+`::a_symlink_appears_in_the_listing_but_is_not_a_note`,
+`::a_symlink_at_the_temp_path_never_receives_the_write` and
+`::a_stale_temp_file_does_not_block_the_next_save`. The second one, run against
+the code before `1.1.5`, fails with the outside file overwritten.
 
 ## 7. Opening a folder creates no file in it
 

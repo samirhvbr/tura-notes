@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.29 - the 0.1a jail section said the check does not run at the open, and since 1.1.5 it does
+
+Measuring the older acceptance pages against what shipped afterwards found one
+sentence that had become the opposite of the truth. `ACCEPTANCE-0.1a.md` §6 ended
+with *"the check runs on every call rather than at open time"* — written when
+`LocalFs::resolve` verified each segment with `symlink_metadata` and then handed
+the path to `fs::read` or `fs::File::create`, both of which follow symlinks.
+
+`1.1.5` closed exactly that gap, and the gap *was* the jail's whole coverage in a
+product whose premise is that other tools write in the same folder. Reads now open
+with `O_NOFOLLOW` and report `ELOOP` as the same `SymlinkNotFollowed` the path
+check produces; the temporary file is unlinked and then created with
+`O_CREAT|O_EXCL`, which refuses a symlink outright, so losing the race between the
+two refuses the write instead of redirecting it.
+
+A stale sentence in an `ACTIVE` document is worse than a missing one because it
+carries the authority of having been written down — and this one would have sent
+the next reader looking for a TOCTOU window that had already been closed, or
+worse, reassured them that open-time checking was deliberately not done.
+
+The section also named two of the seven tests in `jail.rs`. The three that arrived
+with the fix are named now, including the one that writes through a symlink left
+at the deterministic temporary path: run against the code before `1.1.5` it fails
+with the outside file overwritten, which is what makes it evidence rather than
+decoration.
 ## 1.6.28 - the ingest stops handing artisan a flag the framework intercepts
 
 Both publish paths announced "Published" and published nothing. `/p/tura-notes`

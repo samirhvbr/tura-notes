@@ -70,4 +70,14 @@ ainda dá para produzir sem sudo e sem aparelho, e achou-se um buraco de verdade
   então chave faltando nos dois passava, que foi como um diálogo pediu nome sob o
   rótulo `tree.newNote.prompt`. A página agora carrega a data até onde foi medida
 
+- [x] R4k — a mesma medição no 0.1a achou **uma frase que virou o contrário da
+  verdade** (1.6.29). O §6 terminava dizendo que a checagem roda a cada chamada
+  *"em vez de no open"* — escrito quando `resolve` conferia segmento por segmento
+  e entregava o caminho para `fs::read`/`File::create`, que seguem symlink. O
+  1.1.5 fechou exatamente essa janela: leitura com `O_NOFOLLOW`, e o temporário
+  desvinculado e recriado com `O_CREAT|O_EXCL`, que recusa symlink. Frase velha em
+  documento `ACTIVE` é pior que frase faltando, porque carrega a autoridade de
+  estar escrita. A seção nomeava dois dos sete testes do `jail.rs`; os três que
+  vieram com a correção estão nomeados agora
+
 ## Colhidos automaticamente
