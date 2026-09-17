@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.77 - the two decisions taken without the owner are in the file that exists for them
+
+`.loop/ASSUMPTIONS.md` is the ledger of what an agent decided while nobody was
+watching — the `loop-work` skill calls reviewing it *the price of not having been
+interrupted*. Two of today's decisions belonged in it and were only in the
+changelog, which records what happened rather than what was chosen.
+
+**Promoting `product.md` from `PROPOSED` to `ACTIVE`** (`1.6.47`). Justified by
+the page's own rule and by the specification having left `.continue/` when the
+work was produced — but changing a governance document's status is a decision,
+because golden rule 2 makes the status decide who wins a contradiction. The entry
+records the alternative that was rejected and why waiting had a cost of its own:
+leaving it `PROPOSED` keeps the page `CLAUDE.md` names as required reading in the
+position of the one that gives way.
+
+**Normalizing twenty-six ADR statuses** (`1.6.49`). Editing the decision record is
+different from editing a document, and the entry says what was and was not
+touched: the word changed, no decision changed, and no ADR text outside the
+status line was altered.
+
+Both carry how to undo them, which is the part of that file that makes it a
+ledger rather than a diary.
+
+Neither was hidden — both have full reasoning in `CHANGELOG.md`. But the
+changelog is read forwards by somebody asking what happened, and
+`ASSUMPTIONS.md` is read by somebody asking *what did it decide for me*. A
+decision that is only in the first is findable by someone who already suspects
+it exists.
+
 ## 1.6.76 - the gate grew 23% in a day and nothing could say what that cost
 
 `tools/build-clock.sh` measures the build, end to end and step by step, and its

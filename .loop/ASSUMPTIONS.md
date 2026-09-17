@@ -219,3 +219,48 @@ comando de "the step people skip", o que é a mesma conclusão por outro caminho
 **Como reverter.** `git remote set-head origin -d` apaga o ponteiro e volta ao
 estado anterior. É config local do clone, não entra em commit nenhum, e não muda
 o que o GitHub tem.
+
+## 18/09 — promovi o `product.md` de `PROPOSED` para `ACTIVE`
+
+**Pergunta.** O `docs/product.md` declarava `PROPOSED` e abria com *"nothing
+described here has been built yet"*. Isso deixou de ser verdade há vários marcos.
+Mas mudar o status de um documento de governança é decisão, não conserto: pela
+regra de ouro 2, `PROPOSED` perde qualquer contradição para um `ACTIVE`, então o
+status decide quem ganha discussão. Promovo, ou registro e pergunto?
+
+**Decisão.** Promovi (1.6.47), **pela regra escrita na própria página**: o
+cabeçalho dela dizia *"a section becomes `ACTIVE` when its code exists and
+works"*, e a especificação de que ela era a forma trabalhada saiu do `.continue/`
+quando o trabalho foi produzido (ADR-009). Apliquei a regra existente em vez de
+criar uma. E nomeei o que a promoção **não** reivindica: o aplicativo móvel do §5
+continua sem existir.
+
+**Alternativa descartada.** Deixar `PROPOSED` e pôr a pergunta no quadro.
+Descartada porque o efeito de deixar não é neutro: a página que o `CLAUDE.md`
+manda ler *antes de mudar comportamento de produto* ficaria sendo, no papel, a
+que cede numa contradição — o oposto da função dela. Esperar teria custo, e o
+custo cai em quem for mexer em produto sem saber disso.
+
+**Como reverter.** Um commit trocando `ACTIVE` por `PROPOSED` no cabeçalho e
+removendo o parágrafo que explica a promoção. Nada mais depende disso.
+
+## 18/09 — normalizei 26 status de ADR de `ACTIVE` para `ACCEPTED`
+
+**Pergunta.** O `docs/decisions.md` usava duas palavras para o mesmo estado: o
+`ADR-043` ao `ADR-068` diziam `ACTIVE`, todo o resto `ACCEPTED`. Mexer em 26
+registros de decisão é diferente de mexer num documento — o registro é a memória
+do projeto. Normalizo ou deixo?
+
+**Decisão.** Normalizei (1.6.49) e escrevi o porquê no preâmbulo, incluindo que
+as palavras de ADR são **deliberadamente** diferentes das de documento. A palavra
+mudou; nenhuma decisão mudou. Nenhum texto de ADR foi tocado além da linha de
+status.
+
+**Alternativa descartada.** Deixar as duas palavras e documentar que significam o
+mesmo. Descartada pelo argumento que o `doc-status.sh` já faz sobre o outro
+vocabulário: segunda palavra para um estado é palavra que o leitor tem de
+interpretar em vez de consultar — e foi assim que o `SUPERSEDED` precisou ser
+aposentado antes.
+
+**Como reverter.** `git revert` do 1.6.49 devolve as 26 linhas e tira o
+`tools/adr-status.py` do gate. Os textos das ADRs estão intactos nos dois casos.
