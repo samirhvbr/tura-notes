@@ -48,5 +48,14 @@ The following implementation and owner checks remain pending:
 - Real virtual-keyboard input: accents, dead keys, IME, selection, paste and undo.
 - Physical-device and installed-release owner acceptance and repeat.
 
+**Nothing here has ever been observed running**, and that is one disabled
+firmware bit rather than a missing step. The x86_64 emulator needs KVM;
+`kvm_amd` is refused by `SVMDIS` in `MSR_VM_CR`, which the firmware locks until
+the next reset, so no privileged command on the running system reaches it. The
+SDK side is already done — `emulator`, `platform-tools`, the
+`android-35;google_apis;x86_64` image and an AVD all exist. What is missing is
+[OWNER-ACTS.md](OWNER-ACTS.md) §3, and until it happens every row above is
+blocked on the same thing rather than on separate work.
+
 The owner explicitly requested proceeding to milestone 0.5 after merging this
 foundation. That scheduling choice does not check off these mobile criteria.

@@ -1,13 +1,16 @@
-# The two acts only the owner can perform
+# The acts only the owner can perform
 
 > **Status:** `ACTIVE` · Written 17/09/2026 against the scripts as they are, not
 > against what the queue says they are. Every command below was read out of
 > `tools/sign-server-release.sh` and `.github/workflows/build.yml`; the one
-> detail the queue had wrong is called out where it matters.
+> detail the queue had wrong is called out where it matters. §3 was added at
+> `1.6.31`, after an agent had spent a round blaming `sudo` for something `sudo`
+> cannot reach.
 
-Neither of these is something an agent does. One holds a private key that must
-never reach this repository or CI; the other publishes artifacts. What an agent
-*can* do is make sure the steps are right before you spend a evening on them,
+None of these is something an agent does. One holds a private key that must never
+reach this repository or CI; one publishes artifacts; one is a firmware setting on
+a machine, which no process running on that machine can change. What an agent
+*can* do is make sure the steps are right before you spend an evening on them,
 which is what this page is.
 
 ---
@@ -102,9 +105,58 @@ gh release view 1.4.0 --json assets -q '.assets | length'   # expect 14, not 0
 
 ---
 
-## What neither of these is
+## 3. Turn SVM back on in the firmware
 
-Neither is acceptance. A signed binary and a recovered attachment are
-preconditions for the 0.5 walk, not evidence of it — no acceptance in this
-repository is inferred from a command succeeding, which is written into
+Milestone 0.4 has compilation evidence and no execution evidence, and the reason
+is one disabled bit. The x86_64 Android emulator requires KVM; `/dev/kvm` does
+not exist on this machine; and it does not exist because `kvm_amd` cannot load.
+
+**It is not a module that was never loaded, and it is not a missing group.** The
+kernel says so twice, and both lines are in the current boot's journal:
+
+```
+set 16 11:23:21 samirb3 kernel: SVM disabled (by BIOS) in MSR_VM_CR
+set 17 16:06:12 samirb3 kernel: kvm_amd: SVM not supported by CPU 1
+```
+
+The first is the boot noticing the firmware set `SVMDIS` in `MSR_VM_CR`; the
+second is `modprobe kvm_amd` being refused by a CPU that, from the kernel's side
+of that bit, does not have the feature. The corroborating measurement is that
+`svm` is **absent from `/proc/cpuinfo`** on an AMD Ryzen 9 5900X, which is the
+one place it would always appear if the firmware allowed it.
+
+`sudo` cannot reach this. `MSR_VM_CR.SVMDIS` is locked by the firmware until the
+next reset, so there is no privileged command that clears it from a running
+system — which is exactly why this belongs on a page of acts only the owner can
+perform, at a keyboard, before an operating system exists.
+
+**On this board — ASUSTeK TUF GAMING X570-PLUS_BR, BIOS 5043:** reboot, `Del` for
+UEFI, `F7` for Advanced Mode, then **Advanced ▸ CPU Configuration ▸ SVM Mode ▸
+Enabled**, `F10` to save. Two things then follow on their own: `kvm_amd` loads at
+boot and `/dev/kvm` appears.
+
+Then one command, which *is* `sudo` and is the only part that ever was:
+
+```bash
+sudo usermod -aG kvm "$USER"   # log out and back in for the group to take effect
+```
+
+Confirm before handing it back, rather than assuming the reset took:
+
+```bash
+ls -l /dev/kvm && id -nG | tr ' ' '\n' | grep -x kvm
+```
+
+**What this unblocks:** the emulator boots, the generated Android application can
+be installed on it, and 0.4 gets its first evidence that the thing *runs* rather
+than merely compiles — the open row in
+[ACCEPTANCE-0.4.md](ACCEPTANCE-0.4.md).
+
+---
+
+## What none of these is
+
+None is acceptance. A signed binary, a recovered attachment and a booting
+emulator are preconditions for a walk, not evidence of one — no acceptance in
+this repository is inferred from a command succeeding, which is written into
 `.continue/README.md` and holds here too.

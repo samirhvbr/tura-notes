@@ -7,6 +7,47 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.31 - the emulator blocker is a firmware bit, and the kernel had said so first
+
+Milestone 0.4 has compilation evidence and no execution evidence. Round 4 of the
+loop recorded the reason as "two `sudo` commands away", and that was wrong in
+both halves of its own evidence.
+
+The claim was: *the CPU exposes `svm`, so virtualization is already enabled in
+the BIOS; what is missing is the module and the group*. Measured now, `svm` is
+**absent from `/proc/cpuinfo`** on an AMD Ryzen 9 5900X — the one place it would
+always appear if the firmware allowed it. And the kernel had already said the
+opposite, twice, in the current boot's journal:
+
+```
+set 16 11:23:21 samirb3 kernel: SVM disabled (by BIOS) in MSR_VM_CR
+set 17 16:06:12 samirb3 kernel: kvm_amd: SVM not supported by CPU 1
+```
+
+The second line is `modprobe kvm_amd` — the very command that was written down as
+the fix — being refused. `lsmod` corroborates: the generic `kvm` is loaded with
+zero users and `kvm_amd` is absent from `/sys/module/`.
+
+**`sudo` cannot reach this, and that is the whole correction.**
+`MSR_VM_CR.SVMDIS` is locked by the firmware until the next reset, so the
+unblock is a keyboard at boot — Advanced ▸ CPU Configuration ▸ SVM Mode ▸ Enabled
+on this board — and not a privileged command. Only the `usermod -aG kvm`
+afterwards was ever a `sudo` step.
+
+**It becomes `OWNER-ACTS.md` §3 rather than staying in `.loop/`.** That page is
+the acts only the owner can perform, and a firmware setting is the purest example
+of one: no process running on the machine can change it. `.loop/` is round state
+— a blocker measured in months does not belong in a file whose lifetime is a
+session. `ACCEPTANCE-0.4.md` now says why nothing there has been observed
+running, in one place, instead of leaving a reader to wonder whether the rows are
+blocked on separate work.
+
+The two `.loop/` records that carried the wrong cause are corrected by **appended,
+dated corrections** rather than rewritten — the same treatment the CHANGELOG got
+at `1.6.2`. A record that quietly changes its mind teaches nobody what the error
+was, and the error here is the interesting part: a conclusion was drawn from a
+flag without reading the flag.
+
 ## 1.6.30 - round 4 of the loop closes, and says what it is waiting on
 
 `.loop/STATUS.md` records how the round ended, which is what that file is for.

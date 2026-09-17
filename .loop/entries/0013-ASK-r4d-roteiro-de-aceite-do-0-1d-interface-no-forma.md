@@ -28,6 +28,9 @@ respondida: false
 ! sudo usermod -aG kvm $USER     # e relogar
 ```
 
+> ⚠️ **Estes dois comandos não resolvem.** Ver a correção no fim deste arquivo:
+> o bloqueio é o firmware, não o módulo nem o grupo.
+
 Baixei tudo que você autorizou: `emulator`, `platform-tools`, a system image `android-35;google_apis;x86_64`, licenças aceitas, AVD `tura` criado (Pixel 6, API 35). **O que falta não é download.** O emulador x86_64 exige KVM e `/dev/kvm` não existe. Diagnóstico exato: sua CPU é AMD e expõe a flag `svm`, então a virtualização **já está ligada na BIOS** — falta o módulo carregado e você no grupo. Sem isso ele morre em `x86_64 emulation currently requires hardware acceleration`.
 
 Enquanto isso a fila andou — 4 de 7, e os três restantes são roteiros de aceite que não dependem de emulador:
@@ -38,3 +41,33 @@ Enquanto isso a fila andou — 4 de 7, e os três restantes são roteiros de ace
 
 Restam R4d, R4e e R4f — e ali achei três lacunas reais: o `ACCEPTANCE-0.1d.md` não cobre nada da interface que saiu depois dele (gaveta, barra de Markdown, aviso de backend não atômico), o `ACCEPTANCE-0.5.md` idem, e **o `ACCEPTANCE-0.6.md` não existe** — embora a fila diga que o que resta do 0.6 é justamente aceite do dono. Sigo por eles.
 
+
+---
+
+## ⚠️ Correção — 18/09/2026
+
+**O diagnóstico acima está errado, e o kernel já tinha dito o contrário antes de
+eu escrevê-lo.** A frase *"sua CPU é AMD e expõe a flag `svm`, então a
+virtualização já está ligada na BIOS"* é falsa nos dois pedaços: a flag `svm`
+**não** está em `/proc/cpuinfo`, e a virtualização **não** está ligada na BIOS.
+
+Medido em 18/09, no journal do boot corrente (16/09 11:23):
+
+```
+set 16 11:23:21 samirb3 kernel: SVM disabled (by BIOS) in MSR_VM_CR
+set 17 16:06:12 samirb3 kernel: kvm_amd: SVM not supported by CPU 1
+```
+
+A primeira linha é o boot notando que o firmware setou `SVMDIS` em `MSR_VM_CR`;
+a segunda é o `modprobe kvm_amd` — o mesmo que eu pedi acima — sendo recusado.
+`lsmod` confirma: o `kvm` genérico está carregado com zero usuários e o
+`kvm_amd` não existe em `/sys/module/`.
+
+**Os dois comandos que pedi não resolvem, e o primeiro nunca ia resolver.**
+`MSR_VM_CR.SVMDIS` fica travado pelo firmware até o próximo reset, então nenhum
+`sudo` alcança. O desbloqueio é **Advanced ▸ CPU Configuration ▸ SVM Mode ▸
+Enabled** na UEFI da ASUSTeK TUF GAMING X570-PLUS_BR (BIOS 5043) e reiniciar.
+Só o `usermod -aG kvm` continua valendo, depois disso.
+
+O procedimento certo está em [`docs/OWNER-ACTS.md`](../../docs/OWNER-ACTS.md) §3,
+com estas mesmas linhas do kernel como prova.
