@@ -8,6 +8,31 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.6 - the connection test's answer stops looking like the advice around it
+
+`.device-probe` shipped in 1.3.8 with no rule in the stylesheet. The result
+rendered as a plain paragraph between *Still needed before pairing…* and *Close
+the workspace to review identities…* — three grey sentences in a row, one of
+which was the answer. The owner installed the build, looked at the panel and
+said *não sei, pelo que vejo é indefinido se está ou não funcionando*, which is
+the sentence the whole feature was built to stop.
+
+An answer indistinguishable from the advice around it has not answered anything.
+The verdict is now a colour — green for a credential that works, red for
+something that is not this machine's to fix, amber for something that is — and
+the words still carry the reason. Three tones rather than seven, because a
+colour can only say *done*, *not yours* and *yours*; the seven outcomes are what
+the sentence is for.
+
+A credential that works and requires server-side review is amber, not green:
+pairing refuses it, so it is not a pass.
+
+The three colours are `--good`, `--bad` and `--warn`, already checked at AA
+against every surface by `tools/contrast.sh`; a tinted block would have been a
+new surface nothing verifies. The tone map is exhaustive over the generated
+union, like the sentence map beside it, so a variant added in Rust has to pick a
+tone or fail the TypeScript build.
+
 ## 1.5.5 - the build stops cancelling the only version that builds anything
 
 `build.yml` had `group: build` with `cancel-in-progress: true` at workflow

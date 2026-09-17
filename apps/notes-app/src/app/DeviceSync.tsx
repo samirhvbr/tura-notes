@@ -106,6 +106,18 @@ export function DeviceSync() {
     unexpected:t("device.probe.unexpected"),
     granted:t("device.probe.granted"),
   };
+  /* The verdict, as a colour. Exhaustive over the generated union for the same
+     reason `said` is: a variant added in Rust must pick a tone or fail the
+     build. Three tones and not seven, because the only thing a colour can say
+     here is *done*, *not your machine* and *something to fix on this one*. */
+  const tone:Record<ipc.SyncProbeOutcome,string>={
+    granted:"ok",
+    refused:"no", unreachable:"no", unexpected:"no",
+    address:"fix", credential_file:"fix", credential_shape:"fix",
+  };
+  /* A credential that works and needs server-side review is not a pass: the
+     pairing will refuse it. Amber, not green. */
+  const verdict=probe?(probe.outcome==="granted"&&probe.review?"fix":tone[probe.outcome]):"";
   const blocked=busy||!!workspace;
   /* The pair button has six preconditions and used to state none of them: it
      rendered grey, and a filled-in field changed nothing anyone could see. The
@@ -133,7 +145,7 @@ export function DeviceSync() {
         </div>
         <label><input type="checkbox" checked={request.allow_private} onChange={e=>setRequest({...request,allow_private:e.target.checked})}/>{t("device.private")}</label>
         <div className="device-actions"><button disabled={busy||!request.origin||!request.token_file} onClick={()=>void task(test)}>{busy?t("device.testing"):t("device.test")}</button><button disabled={busy||missing.length>0} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={busy||!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
-        {probe&&<p role="status" className="device-probe">{said[probe.outcome]}
+        {probe&&<p role="status" className={`device-probe ${verdict}`}>{said[probe.outcome]}
           {probe.status!==null&&` (HTTP ${probe.status})`}
           {probe.outcome==="granted"&&` · ${t("device.probe.workspace",{name:probe.workspace??""})}`}
           {probe.outcome==="granted"&&!!probe.scope&&` · ${t("device.probe.scope",{path:probe.scope})}`}

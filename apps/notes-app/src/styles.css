@@ -138,6 +138,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .about-rows dt { color: var(--fg-dim); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
 .about-rows dd { margin: 0; font-family: var(--font-mono); color: var(--fg); text-align: right; overflow-wrap: anywhere; }
 .about-legal { color: var(--fg-dim); font-size: 12px; margin: 0 0 .25rem; }
+/* The connection test's answer, and the reason it needs a rule of its own: it
+   used to render as one more grey sentence between two other grey sentences —
+   an answer indistinguishable from the advice around it, which is precisely the
+   ambiguity the test was built to end. Colour carries the verdict, the words
+   carry the reason, and the colours are the three this palette already checks
+   at AA against every surface (tools/contrast.sh). */
+.device-probe { margin: .5rem 0 0; font-weight: 600; }
+.device-probe.ok { color: var(--good); }
+.device-probe.no { color: var(--bad); }
+.device-probe.fix { color: var(--warn); }
+.device-missing { margin: .5rem 0 0; color: var(--fg-dim); }
 .diag { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
 .diag dl { margin: 0; font-size: 12px; }
 .diag dt { color: var(--fg-dim); margin-top: 6px; }

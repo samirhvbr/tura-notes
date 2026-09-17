@@ -71,6 +71,25 @@ it("reports a rejected credential as rejected, not as an unusable address",async
   await waitFor(()=>expect(screen.getByText(/rejected this credential/)).toBeInTheDocument());
   expect(screen.getByText(/rejected this credential/)).toHaveTextContent("HTTP 401");
 });
+it("says the verdict in a colour, not as one more grey sentence",async()=>{
+  // It shipped without a rule in the stylesheet and rendered identically to the
+  // advice above and below it — an answer indistinguishable from the question.
+  vi.mocked(ipc.deviceProbe).mockResolvedValue(granted);
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Server address/}),{target:{value:"https://tura.example"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/token"}});
+  fireEvent.click(screen.getByRole("button",{name:"Test connection"}));
+  await waitFor(()=>expect(screen.getByText(/Connected\./)).toHaveClass("device-probe","ok"));
+
+  // A credential that works and needs review is not a pass: pairing refuses it.
+  vi.mocked(ipc.deviceProbe).mockResolvedValue({...granted,review:true});
+  fireEvent.click(screen.getByRole("button",{name:"Test connection"}));
+  await waitFor(()=>expect(screen.getByText(/Connected\./)).toHaveClass("fix"));
+
+  vi.mocked(ipc.deviceProbe).mockResolvedValue({...granted,outcome:"refused",status:401,workspace:null});
+  fireEvent.click(screen.getByRole("button",{name:"Test connection"}));
+  await waitFor(()=>expect(screen.getByText(/rejected this credential/)).toHaveClass("no"));
+});
 it("reports a workspace name that disagrees with the credential instead of replacing it",async()=>{
   vi.mocked(ipc.deviceProbe).mockResolvedValue(granted);
   show();
