@@ -4,8 +4,15 @@ pub mod state;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("application blocked; close the workspace and preserve local changes or drafts before retrying")]
-    ApplicationBlocked,
+    /// The cause is carried, and that is the point of the field.
+    ///
+    /// Every construction site below used to be `.map_err(|_| ApplicationBlocked)`,
+    /// which threw the real error away at the boundary. An intermittent that
+    /// reaches a user as this variant was then undiagnosable by construction: the
+    /// one in `.continue/` survived twelve runs precisely because nothing it
+    /// printed said which of a dozen calls had refused, or why.
+    #[error("application blocked; close the workspace and preserve local changes or drafts before retrying ({cause})")]
+    ApplicationBlocked { cause: String },
     #[error("this application step does not yet support renames or deletions; received content was retained")]
     UnsupportedApplication,
     #[error("invalid client configuration or state")]

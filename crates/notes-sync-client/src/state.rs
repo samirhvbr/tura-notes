@@ -300,7 +300,9 @@ impl Store {
             return Ok(false);
         };
         let files = notes_core::sync::capture(&state.source, &self.dir.join("inspection"))
-            .map_err(|_| Error::ApplicationBlocked)?;
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
         let live: Vec<_> = app.notes.values().filter(|r| !r.deleted).collect();
         if files.len() != live.len() {
             return Ok(true);
@@ -318,7 +320,9 @@ impl Store {
                 &file.path,
                 &bytes,
             )
-            .map_err(|_| Error::ApplicationBlocked)?;
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
             if assets != state.attachments_at(receipt.revision) {
                 return Ok(true);
             }
@@ -446,7 +450,9 @@ impl Store {
                 &file.path,
                 &bytes,
             )
-            .map_err(|_| Error::ApplicationBlocked)?;
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
             if state.local.head(file.note).is_some_and(|r| {
                 r.path == file.path
                     && r.content.as_ref() == Some(&file.content)
@@ -493,7 +499,9 @@ impl Store {
             return Err(Error::Conflict);
         }
         let inventory = notes_core::sync::inventory(&state.source, &self.dir.join("core"))
-            .map_err(|_| Error::ApplicationBlocked)?;
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
         if inventory.iter().any(|f| f.note == note) {
             return Err(Error::Conflict);
         }
@@ -735,7 +743,9 @@ impl Store {
                 .ok_or(Error::Invalid)?;
             let (observed, bytes) =
                 notes_core::sync::capture_saved(&state.source, &app.core_data, &receipt.path, None)
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
             if observed.base_rev.hash != *expected
                 || notes_model::ContentHash::from_bytes(*blake3::hash(&bytes).as_bytes())
                     != *expected
@@ -964,7 +974,9 @@ impl Store {
         let attachments = match &bytes {
             Some(raw) => {
                 notes_core::sync::capture_attachments(&state.source, &data, &revision.path, raw)
-                    .map_err(|_| Error::ApplicationBlocked)?
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?
             }
             None => vec![],
         };
@@ -1253,7 +1265,9 @@ impl Store {
                         })
                 },
             )
-            .map_err(|_| Error::ApplicationBlocked)?;
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
             app.assets.insert(asset.path.clone(), applied);
             app.asset_intent = None;
             self.save_application(app)?;
@@ -1449,7 +1463,9 @@ impl Store {
             }
             .map_err(|e| match e {
                 notes_model::CoreError::LockTimeout => Error::Busy,
-                _ => Error::ApplicationBlocked,
+                other => Error::ApplicationBlocked {
+                    cause: other.to_string(),
+                },
             })?;
             app.notes.insert(
                 p.revision.note,
@@ -1532,7 +1548,9 @@ impl Store {
         }
         service
             .open_sync_workspace(&state.source)
-            .map_err(|_| Error::ApplicationBlocked)
+            .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })
     }
 
     /// The host owns its input barrier until these refreshed buffers are installed.
@@ -1681,10 +1699,15 @@ impl Store {
         }
         let (local, bytes) =
             notes_core::sync::capture_conflict(&state.source, &data, &path, &previous.local)
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
         let attachments =
-            notes_core::sync::capture_attachments(&state.source, &data, &path, &bytes)
-                .map_err(|_| Error::ApplicationBlocked)?;
+            notes_core::sync::capture_attachments(&state.source, &data, &path, &bytes).map_err(
+                |e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                },
+            )?;
         if path == previous.path
             && local.base_rev.hash == previous.local.base_rev.hash
             && attachments == state.attachments_at(previous.revision)
@@ -1773,10 +1796,15 @@ impl Store {
         let path = path.unwrap_or_else(|| capture.path.clone());
         let (local, bytes) =
             notes_core::sync::capture_conflict(&state.source, &data, &path, &capture.local)
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
         let attachments =
-            notes_core::sync::capture_attachments(&state.source, &data, &path, &bytes)
-                .map_err(|_| Error::ApplicationBlocked)?;
+            notes_core::sync::capture_attachments(&state.source, &data, &path, &bytes).map_err(
+                |e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                },
+            )?;
         if path == capture.path
             && local.base_rev.hash == capture.local.base_rev.hash
             && attachments == state.attachments_at(capture.branch)
@@ -1902,7 +1930,9 @@ impl Store {
                     })
             },
         )
-        .map_err(|_| Error::ApplicationBlocked)?;
+        .map_err(|e| Error::ApplicationBlocked {
+            cause: e.to_string(),
+        })?;
         for i in pending.into_iter().filter(|i| *i != index) {
             if state.received[i].revision.note == capture.note {
                 app.deferred.remove(&i);
@@ -1943,8 +1973,11 @@ impl Store {
         {
             return Err(Error::Invalid);
         }
-        let local = notes_core::sync::capture(&state.source, data)
-            .map_err(|_| Error::ApplicationBlocked)?;
+        let local = notes_core::sync::capture(&state.source, data).map_err(|e| {
+            Error::ApplicationBlocked {
+                cause: e.to_string(),
+            }
+        })?;
         let incoming = Self::incoming(state)?;
         let remote: Vec<_> = incoming
             .heads
@@ -1970,7 +2003,9 @@ impl Store {
         for (file, bytes) in &local {
             let assets =
                 notes_core::sync::capture_attachments(&state.source, data, &file.path, bytes)
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
             if let Some(remote) = incoming
                 .heads
                 .keys()
@@ -2061,7 +2096,9 @@ impl Store {
             };
             let (actual, raw) =
                 notes_core::sync::capture_conflict(&state.source, &data, &f.path, &expected)
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
             if raw != *bytes {
                 return Err(Error::Conflict);
             }
@@ -2092,7 +2129,9 @@ impl Store {
                             &app.core_data,
                             &asset,
                         )
-                        .map_err(|_| Error::ApplicationBlocked)?;
+                        .map_err(|e| Error::ApplicationBlocked {
+                            cause: e.to_string(),
+                        })?;
                         app.assets.insert(asset.path, base);
                     }
                     app.notes.insert(
@@ -2138,7 +2177,9 @@ impl Store {
                         &revision.path,
                         &bytes,
                     )
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
                     state.pending.push(Publication {
                         attachments,
                         workspace: state.local.workspace,
@@ -2218,11 +2259,15 @@ impl Store {
                 }
                 if renames {
                     let files = notes_core::sync::closed_inventory(&state.source, &app.core_data)
-                        .map_err(|_| Error::ApplicationBlocked)?;
+                        .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
                     let file = files
                         .iter()
                         .find(|f| f.note == c.local.note_id)
-                        .ok_or(Error::ApplicationBlocked)?;
+                        .ok_or_else(|| Error::ApplicationBlocked {
+                            cause: "the captured file for this note is gone".into(),
+                        })?;
                     if file.path != c.path {
                         self.recapture_receiver_change(&app.core_data, Some(file.path.clone()))?;
                         return Ok(1);
@@ -2234,14 +2279,18 @@ impl Store {
                     &c.path,
                     &c.local,
                 )
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
                 let assets = notes_core::sync::capture_attachments(
                     &state.source,
                     &app.core_data,
                     &c.path,
                     &bytes,
                 )
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
                 if local.base_rev.hash == c.local.base_rev.hash
                     && assets == state.attachments_at(c.branch)
                 {
@@ -2261,7 +2310,9 @@ impl Store {
         } else {
             notes_core::sync::inventory(&state.source, &inspection)
         }
-        .map_err(|_| Error::ApplicationBlocked)?;
+        .map_err(|e| Error::ApplicationBlocked {
+            cause: e.to_string(),
+        })?;
         for (note, previous) in &app.notes {
             if previous.deleted {
                 continue;
@@ -2279,14 +2330,18 @@ impl Store {
                         &file.path,
                         Some(previous.local.note_id),
                     )
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
                     let assets = notes_core::sync::capture_attachments(
                         &state.source,
                         &app.core_data,
                         &file.path,
                         &bytes,
                     )
-                    .map_err(|_| Error::ApplicationBlocked)?;
+                    .map_err(|e| Error::ApplicationBlocked {
+                        cause: e.to_string(),
+                    })?;
                     if file.content != previous.local.base_rev.hash
                         || assets != state.attachments_at(previous.revision)
                     {
@@ -2374,15 +2429,21 @@ impl Store {
 
         let (local, bytes) =
             notes_core::sync::capture_conflict(&state.source, &app.core_data, &c.path, &c.local)
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
         if local.base_rev.hash != c.local.base_rev.hash
             || bytes != content(publication).map_err(|_| Error::Invalid)?
         {
-            return Err(Error::ApplicationBlocked);
+            return Err(Error::ApplicationBlocked {
+                cause: "the saved note no longer matches the captured base revision".into(),
+            });
         }
         for asset in &publication.attachments {
             let base = notes_core::sync::confirm_attachment(&state.source, &app.core_data, asset)
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                cause: e.to_string(),
+            })?;
             app.assets.insert(asset.path.clone(), base);
         }
         let pending: Vec<_> = app
@@ -2484,10 +2545,14 @@ impl Store {
         }
         let (local, bytes) =
             notes_core::sync::capture_saved(&state.source, data, &file.path, Some(file.note))
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
         let attachments =
             notes_core::sync::capture_attachments(&state.source, data, &file.path, &bytes)
-                .map_err(|_| Error::ApplicationBlocked)?;
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?;
         let note = notes_model::NoteId::new();
         let revision = Revision::new(
             note,

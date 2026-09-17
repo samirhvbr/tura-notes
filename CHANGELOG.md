@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.10 - ApplicationBlocked says which call refused, and why
+
+Twenty-nine construction sites read `.map_err(|_| Error::ApplicationBlocked)`.
+Every one threw the underlying error away at the boundary, so the variant that
+reaches a user names a category and nothing else. The queued intermittent — two
+recovery tests failing once with `ApplicationBlocked` in `stage_receiver_edits`,
+then surviving twelve runs — was **undiagnosable by construction**: no output it
+could produce would say which of a dozen calls had refused, or why.
+
+The variant carries `cause` and its message prints it. The mechanical sites pass
+`e.to_string()`; the four that decide "blocked" on their own now state the reason
+the code already knew — a captured file gone, a saved note no longer matching its
+captured base revision, or the error a lock timeout was not.
+
+`Error::Busy` is untouched, which matters: the match that maps `LockTimeout` to
+`Busy` and everything else to `ApplicationBlocked` kept both arms, so lock
+contention still reads as contention and is not swallowed into the new message.
+
+This does not fix the intermittent, and the queue item says so. It removes the
+reason the intermittent could not be studied: the next occurrence names itself.
+Eighty-one tests pass, five of which match the variant and did not need to care
+about the cause.
+
 ## 1.6.9 - two builds sharing one tree stop corrupting the version placeholder
 
 Reproduced, explained and closed. Both build scripts do the same four things

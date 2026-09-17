@@ -342,7 +342,7 @@ fn apply_checkpoints_updates_and_preserves_local_edits() {
     receiver.transfer(&mut peer).unwrap();
     assert!(matches!(
         receiver.apply(&data),
-        Err(Error::ApplicationBlocked)
+        Err(Error::ApplicationBlocked { .. })
     ));
     assert_eq!(receiver.status().unwrap().applied_revisions, 2);
     assert_eq!(receiver.status().unwrap().received, 3);
@@ -440,7 +440,7 @@ fn durable_intent_recovers_lost_receipt_without_rewriting_but_rejects_later_edit
     fs::write(target.join("test.md"), b"newer local").unwrap();
     assert!(matches!(
         receiver.apply(&data),
-        Err(Error::ApplicationBlocked)
+        Err(Error::ApplicationBlocked { .. })
     ));
     assert_eq!(fs::read(target.join("test.md")).unwrap(), b"newer local");
     assert_eq!(receiver.status().unwrap().applied_revisions, 0);
@@ -459,7 +459,7 @@ fn collision_never_creates_intent_and_future_application_state_is_preserved() {
     for _ in 0..2 {
         assert!(matches!(
             receiver.apply(&data),
-            Err(Error::ApplicationBlocked)
+            Err(Error::ApplicationBlocked { .. })
         ));
         assert!(!app.exists());
     }
@@ -2034,7 +2034,7 @@ fn edits_during_transfer_are_recaptured_without_applying_the_older_publication()
     f.receiver.transfer(&mut f.peer).unwrap();
     assert!(matches!(
         f.receiver.confirm_receiver_edit(),
-        Err(Error::ApplicationBlocked)
+        Err(Error::ApplicationBlocked { .. })
     ));
     assert_eq!(
         fs::read(f.target.join("test.md")).unwrap(),
@@ -2114,7 +2114,7 @@ fn receiver_binary_edits_keep_their_bytes_when_confirmation_is_interrupted() {
     fs::write(f.target.join("asset.bin"), [128, 0, 2]).unwrap();
     assert!(matches!(
         f.receiver.confirm_receiver_edit(),
-        Err(Error::ApplicationBlocked)
+        Err(Error::ApplicationBlocked { .. })
     ));
     assert_eq!(fs::read(f.target.join("asset.bin")).unwrap(), [128, 0, 2]);
     f.receiver.stage_receiver_edits().unwrap();

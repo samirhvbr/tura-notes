@@ -439,7 +439,9 @@ impl Controller {
         let store = Store::open(Path::new(&r.state_dir))?;
         if r.mode == "download"
             && !notes_core::sync::inventory(Path::new(&r.source), &self.data)
-                .map_err(|_| Error::ApplicationBlocked)?
+                .map_err(|e| Error::ApplicationBlocked {
+                    cause: e.to_string(),
+                })?
                 .is_empty()
         {
             return Err(Error::Conflict);
