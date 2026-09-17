@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.37 - the product document still listed sync as something the product does not do
+
+`CLAUDE.md` says to read `product.md` before changing product behaviour. Its §15,
+*Not in the first version*, exists because "an unstated exclusion is read as an
+oversight" — and it listed `sync`, which has been implemented through `0.20.20`
+and was given a twenty-six-step acceptance walk two days ago.
+
+Moved out, with where it went and what it cost. The answer to "what did §2 give
+up for it" is **nothing**: sync is opt-in, off by default, and goes to a server
+the user runs, which is what §2 already said about everything above the base
+product.
+
+**The two neighbours it used to sit beside stayed**, and that is the part worth
+writing rather than just deleting a word. `user accounts` and `an official cloud
+server` are not pending work — they are the two entries on that list §1 will not
+trade. A list that quietly loses an item teaches a reader that the whole list is
+soft.
+
+Nothing else in the page measured stale: §2 already describes remote storage,
+sync, an HTTP API and AI agents as opt-in and self-hostable, and §5's mobile
+priorities still end with sync as *later*, which is true — the mobile half has no
+installable application yet.
+
 ## 1.6.36 - release.sh can read the wrong history, and this clone was set up for it
 
 `docs/versioning.md` states the rule the whole release mechanism rests on — *the

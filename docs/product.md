@@ -325,9 +325,18 @@ Listed because an unstated exclusion is read as an oversight:
 
 collaborative editing · a full WYSIWYG editor · canvas · plugins ·
 multiple themes · web publishing · an embedded AI chat · native Git integration ·
-sync · version history · user accounts · an official cloud server.
+version history · user accounts · an official cloud server.
 
 Each may be reconsidered later. None of them is a reason to compromise §1.
+
+**`sync` was on this list and has been reconsidered**, which is what the list
+invited. It is implemented through `0.20.20` — causal revisions, a server inbox,
+device transfer, explicit conflict resolution — with its contract in
+[SYNC-0.6.md](SYNC-0.6.md) and the owner's walk still open in
+[ACCEPTANCE-0.6.md](ACCEPTANCE-0.6.md). Nothing in §2 moved to allow it: sync is
+opt-in, off by default, and goes to a server the user runs. The two neighbours it
+used to sit beside — **user accounts and an official cloud server** — did not come
+with it, and are the two on this list that §1 will not give up.
 
 ## 16. Git
 

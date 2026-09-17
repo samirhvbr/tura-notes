@@ -161,6 +161,15 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   set-head origin -a`, com a prova medida (o `--dry-run` rodado do worktree parado
   em 1.6.29 passou a ler 1.6.35). Registrado no `ASSUMPTIONS.md` com como reverter
 
+- [x] R5f — o `docs/product.md` §15 ainda listava `sync` como coisa que o produto
+  não faz (1.6.37). A seção existe porque *"exclusão não declarada é lida como
+  esquecimento"* — e listava justamente o marco que ganhou um roteiro de aceite de
+  26 passos dois dias atrás. Tirado, com onde foi parar e o que custou: **nada** do
+  §2 se moveu, porque sync é opt-in, desligado por padrão, e vai para servidor do
+  próprio usuário. **Os dois vizinhos ficaram**, e essa é a parte que valia
+  escrever em vez de só apagar a palavra: `user accounts` e `an official cloud
+  server` não são trabalho pendente, são os dois itens da lista que o §1 não troca
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
