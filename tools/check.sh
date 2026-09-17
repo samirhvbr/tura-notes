@@ -158,8 +158,19 @@ step "macOS build script" python3 tools/tests/test_build_local.py
 step "self-hosting guide"  python3 tools/tests/test_selfhosting_doc.py
 step "hand-written IPC shape" python3 tools/tests/test_env_report.py
 step "development version" node --test tools/tauri.test.mjs
-step "frontend tests"       bash -c 'cd apps/notes-app && npm test -- --run >/dev/null'
-step "frontend"             bash -c 'cd apps/notes-app && npm run build >/dev/null'
+# A fresh worktree has no `node_modules` — it is gitignored, and `git worktree
+# add` copies none of it. Both steps below then die on `vitest: not found`, which
+# is the shell's error leaking through a gate that knows perfectly well what is
+# missing. Three worktrees in one session hit it. `missing` is the same helper
+# the Windows cross-check uses, so a prerequisite reads the same way wherever it
+# is absent.
+if [ -x apps/notes-app/node_modules/.bin/vitest ]; then
+  step "frontend tests"     bash -c 'cd apps/notes-app && npm test -- --run >/dev/null'
+  step "frontend"           bash -c 'cd apps/notes-app && npm run build >/dev/null'
+else
+  missing "frontend tests" "no node_modules in this checkout — run: (cd apps/notes-app && npm ci)"
+  missing "frontend"       "no node_modules in this checkout — run: (cd apps/notes-app && npm ci)"
+fi
 
 echo
 if [ "$fail" -ne 0 ]; then echo "FAILED"; exit 1; fi

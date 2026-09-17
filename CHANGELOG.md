@@ -7,6 +7,23 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.18 - the gate names the missing dependency instead of leaking a shell error
+
+A fresh `git worktree add` has no `node_modules` — it is gitignored, and nothing
+copies it — so the two frontend steps died on `sh: 1: vitest: not found`. Three
+worktrees in one session hit it, and each time the gate was red for a reason it
+knew perfectly well and did not say.
+
+The two steps now go through `missing`, the same helper the Windows cross-check
+uses, and the line reads `FAILED, not run — no node_modules in this checkout —
+run: (cd apps/notes-app && npm ci)`. Still a failure, not a warning: that is the
+house position since the MinGW guard was changed, and a suite that silently skips
+its own frontend is worse than one that stops.
+
+What this does not do is run `npm ci` for you. A gate that installs things is a
+gate that can change the tree it is checking, and the failure it would hide is
+exactly the one worth seeing — a lockfile that no longer resolves.
+
 ## 1.6.17 - say out loud when a backend cannot replace a file in one step
 
 `docs/MOBILE-0.4.md` said `Caps` "grows a flag" for whether writes are atomic on
