@@ -133,6 +133,7 @@ jobs:
           run "every ADR status is one of the four words"  python3 tools/adr-status.py
           run "every docs/ page is in the index"           python3 tools/doc-index.py
           run "this job runs what the local gate runs"     python3 tools/ci-parity.py
+          run "a cited range matches the rows it names" python3 tools/doc-ranges.py
           exit "$fail"
 
   server-container:

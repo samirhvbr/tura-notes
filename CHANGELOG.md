@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.75 - a range that claims every row now has to be able to count them
+
+`1.6.74` added one acceptance row and edited four files to say so — the queue
+item, two documents' pointers and the index — none of which contain the row. That
+is the shape that goes wrong: the file nobody edits is the one that quietly
+undercounts.
+
+It has gone wrong. At `1.6.41` the queue told the owner to walk `I1–I10` where
+there were sixteen, and **undercounting is the expensive direction**: the walk
+stops at ten, the item is ticked, and the six rows added since are never walked
+by anybody, while the page they live on still says they are pending.
+
+`tools/doc-ranges.py` reads the highest `| X<n> |` row out of `docs/` and fails
+the gate when a cited `X1–X<n>` disagrees. Ten such ranges exist today across six
+files, and they agree: C=15, I=16, K=15, M=12, U=12, V=6, X=13.
+
+**Only ranges starting at 1 are checked**, and that boundary is the whole design.
+`I11–I13` is a deliberate reference to three rows that need no phone; it is not a
+claim about how many rows exist, and a checker that treated it as one would need
+an exemption list longer than its findings. A range that starts at 1 *is* that
+claim, which is what makes it both checkable and worth checking.
+
+Proved against the real mistake rather than an invented one: setting the queue
+back to `I1–I10` fails with that file, that line, and the number it should have
+said.
+
+**And it failed on its own history first.** The `.loop/` note describing this
+change quotes the old wrong range, and the checker read the quotation as a claim.
+`CHANGELOG.md` and `.loop/` are excluded for that one reason: a record of a
+corrected mistake has to be able to contain the mistake. Forbidding a wrong
+number in the files whose job is to remember wrong numbers is a check that fails
+on the truth.
+
+Fourth checker in the gate today, and it runs in CI too — `ci-parity.py` would
+have failed if it did not.
+
 ## 1.6.74 - the update that fails is now a walk, because it stopped being a dead end
 
 `C14` walks the update that works. Nothing walked the one that does not — which

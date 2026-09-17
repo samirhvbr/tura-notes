@@ -505,6 +505,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   andaram junto: quatro lugares para uma linha, que é o argumento para ter varrido
   no 1.6.61 em vez de achar um de cada vez agora
 
+- [x] R6o — intervalo que reivindica todas as linhas agora precisa saber contá-las
+  (1.6.75). O 1.6.74 acrescentou **uma** linha de aceite e editou **quatro** arquivos
+  para dizer isso, nenhum deles contendo a linha — e o arquivo que ninguém edita é o
+  que subconta calado. Já deu errado: no 1.6.41 a fila mandava percorrer `I1–I10`
+  onde havia dezesseis, e **subcontar é a direção cara** — o passeio para no dez, o
+  item é marcado, e as seis linhas novas não são percorridas por ninguém. O
+  `doc-ranges.py` lê a maior linha `| X<n> |` de `docs/` e reprova quando um
+  `X1–X<n>` citado discorda. **Só intervalos que começam em 1 são checados**, e essa
+  fronteira é o projeto inteiro: `I11–I13` é referência a um subconjunto, não
+  afirmação de quantas linhas existem. Provado contra o erro real, não um inventado
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
