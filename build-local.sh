@@ -58,32 +58,48 @@
 # through a counting endpoint (`/d/{file}`), so publishing is not a copy into a
 # web root — the file has to be ingested by the application, which hashes it,
 # records its size and creates the `ProjectFile` row. That is exactly what
-# `php artisan files:add` does, so the upload is two steps over one connection:
+# `php artisan files:add` does, so publication is four steps, in this order:
 #
-#   1. `scp` the DMG (and its `.sha256`) to a staging directory on the server;
-#   2. `ssh` a single `php artisan files:add … --project=tura-notes` call.
+#   1. `ssh` one `test -f <app>/artisan` — does the download service exist here?
+#   2. `scp` the DMG (and its `.sha256`) to a staging directory on the server;
+#   3. `ssh` the sha256 back and compare it to the local one;
+#   4. `ssh` a single `php artisan files:add … --project=tura-notes` call.
 #
 # Re-publishing the same filename UPDATES the existing row and keeps its
 # download counter (FileIngestService), so a re-run after a partial upload is
 # safe and does not duplicate the file on the downloads page.
 #
-# AFTER uploading, the script reads the sha256 BACK from the server and compares
-# it to the local one. A truncated `scp` leaves a file that exists, that the
-# page happily links, and that fails only in the user's browser — the failure
-# has to be found here, not there.
+# STEPS 1 AND 3 EXIST BECAUSE OF WHAT THE ORDER COSTS. A truncated `scp` leaves
+# a file that exists, that `files:add` ingests happily and that the page then
+# links — it fails only in the user's browser, so it has to be found here. This
+# script found it one step too late until 1.1.14: it ingested first and verified
+# afterwards, which publishes the broken image and *then* reports the failure.
+# And `PUBLISH_APP` is a written-down guess that nothing checked, so a wrong
+# path spent the whole upload to say `cd: no such file or directory`.
+# `tools/build-linux.sh` verified before ingesting from the day it was written;
+# the two sides agree now, preflight included.
 #
 # GIT PULL (fleet default): the script runs `git pull --ff-only` before anything
 # else so an old checkout is not packaged by accident. It never fails the build
 # — offline, dirty tree or a diverged branch only produce a warning. Skip it
 # with --skip-git-pull.
 #
-# REUSING A BUILD: if a DMG for this exact version is already on disk, its
-# sha256 still matches the recorded sidecar, and no source is newer than it, the
-# script skips straight to publishing. Forgetting `--publish` must not cost a
-# full rebuild to upload a file that already exists. The freshness check is what
-# makes the shortcut safe: editing code without bumping the version would
-# otherwise publish an old binary under a new version number, signed, silently.
-# Override with --force.
+# REUSING A BUILD: if a DMG for this exact version is already on disk and
+# `tools/build-cache.py` still recognises it — same version, same architecture,
+# same build mode, and a source fingerprint that matches the tree byte for byte
+# — the script skips straight to publishing. Forgetting `--publish` must not
+# cost a full rebuild to upload a file that already exists. The freshness check
+# is what makes the shortcut safe: editing code without bumping the version
+# would otherwise publish an old binary under a new version number, signed,
+# silently. Override with --force.
+#
+# **It is a content fingerprint, not mtime.** `find -newer` was the first shape
+# of this test and it asks the wrong question: a file restored with `cp -p`, or
+# any checkout that preserves timestamps, is different from the DMG *and* older
+# than it, so the test passed and the stale binary shipped. Linux had already
+# moved to a fingerprint; macOS — the side that signs and notarises — was the
+# one still deciding on timestamps. Both run the same check now, which is why
+# the script implementing it no longer carries "linux" in its name.
 #
 # Norm: docs/runbook.md §4 · docs/decisions.md ADR-011, ADR-024, ADR-035, ADR-070
 set -euo pipefail
@@ -155,7 +171,7 @@ PUBLISH=0
 # private network and the base is the address the downloads page already uses.
 # The scp password is never a variable and never a file — scp asks for it, or
 # `ssh-copy-id <host>` once makes it stop asking.
-PUBLISH_HOST="${TURA_PUBLISH_HOST:-b3sys@100.64.100.242}"
+PUBLISH_HOST="${TURA_PUBLISH_HOST:-b3sys@100.64.100.125}"
 PUBLISH_STAGE="${TURA_PUBLISH_STAGE:-/tmp}"
 PUBLISH_APP="${TURA_PUBLISH_APP:-/srv/www/samirhv.com.br/samirhv}"
 PUBLISH_SLUG="${TURA_PUBLISH_SLUG:-tura-notes}"
@@ -399,23 +415,23 @@ can_reuse_build() {
          -name "*_${version}_*.dmg" -print -quit 2>/dev/null || true)"
   [ -z "$dmg" ] && { REUSE_REASON="no DMG for $version on disk"; return 1; }
 
-  [ -f "$dmg.sha256" ] || { REUSE_REASON="no .sha256 sidecar — cannot prove what that DMG is"; return 1; }
-  local recorded current
-  recorded="$(awk '{print $1; exit}' "$dmg.sha256")"
-  current="$(_sha256 "$dmg")"
-  [ -n "$current" ] && [ "$current" = "$recorded" ] || {
-    REUSE_REASON="the DMG no longer matches its recorded sha256"; return 1; }
-
-  local newer
-  newer="$(find apps/notes-app/src apps/notes-app/src-tauri/src crates server \
-                apps/notes-app/package.json apps/notes-app/index.html \
-                apps/notes-app/vite.config.ts apps/notes-app/src-tauri/Cargo.toml \
-                Cargo.toml Cargo.lock version.md \
-             -type f -newer "$dmg" -print -quit 2>/dev/null || true)"
-  [ -n "$newer" ] && { REUSE_REASON="a source file is newer than the build: $newer"; return 1; }
+  # The DMG's own hash, its sidecar and the freshness of the sources are one
+  # question, and `tools/build-cache.py check` is the single answer — the same
+  # call `tools/build-linux.sh` makes. See the header for why this replaced
+  # `find -newer`.
+  if [ -z "$SOURCE_HASH" ] || [ -z "$HOST_TRIPLE" ]; then
+    REUSE_REASON="cannot fingerprint the sources on this machine — rebuilding rather than guessing"
+    return 1
+  fi
+  local why
+  if ! why="$(python3 tools/build-cache.py check "$ROOT/target/release/bundle/dmg" \
+                "$version" "$HOST_TRIPLE" "$SOURCE_HASH" "$NO_SIGN" 2>&1 >/dev/null)"; then
+    REUSE_REASON="${why#Build required: }"
+    return 1
+  fi
 
   if [ "$NO_SIGN" -eq 0 ]; then
-    python3 tools/updater-release.py verify --artifact "$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz" --version "$version" >/dev/null 2>&1 || {
+    python3 tools/updater-release.py verify --artifact "$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz" --version "$version" >/dev/null 2>&1 || {
       REUSE_REASON="updater payload is absent or unverifiable"; return 1;
     }
   fi
@@ -474,9 +490,51 @@ verify_macos_signature() {
 # See the header for why this is an ingest and not a copy. Refuses to publish an
 # unsigned or unstapled image: the whole reason macOS artefacts were withheld
 # until now is that an unsigned one teaches the user to click past Gatekeeper.
+
+# Quote a remote argument for the POSIX shell `ssh` runs it in. `--dest` and the
+# five TURA_* variables all reach a remote shell, and `tools/build-linux.sh` has
+# quoted them since 1.0.3 — this side interpolated them raw, which is the same
+# bug one platform had already fixed.
+_q() { python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$1"; }
+
+# THE DESTINATION IS CHECKED BEFORE THE UPLOAD, and until now it was not checked
+# at all. `PUBLISH_APP` is a written-down guess: 1.1.0 shipped with "live
+# publication awaits the correct application path on the private host" in the
+# changelog, because the first thing that touched the path was a `cd` inside the
+# ingest — after a 20 MB upload, reporting `cd: no such file or directory`,
+# which is true and does not name the fix. One `test -f artisan` answers it in
+# under a second, and the failure prints the command that finds the real path.
+publish_preflight() {
+  [[ "$PUBLISH_HOST" != -* && "$PUBLISH_HOST" =~ ^[a-zA-Z0-9_.@-]+$ ]] || {
+    echo "  ✗ invalid publish host: $PUBLISH_HOST" >&2; return 1; }
+  local path
+  for path in "$PUBLISH_STAGE" "$PUBLISH_APP"; do
+    [[ "$path" =~ ^/[a-zA-Z0-9_./-]+$ ]] || {
+      echo "  ✗ remote paths must be absolute, without spaces or shell characters: $path" >&2
+      return 1; }
+  done
+
+  local status=0
+  ssh "$PUBLISH_HOST" "test -f $(_q "$PUBLISH_APP/artisan")" || status=$?
+  [ "$status" -eq 0 ] && return 0
+
+  if [ "$status" -eq 255 ]; then
+    echo "  ✗ could not reach $PUBLISH_HOST over ssh." >&2
+    echo "    The host is on the private network; check the address and that the key is installed" >&2
+    echo "    (ssh-copy-id $PUBLISH_HOST). Override with --dest or TURA_PUBLISH_HOST." >&2
+    return 1
+  fi
+  echo "  ✗ $PUBLISH_HOST has no download service at $PUBLISH_APP" >&2
+  echo "    There is no artisan there, so 'php artisan files:add' cannot run and the" >&2
+  echo "    upload would be ingested by nothing. Find the application and set the path:" >&2
+  echo "      ssh $PUBLISH_HOST 'ls -d /srv/www/*/ /var/www/*/ 2>/dev/null'" >&2
+  echo "      TURA_PUBLISH_APP=/the/path/it/prints ./build-local.sh --publish" >&2
+  return 1
+}
+
 publish_release() {
   local dmg="$1" version="$2"
-  local name sum remote
+  local name sum remote staged
 
   name="$(basename "$dmg")"
   sum="$(_sha256 "$dmg")"
@@ -496,44 +554,72 @@ publish_release() {
   echo "    project: $PUBLISH_SLUG ($version)"
   echo "    file:    $name"
   echo "    sha256:  $sum"
-  echo "    (one password — a single scp connection, then a single ssh call)"
 
-  # One scp: one connection, one password prompt.
+  step "[publish] check the download service on the server"
+  publish_preflight || return 1
+  echo "    ✔ $PUBLISH_APP/artisan is there"
+
+  staged="$PUBLISH_STAGE/$name"
+  step "[publish] upload the image"
   scp "$dmg" "$dmg.sha256" "$PUBLISH_HOST:$PUBLISH_STAGE/"
+
+  # ── Read the hash back BEFORE the ingest ────────────────────────────────────
+  # A truncated scp leaves a file that exists, that `files:add` ingests happily,
+  # and that the downloads page then links — the failure belongs to whoever
+  # downloads it. Verifying afterwards, which is what this did until 1.1.14,
+  # finds it only once it is already published, and leaves the broken image on
+  # the page while the script exits non-zero. `tools/build-linux.sh` verified
+  # first from the day it was written; both sides agree now.
+  step "[publish] verify the uploaded file on the server"
+  remote="$(ssh "$PUBLISH_HOST" "shasum -a 256 -- $(_q "$staged") 2>/dev/null \
+            || sha256sum -- $(_q "$staged") 2>/dev/null" | awk '{print $1; exit}')" || remote=""
+  if [ -z "$remote" ] || [ "$remote" != "$sum" ]; then
+    echo "    ✗ the uploaded file does NOT match — nothing was ingested" >&2
+    echo "      expected: $sum" >&2
+    echo "      got:      ${remote:-<could not read it back>}" >&2
+    ssh "$PUBLISH_HOST" "rm -f -- $(_q "$staged") $(_q "$staged.sha256")" || true
+    return 1
+  fi
+  echo "    ✅ uploaded intact (${sum:0:16}…)"
 
   # Ingest. `files:add` hashes the file, writes it to the private downloads disk
   # under the project folder and creates or UPDATES the ProjectFile row — same
   # filename updates in place and keeps the download counter, so a re-run is
   # safe. Artisan runs as www-data because it writes into storage/.
-  ssh "$PUBLISH_HOST" "cd '$PUBLISH_APP' && sudo -u www-data php artisan files:add \
-      '$PUBLISH_STAGE/$name' --project='$PUBLISH_SLUG' --version='$version' \
-      --label='Tura Notes $version — macOS (Apple silicon)'" 2>&1 | sed 's/^/      /'
-
-  # ── Read the hash back from the server ──────────────────────────────────────
-  # A truncated scp leaves a file that exists and that the page links happily;
-  # the failure then belongs to whoever downloads it. It has to be found here.
-  step "[publish] verify the uploaded file on the server"
-  remote="$(ssh "$PUBLISH_HOST" "shasum -a 256 '$PUBLISH_STAGE/$name' 2>/dev/null \
-            || sha256sum '$PUBLISH_STAGE/$name' 2>/dev/null" | awk '{print $1; exit}')" || remote=""
-
-  if [ -n "$remote" ] && [ "$remote" = "$sum" ]; then
-    echo "    ✅ uploaded intact (${sum:0:16}…)"
-  else
-    echo "    ✗ the uploaded file does NOT match" >&2
-    echo "      expected: $sum" >&2
-    echo "      got:      ${remote:-<could not read it back>}" >&2
+  #
+  # `-t`, AND IT IS NOT PIPED, and both halves are the same bug. `ssh host "cmd"`
+  # allocates no terminal, so `sudo` cannot prompt and dies with "a terminal is
+  # required to read the password" — after the build, the notarisation and a
+  # verified upload, which is the most expensive place to learn it. The password
+  # is never a variable and never a file here, exactly as the scp one is not
+  # (see the header); `-t` is what lets sudo ask you for it.
+  #
+  # And the `| sed 's/^/      /'` that indented this output had to go, because a
+  # password prompt carries no newline: sed reads a line at a time and would
+  # hold "Password:" until something ended the line, so the build would sit
+  # there looking hung with nothing on screen to type into. Six spaces of
+  # indentation are not worth a prompt nobody can see.
+  step "[publish] ingest into the download service"
+  if ! ssh -t "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
+      $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --version=$(_q "$version") \
+      --label=$(_q "Tura Notes $version — macOS (Apple silicon)")"; then
+    echo "  ✗ the ingest failed; the uploaded file is still staged at $staged" >&2
+    echo "    If it was sudo asking and you would rather it stopped, one line on the server:" >&2
+    echo "      b3sys ALL=(www-data) NOPASSWD: /usr/bin/php $PUBLISH_APP/artisan files:add *" >&2
+    echo "    in /etc/sudoers.d/tura-publish, mode 0440, checked with visudo -c." >&2
     return 1
   fi
 
   # The staging copy has been ingested into the downloads disk; leaving a second
   # copy of a 20 MB image in /tmp on every release is litter, not a backup.
-  ssh "$PUBLISH_HOST" "rm -f '$PUBLISH_STAGE/$name' '$PUBLISH_STAGE/$name.sha256'" || true
+  ssh "$PUBLISH_HOST" "rm -f -- $(_q "$staged") $(_q "$staged.sha256")" || true
 
   echo ""
   echo "    Published. It is listed at:"
   echo "      $PUBLIC_BASE/p/$PUBLISH_SLUG"
   echo "      $PUBLIC_BASE/downloads"
 }
+
 
 # ── Pipeline ─────────────────────────────────────────────────────────────────
 step "[git] sync with the remote (git pull --ff-only)"
@@ -542,6 +628,16 @@ git_sync
 version="$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' version.md | head -1)"
 [ -n "$version" ] || { echo "build-local.sh: no version in version.md" >&2; exit 1; }
 echo "    version: $version"
+
+# The two facts `tools/build-cache.py` needs to recognise an existing build, and
+# both are read before the reuse question rather than inside it: an empty one is
+# a refusal to reuse, never a silent pass. `preflight` recovers ~/.cargo/bin
+# later in the run, which is too late for a shell that was opened before rustup.
+if ! command -v rustc >/dev/null 2>&1 && [ -x "$HOME/.cargo/bin/rustc" ]; then
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+HOST_TRIPLE="$(rustc -vV 2>/dev/null | sed -n 's/^host: //p' || true)"
+SOURCE_HASH="$(python3 tools/build-cache.py fingerprint 2>/dev/null || true)"
 
 step "[reuse] is there a build of this version on disk?"
 if can_reuse_build "$version"; then
@@ -591,6 +687,34 @@ else
   if [ "$NO_SIGN" -eq 0 ]; then python3 tools/updater-release.py preflight; fi
   (cd apps/notes-app && npm run tauri build -- --bundles app,dmg)
 
+  # The bundler names files after `productName`, and that name has a space in
+  # it. `Tura Notes.app` keeps its — it is an installed identity — but the
+  # downloadable file loses it, before anything hashes, signs or publishes the
+  # name. See tools/name-bundles.sh.
+  step "[name] canonical bundle filenames"
+  tools/name-bundles.sh "$ROOT/target/release/bundle/dmg"
+
+  # ── Unstamp BEFORE anything fingerprints the tree ───────────────────────────
+  # `tauri.conf.json` lives under `apps/notes-app/src-tauri`, which is one of
+  # `tools/build-cache.py`'s INPUTS, and `stamp-version.sh` rewrites it. So the
+  # fingerprint taken below described a tree with `"version": "1.1.17"` in it
+  # while `SOURCE_HASH` was taken before stamping, off `"version": "0.0.0"` —
+  # two different files, two different hashes, every single time. The
+  # "sources changed during the build" guard therefore fired on **every** macOS
+  # build that actually compiled, after the notarisation round-trip, and the
+  # build it refused to record was correct.
+  #
+  # Nobody saw it because the reuse path skips this whole block, and because a
+  # macOS build has never been published. `tools/build-linux.sh` restores on the
+  # line before its own check and always has; this is the same asymmetry as the
+  # publish ordering 1.1.14 fixed, and it is fixed the same way — by doing what
+  # the other platform already does.
+  #
+  # The trap still restores on failure; clearing CONFIG_BACKUP is what tells it
+  # the work is already done.
+  cp "$CONFIG_BACKUP" "$CONFIG_PATH"; rm -f "$CONFIG_BACKUP"; CONFIG_BACKUP=""
+  echo "    tauri.conf.json → 0.0.0 restored"
+
   artifact_dir="target/release/bundle/dmg"
   dmg="$(find "$artifact_dir" -maxdepth 1 -type f -name "*_${version}_*.dmg" -print -quit)"
   if [ -z "$dmg" ]; then
@@ -601,7 +725,7 @@ else
   step "[verify] codesign / Gatekeeper / notarisation ticket"
   verify_macos_signature "$dmg"
   if [ "$NO_SIGN" -eq 0 ]; then
-    payload="$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz"
+    payload="$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz"
     tar -czf "$payload" -C "$ROOT/target/release/bundle/macos" 'Tura Notes.app'
     case "$(uname -m)" in arm64) updater_arch=aarch64;; *) updater_arch="$(uname -m)";; esac
     python3 tools/updater-release.py prepare --artifact "$payload" --version "$version" --platform "darwin-$updater_arch-app"
@@ -614,12 +738,25 @@ else
   # produced — a harmless symptom of a harmful bug, because the same number is
   # what a user checks the download against, and it would never have matched.
   _sha256 "$dmg" | awk -v n="$(basename "$dmg")" '{print $1"  "n}' > "$dmg.sha256"
+
+  # Record what these bytes were built from — and refuse if that answer changed
+  # while we were building. A notarised build is long enough to edit a file in,
+  # and a fingerprint taken before it would then describe sources this DMG does
+  # not contain: the stale-publish hole again, one step further along. The
+  # recording is last because `stapler staple` REWRITES the image, so anything
+  # hashed before it describes a file that no longer exists.
+  [ "$(python3 tools/build-cache.py fingerprint)" = "$SOURCE_HASH" ] || {
+    echo "build-local.sh: sources changed during the build; retry before publishing." >&2
+    exit 1
+  }
+  python3 tools/build-cache.py record "$ROOT/target/release/bundle/dmg" \
+    "$version" "$HOST_TRIPLE" "$SOURCE_HASH" "$NO_SIGN" "$dmg"
 fi
 
 if [ "$PUBLISH" -eq 1 ]; then
   step "[publish] upload to $PUBLIC_BASE"
   publish_release "$dmg" "$version"
-  python3 tools/updater-release.py publish --artifact "$ROOT/target/release/bundle/macos/Tura Notes.app.tar.gz" --version "$version" --host "$PUBLISH_HOST" --stage "$PUBLISH_STAGE" --app "$PUBLISH_APP" --base "$PUBLIC_BASE"
+  python3 tools/updater-release.py publish --artifact "$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz" --version "$version" --host "$PUBLISH_HOST" --stage "$PUBLISH_STAGE" --app "$PUBLISH_APP" --base "$PUBLIC_BASE"
 fi
 
 step "done"

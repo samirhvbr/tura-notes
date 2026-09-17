@@ -15,6 +15,7 @@ import { Divider } from "./app/Divider";
 import { WorkspaceMenu } from "./app/WorkspaceMenu";
 import { Palette, type Command, type PaletteMode } from "./app/Palette";
 import { SettingsPanel } from "./app/Settings";
+import { AboutDialog, useAboutMenu } from "./app/About";
 import { SearchPanel } from "./search/SearchPanel";
 import { useTabs } from "./stores/tabs";
 import { useSettings } from "./stores/settings";
@@ -56,6 +57,8 @@ export default function App() {
   const [palette, setPalette] = useState<PaletteMode | null>(null);
   const panes = useRef<HTMLDivElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  useAboutMenu(setAboutOpen);
   const applySettings = useSettings((s) => s.apply);
   const loadSettings = useSettings((s) => s.load);
   const restoreTabs = useTabs((s) => s.restore);
@@ -319,6 +322,7 @@ export default function App() {
       {settingsOpen && (
         <SettingsPanel onClose={() => setSettingsOpen(false)} onChanged={applySettings} />
       )}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       <StatusBar />
     </div>
   );

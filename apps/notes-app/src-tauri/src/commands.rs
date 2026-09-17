@@ -14,15 +14,33 @@ use notes_core::{
     Reconciled, Rendered, SaveResult, Session, Settings, WorkspaceEntry, WorkspaceInfo,
     WorkspaceService,
 };
-use notes_model::{BaseRev, CoreError, Entry, NoteId, RelPath};
+use notes_model::{BaseRev, CoreError, Entry, NoteId, RelPath, WorkspaceId};
 use serde::Serialize;
 use tauri::State;
 
 pub struct App {
     pub svc: Mutex<WorkspaceService>,
     pub network: std::sync::Arc<notes_sync_client::control::Controller>,
-    pub received: Mutex<Option<notes_sync_client::state::Store>>,
+    pub received: Mutex<Option<Received>>,
     pub dmabuf: DmabufReport,
+}
+
+/// A received workspace opened for editing, **with the workspace it was opened
+/// as**.
+///
+/// The pairing is the whole point. `sync_open` fills this in and nothing ever
+/// put it back to `None`, so `Some` answered "a received workspace was opened
+/// at some point in this session" while every reader was asking "is one open
+/// now". `update_install` asked exactly that, and refuses to restart while a
+/// workspace is open — so a session that had opened a received workspace once
+/// could never install an update again, whatever the user closed.
+///
+/// Holding the id turns that question back into one the state can answer: the
+/// store describes this workspace and no other, and a reader compares it with
+/// what is open now instead of trusting the `Option`'s shape.
+pub struct Received {
+    pub workspace: WorkspaceId,
+    pub store: notes_sync_client::state::Store,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -35,6 +53,15 @@ pub struct DmabufReport {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvReport {
+    /// The running version, stamped into the bundle from `version.md` at build
+    /// time (ADR-035). Read from the package rather than from a constant,
+    /// because the constant in `Cargo.toml` is the `0.0.0` placeholder and a
+    /// diagnostic that confidently reports `0.0.0` is worse than none.
+    pub version: String,
+    /// `bundle.copyright`, read back from the same configuration the installers
+    /// carry. The About dialog shows this rather than a string of its own, so
+    /// there is one year to change and no way for the two to disagree.
+    pub copyright: String,
     pub os: String,
     pub arch: String,
     pub tauri_version: String,
@@ -58,8 +85,10 @@ fn svc<'a>(app: &'a State<'_, App>) -> R<std::sync::MutexGuard<'a, WorkspaceServ
 }
 
 #[tauri::command]
-pub fn env_report(app: State<'_, App>) -> R<EnvReport> {
+pub fn env_report(app: State<'_, App>, handle: tauri::AppHandle) -> R<EnvReport> {
     Ok(EnvReport {
+        version: handle.package_info().version.to_string(),
+        copyright: handle.config().bundle.copyright.clone().unwrap_or_default(),
         os: std::env::consts::OS.into(),
         arch: std::env::consts::ARCH.into(),
         tauri_version: tauri::VERSION.into(),
@@ -499,7 +528,10 @@ pub async fn sync_open(app: State<'_, App>, state_dir: String) -> R<WorkspaceInf
     let info = store.open_for_editor(&mut service).map_err(sync_error)?;
     *app.received
         .lock()
-        .map_err(|_| sync_error("sync state lock failed"))? = Some(store);
+        .map_err(|_| sync_error("sync state lock failed"))? = Some(Received {
+        workspace: info.id,
+        store,
+    });
     Ok(info)
 }
 fn sync_error(error: impl std::fmt::Display) -> CoreError {
@@ -517,10 +549,14 @@ pub async fn sync_apply(
         .received
         .lock()
         .map_err(|_| sync_error("sync state lock failed"))?;
-    Ok(received
+    // The workspace has to be the one this store was opened for. Without the
+    // comparison a store left behind by an earlier received workspace would
+    // apply into whichever workspace happens to be open now.
+    let received = received
         .as_ref()
-        .ok_or_else(|| sync_error("no received workspace open"))?
-        .apply_for_editor(&mut service, buffers))
+        .filter(|r| Some(r.workspace) == service.workspace_id())
+        .ok_or_else(|| sync_error("no received workspace open"))?;
+    Ok(received.store.apply_for_editor(&mut service, buffers))
 }
 #[tauri::command]
 pub async fn sync_reload(
@@ -574,6 +610,25 @@ pub async fn sync_control_run(app: State<'_, App>) -> R<()> {
         .await
         .map_err(sync_error)?
 }
+/// A connection test. Separate from pairing, and available with the workspace
+/// open, because the question "is the server there and does this credential
+/// work" is the one people ask *before* they are willing to close everything
+/// and commit to a pairing.
+#[tauri::command]
+pub async fn sync_control_probe(
+    app: State<'_, App>,
+    origin: String,
+    allow_private: bool,
+    token_file: String,
+) -> R<notes_sync_client::remote::SyncProbe> {
+    let controller = app.network.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        controller.probe(origin, allow_private, token_file)
+    })
+    .await
+    .map_err(sync_error)
+}
+
 #[tauri::command]
 pub async fn sync_control_pair(
     app: State<'_, App>,

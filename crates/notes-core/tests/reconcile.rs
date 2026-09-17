@@ -421,6 +421,25 @@ fn the_hash_budget_defers_work_instead_of_blocking() {
 // The watcher itself
 // ---------------------------------------------------------------------------
 
+/// Start the watcher and wait until the platform handle actually exists.
+///
+/// `start_watch` returns before that now: establishing the handle costs ~270 ms
+/// on macOS and moved onto the watcher's own thread so it stops holding the
+/// service mutex (ADR-078). A change made inside that window is not seen by the
+/// watcher — it is seen by the 5 s poll and the scan on focus, which is a
+/// different assertion from the one these two tests make.
+///
+/// Returns the reason when this machine cannot watch at all, which is a machine
+/// fact and an honest skip.
+fn watching(f: &mut Fixture) -> Option<String> {
+    f.svc.start_watch().unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while f.svc.watch_status().walking && std::time::Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    f.svc.watch_status().degraded
+}
+
 /// The 0.1b acceptance criterion — *"editar no VS Code com o app aberto atualiza
 /// a aba em <1s"* — as far as it can be asserted without a window: a real
 /// change to a real file reaches the reconciler well inside the second.
@@ -428,14 +447,11 @@ fn the_hash_budget_defers_work_instead_of_blocking() {
 fn a_real_watcher_reports_a_change_within_the_debounce() {
     let mut f = setup();
     let id = f.svc.open_note(&rel("nota.md")).unwrap().note_id;
-    match f.svc.start_watch().unwrap() {
-        None => {}
-        Some(reason) => {
-            // A machine with no inotify budget is a machine fact. Skipping is
-            // honest; asserting anyway would pass for the wrong reason.
-            eprintln!("skipped: this machine cannot watch — {reason}");
-            return;
-        }
+    if let Some(reason) = watching(&mut f) {
+        // A machine with no inotify budget is a machine fact. Skipping is
+        // honest; asserting anyway would pass for the wrong reason.
+        eprintln!("skipped: this machine cannot watch — {reason}");
+        return;
     }
 
     let started = std::time::Instant::now();
@@ -469,7 +485,7 @@ fn a_real_watcher_reports_a_change_within_the_debounce() {
 fn the_watcher_never_reports_our_own_temporary_files() {
     let mut f = setup();
     let opened = f.svc.open_note(&rel("nota.md")).unwrap();
-    if f.svc.start_watch().unwrap().is_some() {
+    if watching(&mut f).is_some() {
         eprintln!("skipped: this machine cannot watch");
         return;
     }

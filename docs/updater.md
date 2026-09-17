@@ -1,18 +1,37 @@
 # Signed desktop updates
 
-> **Status:** ACTIVE · 1.1.0 · [ADR-074](decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
+> **Status:** ACTIVE · 1.3.7 · [ADR-074](decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
 
 ## Application behavior
 
 Release builds check 20 seconds after launch and every six hours. Welcome and
-Settings also expose a manual check. A new version shows its release notes and
+Settings also expose a manual check.
+
+**Both surfaces state the version that is running**, beside the one being
+offered. Until 1.3.9 neither did, and *Tura Notes update 1.3.6* above an
+application already on 1.3.6 reads as a loop rather than as an offer. The number
+comes from `env_report`, which reads it from the package — stamped from
+`version.md` at build time (ADR-035) — rather than from `CARGO_PKG_VERSION`,
+which is the `0.0.0` placeholder. Settings repeats it under Diagnostics, and
+**Help → About** shows it beside the engine, the data directory and the open
+workspace, with a button that copies all of them
+([ADR-079](decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens)). A new version shows its release notes and
 an **Install and restart** action; **Later** suppresses automatic notices for
 that version. A manual check can show it again. Automatic failures stay silent;
 manual failures show a retryable status. Downloads/installations are never
 started by a timer.
 
-Close the workspace through its normal save/conflict flow before installation.
-Both frontend and native code enforce this condition. The editing/IPC barrier
+Installation closes the workspace through its normal save/conflict flow, and
+**Install and restart** is what runs that flow. Unsaved work still stops the
+close and is still named in the question it asks; declining leaves the workspace
+open and installs nothing. Until 1.3.7 the condition was stated to the user and
+left to them — the banner asked for a closed workspace and its only button
+repeated the sentence, while the command that closes one lives in a menu in the
+sidebar footer, so the update looked broken rather than guarded. The native side
+still refuses to install while a workspace is open, so the condition is enforced
+on both sides rather than assumed on one. The closed workspace is reopened by
+`restore_last_workspace` after the restart, and reopened in place when the
+installation fails instead of restarting. The editing/IPC barrier
 blocks new work during installation and is released on failure. The native
 plugin downloads over HTTPS, verifies the payload against the pinned Tura public
 key, installs and restarts. AppImage replaces the running image; deb/rpm may
@@ -55,11 +74,34 @@ neither a private signing key nor npm/Cargo compilation. `--force` rebuilds.
 
 ## Hosting and publication
 
-Upload remains SCP/SSH to `b3sys@100.64.100.242`. Public clients read:
+Upload remains SCP/SSH to `b3sys@100.64.100.125`. Public clients read:
 
 ```
 https://samirhv.com.br/updates/tura-notes/{{target}}-{{arch}}-{{bundle_type}}.json
 ```
+
+**That URL is compiled into every build**, in `tauri.conf.json` under
+`plugins.updater.endpoints`, so it is fixed at build time and an installed
+application cannot be told to look somewhere else. The upload host does not
+appear in it, which is the property worth being precise about: **publishing
+works from any machine, to any path, as long as the bytes end up somewhere
+`https://samirhv.com.br` serves them.** `100.64.100.125` is that machine — it
+answers for both shvia.org and samirhv.com.br — so the download page and the
+updater feed both work with no redirection and no second name. Uploading to a
+host that serves a *different* domain does not: the feed would be readable, at
+a URL no installed build asks for.
+
+That is enforced rather than documented. After writing the feed,
+`tools/updater-release.py` fetches it back from `TURA_PUBLIC_BASE` over HTTPS,
+compares it byte for byte with the manifest it generated, then downloads the
+payload and checks its SHA-256. A host that does not serve the base fails the
+publish; it does not produce a feed nobody reads.
+
+Moving the feed to another name — `tura.samirhv.com.br`, for instance — means
+editing `endpoints` and rebuilding, and only builds made after that change would
+follow it. It is free today because nothing has ever been published, and it stops
+being free the moment something is. It is also not needed: the name that is
+already in every build is served by the machine the files are going to.
 
 Examples: `darwin-aarch64-app.json`, `linux-x86_64-deb.json`,
 `linux-aarch64-appimage.json`, `linux-x86_64-rpm.json`. Each feed contains version,
@@ -91,9 +133,12 @@ orchestration suite continues to cover failed publication followed by reuse.
 
 Installed acceptance requires two signed releases: install the older one, publish
 the newer one for the same architecture/format, verify automatic and manual
-notices, postpone, close a dirty workspace through its save flow, install/restart
-and check version and note bytes. Repeat offline, with a corrupt payload, and
-with denied administrator authentication. Run separately on macOS, AppImage,
+notices, postpone, install with a dirty workspace and accept the save it asks for,
+restart, and check version and note bytes. Repeat declining that save, which
+must install nothing and leave the workspace open; offline; with a corrupt
+payload; and with denied administrator authentication — the last three leave the
+workspace closed for an installation that did not happen, so each one also
+checks that it came back. Run separately on macOS, AppImage,
 deb and rpm; confirm AUR delegates to pacman. Compilation and signature checks
 do not establish this installed acceptance. Remaining work is in `.continue/`.
 
@@ -116,7 +161,17 @@ signature verifier. The whole repository gate was run and still has the queued
 The changed CSS passes the contrast gate; the tracked version placeholder was
 verified again after packaging restored it.
 
-The live updater feed has **not** been published. The private host responds,
-but `/srv/www/samirhv.com.br/samirhv` does not exist there. Confirm the site's
-actual application directory before running `--publish`. No installed upgrade
-or live updater transport is claimed by these local checks.
+The live updater feed has **not** been published, and as of 1.1.18 nothing
+stands in the way of publishing it. The application path was never wrong:
+`/srv/www/samirhv.com.br/samirhv` is exactly where the site's `deploy.sh` puts
+the Laravel application, and `ssh b3sys@100.64.100.125 test -f
+/srv/www/samirhv.com.br/samirhv/artisan` succeeds. The host was wrong, for six
+releases, and a wrong host reports itself as a missing path — which is what the
+previous version of this paragraph recorded, in good faith, as a path to
+confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
+against it.
+
+What remains is the act: a signed, notarised build published with `--publish`.
+No installed upgrade or live updater transport is claimed by these local checks,
+and none will be until that has run once and the feed has been read back from
+`https://samirhv.com.br`.

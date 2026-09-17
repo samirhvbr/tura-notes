@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 bundles=deb,appimage
 skip_npm=0; skip_pull=0; publish=0; force=0
-host="${TURA_PUBLISH_HOST:-b3sys@100.64.100.242}"
+host="${TURA_PUBLISH_HOST:-b3sys@100.64.100.125}"
 stage="${TURA_PUBLISH_STAGE:-/tmp}"
 app="${TURA_PUBLISH_APP:-/srv/www/samirhv.com.br/samirhv}"
 slug="${TURA_PUBLISH_SLUG:-tura-notes}"
@@ -54,12 +54,49 @@ done
 if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
   echo 'Native Linux builds require CARGO_BUILD_TARGET to be unset.' >&2; exit 2
 fi
-if [ "$skip_pull" -eq 0 ]; then git pull --ff-only; fi
+# The same sync build-local.sh does, for the reason written in its header: a
+# build that refuses to run because the network is down is worse than a build
+# that tells you it used the local tree. Linux was the half that did not comply
+# — under `set -e`, one `git pull --ff-only` turned an offline machine, a
+# detached HEAD or a diverged branch into an aborted build. --ff-only still
+# never creates a merge, and --skip-git-pull still skips the step outright.
+git_sync() {
+  if [ "$skip_pull" -eq 1 ]; then
+    echo 'Skipping the pull: --skip-git-pull.'
+    return 0
+  fi
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo 'Not a git checkout; building what is here.'
+    return 0
+  fi
+  if git pull --ff-only; then
+    return 0
+  fi
+  echo 'Could not fast-forward; building the local checkout as it is.' >&2
+  return 0
+}
+git_sync
 if ! command -v cargo >/dev/null && [ -x "$HOME/.cargo/bin/cargo" ]; then export PATH="$HOME/.cargo/bin:$PATH"; fi
 if [ "$publish" -eq 1 ]; then
   command -v scp >/dev/null; command -v ssh >/dev/null
   [[ "$stage" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish staging path without spaces or shell characters' >&2; exit 2; }
+  [[ "$app" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish application path without spaces or shell characters' >&2; exit 2; }
   [[ "$host" != -* && "$host" =~ ^[a-zA-Z0-9_.@-]+$ ]] || { echo 'Invalid publish host' >&2; exit 2; }
+  # Ask the destination whether it is the destination, before compiling anything.
+  # The app path is a written-down guess and nothing checked it: a wrong one used
+  # to survive the whole build and upload and then report `cd: no such file`,
+  # which is true and does not name the fix. The regexes above are what makes
+  # plain single quotes safe here; `quote` needs python3, checked further down.
+  probe=0; ssh "$host" "test -f '$app/artisan'" || probe=$?
+  if [ "$probe" -ne 0 ]; then
+    if [ "$probe" -eq 255 ]; then
+      echo "Could not reach $host over ssh; check the address and that the key is installed." >&2
+    else
+      echo "No download service at $app on $host (no artisan), so files:add cannot run." >&2
+      echo "Find it and set the path:  ssh $host 'ls -d /srv/www/*/ /var/www/*/ 2>/dev/null'" >&2
+    fi
+    exit 2
+  fi
 fi
 # Check completed packages before requiring the compilation toolchain.
 for tool in python3 rustc sha256sum; do
@@ -70,12 +107,12 @@ host_triple="$(rustc -vV | sed -n 's/^host: //p')"
 [ -n "$version" ] && [ -n "$host_triple" ] || exit 1
 output="$ROOT/target/local-linux/$host_triple"
 export CARGO_TARGET_DIR="$output"
-source_hash="$(python3 tools/linux-build-cache.py fingerprint)"
+source_hash="$(python3 tools/build-cache.py fingerprint)"
 artifacts=(); pending=()
 for target in "${targets[@]}"; do
   directory="$output/release/bundle/$target"
   listing="$(mktemp)"
-  if [ "$force" -eq 0 ] && python3 tools/linux-build-cache.py check "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" > "$listing"; then
+  if [ "$force" -eq 0 ] && python3 tools/build-cache.py check "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" > "$listing"; then
     while IFS= read -r -d '' artifact; do artifacts+=("$artifact"); done < "$listing"
     echo "Reusing $target for $version: sources and SHA-256 verified."
   else
@@ -111,8 +148,10 @@ if [ "${#pending[@]}" -gt 0 ]; then
   export APPIMAGE_EXTRACT_AND_RUN=1
   pending_bundles="$(IFS=,; echo "${pending[*]}")"
   (cd apps/notes-app && npm run tauri build -- --bundles "$pending_bundles")
+  # Same rename as the macOS side, before anything hashes or signs the name.
+  for target in "${pending[@]}"; do tools/name-bundles.sh "$output/release/bundle/$target"; done
   cp "$backup" "$config"; rm -f "$backup"; backup=""
-  [ "$(python3 tools/linux-build-cache.py fingerprint)" = "$source_hash" ] || {
+  [ "$(python3 tools/build-cache.py fingerprint)" = "$source_hash" ] || {
     echo 'Sources changed during the build; retry before publishing.' >&2; exit 1;
   }
   for target in "${pending[@]}"; do
@@ -129,7 +168,7 @@ if [ "${#pending[@]}" -gt 0 ]; then
         python3 tools/updater-release.py prepare --artifact "$artifact" --version "$version" --platform "linux-${host_triple%%-*}-$target"
       done
     fi
-    python3 tools/linux-build-cache.py record "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" "${built[@]}"
+    python3 tools/build-cache.py record "$directory" "$version" "$host_triple" "$source_hash" "$no_sign" "${built[@]}"
     artifacts+=("${built[@]}")
   done
 else
@@ -146,7 +185,9 @@ for artifact in "${artifacts[@]}"; do
     expected="$(sha256sum "$artifact" | awk '{print $1}')"
     actual="$(ssh "$host" "sha256sum -- $(quote "$remote_file")" | awk '{print $1}')"
     [ "$actual" = "$expected" ] || { echo 'Upload checksum mismatch; not ingested.' >&2; exit 1; }
-    ssh "$host" "cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))")"
+    # -t: ssh allocates no terminal by default, so sudo cannot prompt and dies
+    # with "a terminal is required to read the password". See build-local.sh.
+    ssh -t "$host" "cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))")"
     ssh "$host" "rm -f -- $(quote "$remote_file") $(quote "$remote_file.sha256")"
     python3 tools/updater-release.py publish --artifact "$artifact" --version "$version" --host "$host" --stage "$stage" --app "$app" --base "$base"
   fi

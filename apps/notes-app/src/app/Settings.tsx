@@ -145,6 +145,8 @@ export function SettingsPanel({
           <>
             <h3>{t("settings.diagnostics")}</h3>
             <dl className="diag">
+              <dt>{t("settings.diag.version")}</dt>
+              <dd>{env.version}</dd>
               <dt>{t("settings.diag.platform")}</dt>
               <dd>
                 {env.os} / {env.session}

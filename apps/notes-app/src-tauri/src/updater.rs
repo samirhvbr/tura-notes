@@ -98,15 +98,11 @@ mod desktop {
         {
             return Err("update_workspace_open".into());
         }
-        if app
-            .state::<crate::commands::App>()
-            .received
-            .lock()
-            .map_err(|_| "workspace_lock")?
-            .is_some()
-        {
-            return Err("update_workspace_open".into());
-        }
+        // A received workspace needs no check of its own: `sync_open` opens it
+        // through this same service, so the workspace above is open while one
+        // is live and the refusal has already happened. Asking `received`
+        // instead was the bug — it is only ever set, never cleared, so it said
+        // "open" for the rest of the session (`commands::Received`).
         let update = app
             .state::<Pending>()
             .0

@@ -36,19 +36,27 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  # One build at a time, and **the newest wins**. Every commit is a version and
-  # every version gets a Release (ADR-011), so a working session produces a
-  # burst of them; without this, each queued a nine-minute build and the burst
-  # starved CI of runners while the tests everyone actually waits on sat in the
-  # queue behind an AppImage.
-  #
-  # What it costs is that an intermediate version can end up with no artifacts.
-  # That is the right trade: nobody installs the middle of a working session,
-  # and what has to be installable is the newest — which is exactly the one this
-  # rule always builds.
-  group: build
-  cancel-in-progress: true
+# THE CANCELLING GROUP IS ON THE JOBS, NOT HERE, AND THAT IS THE WHOLE FIX.
+#
+# It used to be `group: build` with `cancel-in-progress: true` at this level.
+# The reasoning was that a working session produces a burst of Releases (every
+# commit is a version — ADR-011), each queueing a nine-minute build, starving CI
+# of runners while the tests everyone waits on sat behind an AppImage. True, and
+# the cure had a hole the comment stated as a virtue: *"what has to be
+# installable is the newest — which is exactly the one this rule always builds."*
+#
+# **That does not hold for a minor.** Artifacts are built on `X.Y.0` and never on
+# a patch, so when 1.5.0's build was cancelled by the push of 1.5.1, the newest
+# version was a patch, patches build nothing, and nothing ever rebuilt them.
+# 1.4.0 and 1.5.0 both ended up with no server tarball at all — while
+# `deploy-server.sh` derives `X.Y.0` and downloads exactly that asset.
+#
+# The group moves to the jobs that cost something, where `needs.what.outputs`
+# has the version and the group can be keyed on it. A version is unique, so a
+# minor's build is never cancelled by a different version; re-running the same
+# one still cancels the older, which is where "the newest wins" actually meant
+# something. Nothing is starved: a patch's run is the `what` job and nothing
+# else, because `build` comes back false and every expensive job is gated on it.
 
 jobs:
   # One place decides what is being built, so no job re-derives it and gets a
@@ -144,6 +152,12 @@ jobs:
     name: linux (deb, AppImage, tarball)
     needs: what
     if: needs.what.outputs.build == 'true'
+    # Keyed on the version: unique per build, so this never cancels a different
+    # one — only a re-run of this same version, which is the case where newest
+    # genuinely wins. See the note where the workflow-level group used to be.
+    concurrency:
+      group: build-linux-${{ needs.what.outputs.version }}
+      cancel-in-progress: true
     # NOT `ubuntu-latest`. A `.deb` links against the glibc it was built on, so
     # the oldest runner still supported is the widest audience: a package built
     # on 24.04 refuses to install on 22.04, and the reverse is fine.
@@ -247,6 +261,12 @@ jobs:
     name: arch (makepkg)
     needs: [what, linux]
     if: needs.what.outputs.build == 'true'
+    # Keyed on the version: unique per build, so this never cancels a different
+    # one — only a re-run of this same version, which is the case where newest
+    # genuinely wins. See the note where the workflow-level group used to be.
+    concurrency:
+      group: build-arch-${{ needs.what.outputs.version }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     container: archlinux:latest
     permissions:

@@ -52,6 +52,47 @@ pub fn run() {
                     .plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.manage(updater::Pending::default());
             }
+            // Help ▸ About, and it is ours rather than the platform's.
+            //
+            // Tauri's default menu puts a predefined About in Help on Linux and
+            // Windows and leaves Help EMPTY on macOS, where the standard one
+            // lives in the application menu. Either way the panel it opens says
+            // the name and the version and stops, and the questions that arrive
+            // with a problem — which engine is drawing this, where is the data,
+            // which folder is open — have no surface at all (ADR-079).
+            //
+            // So Help is emptied and given one item, which is the same item on
+            // every platform. macOS keeps its own About in the application menu;
+            // that one is the system's and is left alone.
+            #[cfg(desktop)]
+            {
+                use tauri::menu::{Menu, MenuItem, MenuItemKind, HELP_SUBMENU_ID};
+                use tauri::Emitter;
+                let handle = app.handle();
+                let menu = Menu::default(handle)?;
+                // Appending to the default rather than building a menu: the
+                // default carries Edit with cut, copy, paste and select-all, and
+                // a WebView whose menu loses those loses the shortcuts too.
+                if let Some(MenuItemKind::Submenu(help)) = menu.get(HELP_SUBMENU_ID) {
+                    while help.remove_at(0)?.is_some() {}
+                    help.append(&MenuItem::with_id(
+                        handle,
+                        "about",
+                        "About Tura Notes",
+                        true,
+                        None::<&str>,
+                    )?)?;
+                }
+                app.set_menu(menu)?;
+                // The one place the shell speaks to the frontend instead of
+                // answering it. A command cannot carry this: the menu is on this
+                // side and nothing in the webview knows it was clicked.
+                app.on_menu_event(|app, event| {
+                    if event.id() == "about" {
+                        let _ = app.emit("menu://about", ());
+                    }
+                });
+            }
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -80,6 +121,7 @@ pub fn run() {
             commands::sync_control_conditions,
             commands::sync_control_run,
             commands::sync_control_pause,
+            commands::sync_control_probe,
             commands::sync_control_pair,
             commands::sync_control_preview,
             commands::sync_control_confirm,

@@ -68,14 +68,54 @@ Ctrl-C.
 image, so a hash taken earlier describes a file that no longer exists — and that
 is the number a user checks their download against.
 
+**A DMG already on disk is reused only when `tools/build-cache.py` recognises
+it** — the same manifest and content fingerprint the Linux packages use, written
+to `.build.json` beside the image once stapling is done. Until 1.1.4 this side
+compared source mtimes with `find -newer`, which cannot see a file that is
+different but older than the build: restore one with `cp -p`, or from any
+checkout that preserves timestamps, and a stale binary was republished under the
+new version number, signed and notarised. `--force` rebuilds regardless. A DMG
+built before 1.1.4 has no manifest and costs one rebuild to establish it.
+
 `./build-local.sh --help` prints the whole contract. The flags worth knowing:
 
 | | |
 |---|---|
-| `--publish` | upload to samirhv.com.br: `scp` to the server, then one `php artisan files:add`, then read the hash back. **Refuses an unsigned or unstapled image** — ADR-024, enforced rather than remembered |
+| `--publish` | upload to samirhv.com.br: ask the server for `<app>/artisan`, `scp` the image, read the hash back, then one `php artisan files:add`. **Refuses an unsigned or unstapled image** — ADR-024, enforced rather than remembered |
 | `--no-sign` | a test build. Not signed, not publishable |
 | `--force` | rebuild even when a verified DMG of this version is already on disk |
 | `--skip-npm-ci`, `--skip-git-pull` | an installed dependency tree; this checkout as it is |
+
+**The remote `artisan` runs under `sudo -u www-data`, so something has to let
+it ask.** `ssh host "cmd"` allocates no terminal and `sudo` refuses to prompt
+into one that does not exist — "a terminal is required to read the password",
+after the build, the notarisation and a verified upload. From 1.1.21 the ingest
+uses `ssh -t` and is not piped through `sed`, because a password prompt carries
+no newline and a line-buffered filter holds it until something ends the line:
+the build looks hung, with nothing on screen to type into.
+
+That makes it work by **asking**. To make it stop asking — which is what an
+unattended release needs — one line on the publication host, in
+`/etc/sudoers.d/tura-publish`, mode 0440 and checked with `visudo -c`:
+
+```
+b3sys ALL=(www-data) NOPASSWD: /usr/bin/php /srv/www/samirhv.com.br/samirhv/artisan files:add *
+```
+
+`tools/updater-release.py` needs the same for its `install`/`mv` of the feed, or
+it asks a second time in the same run. Grant the commands, never a blanket
+`NOPASSWD: ALL`.
+
+**The order of publication is the contract, and 1.1.14 corrected it.** The
+destination is asked whether it *is* the destination — one `test -f
+<app>/artisan` — before the build on Linux and before the upload on macOS,
+because `TURA_PUBLISH_APP` is a written-down guess and nothing had ever checked
+it: a wrong path used to spend the whole upload and then report `cd: no such
+file or directory`. The uploaded sha256 is then read back **before** the ingest.
+macOS ingested first and verified afterwards until 1.1.14, which publishes a
+truncated image to the downloads page and *then* reports the failure; Linux had
+the order right from 1.0.3. Both sides now refuse in the same place, and both
+quote every remote argument.
 
 **Credentials are read, never typed.** The signing identity comes from
 `security find-identity`; the notarisation password from the keychain entry
@@ -262,16 +302,36 @@ from the macOS output and the CI tarball workflow. Build on the oldest Linux
 release you intend to support; packages inherit the build host's system-library
 requirements. This is a native build, not a Linux cross-compile from macOS.
 
-The script pulls with `--ff-only` and stops on a failed pull; use
-`--skip-git-pull` deliberately for offline/local changes. `--skip-npm-ci` reuses
-installed dependencies. Linux reuses completed packages when version, architecture, source contents
-and SHA-256 checksums match. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
+The script pulls with `--ff-only`, and a pull it cannot fast-forward warns and
+builds the local checkout rather than aborting — the same behaviour as the macOS
+path, for the reason in that script's header. A directory that is not a git
+checkout is skipped the same way. `--skip-git-pull` skips the step outright. `--skip-npm-ci` reuses
+installed dependencies. Both platforms reuse completed packages when version, architecture, build mode,
+source contents and SHA-256 checksums match, through the same
+`tools/build-cache.py`. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
 The tracked Tauri version placeholder is restored on exit and interruption.
 
-The default SCP/SSH destination is `b3sys@100.64.100.242`, on the private
-network. `https://samirhv.com.br` is the public download URL, not the upload
-host. An explicit `--dest` or `TURA_PUBLISH_HOST` overrides this default; update
-any saved override that still points to the public host.
+The default SCP/SSH destination is `b3sys@100.64.100.125`, on the private
+network — the machine that serves both shvia.org and samirhv.com.br.
+`https://samirhv.com.br` is the public download URL, not the upload host. An
+explicit `--dest` or `TURA_PUBLISH_HOST` overrides this default; update any
+saved override that still points to the public host.
+
+**It was `100.64.100.242` from 1.0.4 to 1.1.16, and that is a different
+machine** — a different ed25519 host key, and `shvia-site` rather than the host
+that answers for samirhv.com.br. That is the whole of why `--publish` had never
+run: `docs/updater.md` recorded "the private host responds, but
+`/srv/www/samirhv.com.br/samirhv` does not exist there", which reads like a
+wrong path and was a wrong host. The path was right the entire time — the site's
+own `deploy.sh` puts the Laravel application at exactly that address — and it is
+confirmed on `.125`, where `test -f <app>/artisan` succeeds. **A wrong host
+reports itself as a missing path**, which is why the preflight prints the host it
+asked as well as the path it asked for. **The upload host and the public base are not
+independent.** `tools/updater-release.py` fetches the feed back from
+`TURA_PUBLIC_BASE` after writing it and compares it byte for byte, then
+downloads the payload and checks its sha256 — so publishing to a host that does
+not serve that base fails the publish instead of leaving a feed nobody can
+read.
 
 Publishing uses the same `TURA_PUBLISH_HOST`, `TURA_PUBLISH_STAGE`,
 `TURA_PUBLISH_APP`, `TURA_PUBLISH_SLUG` and `TURA_PUBLIC_BASE` settings as the
@@ -316,9 +376,9 @@ and ingestion. Keep the same `--bundles` selection when retrying; adding a forma
 builds that format while reusing valid existing ones. `--skip-git-pull` can be
 used deliberately to retry the current checkout without fetching a newer release.
 
-A `.build.json` is written beside each format's packages before publication.
-It records the version, native Rust host, source fingerprint, build mode and
-artifact hashes. Source changes (including deletions), missing or corrupt files,
+A `.build.json` is written beside each format's packages before publication —
+and beside the macOS DMG, from 1.1.4 on. It records the version, native Rust
+host, source fingerprint, build mode and artifact hashes. Source changes (including deletions), missing or corrupt files,
 a version change or `--force` require a rebuild. Documentation and upload-host
 changes alone do not invalidate the source fingerprint. Existing packages from
 older scripts without a manifest need one build to establish that record.

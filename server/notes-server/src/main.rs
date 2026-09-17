@@ -53,12 +53,26 @@ async fn run() -> Result<()> {
                     return Err("non-loopback serving requires a private bind address and a trusted TLS proxy".into());
                 }
             }
+            // How many proxies stand in front, so the per-address rate budget can
+            // be charged to the client rather than to the proxy — behind one it
+            // was everyone's budget put together. One is the common case;
+            // Cloudflare in front of a local Apache is two. **Setting it higher
+            // than the truth makes the budget forgeable**, because the extra hop
+            // counted back is an entry the client itself supplied.
+            let hops: usize = std::env::var("NOTES_SERVER_TRUSTED_HOPS")
+                .ok()
+                .map(|s| s.parse())
+                .transpose()?
+                .unwrap_or(1);
+            if hops == 0 || hops > 8 {
+                return Err("NOTES_SERVER_TRUSTED_HOPS must be between 1 and 8".into());
+            }
             let mut lock = backup::instance_lock(&data)?;
             let _guard = lock
                 .try_write()
                 .map_err(|_| "server or backup already running")?;
             let listener = tokio::net::TcpListener::bind(bind).await?;
-            let app = api::router(api::Server::new(data, proxy));
+            let app = api::router(api::Server::with_hops(data, proxy, hops));
             eprintln!("notes-server: ready");
             axum::serve(
                 listener,

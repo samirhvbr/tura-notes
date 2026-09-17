@@ -1,6 +1,7 @@
 """Exercise packaging orchestration with fake tools, without publishing."""
 import os
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -15,7 +16,7 @@ class LinuxBuild(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/linux-build-cache.py']:
+        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/build-cache.py', 'tools/name-bundles.sh']:
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, dest)
@@ -138,12 +139,22 @@ done
                 self.assertEqual(self.run_build(*args).returncode, 2)
                 self.assertEqual(self.config.read_text(), self.original)
 
-    def test_failed_pull_stops_before_stamping(self):
-        self.fake('git', 'exit 17')
+    def test_failed_pull_warns_and_builds_the_local_checkout(self):
+        # Succeed for rev-parse, fail for pull: a git that fails at everything
+        # takes the "not a checkout" branch and never reaches the pull at all.
+        self.fake('git', '[ "$1" != pull ] || exit 17')
         result = subprocess.run(['bash', str(self.root / 'deploy.sh')],
                                 env=self.env, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 17)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('Could not fast-forward', result.stderr)
         self.assertEqual(self.config.read_text(), self.original)
+
+    def test_a_directory_that_is_not_a_checkout_still_builds(self):
+        self.fake('git', 'exit 1')
+        result = subprocess.run(['bash', str(self.root / 'deploy.sh')],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('Not a git checkout', result.stdout)
 
     def test_help_does_not_need_build_dependencies(self):
         self.fake('node', 'exit 99')
@@ -156,6 +167,51 @@ done
         self.assertNotEqual(self.run_build().returncode, 0)
         self.assertEqual(self.config.read_text(), self.original)
 
+    def test_bundle_filenames_lose_the_product_name_space(self):
+        # The bundler names files after productName, which has a space in it:
+        # `%20` in every URL and a word boundary in every script not written
+        # carefully — ADR-071 is one that was not.
+        self.assertEqual(self.run_build('--bundles', 'deb').returncode, 0)
+        built = list(self.root.glob('target/**/*.deb'))
+        self.assertEqual(len(built), 1, built)
+        self.assertNotIn(' ', built[0].name)
+        self.assertTrue(built[0].name.startswith('TuraNotes_'), built[0].name)
+        # The checksum sidecar is written after the rename, so it names the file
+        # that will actually be published.
+        sidecar = built[0].with_suffix(built[0].suffix + '.sha256')
+        self.assertTrue(sidecar.exists(), sidecar)
+        self.assertIn(built[0].name, sidecar.read_text())
+
+    def test_missing_download_service_refuses_before_building(self):
+        # The app path is a guess until something asks the server about it, and
+        # asking after the build means paying for the build to learn it.
+        self.fake('ssh', 'exit 1')
+        self.fake('scp', 'exit 77')
+        Path(self.env['TEST_NPM_LOG']).write_text('')
+        result = self.run_build('--publish')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('no artisan', result.stderr.replace('(no artisan)', 'no artisan'))
+        self.assertIn('ls -d /srv/www/', result.stderr)
+        self.assertEqual(Path(self.env['TEST_NPM_LOG']).read_text(), '')
+        self.assertEqual(self.config.read_text(), self.original)
+
+    def test_unreachable_publish_host_is_named_as_such(self):
+        self.fake('ssh', 'exit 255')
+        result = self.run_build('--publish')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn('Could not reach', result.stderr)
+        self.assertNotIn('artisan', result.stderr)
+
+    def test_publish_application_path_must_be_a_plain_absolute_path(self):
+        for path in ['relative/app', '/srv/www/my app', '/srv/$(id)/app']:
+            with self.subTest(path=path):
+                self.env['TURA_PUBLISH_APP'] = path
+                self.fake('ssh', 'exit 0')
+                result = self.run_build('--publish')
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn('absolute publish application path', result.stderr)
+        del self.env['TURA_PUBLISH_APP']
+
     def test_checksum_mismatch_prevents_ingestion(self):
         self.fake('scp', 'exit 0')
         self.fake('ssh', 'echo wrong-checksum')
@@ -163,6 +219,41 @@ done
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('not ingested', result.stderr)
         self.assertEqual(self.config.read_text(), self.original)
+
+
+class DebianRename(unittest.TestCase):
+    """The package was renamed at 1.0.0; the file it installs was not."""
+
+    OLD = 'notes (<< 1.0.0)'
+
+    def setUp(self):
+        with open(ROOT / 'apps/notes-app/src-tauri/tauri.conf.json') as f:
+            self.conf = json.load(f)
+
+    def test_the_deb_takes_over_the_package_it_was_renamed_from(self):
+        # The bundler names the package after productName, so `notes` became
+        # `tura-notes` — while ADR-069 deliberately kept `/usr/bin/notes`, which
+        # dpkg still sees as owned by the old package. Installing over a 0.x
+        # machine fails with `trying to overwrite '/usr/bin/notes'` until the
+        # rename is declared where Debian looks for it.
+        #
+        # Both fields, and neither alone: Conflicts by itself refuses the
+        # install, Replaces by itself leaves the file conflict standing.
+        # Together they are the one operation dpkg performs without being
+        # forced.
+        deb = self.conf['bundle']['linux']['deb']
+        self.assertEqual(deb.get('conflicts'), [self.OLD])
+        self.assertEqual(deb.get('replaces'), [self.OLD])
+
+    def test_the_takeover_still_has_a_reason_to_exist(self):
+        # The bound is `<< 1.0.0` because every release that carried the old
+        # package name was a 0.x, and the claim should reach no further:
+        # `notes` is a name the archive could hand to somebody else. What
+        # creates the conflict at all is the binary ADR-069 kept while the
+        # product was renamed; rename that too and this declaration has to be
+        # reconsidered rather than carried along.
+        self.assertEqual(self.conf['mainBinaryName'], 'notes')
+        self.assertNotEqual(self.conf['productName'], 'notes')
 
 
 if __name__ == '__main__':

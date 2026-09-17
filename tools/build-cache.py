@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Record completed Linux bundles and verify them before a publish retry."""
+"""Record completed desktop bundles and verify them before a publish retry.
+
+Both release paths use this: `tools/build-linux.sh` for .deb/.AppImage/.rpm and
+`build-local.sh` for the macOS .dmg. The name carried "linux" while it was the
+only caller, which stopped being true the moment macOS stopped deciding
+freshness by mtime.
+"""
 import hashlib
 import json
 from pathlib import Path

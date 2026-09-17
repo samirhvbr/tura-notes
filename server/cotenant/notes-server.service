@@ -1,0 +1,75 @@
+# Tura Notes server as a co-tenant: loopback only, behind a front it does not own.
+#
+# `server/compose.yml` assumes the host is the server's — Caddy takes 80 and 443.
+# A host that already serves a site has neither port free, so this unit runs the
+# native binary on loopback and leaves TLS to whatever already terminates it.
+# See docs/SERVER-0.5.md § Co-tenant deployment.
+#
+#   sudo useradd --system --home-dir /var/lib/notes-server --shell /usr/sbin/nologin notes
+#   sudo install -m 0755 notes-server /usr/local/bin/notes-server
+#   sudo install -m 0644 server/cotenant/notes-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now notes-server
+#
+# Workspaces and credentials are created with the same binary as the same user:
+#   sudo -u notes NOTES_SERVER_DATA=/var/lib/notes-server notes-server workspace create personal
+[Unit]
+Description=Tura Notes server (loopback, behind an existing TLS front)
+Documentation=https://github.com/samirhvbr/tura-notes/blob/master/docs/SERVER-0.5.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=notes
+Group=notes
+ExecStart=/usr/local/bin/notes-server serve
+Restart=on-failure
+RestartSec=2
+
+# StateDirectory creates and owns it; NOTES_SERVER_DATA must name the same path.
+# These are the notes themselves — back this directory up, not a database file.
+StateDirectory=notes-server
+StateDirectoryMode=0700
+Environment=NOTES_SERVER_DATA=/var/lib/notes-server
+Environment=NOTES_SERVER_BIND=127.0.0.1:8787
+# Without this the server accepts loopback peers but sends no HSTS and trusts no
+# forwarded scheme. With it, a request must come FROM this address AND carry
+# `X-Forwarded-Proto: https` — which is what makes the front's configuration
+# load-bearing rather than advisory.
+Environment=NOTES_SERVER_TRUSTED_PROXY=127.0.0.1
+# How many proxies stand in front, so the 120/min per-address budget is charged
+# to the client and not to the front — behind one it is everyone's budget put
+# together. One is the front on this machine. **Set it to 2 when a CDN proxies
+# the name as well** (Cloudflare over this Apache is two), and not otherwise:
+# counting a hop that is not there reads an entry the CLIENT supplied, which
+# makes the budget forgeable. Being wrong low costs a shared bucket; being wrong
+# high costs the control. The default is the safe one.
+# Environment=NOTES_SERVER_TRUSTED_HOPS=2
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+# It listens on loopback and connects nowhere: no update check, no telemetry,
+# no outbound anything. A kernel without cgroup BPF ignores these two and logs
+# a warning; the bind address is the control that does not depend on them.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

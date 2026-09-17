@@ -79,6 +79,174 @@ trusted HTTPS; the separate test Caddyfile uses an internal CA only for CI.
 Container base images are pinned by digest; CI builds and tests the local image.
 No public image registry or hosted service is operated by this project.
 
+## Co-tenant deployment behind an existing site
+
+> Added in 1.1.15.
+
+The Compose stack above assumes the host is the server's: Caddy takes 80 and 443
+and reaches `notes-server` on a private Docker address nothing else can. **A host
+that already serves a website has neither port to give**, and that is the host
+this project actually has. The supported second shape is the native binary on
+loopback, with whatever already terminates TLS there proxying one name to it.
+
+Four files. The hostname below is this project's; it is the one thing to change on another host:
+
+| File | What it is |
+|---|---|
+| [`server/cotenant/notes-server.service`](../server/cotenant/notes-server.service) | systemd unit: a system user, `/var/lib/notes-server` as `StateDirectory`, loopback bind, and a sandbox that permits no outbound address at all |
+| [`server/cotenant/nginx-tura.conf`](../server/cotenant/nginx-tura.conf) | one nginx `server` block for the name |
+| [`server/cotenant/apache-tura.conf`](../server/cotenant/apache-tura.conf) | the same, as an Apache vhost |
+| [`server/cotenant/Caddyfile`](../server/cotenant/Caddyfile) | the same, when the existing front is Caddy |
+
+The name is `tura.samirhv.com.br`, and it exists in DNS already. **No vhost
+claims it yet**, so it currently answers from the server's default vhost — a
+Matomo instance — which is worth knowing before a certificate request or a
+pairing attempt is aimed at it and believed.
+
+```sh
+sudo useradd --system --home-dir /var/lib/notes-server --shell /usr/sbin/nologin notes
+sudo install -m 0755 notes-server /usr/local/bin/notes-server
+sudo install -m 0644 server/cotenant/notes-server.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now notes-server
+sudo -u notes NOTES_SERVER_DATA=/var/lib/notes-server notes-server workspace create personal
+```
+
+`NOTES_SERVER_TRUSTED_PROXY=127.0.0.1` is what makes the front's configuration
+load-bearing instead of advisory, and it has consequences worth stating before
+they are discovered in production:
+
+- **`X-Forwarded-Proto: https` is required on every request, `/healthz`
+  included.** The health route is checked *after* the proxy gate, not in front
+  of it, so a plain `curl http://127.0.0.1:8787/healthz` returns 403
+  `https_required` on a server that is working perfectly. A front that omits the
+  header produces a server that refuses everything *and* refuses the probe you
+  would use to tell whether the server or the proxy is at fault.
+- **The front must strip `Origin`.** The API refuses any request carrying one:
+  it is a machine API with no CORS, and cookies there have no authority
+  ([ADR-043](decisions.md#adr-043--a-separate-owner-operated-rest-server-reuses-core-policy)).
+- **Raise the body limit.** A note is capped at 8 MiB and a request body at 16
+  MiB; nginx defaults to 1 MiB and answers 413 itself, so an attachment bundle
+  fails before the server sees it. Leave request *buffering* on: the server
+  gives a body 15 seconds to arrive and buffering absorbs a slow phone.
+- **The front must forward the client's address**, or the 120/min budget is
+  charged to the front and becomes every device's budget put together — past
+  three active devices that is tighter than the 60/min each credential already
+  has, and one busy device locks the others out. Apache's `mod_proxy` and Caddy
+  append `X-Forwarded-For` on their own; **nginx does not**, and the template
+  carries the line that makes it. With a CDN proxying the name as well, set
+  `NOTES_SERVER_TRUSTED_HOPS=2` — and only then, because counting a hop that is
+  not there reads an entry the client supplied.
+
+`python3 server/tests/cotenant.py` runs a real process in this configuration and
+asserts each of those, that a created note lands as an ordinary `.md` file in
+`workspaces/<name>/`, and that all four templates still carry the directives the
+assertions depend on.
+
+### The CDN in front, if there is one
+
+`tura.samirhv.com.br` resolves to Cloudflare, not to the host. Two consequences,
+neither of which the server can detect:
+
+- **`X-Forwarded-Proto: https` is an assertion the front makes, not something it
+  observes.** The templates set it unconditionally, which is correct when the
+  front *is* the TLS endpoint. Behind a proxying CDN it is only true if the hop
+  from the CDN to this host is also TLS — Cloudflare's **Full (strict)** mode.
+  Under Flexible, the browser's connection is encrypted, the CDN-to-origin hop
+  is plain HTTP, and the server is told `https` anyway. It then sends HSTS and
+  accepts the request, having been lied to by its own configuration.
+- **TLS terminates at the CDN, so the CDN sees the note bytes.** This server
+  already reads its own notes — there is no end-to-end encryption — but that is
+  one party the owner runs. A proxying CDN is a second one. Setting the record
+  to DNS-only moves the TLS endpoint back to this host, and is the choice to
+  make if that matters more than the CDN does.
+
+A proxied record also complicates ACME HTTP-01, because the challenge is
+answered by whatever the CDN forwards it to. Issue the certificate with the
+record set to DNS-only and re-enable the proxy afterwards, or use DNS-01.
+
+### Minting credentials from a web administration screen
+
+`server/cotenant/tura-credential` exists for one deployment shape: a site on the
+same host whose own administration screen creates and revokes sync credentials,
+so a device is enrolled by downloading a file rather than by an ssh session.
+
+It is a wrapper and not a sudoers line on `notes-server` itself, because the CLI
+cannot be reached that way. `/var/lib/notes-server` is 0700 and owned by
+`notes`, and `token create` writes the secret to a **new** file at mode 0600
+owned by whoever ran it — so granting the web user `(notes) NOPASSWD:
+notes-server token create *` buys it a file it cannot open. The secret has to
+return over the pipe and the file has to be removed, which is what the wrapper
+does. It also sets `NOTES_SERVER_DATA`, which sudo strips, and validates label,
+workspace, permissions and credential id itself: the caller is a web
+application, so "the caller validated it" is not a property this side may
+assume. The grant is one reviewed script with no path argument:
+
+```
+www-data ALL=(notes) NOPASSWD: /usr/local/bin/tura-credential
+```
+
+The scope is always the whole workspace. Subfolder scoping is a real feature of
+the server and not of that screen, and a flag no interface sets is a flag that
+gets set wrong. `server/tests/cotenant.py` exercises the validation against a
+fake CLI and asserts that a refused call never reaches it and that the secret
+file does not outlive the call.
+
+### Keeping it up to date
+
+`server/cotenant/deploy-server.sh` updates a deployed server: it pulls the
+checkout, reinstalls the unit, the vhost and the credential wrapper **when their
+contents actually differ**, installs a new `notes-server` when the release line
+moves, and checks health on loopback and then on the public name. It never
+touches the data directory — a deploy that writes where the notes are is a
+deploy that eventually loses somebody's notes, and backup is a separate,
+explicit operation.
+
+Two details worth stating. It derives the release carrying the binary from
+`version.md` as `X.Y.0`, because assets are published on minor bumps, which
+costs no GitHub API call. And it copies itself to `/run` and re-executes before
+pulling: the script is inside the repository it updates, and bash reads a script
+as it runs, so a pull underneath it makes what runs afterwards not reliably the
+file that started.
+
+**Where the checkout goes matters on a host with a deploy orchestrator.** A
+scanner that runs every `/srv/www/*/deploy.sh` will find *this* repository's
+root `deploy.sh`, which is the desktop packaging entry point
+([ADR-072](decisions.md#adr-072--local-linux-packaging-shares-the-desktop-build-entry-point)),
+and try to build the application on the web server. One level down is enough:
+
+```
+/srv/www/tura.example.com/
+├── deploy.sh -> repo/server/cotenant/deploy-server.sh
+└── repo/
+```
+
+### Reaching it from a client
+
+The sync origin is a bare `https://host` — no path, no query, no user info —
+and the client refuses a plain-HTTP origin unless it is a literal loopback
+address with `--allow-private`.
+
+**A tailnet address is "private" to the client.** `100.64.0.0/10` is CGNAT, and
+`notes-sync-client` treats that range like RFC 1918: a name resolving into it is
+refused unless the workspace was paired with `--allow-private`. Both deployments
+are supported and the choice is not reversible without re-pairing:
+
+| | Public name | Tailnet only |
+|---|---|---|
+| DNS | `tura.samirhv.com.br` at the public address | the name resolves to `100.64.x.y` |
+| Certificate | ACME against the public name | `tailscale cert`, or ACME DNS-01 |
+| Pairing | no flag | `--allow-private` |
+| Reachable from | anywhere, including a phone on mobile data | only a device on the tailnet |
+
+A phone off the tailnet is the case that decides it. **This project took the
+public name** (ADR-076): `tura.samirhv.com.br` at the public address, an ACME
+certificate for that name, and pairing with no flag. Neither column changes what
+the server exposes — bearer credentials, per-credential permissions and scopes,
+and the rate limits above — but the public one exposes it to the internet rather
+than to a tailnet, so the credential is the whole boundary. Create one per
+device, grant only what that device needs, and revoke rather than rotate the
+workspace when one is lost.
+
 ## REST contract
 
 The complete [OpenAPI 3.1 contract](../server/notes-server/openapi.json) is also
@@ -123,8 +291,15 @@ and newline policy are preserved; unsupported/mixed text opens read-only.
 At most eight bodies/filesystem operations run simultaneously. Excess parallel
 requests receive 503. Fixed one-minute windows permit 60 requests per credential
 and 120 per actual connection address, returning 429 and `Retry-After: 60`.
-Behind Caddy that address budget is shared by clients; client-supplied forwarding
-addresses do not control rate accounting. There is no unbounded request queue.
+Behind a proxy the address budget is charged to the **client**, taken from the
+last `X-Forwarded-For` entry — the one the trusted proxy appended, since
+everything left of it came from the client and is forgeable.
+`NOTES_SERVER_TRUSTED_HOPS` (default 1, maximum 8) says how many proxies stand
+in front when more than one does. Setting it higher than the truth counts back
+into an entry the client supplied and makes the budget forgeable; setting it
+lower collapses the budget into one shared bucket, which is what shipped before.
+Without a trusted proxy, or with a header nothing can be made of, the peer is
+used. There is no unbounded request queue.
 Credential storage is limited to 1024 entries, including revoked credentials.
 
 All responses disable caching, MIME sniffing, framing and referrer disclosure;

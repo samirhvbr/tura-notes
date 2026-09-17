@@ -70,6 +70,11 @@ export type {
 
 /** Diagnostics, and the only shape here that is not generated. */
 export interface EnvReport {
+  /** The running version. `tools/tests/test_env_report.py` keeps this
+   *  interface and the Rust struct in step; nothing else can. */
+  version: string;
+  /** `bundle.copyright` from `tauri.conf.json`; empty when it is not set. */
+  copyright: string;
   os: string;
   arch: string;
   tauriVersion: string;
@@ -287,6 +292,12 @@ export const deviceStatus = () => invoke<import("./generated/DeviceSnapshot").De
 export const deviceConfigure = (connection: import("./generated/SyncConnection").SyncConnection) => invoke<void>("sync_control_configure", {connection});
 export const deviceConditions = (conditions: import("./generated/SyncConditions").SyncConditions) => invoke<void>("sync_control_conditions", {conditions});
 export const deviceRun = () => invoke<void>("sync_control_run");
+export type { SyncProbe } from "./generated/SyncProbe";
+export type { SyncProbeOutcome } from "./generated/SyncProbeOutcome";
+/** A connection test. Unlike pairing it writes nothing, so it runs with the
+ *  workspace open — which is when somebody wants to know whether the server is
+ *  there at all. */
+export const deviceProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("sync_control_probe", {origin,allowPrivate,tokenFile});
 export const devicePair = (request: import("./generated/SyncPairRequest").SyncPairRequest) => invoke<void>("sync_control_pair", {request});
 export const devicePreview = () => invoke<import("./generated/SyncPairPreview").SyncPairPreview>("sync_control_preview");
 export const deviceConfirm = (confirmation: string) => invoke<void>("sync_control_confirm", {confirmation});

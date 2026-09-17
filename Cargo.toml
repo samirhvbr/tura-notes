@@ -47,6 +47,15 @@ windows-sys = { version = "0.61", features = [
   "Win32_Storage_FileSystem",
 ] }
 
+# Unix only, and for exactly two names: `O_NOFOLLOW` and `ELOOP`, which are what
+# make the final open of a note refuse a symlink that appeared *after* the jail
+# checked the path. Both numbers differ per target (O_NOFOLLOW is 0o400000 on
+# Linux and 0x0100 on the BSDs), so writing them out here rather than importing
+# them is a portability bug waiting for a platform we do not test on. `tempfile`,
+# `uuid` and `notify` already put this crate in the tree; declaring it direct
+# adds nothing to the build and makes the use visible.
+libc = "0.2"
+
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }

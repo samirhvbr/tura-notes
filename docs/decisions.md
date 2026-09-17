@@ -367,6 +367,22 @@ generated directory that quietly starts holding something hand-edited stops bein
 build output while still being ignored. The mitigation is the test above, applied
 when the line is added and not after.
 
+**Recorded 15/09/2026 — installer artifacts are inside this exception.** A
+`.deb`, `.AppImage` or `.rpm` passes the test above without argument:
+`./build-local.sh` produces it, from sources in this repository, and reproducing
+it is running that command. The ones a build writes land under `target/` and
+were already covered, so the `.gitignore` line added here is for one placed
+outside it — which is exactly what `apps/notes-app/notes_0.11.11_amd64.deb` was,
+4.2 MB committed at 0.12.0 when artifacts were still attached to the tree, and
+still tracked a hundred versions later. Nothing in this repository writes an
+installer outside `target/` — which was wrong, and is corrected at 1.1.12:
+`makepkg` builds the Arch package inside `packaging/aur/notes-bin/`, and
+`.github/workflows/build.yml` installs it from that path. The scoping by format
+rather than by path still holds, for the reason that accident shows: a
+path-scoped rule would have guarded one directory and missed the other. The file is untracked from 1.1.10;
+the blob stays in history, which is the point of history and is not something
+`git rm --cached` claims to change.
+
 ---
 
 ## ADR-012 — `index.db` lives in app data, not in the workspace
@@ -1012,9 +1028,11 @@ size, so did the user.
 **Decision.** Three rules, and the first is an acceptance criterion:
 
 1. **`workspace_open` returns and the tree appears in under one second, at any
-   size.** `crates/notes-core/tests/deep.rs` asserts it against the deep fixture;
+   size.** `crates/notes-core/tests/deep.rs` asserts it on Linux and publishes
+   the measurement on every platform
+   ([ADR-080](#adr-080--a-timing-criterion-is-asserted-where-its-numbers-came-from-and-published-everywhere-else));
    `docs/ACCEPTANCE-0.1b.md` and `docs/ACCEPTANCE-0.1c.md` carry it with the
-   number.
+   number, and the owner's walk is where it is judged on real hardware.
 2. **Anything that needs the whole tree runs off the critical path** — on its own
    thread, cancellable, with its progress visible in the status bar. That is the
    watcher's per-directory walk and quick open's path list today, and it is the
@@ -1980,7 +1998,8 @@ the maintainer's Mac, because that is where the certificate lives.
 **keychain** of the machine that builds, signs and notarises the `.app`, staples
 the ticket into the `.dmg`, records a `.sha256` beside it, and — with
 `--publish` — uploads it to samirhv.com.br through `php artisan files:add`,
-reading the hash back from the server afterwards. **It refuses to publish an
+reading the hash back from the server first (until 1.1.14 it read back
+afterwards, which published a truncated image before noticing). **It refuses to publish an
 unsigned or unstapled image**, which is ADR-024 enforced by the tool rather than
 by remembering it. Linux continues to be built and published by `build.yml`;
 the macOS and Windows jobs there stay disabled.
@@ -2077,3 +2096,503 @@ payloads with verified hashes before atomically replacing each feed. Arch uses
 pacman; mobile and unpublished Windows installers are outside this delivery.
 The first updater-capable release must be installed manually. Installed upgrade
 acceptance remains distinct from compilation, signing and transport tests.
+
+## ADR-075 — The root jail is enforced again at the open, not only at the path
+
+**Status:** ACCEPTED · 15/09/2026
+
+**Decision.** Keep `LocalFs::resolve` as the path half of the jail and add a
+second enforcement at the moment of use. Reads open with `O_NOFOLLOW` on Unix
+and report `ELOOP` as `SymlinkNotFollowed`, the same error `resolve` produces.
+The atomic write's temporary file is unlinked and then created with
+`O_CREAT|O_EXCL` instead of `O_CREAT|O_TRUNC`. Windows keeps the path half only.
+
+**Reason.** `resolve` checks each segment with `symlink_metadata` and returns a
+path the caller then hands to `fs::read` or `fs::File::create`, both of which
+follow symlinks. Everything between the check and the syscall is a window, and
+this product's premise is that other tools write in that folder — a sync client,
+a `git checkout`, a restore — so the window is ordinary rather than adversarial.
+
+The temporary file was the concrete hole, and it needed no race at all. Its name
+is deterministic by design (`.{name}.tmp`, so a crash leaves at most one), which
+makes it predictable; a symlink left at that name received the next save's bytes
+at whatever it pointed to, outside the root, through a path the jail had already
+approved. `a_symlink_at_the_temp_path_never_receives_the_write` in
+`crates/notes-fs/tests/jail.rs` fails against the previous code with the write
+landing on the outside file, and passes now.
+
+**Consequences.** `libc` becomes a direct Unix-only dependency of `notes-fs`,
+for `O_NOFOLLOW` and `ELOOP`; it was already in the tree through `tempfile`,
+`uuid` and `notify`, so the build gains nothing but the use becomes visible.
+A write whose temporary path is taken in the instant between the unlink and the
+exclusive create is refused rather than redirected — the safe direction. A
+divergence check that meets a symlink reports `Diverged`, so the write is
+refused rather than following it.
+
+**What this does not close, stated plainly.** Only the final component. A
+directory in the middle of the path swapped between `resolve` and the open is
+still followed. Closing that requires `openat2(RESOLVE_NO_SYMLINKS)`, which is
+Linux 5.6+ with no macOS equivalent, and would buy one platform rather than the
+jail; a portable `openat` walk is the alternative if this is ever revisited.
+Windows has no `O_NOFOLLOW` at all, and `FILE_FLAG_OPEN_REPARSE_POINT` opens the
+reparse point rather than refusing it, which would return the link's own bytes
+as the note — worse than the gap. `docs/security.md` records the boundary in the
+control table rather than leaving the row claiming more than the code does.
+
+## ADR-076 — The cloud copy of the notes is a co-tenant on the site's own server
+
+**Status:** ACCEPTED · 15/09/2026
+
+**Context.** "Store the `.md` files in the cloud" has had an implementation
+since 0.18.0 and no deployment. `notes-server` is the process
+([ADR-043](#adr-043--a-separate-owner-operated-rest-server-reuses-core-policy)),
+sync 0.6 is the transport, and `server/compose.yml` is the way to run them —
+but that stack assumes the host is the server's: Caddy binds 80 and 443 and
+talks to `notes-server` on a private Docker address. The host this project
+actually has is the one already serving samirhv.com.br, where the download
+service that `--publish` ingests into lives. Both ports are taken, and a second
+machine to avoid sharing one is a machine to pay for, patch and back up.
+
+**Decision.** The supported second deployment is the native binary on loopback,
+run by systemd, with the host's existing TLS front proxying one name to it —
+`server/cotenant/` carries the unit and both front templates, and
+`docs/SERVER-0.5.md` documents it beside the Compose stack rather than instead
+of it. Nothing in the server changed: `NOTES_SERVER_BIND` and
+`NOTES_SERVER_TRUSTED_PROXY` already describe exactly this, and the trusted
+proxy is what turns the front's configuration from advice into a precondition.
+
+**Reason, and why it is not just "run the container on another port".** Docker
+rewrites the source address of a published port, so a container reached at
+`127.0.0.1:8787` sees the bridge gateway as its peer, not loopback — the trusted
+proxy would have to name an address that changes with the network, and naming it
+wrongly fails closed on every request. The native binary has no such gap: the
+peer *is* 127.0.0.1 and the unit says so. The sandbox costs nothing to state
+there either, and says something the container could not: `IPAddressDeny=any`
+with `IPAddressAllow=localhost`, which is a server holding private notes that
+cannot open an outbound connection at all.
+
+**Consequences.** Three properties of this mode are invisible until they fail in
+production, so `server/tests/cotenant.py` runs a real process and asserts each,
+then asserts the templates still carry the directives that produce them.
+`/healthz` sits *behind* the proxy gate, so the obvious monitoring probe reports
+a healthy server as down; `Origin` must be stripped by the front or every
+request from anything that sets one is refused; and the 1 MiB nginx body default
+refuses an attachment bundle before the server sees it. The per-address rate
+budget collapses to the proxy's address, exactly as it already does behind the
+bundled Caddy, and the per-credential budget remains the one that separates
+devices.
+
+**The reachability choice is the owner's and is not reversible without
+re-pairing.** `notes-sync-client` treats `100.64.0.0/10` as private, so a name
+that resolves to a tailnet address needs `--allow-private` at pairing time,
+while a public name needs nothing. A phone off the tailnet is the case that
+decides it, and **the owner chose the public name on 15/09/2026**:
+`tura.samirhv.com.br` at the public address, an ACME certificate for it, and
+pairing with no flag. The tailnet path stays documented because choosing it
+later means re-pairing every device, which is the kind of cost that has to be
+written down before it is paid.
+[ADR-007](#adr-007--the-desktop-app-opens-no-network-port-by-default) is
+untouched either way — the desktop app still opens no port; this is a separate
+process on a separate machine.
+
+## ADR-077 — A rename refuses an occupied destination in the syscall, not before it
+
+**Status:** ACCEPTED · 16/09/2026
+
+**Decision.** `LocalFs::rename` asks the operating system for an exclusive
+rename — `renameat2(RENAME_NOREPLACE)` on Linux and Android,
+`renamex_np(RENAME_EXCL)` on macOS and iOS, `MoveFileExW` with no
+`MOVEFILE_REPLACE_EXISTING` on Windows — and reports `AlreadyExists` from its
+`EEXIST`. Where the call reports that the filesystem does not implement the flag
+(`ENOSYS`, `EINVAL`, `ENOTSUP`), it falls back to the previous check-then-rename
+rather than refusing the operation.
+
+**Reason.** It was `b.exists()` and then `fs::rename`, and everything between
+the two was a window. `fs::rename` *replaces* the destination on every platform
+— that is what POSIX `rename` and `MOVEFILE_REPLACE_EXISTING` both mean — so
+anything that created `b` in that gap had its bytes deleted with no error raised
+anywhere. This product's premise is that other tools write in that folder: a
+sync client, a `git checkout`, a restore, Dropbox. The window is ordinary rather
+than adversarial, and what it costs is a file the user wrote, which is
+[ADR-001](#adr-001--markdown-files-on-the-filesystem-are-the-source-of-truth)
+failing silently.
+
+The shape is [ADR-075](#adr-075--the-root-jail-is-enforced-again-at-the-open-not-only-at-the-path)
+again, one operation along: a check that approves a path, then a syscall that
+acts on the name rather than on what was checked. And `create_new` in the same
+file had already answered it for creation, with `persist_noclobber`.
+
+**The fallback is a decision and not an oversight.** `RENAME_NOREPLACE` is not
+implemented by every filesystem — some network mounts and older overlay setups
+answer `EINVAL` — and a rename that refuses there would break renaming on those
+volumes to protect against a race. The fallback is exactly what shipped before,
+so those volumes are no worse off, and every other one loses the window.
+
+**Consequences.** `MOVEFILE_COPY_ALLOWED` stays off on Windows, so a rename
+across volumes now fails rather than silently becoming a copy; a move inside one
+workspace root never crosses one. The unit tests assert the primitive rather
+than the race — that the syscall refuses and leaves the destination's bytes, and
+that it still renames when the destination is free — because the destroying case
+needs a window no test can schedule reliably, and asserting through the public
+`rename` would have passed against the broken code too.
+
+## ADR-078 — The watcher is established on its own thread, on every platform
+
+**Status:** ACCEPTED · 16/09/2026
+
+**Decision.** `notes_fs::watch()` creates the backend and installs the root
+watch on the watcher's own thread on every platform, not only where
+`PER_DIRECTORY` makes a walk necessary. `Watch::degraded` stops being a field
+known at construction and becomes a method reading a slot in the counters, the
+way `walking` already worked; `WatchProgress` carries it, so `watch_status()`
+reports it. `walking` now means "the watch is still being set up", which on
+Linux still includes the per-directory walk under the root.
+
+**Reason.** [D-09](DECISIONS-0.1c.md) moved the per-directory walk off the
+caller's thread on Linux because `RecursiveMode::Recursive` installed one
+inotify watch per directory inline, and on a large folder that was minutes with
+the service mutex held. D-10 recorded that macOS and Windows have no walk — one
+handle covers the subtree — and the module's comment concluded that the same
+call was therefore `O(1)`.
+
+That is true of handles and was never true of time. Measured on macOS:
+**280 ms for a workspace with 0 directories, 281 ms for one with 3 600.**
+Constant, and constant is not free. The cost is inside `FSEventStreamCreate`
+and the run loop `notify` waits to have scheduled, and `commands.rs` held
+`app.svc` across it while the frontend awaited it on workspace open — so every
+IPC command queued behind those 270 ms. It is exactly the hazard D-09 removed
+from Linux, left intact on macOS because the reasoning stopped at "no walk".
+
+`deep.rs` had been failing on this for some time, and its assertion message —
+"it is walking the tree inline" — pointed at a walk that does not exist there,
+which is part of why it stayed.
+
+**Consequences, and one of them is a real loss.** A change made between
+`start_watch` returning and the handle existing is **not seen by the watcher**.
+It is seen by the 5 s poll and the scan on focus, the same two mechanisms that
+already cover a watch lost silently, so the window costs latency rather than a
+missed change — but it is a window that did not exist before, and it is why the
+two watcher tests in `reconcile.rs` now wait for `walking` to clear before they
+write. A test that did not wait would be asserting the poll while claiming to
+assert the watcher.
+
+`start_watch` therefore usually returns `None`: not "this platform can watch"
+but "no answer yet". Only a failure visible without waiting — a thread that
+will not spawn — still comes back from the call. The interface reads the reason
+from `watch_status()`, which it was already polling for coverage, and the
+frontend keeps a reason from the start call rather than letting a later poll
+clear it.
+
+## ADR-079 — The About dialog is ours, and Help is where it opens
+
+**Status:** ACCEPTED · 16/09/2026 · reverses the approach shipped in 1.3.9
+
+**Decision.** Replace the platform's About panel with a dialog of ours on every
+desktop platform. Tauri's default Help submenu is emptied and given one item,
+`about`, which emits `menu://about` to the frontend; the frontend opens
+`AboutDialog`. macOS keeps the system About in its application menu, which
+belongs to the system and is left alone. The dialog states the version, the
+platform, the engine, the data directory and the open workspace, and copies
+those same lines to the clipboard. Its copyright line is read from
+`bundle.copyright` rather than written in the component.
+
+**Reason.** 1.3.9 put `PredefinedMenuItem::about` in Help, on the argument that
+the panel already carries the name, the version and the copyright and that a
+dialog of ours would be one more thing to translate, style and keep in step.
+That argument answers only the question the owner asked first — *which version
+am I on* — and the platform panel answers nothing else. The questions that
+actually arrive with a problem have no surface anywhere in the application:
+which engine is drawing this window, where the data directory is, which folder
+is open. They were readable, if at all, from three different screens, and a
+person reading five values off three screens transcribes one of them wrong.
+
+The Copy button is the reason the dialog exists rather than a convenience on
+top of it. These lines are written down in order to be sent to somebody else,
+and the platform panel cannot be copied at all.
+
+**Consequences.** The shell emits one event to the frontend — the first
+Rust-to-frontend event in this application, where every other exchange is the
+frontend asking and a command answering. A command cannot carry this one: the
+menu is on the shell's side and nothing in the WebView knows it was clicked.
+`core:default` already includes `core:event:default`, so listening grants no new
+capability and `capabilities/default.json` does not change (golden rule 7).
+
+The menu is built by appending to `Menu::default` rather than by constructing
+one, because the default carries Edit with cut, copy, paste and select-all, and
+a WebView whose menu loses those loses the shortcuts with them. The item's label
+is English like the rest of the native menu, which Tauri builds in English;
+translating one item inside an English menu reads worse than not translating it.
+
+`EnvReport` grows two fields, and it is the one IPC shape the frontend
+hand-writes. `tools/tests/test_env_report.py` compares the two declarations by
+name, because a field added on one side only is invisible rather than broken.
+
+---
+
+## ADR-080 — A timing criterion is asserted where its numbers came from, and published everywhere else
+
+**Status:** `ACCEPTED` · 17/09/2026 · amends
+[ADR-034](#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work)
+
+**Context.** ADR-034's first rule is an acceptance criterion: `workspace_open`
+returns and the tree appears in **under one second, at any size**. It was
+asserted as a wall clock on every platform, in
+`deep.rs::the_tree_appears_in_well_under_a_second`.
+
+On `windows-latest` the same 2 160 directories that open in ~10 ms on the
+owner's machine took **1 243 ms**, and the commit it failed on touched a
+Linux-only test file, a queue row and `Cargo.lock` — nothing that could slow an
+open. The following commit was green and the one after it red again, on a
+different test. The number was not reporting the code; it was reporting a
+contended shared runner with a virus scanner mid-scan on a tree created
+milliseconds earlier.
+
+**Why that is not a small problem.** This repository has just paid for the
+answer. `cargo audit --deny warnings` sat red on eight advisories nobody could
+act on, and a real `rustls` TLS 1.3 handshake flaw — on the path every device
+sync request and every signed update download takes — lived inside that red for
+two versions before anyone read past it (1.4.4, 1.4.5). A check that is red for
+a reason which is not the code does not merely annoy: **it spends the attention
+that the next real finding needs.** `tools/check.sh` has said so in its own
+header since it was written.
+
+**Decision.** The criterion does not move. Where the number is a *verdict*
+does.
+
+1. **The one-second ceiling is asserted on Linux.** It is the platform the rule's
+   numbers were measured on — `DECISIONS-0.1c.md` D-09, `fixtures/deep`, the
+   per-directory inotify walk that caused the freeze in the first place — and
+   the least contended of the three runners.
+2. **Every platform measures it and publishes the measurement into the CI job
+   summary**, with its directory count and whether it was asserted. A criterion
+   that stops being asserted must not stop being *visible*: an unmeasured
+   criterion decays faster than a flaky one, because nothing reports its drift
+   at all.
+3. **A test that is intermittent on one platform is ignored on that platform,
+   with the investigation queued and named in the `ignore` reason** — never
+   weakened, and never ignored everywhere.
+   `control::tests::received_bytes_remain_pending_until_explicit_application`
+   is the first: `#[cfg_attr(windows, ignore = …)]`, intact on Linux and macOS,
+   queued in `.continue/README.md`.
+
+**Consequences.** A regression that slows `workspace_open` on macOS or Windows
+without slowing it on Linux is a row in a job summary rather than a red build.
+That is a real reduction in coverage and it is the price: the alternative was a
+red that had already been overridden in practice, and a red nobody acts on is
+zero coverage wearing the costume of full coverage. The owner's acceptance walk
+(`ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3) is where the criterion is
+judged on real hardware, and that was always true — the automated check was
+never the thing the promise rested on.
+
+**What this is not.** It is not a licence to move an assertion to a friendlier
+platform whenever it goes red. The test here was measuring the runner and not
+the code, demonstrably: same input, three different verdicts across commits that
+could not have changed it. A test that fails because the code is slow on one
+platform is a bug on that platform, and it is fixed there.
+
+---
+
+## ADR-081 — The server binary is signed with a key CI never holds, and a deploy that cannot verify changes nothing
+
+**Status:** `ACCEPTED` · 17/09/2026 · extends
+[ADR-074](#adr-074--signed-desktop-updates-with-explicit-installation) to the
+server artifacts · implemented at 1.6.0, except the key itself: `minisign` is
+generated once by the owner and the deploy **refuses to install** until the
+public half is committed and a release is signed.
+
+**Context.** `server/cotenant/deploy-server.sh` downloads
+`notes-server-X.Y.0-x86_64-linux.tar.gz` and its `.sha256` from the same GitHub
+Releases URL, verifies the checksum, and installs the binary into
+`/usr/local/bin`. `.github/workflows/build.yml` produces both in one step, on
+one runner, and uploads them together.
+
+**The checksum answers "did this arrive intact", and nothing else.** It is
+generated beside the artifact it describes, published beside it, and fetched
+beside it, so anyone in a position to serve a different tarball is in a position
+to serve its matching digest. The script's own comment claims only truncation,
+and is right to; this ADR is about the claim nobody was making.
+
+ADR-074 already settled the principle for the desktop: a pinned public key, a
+private key outside the repository, signature verified before installation. The
+server did not get it, and the reason is not a difference of principle but of
+**where each artifact is built**. The macOS and Windows jobs are `if: false`
+(ADR-024) and those bundles are produced by `build-local.sh` on the owner's
+machine — where the key is. The Linux job runs in CI, where it is not.
+
+What the artifact controls raises the stakes rather than lowering them: the
+binary is a long-lived daemon holding every note of every paired device, running
+on a host that also serves eight other sites.
+
+**Decision.** Three questions, because "sign it" answers none of them.
+
+### 1. The private key never enters CI
+
+A key in a GitHub Actions secret is usable by anything that can cause a workflow
+to run, which includes a change to the workflow itself. Signing there would move
+the trust boundary from GitHub-the-CDN to GitHub-the-CI and call it provenance:
+the signature would attest that a workflow ran, which is what the checksum
+already attests to.
+
+**The key lives where ADR-074's does — outside the repository, on the owner's
+machine** — and it is a **separate** key from the updater's. The updater key is
+embedded in every installed desktop application; a key that can push desktop
+updates and server binaries is one compromise with two blast radii, for no
+saving. The public half is **committed**, so the host verifies against a pinned
+value rather than one it downloads alongside the thing it is checking.
+
+**minisign**, for the same reason Tauri's updater uses it and because Debian
+packages it: the verifier on the host is a shell script, not a Rust binary that
+would itself need to be delivered and trusted first.
+
+### 2. The published artifact is signed locally; CI keeps building it
+
+CI continues to build and attach `notes-server` on every minor bump. What is
+added is that the **signature** is made offline, by the owner, with the key
+above, and uploaded beside the asset — so installing a server binary requires an
+act a person performed and CI cannot forge.
+
+> **Corrected 17/09/2026, before first implementation.** This clause originally
+> read *"the Release asset is **produced** and signed by the same local act that
+> already produces the desktop bundles"*. Implementing it showed that act does
+> not exist: neither `build-local.sh` nor `tools/build-linux.sh` builds
+> `notes-server` at all, and what they publish goes to the owner's own download
+> service, not to GitHub Releases. The clause described a path that would have
+> had to be invented, and it was written from the principle without checking
+> that the local act reached Releases.
+>
+> **What the correction costs, stated rather than glossed:** a compromised CI
+> could produce a malicious tarball that the owner then signs without having
+> built it. What it still closes — and what the finding was actually about — is
+> **substitution of a published asset**, which the same-origin checksum could
+> never detect. `tools/sign-server-release.sh` verifies the checksum before
+> signing, and building from source with `cargo build --locked -p notes-server`
+> remains available to anyone who wants the stronger guarantee.
+>
+> The correction is written **inside this ADR** rather than as ADR-082, which
+> departs from the house norm of amending with a new ADR — deliberately, and
+> only because this one had never been implemented: two documents describing one
+> decision that had no implementation would cost a reader more than it tells
+> them. An implemented decision gets the new ADR.
+
+The `.sha256` stays. It is still the right tool for a truncated download, it
+fails faster and with a clearer message than a signature check, and a deploy
+that has to distinguish "the network cut out" from "this is not our binary" is
+better for having both.
+
+### 3. A deploy that cannot verify changes nothing, and does not stop the service
+
+Verification happens **before anything touches `/usr/local/bin`** — the same
+ordering the checksum already has, which `server/tests/cotenant.py` already
+asserts and which extends to cover the signature.
+
+On failure the deploy **exits non-zero, names the artifact, and leaves the host
+exactly as it was**: the running service keeps serving the binary it already
+has. It deliberately does *not* stop the service as a precaution. A signature
+mismatch is far more likely to be a publishing mistake than an attack, and
+converting one into an outage of the notes of every paired device — on a host
+that is already serving — is a second failure caused by the first. Refusing to
+install is the whole of the protection; stopping is a different decision nobody
+asked for.
+
+**Consequences.** The owner cannot publish a server binary from a machine
+without the key, which is the point and is also a single point of failure: the
+recovery path is the same as the updater's, and it is key rotation with a
+committed public half, not a bypass. `deploy-server.sh` gains a `minisign -V`
+against the pinned key and a `minisign` dependency on the host. Hosts running a
+binary published before this ADR keep running it; the first signed release is
+the first one a deploy will verify.
+
+**A precondition this ADR does not itself fix.** 1.4.0 and 1.5.0 carry **no**
+server tarball at all: `build.yml`'s `concurrency: cancel-in-progress: true`
+cancelled the minor's artifact build when the next push arrived, and every
+version after it was a patch, which deliberately builds nothing. The workflow's
+comment accepts that "an intermediate version can end up with no artifacts" on
+the grounds that "what has to be installable is the newest" — which does not
+hold for **minor** versions, because the newest is usually a patch and patches
+never rebuild them. Signing an artifact that is not being published is not worth
+doing first; that is queued separately.
+
+## ADR-082 — The renamed package takes over the one it was renamed from, and the binary keeps its name
+
+**Status:** `ACCEPTED` · 17/09/2026 · completes
+[ADR-069](#adr-069--tura-notes-branding-preserves-installed-identities) ·
+implemented at 1.6.1
+
+**Context.** ADR-069 renamed the product to Tura Notes and deliberately kept
+`br.com.samirhv.notes`, the `notes` binary and the existing data paths, so that
+an installed user's settings and workspace survived the rebranding. One name it
+did not consider is the one nobody writes down: **the bundler derives the Debian
+package name from `productName`**, so the package became `tura-notes` at 1.0.0
+while every path inside it stayed exactly as it was.
+
+dpkg does not own files, packages do. Installing 1.3.6 over an installed
+0.11.11, on 16/09/2026:
+
+```
+dpkg: error processing archive TuraNotes_1.3.6_amd64.deb (--install):
+ trying to overwrite '/usr/bin/notes', which is also in package notes (0.11.11)
+```
+
+and the three `notes.png` icons are the same collision, one step behind the
+binary. **So the identity ADR-069 set out to preserve is precisely the identity
+that blocks the upgrade** — and it blocks it in the one place the project never
+looks, because nothing in the build, the gate or CI ever installs a package over
+an older one. The deb has been unable to land on a pre-1.0.0 machine since 1.0.0 —
+sixty-six versions across six days — and the way it was found was the owner
+typing `dpkg -i`.
+
+The in-app updater installs the deb the same way, so the same wall stands there
+— though no 0.x machine reaches it, updates arriving only from 1.1.0 onward
+([ADR-074](#adr-074--signed-desktop-updates-with-explicit-installation)). A
+manual install is the only path onto those machines, which is why this surfaced
+there.
+
+**Decision.** **The rename is declared, not performed.** The deb states what
+happened in the fields Debian reads for exactly this:
+
+```
+Conflicts: notes (<< 1.0.0)
+Replaces: notes (<< 1.0.0)
+```
+
+**Both, because each alone is the wrong half.** `Conflicts` by itself refuses
+the installation, politely and permanently. `Replaces` by itself permits the
+file to be overwritten while the old package stays installed, still claiming
+`/usr/bin/notes` and still shipping a `notes.desktop` pointing at it. Together
+they are the one operation dpkg performs without being forced: remove the old
+package, install the new one. `--force-overwrite` reaches the same screen and
+leaves the machine in the state `Replaces` alone produces.
+
+**The bound is `<< 1.0.0` and the claim reaches no further.** Every release that
+carried the old package name was a `0.x` — 0.11.11 was the last — and `notes` is
+a generic enough name for the archive to hand to somebody else one day. An
+unbounded `Conflicts: notes` would silently remove *their* package on any
+machine that had it. There is no `Provides`: nothing depends on the old name.
+
+**Not rpm, and not the AUR.** rpm packaging arrived at 1.0.3, after the rename,
+so no rpm has ever carried the old name and an `Obsoletes` written for symmetry
+would claim a name this project never published there. The AUR package kept its
+`notes-bin` name throughout, so pacman upgrades it as it always did.
+
+**Rejected: renaming the binary too.** It dissolves the conflict by dissolving
+what ADR-069 was protecting — `notes` is the command installed users type — and
+it leaves the old package installed forever, with a stale binary, because
+nothing would then replace it.
+
+**Consequences.** Installing over a 0.x machine now removes it and its desktop
+entry as part of the unpack; user data is untouched, because no data of the
+user's has ever been inside the package. A machine that already hit the error
+keeps 0.11.11 until the next install, which is now the fix rather than a second
+failure. A future Debian package named `notes` at a version below 1.0.0 would be
+taken over by ours — accepted knowingly: the archive has no such package today,
+and the alternative claims strictly more.
+
+**What checks it.** `tools/tests/test_build_linux.py::DebianRename` asserts both
+fields in the committed configuration, and asserts the binary name they exist
+for is still `notes` — rename that, and the declaration has to be reconsidered
+rather than carried along. The gate cannot install a package, so what it
+protects is the declaration. The built 1.6.1 package was read back with
+`dpkg-deb -I`, and `dpkg --dry-run --install` was run against the database of
+the machine that still carries 0.11.11, which answered *"yes, will remove notes
+in favour of tura-notes"*. The install itself needs root and remains an owner
+step, in the queue with the other installed-release checks.
