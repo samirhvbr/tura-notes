@@ -154,7 +154,7 @@ walked it and said so.
 
 > **The steps below describe the 0.1a–0.1c window, which 0.1d replaced.** The
 > expectations still stand; the steps moved. Walk them from
-> [ACCEPTANCE-0.1d.md §3](ACCEPTANCE-0.1d.md), which carries these fourteen rows
+> [ACCEPTANCE-0.1d.md §3](ACCEPTANCE-0.1d.md), which carries these fifteen rows
 > with their steps rewritten for the interface that exists (ADR-037).
 
 > **What a screenshot showed, which is not a tick.** The application was started
@@ -180,6 +180,7 @@ walked it and said so.
 | C12 | Settings → font size, line numbers, wrap, tab size | Each applies to the editor and survives a restart | ☐ |
 | C13 | Switch the interface language | Every visible string changes; no key is left showing raw | ☐ |
 | C14 | **Update and restart, rather than quit and reopen** | Added at `1.3.7`, and it is a *second* route into C10 that did not exist when this table was written. Press **Install and restart** on the update banner with three tabs open, one of them dirty: the unsaved note stops the close and is named, exactly as the workspace menu would; declining installs nothing. Accept, and after the new version comes up the same workspace, the same tabs, the same active tab and the same caret are back. **This is the restart nobody walks** — the user is looking at a new version, not at whether their tabs survived, so a regression here is the kind that gets noticed weeks later | ☐ |
+| C15 | **The update that does not install** | The failure path is a designed behaviour since `1.6.69`, not a dead end, and it is the one that was reported from use. Provoke it — on macOS run the application from the mounted `.dmg` instead of `/Applications`; on Linux dismiss the password prompt. Three things must hold: **the workspace you were sent back to is the one you had**, the sentence names *this* platform's likely cause (`1.6.72`: Applications on macOS, the password prompt on Linux, and neither on anything else), and **the updater's own error is printed underneath, verbatim**. That last line is what somebody pastes into a report; a paraphrase of an error is a second error | ☐ |
 
 **Measured on 18/09/2026, against everything that shipped after `0.20.21`.** Two
 findings, both above: C14, and the standing rule that had been describing a

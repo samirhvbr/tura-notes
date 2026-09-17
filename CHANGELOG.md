@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.74 - the update that fails is now a walk, because it stopped being a dead end
+
+`C14` walks the update that works. Nothing walked the one that does not — which
+is the flow that was reported from use, and the one that has changed four times
+today: it now keeps the cause, prints it verbatim, and picks its advice by
+platform.
+
+`C15` is that walk, in `ACCEPTANCE-0.1c.md` where the criterion lives and in
+`ACCEPTANCE-0.1d.md` §3 where it is actually performed. It is provokable rather
+than hypothetical: run from the mounted `.dmg` on macOS, or dismiss the password
+prompt on Linux.
+
+Three things have to hold, and the first is the oldest. **The workspace you were
+sent back to is the one you had** — the install closes it through the normal
+flow, so a failure after that point must not strand you at Welcome, which
+`install()` has handled since `1.3.7` and nobody has ever watched. **The sentence
+names this platform's cause**, which `1.6.72` fixed after `1.6.69` gave everybody
+macOS's advice. **The error is printed underneath, verbatim**, which is the line
+somebody pastes into a report.
+
+The counts that name these rows move with them: `0.1c`'s pointer, `0.1d`'s
+heading and range, `docs/README.md`, and the queue item that tells the owner
+which flows to walk. That is four places for one row, which is the argument for
+having swept them at `1.6.61` rather than finding them one at a time now.
+
 ## 1.6.73 - three tests for the branch that was wrong for one commit
 
 `1.6.72` made the failure hint follow the platform and shipped it with no test of

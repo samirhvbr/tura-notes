@@ -494,6 +494,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   só confere se a frase certa apareceu passa igualmente feliz quando as duas
   aparecem. Provados não-vácuos contra o comportamento do 1.6.69
 
+- [x] R6n — o update que falha virou passeio, porque deixou de ser beco sem saída
+  (1.6.74). O C14 percorre o update que dá certo; nada percorria o que não dá — que
+  é justamente o fluxo reportado em uso e o que mudou quatro vezes hoje. O C15 é
+  provocável, não hipotético: rodar do `.dmg` montado no macOS, ou dispensar o
+  pedido de senha no Linux. Três coisas têm de valer, e a primeira é a mais velha:
+  **o workspace de volta é o que você tinha** — o install fecha pelo fluxo normal,
+  então falhar depois disso não pode largar ninguém no Welcome, o que o `install()`
+  trata desde o 1.3.7 e ninguém nunca olhou. As contagens que nomeiam essas linhas
+  andaram junto: quatro lugares para uma linha, que é o argumento para ter varrido
+  no 1.6.61 em vez de achar um de cada vez agora
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

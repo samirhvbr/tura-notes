@@ -98,9 +98,9 @@ proves a ratio, not a design.
 
 ---
 
-## 3. The twenty-six flows, re-indexed
+## 3. The twenty-seven flows, re-indexed
 
-`ACCEPTANCE-0.1b.md`'s U1–U12 and `ACCEPTANCE-0.1c.md`'s C1–C14, with **the
+`ACCEPTANCE-0.1b.md`'s U1–U12 and `ACCEPTANCE-0.1c.md`'s C1–C15, with **the
 steps rewritten for the interface they now live in**. The behaviour is
 unchanged and the expectations are the originals, word for word where they
 still fit — what moved is where you press.
@@ -144,6 +144,7 @@ they were re-indexed rather than ticked where they were (ADR-037).
 | C12 | Settings → the four | **The rail's Settings icon**, or `Ctrl+,` | Each applies to the editor and survives a restart |
 | C13 | Switch the language | Same panel | Every visible string changes; no key is left showing raw |
 | C14 | Update and restart | **The update banner's *Install and restart*** — which at `1.3.7` started performing the workspace close itself, instead of telling you to find it in the sidebar footer | A dirty note still stops the close and is named; declining installs nothing; after the new version comes up, the workspace, the tabs, the active tab and the caret are all back |
+| C15 | The update that fails | **Provoke it** — from the mounted `.dmg` on macOS, or by dismissing the password prompt on Linux | The workspace comes back as it was; the sentence names this platform's likely cause; and the updater's own error is printed under it, verbatim and untranslated |
 
 ### And one the interface added to the list
 
