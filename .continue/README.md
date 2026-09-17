@@ -23,6 +23,7 @@ are in Portuguese.
 | [0.2 — index acceptance](0.2-indice.md) | Installed-release owner walk and repeat on the following release | Samir |
 | **0.3 — knowledge and local agents acceptance** | Installed-release owner walk and repeat on the following release; see [ACCEPTANCE-0.3.md](../docs/ACCEPTANCE-0.3.md) | Samir |
 | **0.5 — self-hosting acceptance** | Installed-release owner walk and repeat on the following release; see [ACCEPTANCE-0.5.md](../docs/ACCEPTANCE-0.5.md) | Samir |
+| **Teste intermitente no gate** | `notes-sync-client --test recovery` falhou uma vez em `edits_during_transfer_are_recaptured_without_applying_the_older_publication` e `receiver_recapture_reserves_resolution_capacity_without_discarding_history`, ambos com `ApplicationBlocked` em `stage_receiver_edits`. **Não reproduzido em 12 execuções** — 3 de `cargo test --workspace`, 8 do binário isolado em paralelo e 1 serial. A falha ocorreu enquanto outra sessão compilava na mesma máquina. Já se sabe que **não é contenção de lock**: os locks mapeiam para `Busy`, e `ApplicationBlocked` ali vem de `notes_core::sync::capture` recusando — o caminho que dispara quando o hash relido difere do inventariado. Falta descobrir como esse guard dispara num tempdir sem escritor externo | Implementation |
 | **0.0 — platform spike** | Physical checks on Arch/Wayland/NVIDIA, iPhone and Android; see [SPIKE-0.0.md](../docs/SPIKE-0.0.md) | Samir |
 
 ## Current implementation order
