@@ -338,13 +338,21 @@ with tempfile.TemporaryDirectory() as temp:
     temp = pathlib.Path(temp)
     existing = temp / "notes-server.key"
     existing.write_text("not a real key")
-    refused = subprocess.run(["sh", str(signer), "init"], capture_output=True, text=True,
+    # Run it through its own shebang, not through `sh`. The script declares
+    # `#!/usr/bin/env bash` and uses `set -o pipefail` and `${BASH_SOURCE[0]}`,
+    # neither of which dash has — and `/bin/sh` is dash on both Debian and the CI
+    # runner. Under `sh` the behaviour is whatever that dash version does with a
+    # script it cannot read: here it printed `Bad substitution` and carried on to
+    # the refusal, so the assertion below passed; on the runner it printed
+    # `Illegal option -o pipefail` and never got there. That difference kept this
+    # green locally and red in CI, which is the worst of both.
+    refused = subprocess.run([str(signer), "init"], capture_output=True, text=True,
                              env=dict(os.environ, TURA_SERVER_KEY=str(existing)))
     assert refused.returncode != 0, "init overwrote an existing private key"
     assert "não vou sobrescrever" in refused.stderr, refused.stderr
     # A patch version is refused: attachments only exist on minor releases.
     for bad_version in ["1.5.1", "nonsense", ""]:
-        out = subprocess.run(["sh", str(signer), bad_version], capture_output=True, text=True,
+        out = subprocess.run([str(signer), bad_version], capture_output=True, text=True,
                              env=dict(os.environ, TURA_SERVER_KEY=str(existing)))
         assert out.returncode != 0, f"the signer accepted {bad_version!r}"
 

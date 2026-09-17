@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.53 - the signing script was being run by a shell that cannot read it
+
+With `minisign` installed, `cotenant.py` got twenty-eight lines further into the
+CI run and stopped on the next thing: `sign-server-release.sh: 18: set: Illegal
+option -o pipefail`.
+
+The test invoked the script as `sh <script>`, two lines after asserting the file
+is executable. The script declares `#!/usr/bin/env bash` and uses
+`set -o pipefail` and `${BASH_SOURCE[0]}`, neither of which dash has — and
+`/bin/sh` is dash on Debian and on the runner both.
+
+**What made this survive is that dash's behaviour differs by version.** Locally
+it printed `Bad substitution` at line 19, carried on, and reached the refusal the
+assertion looks for, so the check passed. On the runner it printed the
+`pipefail` error at line 18 and never got there. Same test, same shell family,
+opposite results — green here and red there, which is the worst of the four
+possible combinations, because the local gate then certifies the thing CI is
+failing on.
+
+It runs through its own shebang now, which is also what a person does when they
+follow `OWNER-ACTS.md` §1. Verified locally: the co-tenant smoke passes with the
+script invoked directly.
+
+The Portuguese strings the script prints are left alone. They are pre-existing
+and the language rule does not ask for a rewrite of what already exists — only
+that an edit lands in English. Translating them is a separate change, and
+bundling it here would bury a CI repair inside a rename.
+
 ## 1.6.52 - CI had been red for forty-seven consecutive runs, and the local gate hid it
 
 `server HTTPS container` failed on every push since `1.6.0` — the commit that

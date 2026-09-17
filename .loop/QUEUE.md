@@ -329,6 +329,23 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   **E não achei olhando o CI:** achei porque o 1.6.51 pôs um passo novo nesse job e
   eu fui ver se o *meu* passo passava
 
+- [x] R5v — o `cotenant.py` rodava um script bash com `sh` (1.6.53). Com o minisign
+  instalado, o CI andou 28 linhas e parou no seguinte: `Illegal option -o pipefail`.
+  O teste chamava `sh <script>` duas linhas depois de afirmar que o arquivo é
+  executável; o script declara `#!/usr/bin/env bash` e usa `pipefail` e
+  `${BASH_SOURCE[0]}`, que o dash não tem. **O que fez isso sobreviver é o dash se
+  comportar diferente por versão:** aqui imprimia `Bad substitution` e seguia até a
+  recusa que a asserção procura, então passava; no runner morria antes. Verde aqui e
+  vermelho lá é a pior das quatro combinações, porque o gate local passa a atestar
+  exatamente o que o CI reprova. Agora roda pelo próprio shebang, que é o que uma
+  pessoa faz ao seguir o `OWNER-ACTS.md` §1
+- [ ] R5w — traduzir para inglês as mensagens em português de `tools/`: o
+  `sign-server-release.sh` (25 linhas com acento em 78), e `byte-preservation.sh`,
+  `gen-fixtures.py` e `crash-save-loop.sh`. Não é urgente — a regra de idioma não
+  pede reescrever o que já existe — mas o `sign-server-release.sh` é chamado de um
+  runbook em inglês e o `cotenant.py` afirma sobre a string portuguesa dele, então
+  a próxima edição de qualquer um deles já sai em inglês e leva o teste junto
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
