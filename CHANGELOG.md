@@ -8,6 +8,23 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.5 - the co-tenant check needs a binary, and `contracts` builds nothing
+
+`server/tests/cotenant.py` joined the `contracts` job in 1.4.2 and failed on the
+first run: it needs `target/debug/notes-server` on disk, and that job's whole
+premise is that it compiles nothing. It had passed locally for the worst reason
+— the binary was already sitting in `target/` from an earlier build — which is
+exactly the kind of green a clean runner exists to refuse.
+
+It moves to `server HTTPS container`, which already has a toolchain and is about
+the server, and builds `notes-server` before running it. The other seven checks
+stay: the same CI run proved them on a machine with no `target/` at all.
+
+**The grouped step earned itself on its first outing.** One check failed, the
+seven after it still ran and reported, and the step exited non-zero. As eight
+separate steps the first failure would have hidden the rest, and the answer to
+"is anything else wrong" would have cost another push.
+
 ## 1.4.4 - rustls carried a TLS 1.3 handshake flaw on both transport paths
 
 `cargo audit` reports **one vulnerability**, not only the unmaintained warnings

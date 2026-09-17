@@ -104,6 +104,11 @@ jobs:
       # that broke one was merged green. A check that only runs when somebody
       # remembers to run it is a convention, not a gate.
       #
+      # `server/tests/cotenant.py` is deliberately NOT here: it needs
+      # `target/debug/notes-server` on disk, and this job's whole premise is
+      # that it builds nothing. It runs in `server HTTPS container`, which
+      # already has a toolchain and is about the server anyway.
+      #
       # They are grouped in one step on purpose. As separate steps the first
       # failure hides the rest, and the answer to "what else is broken" costs
       # another push; here every one of them reports, and the step fails if any
@@ -119,7 +124,6 @@ jobs:
           }
           run "a serde wrapper declares its wire shape"  python3 tools/ts-serde.py
           run "every document declares one of the five statuses" tools/doc-status.sh
-          run "the co-tenant templates and credential wrapper" python3 server/tests/cotenant.py
           run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py
           run "updater publication"                     python3 tools/tests/test_updater_release.py
           run "macOS build script"                      python3 tools/tests/test_build_local.py
@@ -155,6 +159,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: build the device sync client
         run: cargo build -p notes-sync-client --locked
+      # The co-tenant unit, the Apache/nginx/Caddy templates and the credential
+      # wrapper the site's admin screen calls. It runs here rather than in
+      # `contracts` because it starts a real `notes-server` on loopback, and an
+      # Apache template that would take the other eight sites on that host down
+      # is not something a diff shows you.
+      - name: the co-tenant templates and the credential wrapper
+        run: |
+          cargo build -p notes-server --locked
+          python3 server/tests/cotenant.py
       - name: authenticated CRUD over verified HTTPS
         run: python3 server/tests/smoke.py --compose
       - name: stop disposable services
