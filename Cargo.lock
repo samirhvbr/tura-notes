@@ -2754,6 +2754,7 @@ dependencies = [
  "flate2",
  "notes-core",
  "notes-fs",
+ "notes-mcp",
  "notes-model",
  "notes-sync",
  "percent-encoding",

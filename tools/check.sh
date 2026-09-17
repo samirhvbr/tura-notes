@@ -104,6 +104,9 @@ step "frontend advisories" bash -c 'cd apps/notes-app && npm audit --audit-level
 step "transport binaries"  cargo build -p notes-server -p notes-sync-client --locked
 step "server TCP smoke"    python3 server/tests/smoke.py
 step "co-tenant server"    python3 server/tests/cotenant.py
+# Its own process, so its own rate buckets: appended to smoke.py these calls
+# would be what pushes that suite past the 120/min per-IP ceiling.
+step "remote MCP"          python3 server/tests/mcp.py
 step "byte preservation"    tools/byte-preservation.sh
 step "full disk (ENOSPC)"   tools/enospc.sh
 step "generated types"      bash -c '

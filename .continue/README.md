@@ -17,7 +17,6 @@ are in Portuguese.
 | **Publicação de release** | Rodar `./build-local.sh --publish` uma vez. Host, caminho e chave estão confirmados (`test -f /srv/www/samirhv.com.br/samirhv/artisan` passa em `b3sys@100.64.100.125`); falta o ato — build assinado e notarizado, ingestão e feed. Enquanto não rodar, `samirhv.com.br/p/tura-notes` mostra "Em preparação", porque o link de download é dado e não código | Samir |
 | **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; confirmar que o `.deb` 1.6.1 remove o pacote `notes` anterior a 1.0.0 na máquina que ainda o carrega ([ADR-082](../docs/decisions.md)); provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
 | [0.6 — sync](0.6-sync.md) | Installed-build and physical-device owner acceptance | Samir |
-| **0.7 — remote MCP** | Expose the existing MCP capabilities through server authentication and workspace/subfolder scopes after sync is ready | Implementation |
 | **0.4 — mobile** | Turn the merged foundation into usable iOS/Android applications: entry points, generated projects, UI, folder adapters, lifecycle handling and physical-device validation | Mobile agent / Samir |
 | [0.1d — interface acceptance](0.1d-interface.md) | Installed-release owner walk and repeat on the following release | Samir |
 | [0.2 — index acceptance](0.2-indice.md) | Installed-release owner walk and repeat on the following release | Samir |
@@ -35,10 +34,13 @@ are in Portuguese.
    deployment it was waiting on is done — `tura.samirhv.com.br` answers as the
    `notes-server` behind its proxy — so what is left there is owner acceptance
    on installed builds and physical devices.
-2. Build remote MCP 0.7.
-3. Continue the mobile 0.4 track.
-4. Perform owner acceptance and platform checks when the required installed
+2. Continue the mobile 0.4 track.
+3. Perform owner acceptance and platform checks when the required installed
    builds and devices are available.
+
+Remote MCP 0.7 left this list in 1.6.5: `POST /v1/mcp` answers from the same
+catalogue, credential and scopes the REST API uses, and the contract is
+[MCP-0.7.md](../docs/MCP-0.7.md), now `ACTIVE`.
 
 ## Where the delivered record lives
 
@@ -48,6 +50,7 @@ are in Portuguese.
 | Implemented architecture | [ARCHITECTURE.md](../docs/ARCHITECTURE.md) |
 | Milestone delivery order | [roadmap.md](../docs/roadmap.md) |
 | Sync contract and implementation history | [SYNC-0.6.md](../docs/SYNC-0.6.md) |
+| Remote MCP contract | [MCP-0.7.md](../docs/MCP-0.7.md) |
 | Older planning drafts | [docs/history/](../docs/history/) |
 | Version-by-version history | [CHANGELOG.md](../CHANGELOG.md) |
 

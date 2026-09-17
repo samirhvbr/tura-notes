@@ -21,6 +21,9 @@ notes-model = { path = "crates/notes-model" }
 notes-fs = { path = "crates/notes-fs" }
 notes-core = { path = "crates/notes-core" }
 notes-markdown = { path = "crates/notes-markdown" }
+# 0.7: the server answers MCP from the same catalogue the stdio binary uses, so
+# it depends on the library half of that crate (docs/MCP-0.7.md).
+notes-mcp = { path = "crates/notes-mcp" }
 
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 ammonia = "4"

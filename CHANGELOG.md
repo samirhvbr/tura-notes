@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.5 - remote MCP answers at POST /v1/mcp
+
+Milestone 0.7. One endpoint, one JSON-RPC message per request, one JSON
+response. No SSE stream: none of the eight tools notifies, samples or elicits,
+and a stream with nothing to carry is a listener to maintain for no behavior.
+A notification — no `id` — gets `202` and an empty body, which is the stdio loop
+writing nothing, expressed in HTTP.
+
+**Nothing about authorization is re-implemented, and that is the delivery.** By
+the time the handler runs, the credential has been authenticated in constant
+time, rate-limited per IP and per token, refused if it carried `Origin`, and
+audited. The `AgentConfig` it builds — workspace, scope, permissions, review — is
+the same one the REST routes build two screens below, and `tools/list` is
+filtered by the same permission map the stdio binary uses. A credential holding
+only `Read` is told about `notes_list` and `notes_read` and nothing else: the
+catalogue is the authorization surface, not a menu.
+
+`Session::stateless()` is where the design met the first real question. The gate
+that refuses a second `initialize` is correct on stdio, where the connection *is*
+the session, and wrong over HTTP, where each request carries its own credential
+and nothing survives between them. The first cut set `initialized: true` to open
+the gate and thereby disabled the `initialize` branch itself — the test caught it
+answering `Method not found` to a handshake. `Session` now carries whether the
+transport keeps anything, `Default` is written out rather than derived so a
+derived `false` cannot quietly turn stdio into the other transport, and
+`Mcp-Session-Id` is echoed when sent and never required.
+
+Four tests, and one of them found a real thing. `server/notes-server/tests/http.rs`
+covers the filtered catalogue, the refused unlisted tool, the echoed session
+header and a scoped read that must not return the marker planted outside it.
+`server/tests/mcp.py` runs a real process with two real credentials through
+`initialize` → `tools/list` → create → read → update → stale update, and asserts
+the file on disk. It is its own process rather than an addition to `smoke.py`,
+because that suite already spends most of a 120/min per-IP budget and these calls
+are what would push it over.
+
+What the smoke found: a note created with CRLF reads back as `\n` and stays CRLF
+on disk. Byte preservation reaches through MCP unchanged, and the test now says so
+out loud instead of asserting the wrong half of it.
+
 ## 1.6.4 - write the contract remote MCP is measured against
 
 `docs/MCP-0.7.md`, status `PROPOSED`: nothing in it is built, and it moves to

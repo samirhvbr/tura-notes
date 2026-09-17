@@ -27,10 +27,31 @@ const SPOKEN: [&str; 3] = ["2025-03-26", "2025-06-18", PROTOCOL];
 /// between them — so it passes [`Session::stateless`] and the gate never
 /// refuses. Making correctness depend on state the transport does not keep is
 /// the bug this type exists to make visible rather than accidental.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Session {
     pub initialized: bool,
     pub ready: bool,
+    /// Whether the transport keeps anything between messages.
+    ///
+    /// It decides one thing, and it is not cosmetic: on stdio a second
+    /// `initialize` is refused, because there is a first one to have already
+    /// answered. Over HTTP there is no "again" — every request arrives with its
+    /// own credential and no memory of any other — so refusing it would be
+    /// refusing a handshake the client is right to send.
+    stateful: bool,
+}
+
+impl Default for Session {
+    /// The stdio shape: nothing established yet, and a connection to establish
+    /// it on. Written out rather than derived, because a derived `false` for
+    /// `stateful` would silently turn stdio into the other transport.
+    fn default() -> Self {
+        Self {
+            initialized: false,
+            ready: false,
+            stateful: true,
+        }
+    }
 }
 
 impl Session {
@@ -40,6 +61,7 @@ impl Session {
         Self {
             initialized: true,
             ready: true,
+            stateful: false,
         }
     }
 }
@@ -157,7 +179,7 @@ pub fn handle(
         return Some(error(id, -32600, "Invalid JSON-RPC request"));
     }
 
-    if method == "initialize" && !session.initialized {
+    if method == "initialize" && (!session.stateful || !session.initialized) {
         session.initialized = true;
         let requested = request
             .pointer("/params/protocolVersion")

@@ -341,6 +341,117 @@ async fn rate_limit_bounds_authenticated_requests() {
     assert_eq!(denied.1["retry-after"], "60");
 }
 
+/// MCP over HTTP answers from the same catalogue, filtered by the same
+/// permissions, and without a session gate it cannot keep.
+#[tokio::test]
+async fn mcp_lists_only_the_tools_the_credential_admits() {
+    let f = Fixture::new(&[Permission::Read]);
+
+    // No `initialize` first, deliberately: over HTTP the credential is the
+    // session, so `tools/list` must answer on its own.
+    let (status, _, listed) = f
+        .request(
+            "POST",
+            "/v1/mcp",
+            Some(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})),
+            &[],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let names: Vec<&str> = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    // Read admits exactly these two; every other tool sits behind a permission
+    // this credential does not hold, and the catalogue is the authorization
+    // surface, so it must not even name them.
+    assert_eq!(names, vec!["notes_list", "notes_read"]);
+    for hidden in [
+        "notes_delete",
+        "notes_update",
+        "notes_create",
+        "notes_search",
+    ] {
+        assert!(
+            !names.contains(&hidden),
+            "{hidden} leaked into the catalogue"
+        );
+    }
+
+    // And calling one it was not told about is refused rather than attempted.
+    let (_, _, refused) = f
+        .request(
+            "POST",
+            "/v1/mcp",
+            Some(json!({"jsonrpc":"2.0","id":2,"method":"tools/call",
+                        "params":{"name":"notes_delete",
+                                  "arguments":{"path":"allowed/test.md",
+                                               "base_rev":{"size":0,"mtime_ns":0,"hash":"x"}}}})),
+            &[],
+        )
+        .await;
+    assert_eq!(refused["error"]["code"], -32602);
+}
+
+/// The handshake is informational here, and the session header is echoed rather
+/// than demanded.
+#[tokio::test]
+async fn mcp_handshake_is_informational_and_echoes_a_session_id() {
+    let f = Fixture::new(&[Permission::Read]);
+
+    let (status, headers, hello) = f
+        .request(
+            "POST",
+            "/v1/mcp",
+            Some(json!({"jsonrpc":"2.0","id":1,"method":"initialize",
+                        "params":{"protocolVersion":"2025-11-25"}})),
+            &[("mcp-session-id", "abc123")],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(hello["result"]["protocolVersion"], "2025-11-25");
+    assert_eq!(hello["result"]["serverInfo"]["name"], "notes-mcp");
+    assert_eq!(headers["mcp-session-id"], "abc123");
+
+    // Without one, nothing is invented.
+    let (_, plain, _) = f
+        .request(
+            "POST",
+            "/v1/mcp",
+            Some(json!({"jsonrpc":"2.0","id":2,"method":"ping"})),
+            &[],
+        )
+        .await;
+    assert!(!plain.contains_key("mcp-session-id"));
+}
+
+/// Scope is the credential's, exactly as it is for REST: the fixture's token is
+/// scoped to `allowed/`, and `secret.md` sits outside it.
+#[tokio::test]
+async fn mcp_call_cannot_reach_outside_the_credential_scope() {
+    let f = Fixture::new(&[Permission::Read]);
+    let (status, _, answer) = f
+        .request(
+            "POST",
+            "/v1/mcp",
+            Some(json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+                        "params":{"name":"notes_read","arguments":{"path":"secret.md"}}})),
+            &[],
+        )
+        .await;
+    // The transport succeeded; the tool refused. That is the MCP shape for a
+    // denied call, and the marker planted outside the scope must not appear.
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["result"]["isError"], true);
+    let text = answer["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(
+        !text.contains("SECRET_MARKER"),
+        "content outside the scope reached the caller: {text}"
+    );
+}
+
 /// The budget above the credential one, and why holding a second credential is
 /// not a way around it.
 ///

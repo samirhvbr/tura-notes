@@ -369,6 +369,57 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
     .await
     .map_err(|_| internal())?
 }
+/// MCP over HTTP: one JSON-RPC message in, one JSON-RPC response out.
+///
+/// The credential has already been authenticated, rate-limited and audited by
+/// the time this runs, and the `AgentConfig` it produces is the same one the
+/// REST routes below build — workspace, scope, permissions, review. So this is
+/// an envelope over a call path that already exists, which is the whole design
+/// (`docs/MCP-0.7.md`).
+///
+/// **No session gate.** `Session::stateless()` because each request carries its
+/// own credential and HTTP keeps nothing between them; refusing `tools/list`
+/// until some earlier request said `initialize` would make correctness depend on
+/// state this transport does not have. `Mcp-Session-Id` is echoed when a client
+/// sends one so a client that tracks sessions is not confused, and is never
+/// required.
+///
+/// A notification carries no `id` and gets `202` with an empty body, which is
+/// what the spec asks for and what the stdio loop does by writing nothing.
+fn mcp(
+    server: &Server,
+    credential: &admin::Credential,
+    parts: &axum::http::request::Parts,
+    bytes: &[u8],
+) -> ApiResult<Response> {
+    let request: Value = body(bytes, &parts.headers)?;
+    let config = AgentConfig {
+        workspace: admin::workspace(&server.data, &credential.workspace).map_err(|_| internal())?,
+        scope: credential.scope.clone(),
+        permissions: credential.permissions.clone(),
+        review: credential.review,
+    };
+    let state = server.data.join("state");
+    let answer = notes_mcp::handle(
+        &config,
+        &request,
+        &mut notes_mcp::Session::stateless(),
+        Some(&state),
+    );
+    let mut response = match answer {
+        Some(value) => (StatusCode::OK, Json(value)).into_response(),
+        None => StatusCode::ACCEPTED.into_response(),
+    };
+    if let Some(session) = header(&parts.headers, "mcp-session-id") {
+        if session.len() <= 200 {
+            if let Ok(value) = session.parse() {
+                response.headers_mut().insert("mcp-session-id", value);
+            }
+        }
+    }
+    Ok(response)
+}
+
 fn dispatch(
     server: &Server,
     credential: &admin::Credential,
@@ -400,6 +451,9 @@ fn dispatch(
             json!({"workspaces":[{"name":credential.workspace,"scope":credential.scope,"permissions":credential.permissions,"review":credential.review}]}),
             StatusCode::OK,
         ));
+    }
+    if method == "POST" && path == "/v1/mcp" {
+        return mcp(server, credential, parts, bytes);
     }
     let route = path
         .strip_prefix("/v1/workspaces/")

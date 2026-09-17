@@ -1,9 +1,10 @@
 # Remote MCP over the server API
 
-> **Status:** `PROPOSED` · Milestone 0.7 · Nothing below is built. The queue item
-> that produces it is **0.7 — remote MCP** in
-> [`.continue/README.md`](../.continue/README.md); this page is the contract that
-> item is measured against, and it moves to `ACTIVE` only when the thing exists.
+> **Status:** `ACTIVE` · Milestone 0.7 · Implemented in 1.6.5. It was `PROPOSED`
+> while it described nothing, which is the only honest status for a contract
+> written before its subject; it moves here because `POST /v1/mcp` answers, the
+> catalogue is filtered per credential, and `server/tests/mcp.py` proves both
+> against a real process in the gate.
 
 [`roadmap.md` §0.7](roadmap.md#07--ai) states the whole of it in one sentence:
 *"REST stays the generic interface; MCP is the agent-facing layer over it, not a
