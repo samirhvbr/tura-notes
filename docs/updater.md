@@ -99,16 +99,35 @@ publish; it does not produce a feed nobody reads.
 
 Moving the feed to another name — `tura.samirhv.com.br`, for instance — means
 editing `endpoints` and rebuilding, and only builds made after that change would
-follow it. It is free today because nothing has ever been published, and it stops
-being free the moment something is. It is also not needed: the name that is
-already in every build is served by the machine the files are going to.
+follow it. **That stopped being free on 17/09/2026**, when the two Linux feeds
+were published at `1.6.3`: an installed build from before such a change keeps
+asking the old name for ever, so the old name has to keep answering. It is also
+not needed: the name already compiled into every build is served by the machine
+the files are going to.
 
 Examples: `darwin-aarch64-app.json`, `linux-x86_64-deb.json`,
 `linux-aarch64-appimage.json`, `linux-x86_64-rpm.json`. Each feed contains version,
 notes, HTTPS payload URL and signature. Payload names include version, platform
 and a content hash so a newly published feed cannot change an in-flight download.
 
-After normal download-service ingestion, the publisher stages files in a unique
+**Publishing is two independent steps, and conflating them is how six releases
+went out believing they had shipped.** One files the artifact with the download
+service, which is what puts a row on `/p/tura-notes`; the other writes the
+updater feed, which is what an installed application reads. Either can succeed
+while the other does nothing, and on 17/09 exactly that happened: both feeds
+were published and verified, and the ingest published nothing at all.
+
+**A zero exit status is not evidence of publication**, which is the lesson
+`1.6.28` paid for. `--version` is a Symfony Console *global* option:
+`Application::doRun()` reads it off raw argv before resolving any command, prints
+the framework's version and returns 0. The ingest step's entire output was
+`Laravel Framework 13.12.0`, and 0 is success — so the script deleted the staged
+upload and announced a release. The option is `--file-version` now, on both call
+sites. What to check after a publish is the row in the download service and the
+project page, never the exit code; the feed half already checks itself, and the
+ingest half is the one with nothing watching it.
+
+After download-service ingestion, the publisher stages files in a unique
 remote directory, checks SHA-256 and uses `sudo -u www-data` to install under
 `$TURA_PUBLISH_APP/public/updates/tura-notes`. It installs the payload first and
 atomically replaces only that platform's feed last. Staging is cleaned even on
@@ -161,8 +180,9 @@ signature verifier. The whole repository gate was run and still has the queued
 The changed CSS passes the contrast gate; the tracked version placeholder was
 verified again after packaging restored it.
 
-The live updater feed has **not** been published, and as of 1.1.18 nothing
-stands in the way of publishing it. The application path was never wrong:
+**The paragraph that used to open here said the live feed had never been
+published. That stopped being true on 17/09/2026 and the correction is below.**
+The application path was never wrong:
 `/srv/www/samirhv.com.br/samirhv` is exactly where the site's `deploy.sh` puts
 the Laravel application, and `ssh b3sys@100.64.100.125 test -f
 /srv/www/samirhv.com.br/samirhv/artisan` succeeds. The host was wrong, for six
@@ -171,7 +191,35 @@ previous version of this paragraph recorded, in good faith, as a path to
 confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
 against it.
 
-What remains is the act: a signed, notarised build published with `--publish`.
-No installed upgrade or live updater transport is claimed by these local checks,
-and none will be until that has run once and the feed has been read back from
-`https://samirhv.com.br`.
+### What is published, measured from outside — 18/09/2026
+
+Read back over HTTPS from `https://samirhv.com.br`, not inferred from a script's
+output:
+
+| Feed | State |
+|---|---|
+| `linux-x86_64-deb.json` | `1.6.3`, 416-byte signature, and its payload answers `200` at 7,210,292 bytes |
+| `linux-x86_64-appimage.json` | `1.6.3`, 420-byte signature |
+| `darwin-aarch64*.json` | `404` — there is no macOS feed, and there will not be one until a signed build exists on a Mac |
+
+So the live updater transport **has** run once for Linux and the feed **has**
+been read back, which is what the previous paragraph said would end the claim.
+
+**What remains is three separate things, and they are separate on purpose:**
+
+1. **The download-service row**, so `/p/tura-notes` stops saying *In preparation*
+   — measured again on 18/09 and it still does. This needs `--publish` to run
+   again with the `--file-version` fix of `1.6.28`, which needs the signing
+   environment: neither `./signing.env` nor `~/.config/tura-notes/build.env`
+   exists on the build machine today, so a publish would die at the updater
+   signature rather than reach the ingest.
+2. **The macOS feeds**, which need a signed, notarised build on a Mac.
+3. **The acceptance**, which no script infers: an installed upgrade between two
+   versions on macOS, AppImage, deb and rpm, and confirming the `1.6.1` `.deb`
+   removes the pre-`1.0.0` `notes` package on the machine that still carries it
+   ([ADR-082](decisions.md)).
+
+A feed that is published and a client that upgrades are not the same claim, and
+this page has now been wrong in both directions about that — first claiming
+nothing was published when the Linux feeds were, and elsewhere claiming the
+artifacts were filed when they were not.

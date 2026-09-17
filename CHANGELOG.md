@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.32 - the updater page and the queue were both wrong about the publish, in opposite directions
+
+Publishing a desktop release is two independent steps: filing the artifact with
+the download service, which is what puts a row on `/p/tura-notes`, and writing
+the updater feed, which is what an installed application reads. Neither
+`docs/updater.md` nor `.continue/README.md` distinguished them, and that is
+exactly why each got it wrong — in opposite directions.
+
+Measured over HTTPS rather than inferred from a script's output:
+`linux-x86_64-deb.json` and `linux-x86_64-appimage.json` are both live at
+`1.6.3`, with 416- and 420-byte signatures, and the `.deb` the feed points at
+answers `200` at 7,210,292 bytes. There is no macOS feed — `404`. And
+`/p/tura-notes` still says *In preparation*.
+
+So `updater.md` was stale in the pessimistic direction: it still said *"the live
+updater feed has not been published"* and *"what remains is the act"*, when the
+act had run for Linux and the feed had been read back — the exact condition that
+paragraph named as the one that would end its own claim. The queue was stale in
+the optimistic direction, recording the artifacts as ingested and the page as no
+longer saying *In preparation*.
+
+**The durable half is the sentence neither page had:** a zero exit status is not
+evidence of publication. `1.6.28` paid for that one — `--version` is a Symfony
+Console *global* option read off raw argv before any command resolves, so the
+ingest printed `Laravel Framework 13.12.0`, returned 0, and the script deleted
+the staged upload and announced a release. The feed half already verifies itself,
+fetching the manifest back and re-hashing the payload; the ingest half had
+nothing watching it, which is why it could fail silently for six releases. What
+to check after a publish is the row and the page, never the exit code.
+
+One more line stopped being true and is corrected with it: moving the feed to
+another name was *"free today because nothing has ever been published"*. It was
+free until 17/09. An installed build asks the name compiled into it for ever, so
+the old name now has to keep answering.
+
 ## 1.6.31 - the emulator blocker is a firmware bit, and the kernel had said so first
 
 Milestone 0.4 has compilation evidence and no execution evidence. Round 4 of the

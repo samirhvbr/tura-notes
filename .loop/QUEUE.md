@@ -26,7 +26,6 @@ commit, e nunca `git add -A` num tree que não seja meu.
 - [x] R4d — `ACCEPTANCE-0.1d.md` estendido (1.6.21). Parou no I10 onde o 0.13.0 deixou; I11–I14 cobrem o drawer (1.6.14), a barra de Markdown (1.6.15) e o banner de backend não-atômico (1.6.17), mais as linhas automatizadas que fazem par. **Os três primeiros não precisam de aparelho:** o drawer é decidido por largura, não por plataforma, então estreitar a janela do desktop abaixo de 720px e voltar exercita a fronteira nos dois sentidos — coisa que um telefone, que está sempre de um lado só dela, não faz. O I14 ficou `n/a` com o motivo escrito: `LocalFs` responde `atomic_replace = true` em toda plataforma, então o banner não aparece em pasta local e nenhum passeio o produz
 - [x] R4e — `docs/ACCEPTANCE-0.6.md` criado (1.6.22, com o S26 em 1.6.26). S1–S26, com cada controle nomeado pela palavra que aparece nele — lida do catálogo de i18n, não de memória. **Duas máquinas ou nada:** pasta sincronizada com ela mesma não prova coisa alguma, e o passeio do 0.5 vem antes. As falhas são percorridas de propósito: o S1 roda o teste de conexão errado quatro vezes antes de acertar, porque quatro frases mandando o dono para quatro máquinas diferentes é o recurso. S20 e S21 são as duas caixas em que o marco se apoia — byte a byte com `cmp`, e nada apareceu sem ser pedido. A metade de aparelho ficou declarada como não percorrível (o 0.4 ainda não produz aplicativo instalável) em vez de virar caixa que ninguém pode marcar
 - [x] R4f — `ACCEPTANCE-0.5.md` estendido (1.6.23). Estava escrito contra o 0.18.0, quando o 0.5 era um servidor; o que chegou depois é o que faz dele uma **implantação** — nome público, CDN na frente, script que atualiza, assinatura que trava a atualização, e jeito de emitir credencial sem ssh. A página ainda dizia *no public deployment is claimed by this milestone*, que deixou de ser verdade em 16/09. **Duas caixas o servidor não consegue checar sobre si mesmo:** Cloudflare em Flexible mente o `X-Forwarded-Proto`, e `NOTES_SERVER_TRUSTED_HOPS` precisa valer o número de proxies que existe de fato. A assinatura é percorrida como **recusa**, não como sucesso — e está bloqueada até o OWNER-ACTS §1, o que a página diz em vez de listar passo que não roda
-- [ ] R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulador x86_64 exige KVM e o `kvm_amd` é recusado pelo firmware (`SVMDIS` em `MSR_VM_CR`), que só sai com **Advanced ▸ CPU Configuration ▸ SVM Mode ▸ Enabled** na UEFI e um reinício — ASUSTeK TUF GAMING X570-PLUS_BR, BIOS 5043. Conferido em 18/09: `/dev/kvm` ainda não existe e o boot corrente é o de 16/09 11:23, então o reset ainda não aconteceu. Não fico esperando por isto. Quando existir: com o emulador de pé, instalar o app gerado e registrar o que de fato acontece — abrir, escolher pasta, listar, editar. É a primeira evidência de execução do 0.4; até aqui só existe evidência de compilação
 
 ## Reabastecimento — 17/09, medido
 
@@ -79,5 +78,57 @@ ainda dá para produzir sem sudo e sem aparelho, e achou-se um buraco de verdade
   documento `ACTIVE` é pior que frase faltando, porque carrega a autoridade de
   estar escrita. A seção nomeava dois dos sete testes do `jail.rs`; os três que
   vieram com a correção estão nomeados agora
+
+## Rodada 5 — reabastecida por medição, 18/09
+
+O R4g está parqueado (firmware, não sudo — ver acima) e o publish está parqueado
+(nem `./signing.env` nem `~/.config/tura-notes/build.env` existem). Nenhum dos
+dois encerra rodada. O que a medição de hoje achou:
+
+**Dois registros provadamente errados sobre a publicação, e errados em direções
+opostas.** Medido agora, de fora:
+
+- os dois feeds Linux **estão** publicados e legíveis — `linux-x86_64-deb.json` e
+  `linux-x86_64-appimage.json`, ambos em `1.6.3`, assinaturas de 416 e 420 bytes,
+  e o `.deb` baixa (HTTP 200, 7.210.292 bytes);
+- não há feed de macOS (404), o que confere com a fila;
+- **`samirhv.com.br/p/tura-notes` ainda diz "In preparation".**
+
+E os documentos: `.continue/README.md` diz que a página *"não mostra mais Em
+preparação"* (falso) e que deb e AppImage foram *"ingeridos"* (falso — é
+exatamente o passo que o 1.6.28 achou anunciando sem publicar). `docs/updater.md`
+diz o contrário, que *"the live updater feed has not been published"* e que
+*"what remains is the act"* — também falso, e nas linhas 163 e 174. Nenhum dos
+dois separa os **dois passos** de publicação, que é por que os dois erraram.
+
+- [x] R5a — feito (1.6.32). Os dois registros corrigidos, e a distinção que
+  faltava escrita em `docs/updater.md`: publicar o feed e ingerir no serviço de
+  download são passos independentes, e é por não separá-los que cada página
+  errou para um lado — o `updater.md` dizia que nada tinha sido publicado (os dois
+  feeds Linux estão em 1.6.3, lidos de volta por HTTPS) e a fila dizia que os
+  artefatos tinham sido ingeridos (a página ainda diz *In preparation*). A frase
+  durável: **saída zero não é prova de publicação**. A metade do feed já se
+  confere sozinha, refazendo o fetch e o hash; a metade da ingestão não tinha
+  nada olhando, que é como ela falhou calada por seis releases. Também caiu a
+  linha que dizia que mudar o nome do feed era de graça *"porque nada nunca foi
+  publicado"* — era, até 17/09
+- [ ] R5b — medir `ACCEPTANCE-0.1b.md` e `ACCEPTANCE-0.1c.md` contra tudo o que
+  entrou depois delas (16/09 e 11/09), como foi feito com 0.1a, 0.2 e 0.3.
+  Estender o que estiver desatualizado; onde não estiver, registrar a medição com
+  a data na própria página
+
+## Parqueado — espera um ato do dono, e não segura a fila
+
+Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
+que espera outra pessoa no topo da fila é uma rodada que gasta um turno por
+parada dizendo que nada aconteceu.
+
+- [ ] R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulador x86_64 exige KVM e o `kvm_amd` é recusado pelo firmware (`SVMDIS` em `MSR_VM_CR`), que só sai com **Advanced ▸ CPU Configuration ▸ SVM Mode ▸ Enabled** na UEFI e um reinício — ASUSTeK TUF GAMING X570-PLUS_BR, BIOS 5043. Conferido em 18/09: `/dev/kvm` ainda não existe e o boot corrente é o de 16/09 11:23, então o reset ainda não aconteceu. Não fico esperando por isto. Quando existir: com o emulador de pé, instalar o app gerado e registrar o que de fato acontece — abrir, escolher pasta, listar, editar. É a primeira evidência de execução do 0.4; até aqui só existe evidência de compilação
+- [ ] R5-publish — rodar `./build-local.sh --publish` com o `--file-version`
+  corrigido, que é o que tira o Access de *In preparation*. Conferido em 18/09:
+  nem `./signing.env` nem `~/.config/tura-notes/build.env` existem nesta máquina
+  e `~/.tauri/` só tem a chave do shvterm, então a build morre na assinatura do
+  updater. Não gasto build que morre num segredo. Destrava com o arquivo reposto
+  num dos dois caminhos, ou com `TURA_BUILD_ENV` apontando para onde ele está
 
 ## Colhidos automaticamente
