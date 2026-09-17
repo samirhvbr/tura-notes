@@ -29,7 +29,11 @@ The following implementation and owner checks remain pending:
 - Tauri mobile entry point, and the generated Apple project.
 - Full-screen editor, drawer navigation and Markdown keyboard toolbar.
 - Application-container workspace flows and background flush.
-- iOS security-scoped bookmarks and Android SAF with persisted authorization.
+- iOS security-scoped bookmarks, and Android SAF with persisted
+  authorization — the Android half now has a written contract in
+  [MOBILE-0.4.md](MOBILE-0.4.md) (`PROPOSED`), including the one thing that
+  does not map: SAF has no atomic rename, so `write_atomic` cannot promise on
+  a tree what it promises on a filesystem.
 - Revocation, moved documents, provider offline and reauthorization handling.
 - Budgeted polling for providers without watch support.
 - Real virtual-keyboard input: accents, dead keys, IME, selection, paste and undo.

@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.13 - write down what the Android folder adapter owes, before writing it
+
+`ACCEPTANCE-0.4.md` names SAF in one bullet — "Android SAF with persisted
+authorization" — and says nothing about what that adapter must do. `MOBILE-0.4.md`
+is `PROPOSED` and says it, because the questions worth settling here are settled
+by reading, and answering them in code first would answer them by accident.
+
+**The finding that justifies the page: `write_atomic` does not map.** On a
+filesystem it writes beside the target, fsyncs and renames over it, and the
+rename is what makes a note never half-written. SAF has no such rename —
+`DocumentsContract` may implement `moveDocument` and a cloud provider commonly
+refuses. So `Caps` grows a flag for whether writes are atomic on this backend,
+the adapter answers honestly per tree, and the user is told once at open rather
+than never. The `expect`/`BaseRev` half survives untouched: re-read, hash, refuse
+on mismatch is a divergence check, not an atomicity claim.
+
+Two things the trait already handles, which is why it does not widen: `watch`
+returns a degraded reason rather than failing and names "a SAF tree `[0.4]`" in
+its own documentation, and `delete` already reports `Permanent` on a backend
+without a trash.
+
+Revocation gets the sharpest rule on the page. A tree whose permission was
+withdrawn must read as `Unavailable` with a reason, never as an I/O error and
+never as an empty workspace — a workspace listing zero notes because permission
+vanished is indistinguishable from one the user emptied, and that is the mistake
+worth naming before anybody can make it.
+
+Nothing here is verified and the page says so in its own section. There is no
+AVD and no device on this machine, so the contract is a contract; the four-ABI
+cross-check landed at 1.6.12 and is compilation evidence, nothing more.
+
 ## 1.6.12 - CI checks the core for every Android ABI, not just for iOS
 
 `ACCEPTANCE-0.4.md` said the gate carries "an iOS simulator cross-check ... This
