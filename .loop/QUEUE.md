@@ -198,6 +198,14 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   A seção diz isso e o que decorre: nada é backportado, e *"minha versão está
   afetada?"* se responde pelo número, não por matriz de suporte
 
+- [x] R5j — o item da fila do aceite do 0.1d ainda pedia dez áreas (1.6.41). A
+  tabela é I1–I16 desde o 1.6.27. Item de fila que **subconta** é pior que um que
+  superconta: quem percorre para no I10, marca o item, e as seis linhas novas não
+  são percorridas por ninguém — enquanto o documento delas diz que estão pendentes
+  e a fila diz que o marco acabou. Corrigido, com quais são as seis e com a coisa
+  que vale saber antes de começar: três não precisam de aparelho. O `0.2-indice.md`
+  foi medido no mesmo passe e está certo (X1–X13, e a tabela acaba no X13)
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

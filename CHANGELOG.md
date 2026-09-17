@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.41 - the queue item for the 0.1d walk still asked for ten areas
+
+`.continue/0.1d-interface.md` is the item that will be closed when the owner
+walks the interface, and it named the walk as *"I1–I10 e os fluxos U1–U12,
+C1–C14"*. The I table has been I1–I16 since `1.6.27`.
+
+A queue item that undercounts the work is worse than one that overcounts: the
+person walking it stops at I10, ticks the item, and the six rows added since are
+never walked by anybody — while the document they live in says they are pending
+and the queue says the milestone is done.
+
+Corrected, with what the six are and the one thing worth knowing before starting:
+**three of them need no phone.** The drawer is decided by window width rather
+than by platform, so narrowing a desktop window past 720px and back walks the
+boundary in both directions, which a device — always on one side of it — cannot.
+
+`0.2-indice.md` was measured in the same pass and is right: it says X1–X13 and
+the table ends at X13.
+
 ## 1.6.40 - the file GitHub shows to a vulnerability reporter still carried a template TODO
 
 `SECURITY.md` is the path GitHub recognises — it is what turns on *"Report a
