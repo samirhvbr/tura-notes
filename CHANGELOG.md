@@ -7,6 +7,52 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.23 - the 0.5 walk covers the deployment that is actually running
+
+`ACCEPTANCE-0.5.md` was written against 0.18.0, when 0.5 was a server. What
+arrived afterwards is what makes one a *deployment* — a public name, a CDN in
+front of it, a script that updates it, a signature that gates the update, and a
+way to mint a credential without an ssh session — and none of it had a box. The
+page even still said "no public deployment is claimed by this milestone", which
+stopped being true on 16/09.
+
+The extension is organized by who is being trusted, because that is what the
+steps have in common.
+
+**Two of them the server cannot check about itself.** Cloudflare in **Flexible**
+mode encrypts the browser's half, leaves the CDN-to-origin hop in plain HTTP, and
+still sends `X-Forwarded-Proto: https` — the server then issues HSTS and accepts
+the request, having been lied to by its own configuration. And
+`NOTES_SERVER_TRUSTED_HOPS` has to equal the number of proxies that are really
+there: too high reads an entry the client supplied and makes the address budget
+forgeable, too low collapses every device into one bucket. Nothing in the
+repository can verify either, which is exactly why they are boxes rather than
+tests.
+
+**The signature step is walked as a refusal, not as a success.** Truncate the
+`.minisig`, run the deploy, confirm the installed binary did not move. A
+signature check nobody has seen refuse is a signature check nobody knows is
+wired up. It is also currently blocked: `notes-server.pub` does not exist, so
+every deploy is in the refusing state until OWNER-ACTS §1 happens, and the page
+says so rather than listing a step that cannot run.
+
+**The audit step is written as a grep for what must not be there** — no
+`Authorization` value, no note text, no query text, no plaintext token, no note
+path — with `X-Request-Id` on a client response matched against a line in the
+audit, because that correlation is the whole support story and is cheaper to
+check once than to discover missing.
+
+**The upgrade step exists for one sentence:** never ask an older server to
+overwrite future state. It is the move with no recovery, and the walk is there so
+the first time it is considered is not the night it is needed.
+
+The automated section gains the reason the smoke suite restarts between phases.
+It runs at production limits — 120/min per address, 60/min per credential — and
+a credential per phase cannot substitute, because the per-IP bucket is checked
+*before* authentication and every request in the suite comes from the same
+loopback address. Written down so that a future change which makes the suite
+green by raising a limit is recognizable as removing the coverage.
+
 ## 1.6.22 - milestone 0.6 has a walk, which was the only thing it was missing
 
 Sync is the only milestone whose contract was fully written and whose acceptance
