@@ -552,6 +552,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   fazendo exatamente o que foi escrito para fazer. `npm ci` é o remédio inteiro, e
   depois dele o gate fecha **verde em 41s, 35 passos**
 
+- [x] R6s — oito ferramentas, **seis** permissões, e três documentos diziam outra
+  coisa (1.6.80). Rodei a configuração de MCP exatamente como o `KNOWLEDGE-0.3.md`
+  imprime — mesmo JSON, workspace de verdade, binário de release, `initialize` e
+  `tools/list`. O exemplo funciona literal, que já é a primeira coisa que importa
+  numa página de configuração. Mas cinco permissões devolveram **sete** ferramentas:
+  o `Read` admite `notes_list` além de `notes_read`, e o `Update` admite
+  `notes_append` além de `notes_update`. O `MCP-0.7.md`, o `roadmap.md` §0.7 e o
+  `security.md` — o normativo, na linha que **eu** escrevi no 1.6.34 — diziam *"each
+  behind its own permission"*. **Não é preciosismo de contagem:** quem escreve
+  credencial de menor privilégio a partir dessas frases acredita que dá para conceder
+  leitura sem conceder listagem, e não dá. É defeito de documentação que vira de
+  segurança: não deixa o código errado, deixa errado o modelo que o operador tem dele
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

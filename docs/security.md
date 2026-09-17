@@ -73,7 +73,7 @@ credential disclosure are the concrete failures the core and transports prevent.
 | Sync application receipts | Spoofed device progress or out-of-scope history | Read and entire-history scope checks, first-credential device binding, monotonic atomic receipts; retirement is offline, requires prior owner-credential revocation and preserves other devices (ADR-048, ADR-064) |
 | Desktop installation | Tampered updates or restart during edits | Pinned Tura updater public key, HTTPS, signature verification before install, explicit user action and closed-workspace checks (ADR-074). Private signing key stays outside Git |
 | Server audit | Content/token disclosure or unbounded retention | Redacted structured events and five bounded segments |
-| Local MCP tool surface | An agent with a config file acting on notes beyond what its operator intended | `AgentConfig` confines it to one workspace and a scope; each tool sits behind its own permission and `notes_delete` needs one of its own; review mode turns writes into proposals; the catalogue is **filtered**, so a tool the credential cannot use is not advertised to it. Asserted against a real child process in `notes-mcp/tests/stdio.rs` (0.3) |
+| Local MCP tool surface | An agent with a config file acting on notes beyond what its operator intended | `AgentConfig` confines it to one workspace and a scope; every tool sits behind a permission — **six permissions for eight tools**, because `Read` admits `notes_list` as well as `notes_read` and `Update` admits `notes_append` as well as `notes_update`, so granting either grants both — and `notes_delete` needs one of its own; review mode turns writes into proposals; the catalogue is **filtered**, so a tool the credential cannot use is not advertised to it. Asserted against a real child process in `notes-mcp/tests/stdio.rs` (0.3) |
 | Remote MCP tool surface | A second authorization path appearing beside the REST one, or a browser reaching it | `POST /v1/mcp` (1.6.5) is an **envelope over `dispatch`, not a second implementation**: the same bearer credential, the same `AgentConfig`, the same `AgentService`, the same catalogue filter. Everything the API enforces before `dispatch` applies unchanged — loopback-or-trusted-proxy, refusal of any request carrying `Origin`, per-IP and per-credential limits, the redacted audit. It opens no SSE stream, so there is no long-lived connection to bound. A change to any of that is an ADR against ADR-043, not a detail (docs/MCP-0.7.md) |
 
 ## 3. General rules (mandatory)
@@ -168,8 +168,10 @@ is the untrusted text, and an agent holding MCP credentials is a caller that can
 act on it — so the place injected text becomes dangerous is the tool call it
 argues for, and the bound is what the credential admits rather than what the
 model decides. That bound is enforced where it cannot be talked out of: the scope
-confines which notes exist at all, each tool sits behind its own permission,
-`notes_delete` needs a separate one, review mode downgrades writes to proposals,
+confines which notes exist at all, every tool sits behind a permission — six of
+them for eight tools, so `Read` also grants listing and `Update` also grants
+appending — `notes_delete` needs a separate one, review mode downgrades writes to
+proposals,
 and a tool the credential lacks is **absent from the catalogue** rather than
 present and refused — a tool an agent can see is a tool an agent will argue for.
 None of that depends on the agent having read §4.9.

@@ -76,7 +76,12 @@ both come from the shared `AgentConfig`.
 
 `roadmap.md` §0.7 lists six: `notes_list`, `notes_search`, `notes_read`,
 `notes_create`, `notes_update`, `notes_move`. The code has **eight** — it also
-carries `notes_append` and `notes_delete`, each behind its own permission. The
+carries `notes_append` and `notes_delete`. **Eight tools sit behind six permissions**, and the two that share are worth
+knowing before you write a credential: `Read` admits `notes_list` as well as
+`notes_read`, and `Update` admits `notes_append` as well as `notes_update`.
+This page said *"each behind its own permission"* until `1.6.80`, which is the
+claim somebody designing a least-privilege credential would act on and could
+not achieve. The
 code is the reality and the roadmap line is stale; correcting it is part of
 producing this milestone, in the same pass, rather than shipping a contract that
 disagrees with the source it describes.

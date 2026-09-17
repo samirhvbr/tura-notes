@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.80 - eight tools, six permissions, and three documents said otherwise
+
+Ran the MCP configuration exactly as `KNOWLEDGE-0.3.md` prints it — the same
+JSON, a real workspace, the release binary, `initialize` then `tools/list`. The
+example works verbatim, which is the first thing worth knowing about a
+configuration page.
+
+What came back does not match what the contracts say. Five permissions
+(`read, search, create, update, move`) returned **seven** tools.
+
+`AgentService::permission` maps `notes_list | notes_read` to `Read` and
+`notes_update | notes_append` to `Update`. **Eight tools, six permissions.**
+`MCP-0.7.md` said *"each behind its own permission"*, `roadmap.md` §0.7 said
+*"eight, each behind its own permission"*, and `security.md` — the normative one,
+in the row I added at `1.6.34` — said it twice.
+
+**This is not pedantry about a count.** Somebody writing a least-privilege
+credential from those sentences believes they can grant reading a note without
+granting a listing of the subtree, or grant editing without granting append. They
+cannot, and the page they would check says they can. That is the shape of a
+documentation defect that becomes a security one: it does not make the code
+wrong, it makes the operator's model of the code wrong.
+
+Corrected in all three, each naming which pairs share and what that grants.
+`security.md` gets the sharpest wording because it is the page that wins a
+conflict.
+
+**Found by running the documented path rather than reading it**, which is the
+same method that produced `1.6.79` an hour earlier — and both findings were in
+the half of the document nobody re-reads, because it looked settled.
+
 ## 1.6.79 - the onboarding section told a contributor to copy a file that does not exist
 
 `docs/runbook.md` §2 is *From a clean machine to running*, and it was still the
