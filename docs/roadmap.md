@@ -188,7 +188,10 @@ Device acceptance remains pending.
 
 - REST API (already standing from 0.5);
 - **MCP server** exposing `notes_list`, `notes_search`, `notes_read`,
-  `notes_create`, `notes_update`, `notes_move`.
+  `notes_create`, `notes_update`, `notes_append`, `notes_move`, `notes_delete`
+  — eight, each behind its own permission, and a credential is told only about
+  the ones its permissions admit. This line said six until 1.6.4; the two it
+  omitted have shipped in the stdio server since 0.3.
 
 Both go through the same authentication and the same scopes. REST stays the
 generic interface; MCP is the agent-facing layer over it, not a second
