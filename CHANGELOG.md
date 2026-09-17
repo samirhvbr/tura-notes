@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.63 - the page every session reads first said it was last reviewed fifty versions ago
+
+`CLAUDE.md` opens by naming the reading order, and `.continue/README.md` is
+first: *the queue — where we stopped, **always first***. Its own header said
+*"last reviewed 12/09/2026, repository at `1.1.0`"*. The repository is at
+`1.6.62`, and rows in that table have been edited four times today.
+
+A stale review stamp on the first page of the reading order is worse than no
+stamp. It invites a session either to distrust rows that are correct, or to trust
+rows that changed underneath it — and there is no way to tell which from the
+page.
+
+Reviewed for real, then stamped: every row checked against the thing it names.
+Three were incomplete rather than wrong.
+
+**0.4 did not say why nothing has been seen running.** It listed what remains as
+though it were all pending work, when the whole list is behind one firmware bit —
+`kvm_amd` refused by `SVMDIS` in `MSR_VM_CR`, which only the UEFI clears. The SDK
+side is finished: emulator, platform-tools, the `android-35;google_apis;x86_64`
+image and an AVD all exist. Reading the row before, you would have concluded the
+Android work had barely started.
+
+**0.6 named only the acceptance.** It now also carries the gap `1.6.58` wrote
+into `0.6-sync.md`: broader retention, mobile lifecycle and device acceptance,
+named as open in three contracts and specified in none, turning on three product
+questions.
+
+**MinGW had no row at all**, despite having already blocked real work — the
+`reqwest` bump of `1.6.55`, tried, measured and reverted because
+`clippy (windows)` cannot run here and the escape hatch does not cover a commit
+that touches Rust. Dependabot's pull request is still open on it.
+
 ## 1.6.62 - the agent instructions understated the project by a whole milestone
 
 The sweep that found the macOS claim in three places, turned on the milestone

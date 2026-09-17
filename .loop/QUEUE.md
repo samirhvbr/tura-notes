@@ -408,6 +408,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   varridas no mesmo passe voltaram certas: as oito ferramentas MCP conferem com o
   código, e as dezesseis áreas de interface conferem com a tabela
 
+- [x] R6f — a página que toda sessão lê primeiro dizia que foi revista cinquenta
+  versões atrás (1.6.63). O `CLAUDE.md` manda ler o `.continue/README.md` **sempre
+  primeiro**, e o cabeçalho dele dizia *"last reviewed 12/09/2026, repository at
+  1.1.0"*. Carimbo velho na primeira página da ordem de leitura é pior que carimbo
+  nenhum: convida a sessão a desconfiar de linha certa, ou a confiar em linha que
+  mudou por baixo — e não há como saber qual. Revisto de verdade e então carimbado.
+  Três linhas estavam incompletas: o **0.4** não dizia que tudo ali está atrás de um
+  bit de firmware (lendo antes, a conclusão era que o Android mal começou); o **0.6**
+  só citava o aceite e não a lacuna de retenção; e o **MinGW** não tinha linha
+  nenhuma, apesar de já ter segurado trabalho de verdade
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
