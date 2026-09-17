@@ -274,6 +274,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   que é `HISTORICAL` e cujo banner diz **não construa contra este arquivo** —
   documento vivo despachando leitor para um superseded, no primeiro parágrafo
 
+- [x] R5q — varri o repositório atrás da classe que o 1.6.47 revelou — documento
+  vivo linkando para superseded — e achei sete links, três defeituosos (1.6.48).
+  O `roadmap.md` e duas ADRs escreviam `[architecture.md]` apontando para o
+  `architecture-v1.md`: o texto nomeia o documento vivo e o link vai para o
+  `HISTORICAL`, cujo banner diz *não construa contra este arquivo*. O `docs/README.md`
+  ainda trazia o `product.md` como `PROPOSED` — regra do mesmo passe quebrada por
+  mim, no passe que consertava um status — e rotulava o `architecture-v1.md` de
+  `SUPERSEDED`, palavra que não é uma das cinco e que o `doc-status.sh` conta num
+  comentário ter sido aposentada. **Sem regra nova no gate:** quatro links legítimos
+  para três defeitos dá lista de exceção maior que os achados, e aí o check é pulado
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

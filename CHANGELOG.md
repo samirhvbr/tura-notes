@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.48 - three citations named a file that exists and is not the one they point at
+
+Sweeping for live documents that link into superseded ones — the defect found in
+`product.md` at `1.6.47` — turned up seven links and three defects. The other
+four are correct and stay: `ARCHITECTURE.md` explaining what it replaced,
+`docs/README.md` indexing it, and two pointers at `MOBILE-0.4.md` that already
+label it `PROPOSED` in their own text.
+
+**`roadmap.md` and two ADRs wrote `[architecture.md]` and pointed at
+`architecture-v1.md`.** `architecture.md` does not exist and `ARCHITECTURE.md`
+does, so the link text names the live document while the link goes to the
+`HISTORICAL` one — whose own banner says *do not build against this file*. A
+reader who trusts link text lands in a superseded architecture believing it is
+current, which is precisely what the status vocabulary is for. The text now says
+`architecture-v1.md`, and the roadmap says out loud that it is the historical
+page and why the reasoning lives there.
+
+**The index was stale from yesterday, and by my own hand.** `docs/README.md`
+still carried `product.md` as `PROPOSED` and described it as *"the accessible
+product narrative for the original plan"* — `1.6.47` promoted the document and
+did not update the page that indexes it, which is the same-pass rule broken in
+the pass that was fixing a status.
+
+**And it labelled `architecture-v1.md` `SUPERSEDED`**, a word that is not one of
+the five. `tools/doc-status.sh` carries the story in a comment: that file
+declared `SUPERSEDED` for a while, *"unambiguous to a human, and a word the
+reader has to interpret rather than look up"*, and was changed to `HISTORICAL`.
+The index kept the retired word, so the vocabulary was six words wide in the one
+place a reader browses them side by side.
+
+**No new gate rule for this class.** The sweep found four legitimate links to
+three defects; a check with that ratio gets an exemption list longer than its
+findings and then gets skipped. The cheap half is already mechanical — the link
+checker proves the file and anchor exist — and the half that is left is judgment
+about whether a reader would be misled, which is a review, not a test.
+
 ## 1.6.47 - the page you must read before changing product behaviour was formally powerless
 
 `docs/product.md` declared `Status: PROPOSED` and opened with **"Nothing

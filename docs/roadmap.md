@@ -105,7 +105,8 @@ iOS and Android, against the same core.
 
 **The interface is adapted, not shrunk.** This is also the stage that pays for
 the filesystem abstraction in
-[architecture.md](architecture-v1.md#4-the-filesystem-abstraction), and the reason
+[architecture-v1.md §4](architecture-v1.md#4-the-filesystem-abstraction) — the
+`HISTORICAL` page, which is where that reasoning was written — and the reason
 it is here rather than at 0.1 is
 [ADR-008](decisions.md#adr-008--desktop-first-mobile-at-milestone-04-behind-the-same-abstraction): "a folder the
 user chose" is a desktop concept, and iOS in particular has no equivalent — the
