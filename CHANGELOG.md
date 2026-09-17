@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.6 - the Windows job is intermittent in two different places
+
+With ubuntu, Arch, the advisories and the contract checks green, `rust
+(windows-latest)` became the only red left — and it turns out to alternate on
+commits that cannot have caused it:
+
+| version | Windows | what failed |
+|---|---|---|
+| 1.4.3 | red | `the_tree_appears_in_well_under_a_second` — 2 160 directories in **1 243 ms** against a 1 000 ms ceiling |
+| 1.4.4 | green | — |
+| 1.4.5 | red | `received_bytes_remain_pending_until_explicit_application`, `control.rs:901`, the peer log holding 3 where 4 was expected |
+
+Two different tests, and the only commits between them touch a Linux-only test
+file, a queue row, `Cargo.lock` and CI YAML. 1.4.4 is the `rustls` bump and it
+is the one that passed, which exonerates the dependency change specifically.
+
+**Neither is fixed here, and the first one should not be fixed quietly.**
+ADR-034 promises the tree appears in under a second at any size, and 1 243 ms on
+a contended shared runner is not evidence that a user's machine misses it —
+but loosening a product criterion's assertion to make CI green is a decision
+with an ADR attached, not a patch. The second has no diagnosis at all and wants
+a Windows machine to get one.
+
+They go to the queue with their evidence instead. This is the same call as the
+`recovery` flake recorded in 1.4.3: an intermittent failure nobody wrote down is
+one somebody rediscovers.
+
 ## 1.4.5 - eight advisories nobody can act on stop hiding the ones we can
 
 `cargo audit --deny warnings` had been failing CI on eight `unmaintained` and
