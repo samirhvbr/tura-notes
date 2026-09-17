@@ -138,6 +138,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   o §8 ganhou o irmão da melhor linha dele: se `HTTP 200` não prova nada, saída
   zero também não — virou a **ADR-084**, com o caso medido
 
+- [x] R5d — `docs/ARCHITECTURE.md` descrevia outra estrutura (1.6.35). O
+  `CLAUDE.md` manda ler essa página antes de mexer em estrutura, e ela listava
+  seis dos oito crates, não tinha `server/` nenhum, e ainda descrevia
+  `packages/ui/` — diretório que nunca foi criado. O `notes-sync` e o
+  `notes-sync-client` existem desde o 0.6 e não apareciam em lugar nenhum: nem na
+  árvore, nem no diagrama, nem na tabela. **O diagrama é a parte que importa**,
+  porque é o que alguém copia ao acrescentar um crate: o `notes-sync` fica ao lado
+  do `notes-fs`, não acima do `notes-core`, porque domínio causal que não se
+  raciocina sem filesystem é domínio que ninguém testa. E o `notes-server` é o
+  único consumidor que pega `notes-core` **e** `notes-mcp`, que é exatamente a
+  forma que o 0.7 defendeu. A ADR-042 ficou intacta — ela registra o que foi
+  adiado naquele dia
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

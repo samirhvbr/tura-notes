@@ -51,9 +51,11 @@ notes/
 │   ├── notes-markdown/             [0.1b] parse → Document IR, render → sanitized HTML
 │   ├── notes-core/                 WorkspaceService: registry, write protocol, reconciliation, session
 │   ├── notes-index/                [0.2] SQLite, FTS5, parsed links; tags at 0.3
-│   └── notes-mcp/                  [0.3] stdio MCP server over notes-core
-├── packages/
-│   └── ui/                         shared React components; may stay empty until 0.4 needs it
+│   ├── notes-mcp/                  [0.3] the tool catalogue and JSON-RPC envelope (lib) + the stdio server (bin)
+│   ├── notes-sync/                 [0.6] causal revisions, hashes, tombstones, conflict plans — no I/O
+│   └── notes-sync-client/          [0.6] durable transfer queues over notes-core
+├── server/
+│   └── notes-server/               [0.5] the standalone REST process, and [0.7] POST /v1/mcp
 ├── fixtures/
 │   ├── basic/                      ~200 committed notes
 │   ├── edge-cases/                 committed: CRLF, BOM, NFD, mixed EOL, empty, duplicates, 5 MB, odd names
@@ -66,17 +68,31 @@ notes/
 └── .continue/
 ```
 
-Cargo workspace at the root (`crates/*`, `apps/notes-app/src-tauri`); **npm**
-for `apps/*` and `packages/*`, with `package-lock.json` committed.
+Cargo workspace at the root — `crates/*`, `apps/notes-app/src-tauri` **and
+`server/notes-server`**; **npm** for `apps/*`, with `package-lock.json`
+committed. `packages/` was planned for shared React components and never
+created; the line describing it was removed at `1.6.35` rather than kept as a
+directory a reader would go looking for.
 `rust-toolchain.toml` pins stable at the version current when 0.1a starts;
 `.nvmrc` pins Node LTS.
 
 Dependency direction, enforced by `Cargo.toml` and checked in CI:
 
 ```
-notes-model ← notes-fs ──────┐
-notes-model ← notes-markdown ─┼─← notes-core ← { src-tauri, notes-mcp, notes-index }
+notes-model ← notes-fs ───────┐
+notes-model ← notes-markdown ─┼─← notes-core ← { src-tauri, notes-mcp, notes-sync-client, notes-server }
+notes-model ← notes-sync ─────┘         ↑
+                                   notes-index
 ```
+
+`notes-sync` sits beside `notes-fs` rather than above `notes-core`: it depends on
+`notes-model` and `notes-markdown` and nothing else, because a causal revision
+domain that cannot be reasoned about without a filesystem is one nobody can test.
+`notes-sync-client` is the half that does the I/O, and it is above `notes-core`.
+
+`notes-server` is the only consumer that takes both `notes-core` and `notes-mcp`,
+which is the shape 0.7 argued for: one catalogue, two transports, no second
+implementation over the notes.
 
 No crate under `crates/` depends on `tauri`. A crate that needs it is in the
 wrong place (ADR-003).
@@ -96,7 +112,9 @@ schema change that forces a migration or reindex is a **Y** bump.
 | `notes-markdown` `[0.1b]` | `parse(&str) -> Document`; `render_html(&str, RenderOpts) -> Rendered`; link resolution; slugging; sanitization | do I/O; know about workspaces |
 | `notes-core` | `WorkspaceService` — open/close workspace, registry, text profile, write protocol, drafts, conflicts, reconciliation, identity correlation, session, settings, search-by-scan, cross-process lock | render UI strings; depend on `tauri` |
 | `notes-index` `[0.2]` | separate SQLite stores, incremental cache, FTS5, parsed document facts; graph/tags at 0.3 | be required for opening or editing a note |
-| `notes-mcp` `[0.3]` | stdio server; permission scopes; base-rev enforcement | contain any note logic not in `notes-core` |
+| `notes-mcp` `[0.3]` | the tool catalogue, argument schemas and JSON-RPC envelope in `lib.rs`; the stdio server in `main.rs`; permission scopes; base-rev enforcement | contain any note logic not in `notes-core`; hold a second description of a tool — `tools()` moved into the library at `1.6.4` so both transports answer `tools/list` from one place, and a schema cannot drift between them |
+| `notes-sync` `[0.6]` | causal revision histories, content hashes, tombstones, conflict detection and plans | do I/O; know about a server, a queue or a filesystem |
+| `notes-sync-client` `[0.6]` | durable transfer queues, resumable passes, receipts, and applying a prepared queue through `notes-core` | decide a conflict; apply anything with a workspace open |
 
 `notes-core` is the only public API. `src-tauri` and `notes-mcp` are clients of
 it and contain no policy of their own.

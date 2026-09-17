@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.35 - the structure document was missing two crates, the server, and had a directory that does not exist
+
+`CLAUDE.md` says to read `ARCHITECTURE.md` before changing structure. Measured
+against the structure: its tree listed six of the eight crates under `crates/`,
+had no `server/` at all, and still described `packages/ui/` — a directory that
+was never created.
+
+`notes-sync` and `notes-sync-client` have existed since 0.6 and appear in neither
+the tree, the dependency diagram nor the responsibilities table. `server/
+notes-server` is a workspace member — `members = ["crates/*",
+"apps/notes-app/src-tauri", "server/notes-server"]` — and the sentence naming the
+workspace named the first two.
+
+**The diagram is the part worth getting right**, because it is the thing someone
+copies when they add a crate. `notes-sync` sits beside `notes-fs`, not above
+`notes-core`: it depends on `notes-model` and `notes-markdown` and nothing else,
+because a causal revision domain that cannot be reasoned about without a
+filesystem is one nobody can test. `notes-sync-client` is the half that does I/O
+and sits above the core. And `notes-server` is the only consumer that takes both
+`notes-core` and `notes-mcp`, which is exactly the shape 0.7 argued for: one
+catalogue, two transports, no second implementation over the notes.
+
+`notes-mcp`'s row said "stdio server". Since `1.6.4` the catalogue, the argument
+schemas and the JSON-RPC envelope live in `lib.rs` and the stdio loop is only
+`main.rs` — so its *must not* column now carries the constraint that matters:
+never a second description of a tool, because one function answering `tools/list`
+on both transports is what keeps a schema from drifting between them.
+
+`packages/` is removed rather than left with a "may stay empty" note. A reader
+who goes looking for a directory the document describes and does not find it
+learns to distrust the document, which costs more than the line saved. ADR-042's
+mention of it is left alone: it records what was deferred that day.
+
+**This is a Z bump although the page says adding a crate is a Y.** Nothing was
+added; two crates that have existed for a milestone are being written down.
+
 ## 1.6.34 - the document that wins conflicts had never heard of this project's agent surface
 
 `docs/security.md` is normative — in a conflict with any other document it wins —
