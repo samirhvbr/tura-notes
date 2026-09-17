@@ -577,6 +577,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   **não** como caixa marcada — a regra de que o passeio é do dono não dobra porque
   uma máquina concordou com a página
 
+- [x] R6u — a CLI de operador faz o que a página dela diz, recusas inclusive
+  (1.6.82). Quarto caminho documentado executado em vez de lido. Rodado literal
+  contra um diretório descartável: `workspace create` → `token create` → `serve`
+  não precisa de nada que a página omita; o `token create` imprime **só** o UUID; o
+  arquivo de segredo nasce `0600` e um segundo create no mesmo nome é recusado com
+  `File exists`; o `token list` é redigido; `-` concede `[]`. **A parte que conferi
+  de propósito foram os códigos de saída:** quatro recusas, todas saindo `1`. Não é
+  formalidade — a ADR-084 nasceu hoje porque um passo de release devolvia zero sem
+  publicar nada, e recusa que sai zero é o mesmo defeito uma camada abaixo: o script
+  do operador arquivaria uma credencial que nunca foi criada
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

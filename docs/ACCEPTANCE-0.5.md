@@ -37,6 +37,31 @@ actual process and offline restore. The server CI job builds the container,
 validates OpenAPI and exercises the API through certificate-verified Caddy TLS.
 The project gate also runs the existing filesystem/core/frontend checks.
 
+### The operator CLI, run from the page that documents it — 19/09/2026
+
+Not a walk and not a tick: a machine check of what
+[SERVER-0.5.md](SERVER-0.5.md#local-operation) prints, executed verbatim against
+a throwaway data directory.
+
+| Claim | Observed |
+|---|---|
+| `workspace create` then `token create` then `serve` work as printed | They do; the sequence needs nothing the page does not mention |
+| `token create` prints **only** the credential UUID | One UUID on stdout, and nothing else |
+| The secret file is created exclusively, mode `0600` | `600`, and a second `token create` onto the same filename is refused with `File exists (os error 17)` |
+| `token list` is redacted | Label, scope, permissions, review and revoked flags — no secret, no digest |
+| `-` grants no permissions | The listed credential carries `[]` |
+| Workspace names are `[a-z0-9_-]` | `invalid workspace name` on one with capitals and a space |
+
+**And every refusal exits non-zero** — reused filename, invalid name, unknown
+workspace, unknown subcommand, all `1`. Checked deliberately rather than
+assumed, because
+[ADR-084](decisions.md#adr-084--a-step-that-publishes-installs-or-deletes-is-verified-by-reading-back-what-it-changed)
+exists precisely for the case where a refusal reports success and the script
+around it believes the work happened.
+
+None of this is the walk below: it says the commands behave as documented, not
+that a deployment serves the owner's notes over TLS to their devices.
+
 ## Owner walk
 
 - [ ] Install the released Linux server or build its pinned container; provision

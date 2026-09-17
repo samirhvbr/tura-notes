@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.82 - the operator CLI does what its page says, refusals included
+
+Fourth documented path executed rather than read. `SERVER-0.5.md` §*Local
+operation* is the first thing an operator runs, and the first step of the 0.5
+owner walk sits on top of it.
+
+Run verbatim against a throwaway data directory, every claim holds:
+`workspace create` → `token create` → `serve` needs nothing the page omits;
+`token create` prints only the credential UUID; the secret file lands at `0600`
+and a second create onto the same filename is refused with `File exists (os error
+17)`; `token list` is redacted; `-` grants `[]`; a workspace name with capitals
+and a space is refused.
+
+**The part worth checking deliberately was the exit codes.** Four refusals —
+reused filename, invalid name, unknown workspace, unknown subcommand — all exit
+`1`. That is not a formality here:
+[ADR-084](docs/decisions.md#adr-084--a-step-that-publishes-installs-or-deletes-is-verified-by-reading-back-what-it-changed)
+was written today because a release step returned zero while publishing nothing,
+and a refusal that exits zero is the same defect one layer down — an operator's
+script would file a credential that was never created.
+
+Recorded in `ACCEPTANCE-0.5.md` as a dated machine check beside the 0.6 one, and
+in the same shape: explicitly not a ticked box, and explicitly narrow. It says
+the commands behave as documented. It does not say a deployment serves notes over
+TLS to the owner's devices, which is the walk.
+
+Four paths executed now — clean clone, MCP configuration, sync preview, operator
+CLI. Two found defects, two came back clean.
+
 ## 1.6.81 - the sync preview keeps every promise its page makes, checked by running it
 
 Same method as `1.6.79` and `1.6.80`: run the documented path instead of reading
