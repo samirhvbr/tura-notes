@@ -40,17 +40,13 @@ remains pending for every one of them:
 [0.7](docs/ACCEPTANCE-0.7.md). Automated tests are recorded separately, and
 none of them ticks an owner's box.
 
-**Linux is downloadable; macOS is not yet.** Every Release carries the `.deb`,
-the AppImage and the Arch package, and the desktop updater feeds are live at
-`1.6.3`. The macOS `.dmg` is signed with a Developer ID and notarised by Apple —
+**Both are downloadable.** Every Release carries the `.deb`, the AppImage and the
+Arch package; macOS is served from
+[samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes) rather than
+attached to the Release, signed with a Developer ID and notarised by Apple. It is
 built by `./build-local.sh` on the machine whose keychain holds the certificate
 rather than by CI, because that is where a signing key should live
-([ADR-070](docs/decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)) — but it has not reached anywhere you can
-download it from: no Release carries a `.dmg`, there is no macOS updater feed,
-and [samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes) still
-says *In preparation*. The cause is fixed at `1.6.28` and what remains is
-re-running the publish; the state is tracked in
-[updater.md](docs/updater.md). The `build.yml` job stays disabled and the
+([ADR-070](docs/decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)). The `build.yml` job stays disabled and the
 GitHub Release carries the Linux artefacts only.
 
 **Windows is not published.** An unsigned build teaches its user to click past
@@ -62,13 +58,9 @@ Stack: Tauri 2 · React · TypeScript · Rust · CodeMirror 6 · SQLite/FTS5.
 
 ## Install
 
-**macOS has no download yet.** The `.dmg` is signed with a Developer ID and
-notarised, and it has not reached a place you can fetch it from — no Release
-carries one, there is no macOS updater feed, and
-[samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes) still says
-*In preparation*. Until that is re-run, macOS means building it yourself with
-`./build-local.sh` (see *Local desktop installers* below). When it does land,
-the page will show the hash to check the download against:
+macOS, from [samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes):
+a signed, notarised `.dmg` for Apple silicon. Check it before you open it — the
+page shows the same hash:
 
 ```bash
 shasum -a 256 ~/Downloads/Tura\ Notes_*.dmg

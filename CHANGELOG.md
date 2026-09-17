@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.66 - macOS is published, and three commits today said it was not
+
+`1.6.57`, `1.6.59` and `1.6.60` corrected the README's status, the README's
+install instructions and the runbook's platform table to say macOS had no
+download. Measured now, over HTTPS:
+
+| Feed | State |
+|---|---|
+| `darwin-aarch64-app.json` | **1.6.63**, and its `TuraNotes.app.tar.gz` answers `200` |
+| `linux-x86_64-deb.json` · `linux-x86_64-appimage.json` | **1.6.53** |
+| `/p/tura-notes` | shows both versions and a `.dmg` — no longer *In preparation* |
+
+**The measurement that produced those three commits was correct when it was
+taken and was stale within hours.** A publish ran while this round was working:
+the Linux feeds moved from `1.6.3` to `1.6.53` and a macOS feed appeared where
+there had been a `404`. All three pages are corrected back, to what is true now
+rather than to what they said before.
+
+**And the reason I gave for the block was wrong**, which is the part worth
+keeping. I reported the publish as blocked on a missing updater key, having
+checked `./signing.env` and `~/.config/tura-notes/build.env` and found neither.
+Those two hold the **macOS notarisation credentials**.
+`tools/updater-release.py` falls back to `~/.config/tura-notes/updater.key`,
+which has existed since 16/09 — so the key was never missing, and checking two
+paths that were not the key's path is not the same as checking for the key.
+
+The lesson is narrower than "measure": read what a script actually reads before
+reporting what it cannot find.
+
 ## 1.6.65 - the rest of the test counts, swept and mostly right
 
 Having found `ACCEPTANCE-0.1b.md` undercounting by half at `1.6.64`, the same

@@ -472,11 +472,13 @@ que espera outra pessoa no topo da fila é uma rodada que gasta um turno por
 parada dizendo que nada aconteceu.
 
 - [ ] R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulador x86_64 exige KVM e o `kvm_amd` é recusado pelo firmware (`SVMDIS` em `MSR_VM_CR`), que só sai com **Advanced ▸ CPU Configuration ▸ SVM Mode ▸ Enabled** na UEFI e um reinício — ASUSTeK TUF GAMING X570-PLUS_BR, BIOS 5043. Conferido em 18/09: `/dev/kvm` ainda não existe e o boot corrente é o de 16/09 11:23, então o reset ainda não aconteceu. Não fico esperando por isto. Quando existir: com o emulador de pé, instalar o app gerado e registrar o que de fato acontece — abrir, escolher pasta, listar, editar. É a primeira evidência de execução do 0.4; até aqui só existe evidência de compilação
-- [ ] R5-publish — rodar `./build-local.sh --publish` com o `--file-version`
-  corrigido, que é o que tira o Access de *In preparation*. Conferido em 18/09:
-  nem `./signing.env` nem `~/.config/tura-notes/build.env` existem nesta máquina
-  e `~/.tauri/` só tem a chave do shvterm, então a build morre na assinatura do
-  updater. Não gasto build que morre num segredo. Destrava com o arquivo reposto
-  num dos dois caminhos, ou com `TURA_BUILD_ENV` apontando para onde ele está
+- [x] R5-publish — **aconteceu, e o meu diagnóstico do bloqueio estava errado**
+  (1.6.66). Medido agora: feeds Linux em `1.6.53`, feed `darwin-aarch64-app` em
+  `1.6.63` com o payload respondendo 200, e o `/p/tura-notes` mostrando as duas
+  versões. Eu tinha reportado bloqueio por chave do updater ausente, checando
+  `./signing.env` e `~/.config/tura-notes/build.env` — esses dois guardam as
+  **credenciais de notarização do macOS**. O `tools/updater-release.py` cai em
+  `~/.config/tura-notes/updater.key`, que existe desde 16/09. A chave nunca faltou;
+  eu conferi dois caminhos que não eram o dela
 
 ## Colhidos automaticamente
