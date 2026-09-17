@@ -98,6 +98,29 @@ Use the same OS account and app-data directory as the app. A deliberate
 directories cannot share operational IDs, receipts or locks. The integration
 never installs or changes this client configuration for you.
 
+### The other transport, since 0.7
+
+**Everything above is the local one**, and it is the one to use when the agent
+runs on the same machine as the notes: a process, a config file, no network and
+no port ([ADR-007](decisions.md#adr-007--the-desktop-app-opens-no-network-port-by-default)
+still holds — the desktop app opens nothing).
+
+Since `1.6.5` the self-hosted server answers the same protocol at
+`POST /v1/mcp`, for an agent that is **not** on that machine. What is shared is
+the part that matters: one catalogue, the same eight tools, the same
+permission filter, the same `AgentService` underneath — `tools()` lives in
+`crates/notes-mcp/src/lib.rs` and both transports call it, so a schema cannot
+drift between them. A tool that existed remotely and not locally would be the
+second implementation the roadmap forbids.
+
+What differs is only how the caller is identified and bounded: here it is a JSON
+config file you write; there it is a bearer credential the server already issues,
+carrying its own workspace, scope, permissions and review flag. Choosing one does
+not change what the agent can do to a note.
+
+The contract is [MCP-0.7.md](MCP-0.7.md), and the walk that is still open is
+[ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md).
+
 | Tool | Permission | Required arguments |
 |---|---|---|
 | `notes_list` | read | optional limit |

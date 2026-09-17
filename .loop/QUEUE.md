@@ -206,6 +206,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   que vale saber antes de começar: três não precisam de aparelho. O `0.2-indice.md`
   foi medido no mesmo passe e está certo (X1–X13, e a tabela acaba no X13)
 
+- [x] R5k — o `KNOWLEDGE-0.3.md`, que é de onde se configura MCP, não mencionava o
+  segundo transporte (1.6.42). O `MCP-0.7.md` aponta para lá; nada apontava de
+  volta. O custo é concreto, não arrumação: quem roda o servidor e quer um agente
+  em outra máquina lia aquela página, achava só processo local e arquivo de config,
+  e concluía que precisa expor alguma coisa — não precisa. A seção nova diz o que é
+  compartilhado, que é o projeto inteiro (um catálogo, as mesmas oito ferramentas,
+  o mesmo filtro de permissão, o `tools()` na lib chamado pelos dois), e o que muda,
+  que é só como o chamador é identificado. E repete o que um leitor pode temer ao
+  ouvir "transporte de rede": o app de desktop continua sem abrir porta, que é a
+  ADR-007 e não é o que entrou no 0.7
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

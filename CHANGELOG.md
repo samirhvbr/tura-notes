@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.42 - the page you configure MCP from did not mention the second transport
+
+`KNOWLEDGE-0.3.md` is where somebody goes to set up an agent against their notes:
+the binary, the config file, the `mcpServers` block, the scope and permission
+rules. Since `1.6.5` there is a second way in — `POST /v1/mcp` on the
+self-hosted server — and this page said nothing about it. `MCP-0.7.md` links
+here; nothing linked back.
+
+The cost of that gap is specific rather than tidy: somebody running the server
+and wanting an agent on another machine would read this page, find only a local
+process and a config file, and conclude they need to expose something. They do
+not.
+
+The new section says what is shared and what is not, because the shared half is
+the whole design. One catalogue, the same eight tools, the same permission
+filter, the same `AgentService` — `tools()` lives in the library and both
+transports call it, so a schema cannot drift between them. What differs is only
+how the caller is identified: a JSON config file here, a bearer credential the
+server already issues there. Neither changes what an agent can do to a note.
+
+It also restates the thing a reader might fear when they hear "network
+transport": the desktop application still opens no port, which is ADR-007 and is
+not what shipped at 0.7.
+
 ## 1.6.41 - the queue item for the 0.1d walk still asked for ten areas
 
 `.continue/0.1d-interface.md` is the item that will be closed when the owner
