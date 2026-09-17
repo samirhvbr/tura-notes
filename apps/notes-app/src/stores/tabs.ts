@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as ipc from "../ipc";
 import type { NoteId, RelPath, Session, Tab } from "../ipc";
 import { useEditor } from "./editor";
+import { useUi } from "./ui";
 
 /**
  * Tabs, milestone 0.1c.
@@ -118,6 +119,10 @@ export const useTabs = create<TabsState>((set, get) => ({
     await leaveCurrent();
     await useEditor.getState().open(tab.path);
     set({ activeId: noteId });
+    // Every route that shows a note lands here - the tree, the palette, search,
+    // a link - so the drawer is handed back to the note in one place instead of
+    // in each of them.
+    useUi.getState().collapseOnNarrow();
     visited(tab.path);
     schedulePersist(get);
   },

@@ -143,6 +143,14 @@ step "chrome is not selectable" bash -c '
 # Parity was checked here and resolution was not, so a key used by the code and
 # defined in neither language passed: `t()` returns the key, and the dialog
 # renders it as body text.
+# The drawer breakpoint lives in two files by necessity - CSS cannot read a TS
+# constant - so this is what keeps them one number. A stylesheet that overlays at
+# one width while the store closes the sidebar at another is a layout nobody can
+# reason about, and the symptom is a note opening behind the drawer that opened
+# it.
+step "one drawer breakpoint" bash -c '
+  q="$(grep -oE "\\(max-width: [0-9]+px\\)" apps/notes-app/src/stores/ui.ts | head -1)"
+  [ -n "$q" ] && grep -q "@media $q" apps/notes-app/src/styles.css'
 step "i18n keys resolve"   python3 tools/i18n-keys.py
 step "Linux packaging orchestration" python3 tools/tests/test_build_linux.py
 step "updater publication" python3 tools/tests/test_updater_release.py

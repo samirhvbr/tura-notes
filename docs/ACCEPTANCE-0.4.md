@@ -27,7 +27,10 @@ The following implementation and owner checks remain pending:
   and `keystore.properties`, so no build output and no signing material follows.
   The Apple project still requires macOS.
 - Tauri mobile entry point, and the generated Apple project.
-- Full-screen editor, drawer navigation and Markdown keyboard toolbar.
+- ~~Drawer navigation and a full-width editor~~ — **done at 1.6.14**: below
+  720px the sidebar leaves the flow and overlays, the editor takes the window,
+  split view stacks, and opening a note from the drawer closes it. The
+  Markdown keyboard toolbar remains.
 - Application-container workspace flows and background flush.
 - iOS security-scoped bookmarks, and Android SAF with persisted
   authorization — the Android half now has a written contract in

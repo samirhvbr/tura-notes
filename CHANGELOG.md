@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.14 - below 720px the sidebar is a drawer, not a column
+
+The application had no width-based media query at all — 933 lines of stylesheet
+and not one, which is what "desktop-first" looks like when the mobile half has
+not been written yet. ADR-042 keeps mobile inside this application rather than
+beside it, so this is a layout and not a second app: the same markup, laid out
+differently once there is no room for three columns.
+
+Below 720px the sidebar leaves the flow and overlays with a scrim, the editor
+takes the window underneath it, and split view stacks instead of sitting side by
+side. The rail stays visible on purpose — it is the only way back to the drawer,
+and a drawer with no handle is one nobody opens twice. Safe-area insets are
+honoured on the drawer, the rail and the status bar, and are zero on everything
+that has no notch.
+
+**Opening a note closes the drawer, and only where the drawer overlays.** On a
+phone, opening a note from the sidebar without closing it leaves the note the
+user asked for behind the thing that asked; on a desktop the sidebar is a column
+and closing it on every open would be the app fighting the user. The call sits in
+`tabs.activate`, which every route to showing a note passes through — the tree,
+the palette, search, a link — so it is written once rather than in each of them.
+
+The breakpoint is one number in two files, because CSS cannot read a TypeScript
+constant. `ui.ts` exports it, `matchMedia` is asked for that exact string, and a
+gate step reads the query out of the store and fails unless the stylesheet opens
+its mobile block with the same one. Checked by moving the CSS to 700px: the step
+fails, which is the whole reason it exists. A layout that overlays at one width
+while the store closes the sidebar at another is unreasonable about in exactly
+the way a user would notice and nobody could reproduce.
+
+Four tests cover the behaviour, including the one that matters for a test runner:
+an environment with no `window` or no `matchMedia` is not a narrow screen and
+must not have its sidebar closed underneath it.
+
 ## 1.6.13 - write down what the Android folder adapter owes, before writing it
 
 `ACCEPTANCE-0.4.md` names SAF in one bullet — "Android SAF with persisted

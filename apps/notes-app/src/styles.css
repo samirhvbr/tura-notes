@@ -822,6 +822,64 @@ code { font-family: var(--font-mono); }
 /* Somebody who turns animation off gets none of it. This is a preference the
    operating system already knows and the application has no business
    second-guessing. */
+/* ── Phone and small tablet: the sidebar is a drawer, not a column ────────
+ *
+ * ADR-042 keeps mobile inside this application rather than beside it, so this
+ * is a layout, not a second app: the same markup, laid out differently once
+ * there is no room for three columns.
+ *
+ * The query string is the one `stores/ui.ts` exports as `NARROW` and reads back
+ * through `matchMedia`, so the width at which the drawer overlays and the width
+ * at which opening a note closes it cannot drift apart.
+ *
+ * The rail stays visible on purpose. It is the only way back to the drawer once
+ * it is closed, and a drawer with no handle is a drawer nobody opens twice.
+ */
+@media (max-width: 720px) {
+  .side {
+    position: fixed;
+    z-index: 30;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(85vw, 320px);
+    background: var(--bg-raised);
+    border-right: 1px solid var(--line);
+    box-shadow: 4px 0 24px -12px rgba(0, 0, 0, 0.5);
+    /* Notch and home indicator. Zero everywhere that has neither. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  /* Dismiss by tapping beside it, which is the gesture a drawer teaches. */
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: rgba(0, 0, 0, 0.45);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  /* With the drawer overlaying, the editor owns the window underneath it. */
+  .main { width: 100%; }
+
+  /* Two panes side by side do not fit; the view toggle still chooses which. */
+  .panes.pane-split { flex-direction: column; }
+
+  .rail { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .statusbar { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+/* The scrim exists only where the sidebar overlays. On a desktop the sidebar is
+ * a column and nothing is behind it to dim. */
+.scrim { display: none; }
+@media (max-width: 720px) {
+  .scrim { display: block; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

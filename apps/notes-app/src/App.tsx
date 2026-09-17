@@ -217,6 +217,15 @@ export default function App() {
             the panel, the panel itself, and the workspace selector pinned to
             the bottom. Collapsing it (the rail's active icon) gives the editor
             the whole window. */}
+        {/* Dismisses the drawer on a phone; CSS hides it everywhere the
+            sidebar is a column and there is nothing behind it to dim. */}
+        {panel && (
+          <button
+            className="scrim"
+            aria-label={t("sidebar.close")}
+            onClick={() => togglePanel(panel)}
+          />
+        )}
         {panel && (
           <aside className="side">
             {panel !== "search" ? (
