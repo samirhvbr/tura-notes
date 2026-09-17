@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.2 - correct the claim that the old pull test passed for the wrong reason
+
+The 1.1.11 entry ends by saying the earlier `test_failed_pull_stops_before_stamping`
+passed for the wrong reason, because a `git` faked to fail at everything takes
+the not-a-checkout branch and never reaches the pull. That is false about the
+test it describes. The script that test was written against made exactly one
+`git` call — `git pull --ff-only`, under `set -e` — so a blanket fake reached
+that call and the build aborted on 17, which is precisely what the test
+asserted. Verified by reading the script as it stood at that commit.
+
+The not-a-checkout branch arrived with 1.1.11 itself. So the selective fake was
+a consequence of the new script, not the repair of an old mistake, and the
+sentence blamed a working test for a gap the same change had just introduced.
+
+The 1.1.11 entry is not rewritten — this file never is. A dated correction is
+appended inside it, adding without removing, so a reader who lands on that entry
+alone meets the claim and its correction together. The published Release for
+1.1.11 carries the same body and is edited to match, because `tools/release.sh`
+skips a version that already has a Release and would never revisit it. The
+commit message itself stands as written: history is not rewritten either.
+
 ## 1.6.1 - the deb installs over the package it was renamed from
 
 ```
@@ -1741,6 +1762,16 @@ never reaches the pull it means to test — the first version of the test passed
 for that wrong reason. A second case covers the not-a-checkout branch itself.
 Both fail against the previous script with the build aborting on 17. Twelve
 orchestration tests pass.
+
+> **Corrected at 1.6.2.** The last sentence of the paragraph above is wrong. The
+> earlier test passed for the right reason: the script it was written against
+> made exactly one `git` call — the pull itself — so a `git` faked to fail at
+> everything reached that call and the build aborted, which is what the test
+> asserted. The not-a-checkout branch that makes a blanket fake useless arrived
+> with this same change, so the selective fake was a consequence of the new
+> script, not a repair of an old mistake. Nothing else in this entry is
+> affected, and the text above is left exactly as it was written, because this
+> file is not rewritten.
 
 ## 1.1.10 - untrack the installer that was committed into the app directory
 
