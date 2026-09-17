@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.8 - the publish that already ran leaves the queue
+
+`.continue/` holds work that does not exist yet, and an item leaves it when the
+thing it describes exists. **Publicação de release** described one act — run
+`./build-local.sh --publish` once — and that act ran on 17/09: `TuraNotes_1.6.3`
+deb and AppImage ingested at the download service, both updater feeds published
+and verified twice, and the project page stopped saying "Em preparação".
+
+The item stayed anyway, because I ran the publish and did not go back to the
+document my own work had just aged. That is the failure the rule about fixing a
+stale document in the same pass exists to prevent, and leaving it would have sent
+the next reader to publish something already published.
+
+What actually remains is not publishing but **accepting**: an update between two
+installed versions, on each of the four formats, which no script infers. That was
+already the **Atualização desktop** item, so this one is removed rather than
+rewritten, and what it knew — that the publish is done, and which artifacts and
+feeds are live — is folded into the item that carries the rest.
+
 ## 1.6.7 - the Linux build prints the step clock the macOS half already had
 
 `build-local.sh` has timed itself since it was written: each phase opens with a
