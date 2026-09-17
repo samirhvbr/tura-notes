@@ -112,10 +112,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   nada olhando, que é como ela falhou calada por seis releases. Também caiu a
   linha que dizia que mudar o nome do feed era de graça *"porque nada nunca foi
   publicado"* — era, até 17/09
-- [ ] R5b — medir `ACCEPTANCE-0.1b.md` e `ACCEPTANCE-0.1c.md` contra tudo o que
-  entrou depois delas (16/09 e 11/09), como foi feito com 0.1a, 0.2 e 0.3.
-  Estender o que estiver desatualizado; onde não estiver, registrar a medição com
-  a data na própria página
+- [x] R5b — medido (1.6.33). **O 0.1b voltou limpo e diz isso** com o comando que
+  produziu a medição: `git log 1.5.0..HEAD` nos quatro caminhos dele devolve quatro
+  commits, três são a interface móvel que já está no 0.1d e um é texto do teste de
+  conexão. **O 0.1c teve dois achados.** O C14: o §2 mede restauração no reinício,
+  e desde o 1.3.7 existe um *segundo* caminho para esse reinício — o botão
+  **Install and restart**, que passou a fechar o workspace ele mesmo. É o reinício
+  que ninguém percorre, porque quem está olhando uma versão nova não está olhando
+  se as abas voltaram. E a regra herdada de i18n descrevia um check mais fraco do
+  que o que roda: comparar os dois catálogos **entre si** deixa passar chave
+  faltando nos dois, que foi exatamente como o diálogo de nova nota pediu nome sob
+  o rótulo `tree.newNote.prompt`. A ADR-037 ficou intacta — ela diz vinte e cinco
+  porque vinte e cinco foi o que se decidiu naquele dia
 
 ## Parqueado — espera um ato do dono, e não segura a fila
 

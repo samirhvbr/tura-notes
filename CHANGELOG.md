@@ -7,6 +7,44 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.33 - the update button is a second way into the restart that 0.1c measures
+
+Measuring `ACCEPTANCE-0.1b.md` and `ACCEPTANCE-0.1c.md` against what shipped
+after each was last revised. 0.1b came back clean and says so; 0.1c had two
+findings.
+
+**C14 — restoration across an update.** §2 of 0.1c is *reopening restores
+workspace, tabs, active tab and cursor*, and every route into it was "quit and
+reopen" when the table was written. At `1.3.7` the update banner's **Install and
+restart** started performing the workspace close itself — calling the same
+`leave()` the sidebar menu calls — so there is now a second restart, and
+`restore_last_workspace` is what brings the session back on the far side. It is
+the restart nobody walks: the user is looking at a new version, not at whether
+their tabs survived, so a regression there surfaces weeks later as "it forgot my
+tabs once". The row carries the dirty-buffer half too, because that is the part
+the banner used to state and offer no way to obey.
+
+**The standing rule was describing a weaker check than the one that runs.** 0.1c
+inherited *"every new user-visible string is a key in both catalogues; CI fails
+when they diverge"*. Comparing the catalogues against **each other** passes a key
+missing from both — which is exactly how the New note dialog came to ask for a
+name under the label `tree.newNote.prompt`, the failure C13 exists to catch.
+Since `1.1.31` `tools/i18n-keys.py` resolves every literal `t("…")` against both
+and replaced the parity check; the rule now says that.
+
+**0.1b is current, measured rather than assumed.**
+`git log 1.5.0..HEAD -- apps/notes-app/src crates/notes-markdown crates/notes-core
+crates/notes-fs` returns four commits, three of them the mobile interface already
+in 0.1d and one the sync connection test's wording. The drawer is the one worth
+naming in that page: §6 measures how long the tree takes to appear, not where it
+appears, so moving it into an overlay below 720px leaves the measurement alone.
+
+C14 is carried into `ACCEPTANCE-0.1d.md` §3 with the rest, since that is where
+these rows are actually walked, and the two counts that name them — in 0.1c's
+pointer and in `docs/README.md` — are corrected with it. **ADR-037 is left
+alone**: it says twenty-five because twenty-five is what was decided that day, and
+an ADR that quietly updates its own numbers stops being a record of a decision.
+
 ## 1.6.32 - the updater page and the queue were both wrong about the publish, in opposite directions
 
 Publishing a desktop release is two independent steps: filing the artifact with

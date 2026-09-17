@@ -154,7 +154,7 @@ walked it and said so.
 
 > **The steps below describe the 0.1a–0.1c window, which 0.1d replaced.** The
 > expectations still stand; the steps moved. Walk them from
-> [ACCEPTANCE-0.1d.md §3](ACCEPTANCE-0.1d.md), which carries these thirteen rows
+> [ACCEPTANCE-0.1d.md §3](ACCEPTANCE-0.1d.md), which carries these fourteen rows
 > with their steps rewritten for the interface that exists (ADR-037).
 
 > **What a screenshot showed, which is not a tick.** The application was started
@@ -179,10 +179,24 @@ walked it and said so.
 | C11 | `Ctrl+Shift+P` → command palette | Lists commands; `Enter` runs one; `Escape` closes | ☐ |
 | C12 | Settings → font size, line numbers, wrap, tab size | Each applies to the editor and survives a restart | ☐ |
 | C13 | Switch the interface language | Every visible string changes; no key is left showing raw | ☐ |
+| C14 | **Update and restart, rather than quit and reopen** | Added at `1.3.7`, and it is a *second* route into C10 that did not exist when this table was written. Press **Install and restart** on the update banner with three tabs open, one of them dirty: the unsaved note stops the close and is named, exactly as the workspace menu would; declining installs nothing. Accept, and after the new version comes up the same workspace, the same tabs, the same active tab and the same caret are back. **This is the restart nobody walks** — the user is looking at a new version, not at whether their tabs survived, so a regression here is the kind that gets noticed weeks later | ☐ |
+
+**Measured on 18/09/2026, against everything that shipped after `0.20.21`.** Two
+findings, both above: C14, and the standing rule that had been describing a
+weaker check than the one that runs. The rest of what landed in that window
+belongs elsewhere and is accounted for there — the drawer and the Markdown row in
+`ACCEPTANCE-0.1d.md` I11–I13, Help ▸ About and the unselectable chrome in I15 and
+I16, PDF import in `ACCEPTANCE-0.3.md` K14–K15, and `1.3.0`'s workspace-open
+latency in `ACCEPTANCE-0.2.md` X1.
 
 ### Standing rules this milestone inherits
 
 - `tools/no-blocking-dialogs.sh` still fails the build if a browser script dialog
   returns to the frontend.
-- Every new user-visible string is a key in **both** catalogues; CI fails when
-  they diverge.
+- Every literal `t("…")` in the frontend **resolves** in both catalogues, and CI
+  fails when one does not. **Until `1.1.31` this rule was weaker than it reads
+  here**: the check compared the two catalogues against *each other*, so a key
+  missing from **both** passed — which is how the New note dialog came to ask for
+  a name under the label `tree.newNote.prompt`, the exact failure C13 exists to
+  catch. `tools/i18n-keys.py` now resolves every literal against both and
+  replaced the parity check rather than joining it.

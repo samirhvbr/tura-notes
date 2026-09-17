@@ -306,6 +306,18 @@ tools/gen-deep.sh                 # or simply open ~/x, or any checkout-heavy fo
 10 000 notes, flat, and lists in 37 ms. The axis that broke was **directories**,
 and nothing in the project measured it until `fixtures/deep` did.
 
+**Measured on 18/09/2026, against everything that shipped after `1.5.0`**, when
+this page was last revised. Nothing in it was made stale and nothing was added.
+`git log 1.5.0..HEAD -- apps/notes-app/src crates/notes-markdown crates/notes-core
+crates/notes-fs` returns four commits: `1.6.14`, `1.6.15` and `1.6.17` are
+interface, accounted for in `ACCEPTANCE-0.1d.md` I11–I14, and `1.5.6` is the sync
+connection test's wording. None of them touches an external change reaching the
+tab, a rename keeping identity, a collision asking, `fixtures/xss/`, what a delete
+says, or how long the tree takes. **The drawer is the one worth naming**: below
+720px the tree moves into an overlay, and §6 measures how long it takes to
+appear, not where it appears — the measurement is unchanged and the walk for the
+overlay itself is I11.
+
 ## Scope items
 
 Everything listed under 0.1b in [SCOPE.md](SCOPE.md) §17:
