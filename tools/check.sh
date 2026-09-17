@@ -130,6 +130,7 @@ step "version placeholder"  bash -c '
 step "contrast"            tools/contrast.sh
 step "no blocking dialogs" tools/no-blocking-dialogs.sh
 step "document status"     tools/doc-status.sh
+step "documentation links" python3 tools/doc-links.py
 # Two rule blocks for the same selector is not a style question — the later one
 # wins on what it sets and the earlier survives on what it does not, so the
 # rendered result is a mix nobody designed. `.menu` was that for a while: a dead

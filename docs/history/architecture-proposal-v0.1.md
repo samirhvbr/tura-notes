@@ -18,7 +18,7 @@ dos commands e modelo de erros), §20.6 (mapeamento de `Caps`).
 preview é 0.1b), §20.4 (lock entre processos — o consumidor é o `notes-mcp`,
 0.3), §20.5 (`.notes/` portável), §20.7 (distribuição).
 
-No fim há **[§5 — o que preciso que você confirme](#5-o-que-preciso-que-voce-confirme)**:
+No fim há **[§5 — o que preciso que você confirme](#5-o-que-preciso-que-você-confirme)**:
 quatro pontos onde eu escolhi e a escolha é sua.
 
 ---

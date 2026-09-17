@@ -217,6 +217,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   ouvir "transporte de rede": o app de desktop continua sem abrir porta, que é a
   ADR-007 e não é o que entrou no 0.7
 
+- [x] R5l — `tools/doc-links.py` no gate (1.6.43). As correções que venho achando
+  à mão são mecânicas — contagem num arquivo discordando de tabela noutro, link
+  para âncora que não existe — e essa classe agora é do gate. **Âncora é a metade
+  que apodrece:** arquivo renomeado faz barulho, título de ADR reescrito numa
+  palavra órfã silenciosamente todo `#adr-0xx--…` que aponta para ele, e o GitHub
+  responde âncora inexistente mostrando o topo da página, que se lê como link que
+  funciona. Achou uma: o `architecture-proposal-v0.1.md` apontava para
+  `#5-o-que-preciso-que-voce-confirme` e o título tem `você` — um circunflexo de
+  distância, caindo no topo de um documento de 400 linhas. Três exclusões com
+  motivo (o `fixtures/` é quebrado de propósito, o `CHANGELOG.md` não se reescreve,
+  e código em bloco é sintaxe e não link) e um caminho na allowlist com o porquê: o
+  `.pub` que só existe depois do OWNER-ACTS §1
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

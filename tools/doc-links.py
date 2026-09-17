@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Every relative link in the documentation resolves — the file and the anchor.
+
+This repository leans on links harder than most: `CLAUDE.md` and `AGENTS.md`
+cite ADRs by anchor a hundred times over, every acceptance page points at the
+contract it accepts, and the whole "do not re-litigate a decided direction, link
+the ADR" rule is a link away from being useless. A broken one is invisible until
+somebody clicks it, and by then they are reading the wrong page or none.
+
+**Anchors are the half that actually rots.** A file rename is loud; an ADR
+heading reworded by one word silently orphans every `#adr-0xx--…` pointing at
+it, and GitHub answers a missing anchor by showing the top of the page — which
+looks like a working link.
+
+Three things are deliberately not checked, each for a reason:
+
+- **`fixtures/`** is test data whose links are broken on purpose: `javascript:`
+  URLs, `file:///etc/passwd`, `../../../../etc/passwd`, notes pointing at
+  neighbours that do not exist. That is the XSS and link-resolution corpus, and
+  a checker that "fixes" it destroys the test.
+- **`CHANGELOG.md`** is never rewritten (its own header says so), so a broken
+  link inside a published entry has no legal repair. Reporting it every run
+  would train everyone to ignore this check.
+- **Code.** A fenced block or an inline span showing `[text](path/to.md)` as
+  *syntax* is documentation of a format, not a link. `product.md` and `SCOPE.md`
+  both do it, and both are right to.
+
+External links are not fetched. A checker that hits the network is a checker
+that fails on a train, and then gets skipped.
+"""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SKIP_DIRS = ("fixtures/", "node_modules/", "target/", "dist/")
+SKIP_FILES = {"CHANGELOG.md"}
+
+# A path that does not exist yet *by design*, with where it comes from. The
+# alternative is a page that cannot say where a file will appear.
+EXPECTED_MISSING = {
+    "server/cotenant/notes-server.pub": "created by OWNER-ACTS.md §1, the owner's signing act",
+}
+
+FENCE = re.compile(r"^\s*(```|~~~)")
+INLINE_CODE = re.compile(r"`[^`]*`")
+LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")
+HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+
+
+def slug(text: str) -> str:
+    """GitHub's heading slug: lowercase, drop punctuation, each space a hyphen.
+
+    The "each space" is the part worth stating. `ADR-001 — Markdown files` has a
+    space, an em dash and a space, and the dash leaves while the two spaces both
+    become hyphens — which is why every ADR anchor in this repository carries a
+    double hyphen. Collapsing whitespace runs produces a single one and reports
+    every correct anchor as broken.
+    """
+    text = text.strip().rstrip("#").strip()
+    text = text.lower()
+    text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
+    return text.replace(" ", "-")
+
+
+def strip_code(lines):
+    """Yield (lineno, text) with fenced blocks dropped and inline spans blanked."""
+    in_fence = False
+    for n, line in enumerate(lines, 1):
+        if FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        yield n, INLINE_CODE.sub("``", line)
+
+
+def tracked_markdown():
+    # `-z` and NUL splitting, not `.split()`: without it git quotes any path
+    # with a non-ASCII byte, and `fixtures/edge-cases/` exists precisely to hold
+    # those — the checker would then try to open a filename with literal quotes
+    # and backslash escapes in it.
+    out = subprocess.run(
+        ["git", "-C", str(ROOT), "ls-files", "-z", "*.md"],
+        capture_output=True, text=True, check=True).stdout
+    for rel in filter(None, out.split("\0")):
+        if any(rel.startswith(d) or f"/{d}" in rel for d in SKIP_DIRS):
+            continue
+        if rel in SKIP_FILES:
+            continue
+        yield rel
+
+
+def main() -> int:
+    files = sorted(tracked_markdown())
+    anchors: dict[Path, set[str]] = {}
+    for rel in files:
+        p = ROOT / rel
+        found = set()
+        in_fence = False
+        for line in p.read_text(errors="replace").splitlines():
+            if FENCE.match(line):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            m = HEADING.match(line)
+            if m:
+                found.add(slug(m.group(2)))
+        anchors[p.resolve()] = found
+
+    problems = []
+    for rel in files:
+        p = ROOT / rel
+        for lineno, line in strip_code(p.read_text(errors="replace").splitlines()):
+            for m in LINK.finditer(line):
+                target = m.group(1)
+                if target.startswith(("http://", "https://", "mailto:", "tel:")):
+                    continue
+                frag = ""
+                if target.startswith("#"):
+                    frag, dest = target[1:], p.resolve()
+                else:
+                    if "#" in target:
+                        target, frag = target.split("#", 1)
+                    if not target:
+                        continue
+                    dest = (p.parent / target).resolve()
+                    try:
+                        as_rel = dest.relative_to(ROOT).as_posix()
+                    except ValueError:
+                        as_rel = ""
+                    if as_rel in EXPECTED_MISSING:
+                        continue
+                    if not dest.exists():
+                        problems.append(
+                            f"{rel}:{lineno}: {m.group(1)} — no such file")
+                        continue
+                if frag and dest.suffix == ".md":
+                    if frag not in anchors.get(dest, set()):
+                        problems.append(
+                            f"{rel}:{lineno}: {m.group(1)} — no such heading")
+
+    if problems:
+        print(f"doc-links: {len(problems)} broken link(s)", file=sys.stderr)
+        for line in problems:
+            print("  " + line, file=sys.stderr)
+        print("\nA missing anchor renders as the top of the page, which reads as"
+              "\na working link. Fix the anchor, not the reader.", file=sys.stderr)
+        return 1
+    print(f"doc-links: {len(files)} documents, every relative link resolves")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

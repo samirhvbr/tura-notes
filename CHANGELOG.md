@@ -7,6 +7,52 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.43 - a broken anchor renders as the top of the page, which reads as a working link
+
+`tools/doc-links.py` joins the gate. It resolves every relative link in the
+tracked documentation — the file, and the `#anchor` when there is one.
+
+The anchors are the half that rots. A renamed file is loud; an ADR heading
+reworded by one word silently orphans every `#adr-0xx--…` pointing at it, and
+GitHub answers a missing anchor by scrolling to the top of the page. The reader
+gets a page, decides they misread the link, and moves on. This repository cites
+ADRs by anchor more than a hundred times from `CLAUDE.md` and `AGENTS.md` alone,
+and the rule that makes those citations load-bearing — *do not re-litigate a
+decided direction, link the ADR* — is one broken anchor away from pointing at
+nothing.
+
+**It found one, and it is the shape of the problem.**
+`docs/history/architecture-proposal-v0.1.md` linked to
+`#5-o-que-preciso-que-voce-confirme`; the heading is *"O que preciso que **você**
+confirme"*. GitHub keeps accented letters in a slug, so the anchor was one
+missing circumflex from correct and had been silently landing at the top of a
+400-line document.
+
+Three exclusions, each with a reason rather than a shrug. **`fixtures/`** is test
+data whose links are broken on purpose — `javascript:` URLs, `file:///etc/passwd`,
+a note pointing at a neighbour that does not exist — and a checker that
+"fixes" it destroys the XSS corpus. **`CHANGELOG.md`** is never rewritten, so a
+broken link in a published entry has no legal repair and reporting it every run
+would teach everyone to ignore the check. **Code** is skipped inside fenced
+blocks and inline spans, because `[Server](infra/server.md)` shown as *syntax* is
+documentation of a format; `product.md` and `SCOPE.md` both do that and both are
+right to.
+
+One path is allowlisted as expected-missing with its reason:
+`server/cotenant/notes-server.pub`, which `SELF-HOSTING.md` names and which does
+not exist until the owner performs OWNER-ACTS §1. A page has to be able to say
+where a file will appear.
+
+Two details the implementation earns its comments for. The slug turns **each**
+space into a hyphen rather than collapsing runs — an em dash between two spaces
+leaves and the two spaces both become hyphens, which is why every ADR anchor here
+carries a double one, and collapsing reports all of them as broken. And
+`git ls-files` is read with `-z`: without it git quotes any path containing a
+non-ASCII byte, and `fixtures/edge-cases/` exists precisely to hold those.
+
+No network: external links are not fetched. A checker that fails on a train is a
+checker that gets skipped.
+
 ## 1.6.42 - the page you configure MCP from did not mention the second transport
 
 `KNOWLEDGE-0.3.md` is where somebody goes to set up an agent against their notes:
