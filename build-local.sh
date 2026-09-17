@@ -568,7 +568,7 @@ publish_release() {
   # indentation are not worth a prompt nobody can see.
   step "[publish] ingest into the download service"
   if ! ssh -t "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
-      $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --version=$(_q "$version") \
+      $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --file-version=$(_q "$version") \
       --label=$(_q "Tura Notes $version — macOS (Apple silicon)")"; then
     echo "  ✗ the ingest failed; the uploaded file is still staged at $staged" >&2
     echo "    If it was sudo asking and you would rather it stopped, one line on the server:" >&2

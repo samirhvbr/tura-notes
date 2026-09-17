@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.28 - the ingest stops handing artisan a flag the framework intercepts
+
+Both publish paths announced "Published" and published nothing. `/p/tura-notes`
+stayed "In preparation" through 1.6.0 with the `.dmg` uploaded and its SHA-256
+verified on the server, because the step that files it never ran.
+
+`--version` is a Symfony Console **global** option. `Application::doRun()` reads
+it off raw argv before it resolves any command, prints the framework's long
+version and returns 0. `Laravel Framework 13.12.0` was the entire output of the
+ingest step, and 0 is success, so the script deleted the staged upload and
+reported a release. A command that declares an option under that name cannot be
+reached by it either, and the declaration itself breaks definition merging with
+`An option named "version" already exists.`
+
+The download service renamed its option to `--file-version` (samirhv-site 1.0.8,
+deployed), and both call sites now pass that. The value stays optional: the
+ingest infers the version from the filename when it is absent.
+
+Linux was not spared, and the earlier reading that it was is wrong.
+`tools/build-linux.sh` runs under `set -euo pipefail`, but that aborts on a
+non-zero status and this call returned zero — the `.deb` and the `.AppImage`
+went unpublished exactly as silently as the `.dmg`, with the same announcement.
+The exit code was never the signal; nothing on either path checked that a
+`ProjectFile` row existed afterwards.
+
 ## 1.6.27 - the same measurement, applied to the desktop half of 0.1d
 
 `1.6.21` extended the 0.1d walk with what shipped in `1.6.14`–`1.6.17`, which is
