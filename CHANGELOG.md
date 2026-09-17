@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.39 - the permission posture's own record said no grant had ever been made
+
+`.claude/README.md` carries a table for every permission granted to the agent —
+what, when, why and how to revert — because, in its own words, *"a norm that does
+not match the artefact is a defect"*, illustrated with a sibling repository whose
+guide claimed `git pull` was pre-authorised when no such rule existed.
+
+The table said `_(nothing yet)_`. `settings.json` has carried a grant since
+05/09/2026: the four read-only `gh` entries — `repo view`, `pr list`,
+`issue list`, `api repos/` — with their ADR-019 reason and their revert, written
+into the file's `_comment` and never surfaced where the norm says to surface it.
+So the defect the page warns about was in this repository, on the page that warns
+about it, for two weeks.
+
+Recorded properly now, with the revert spelled out: deleting the four lines does
+not disable the guest clause, it just makes it ask each time.
+
+The page also gains what is *still* not granted, checked against the file rather
+than remembered — no build, no test runner, no package manager, no database
+client, no network fetch, with `sudo`, `gh repo edit` and `gh repo delete` in
+`ask`. That half was accurate and is now verifiable without opening the JSON.
+
+Both files still called the project `notes`, which it stopped being at `1.0.0`.
+
 ## 1.6.38 - the conformance check told you to run the command whose default can be wrong
 
 §7 of the runbook is the four commands that answer "does this repository still

@@ -178,6 +178,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   pior que checagem nenhuma, porque a saída dela é o que alguém cita. A §7 agora
   define o ponteiro antes, numa linha que é no-op quando ele já existe
 
+- [x] R5h — a tabela de concessões do `.claude/README.md` dizia `_(nothing yet)_`
+  (1.6.39). A página existe porque, nas palavras dela, *"norma que não bate com o
+  artefato é defeito"* — e ilustra isso com um repositório irmão. O defeito estava
+  **nela**: o `settings.json` carrega uma concessão desde 05/09 (as quatro entradas
+  read-only de `gh`, com motivo ADR-019 e como reverter) escrita no `_comment` e
+  nunca trazida para onde a norma manda. Registrada, com o revert explícito — apagar
+  as quatro linhas não desliga a cláusula de hóspede, só faz ela perguntar toda vez.
+  A página também ganhou o que **continua** sem concessão, conferido contra o arquivo
+  em vez de lembrado. E os dois arquivos ainda chamavam o projeto de `notes`
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
