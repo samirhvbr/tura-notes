@@ -659,6 +659,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   pedem consertos opostos: versão nunca commitada quer a entrada dobrada na que
   levou o trabalho; versão commitada que perdeu a Release quer o `release.sh`
 
+- [x] R7b — o checador novo estava certo aqui e errado no CI, pelo motivo de existir
+  (1.6.91). O 1.6.90 subiu e o CI respondeu com **264 falsos negativos**: o
+  `actions/checkout` é raso por padrão, e um `git log -- version.md` num checkout de
+  um commit responde "nunca" para todas as versões. O checador estava certo; o chão
+  não estava lá. Duas mudanças: o job `contracts` passa a clonar com
+  `fetch-depth: 0`, só ele; **e o caso raso é detectado em vez de mal-respondido** —
+  checagem que não pode rodar tem de dizer isso em vez de dar resposta confiante e
+  errada, que é a regra do `FAILED, not run` que o 1.6.18 já pagou para aprender.
+  Verificado contra um clone `--depth 1` de verdade. **Pego olhando a execução, a
+  terceira vez hoje:** gate verde numa máquina é uma afirmação sobre aquela máquina
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.91 - the new checker was right locally and wrong in CI, for the reason it exists
+
+`1.6.90` added `tools/changelog-versions.py` and CI answered with **264 false
+failures**: every heading but the newest reported as never committed.
+
+`actions/checkout` is shallow by default. The check asks `git log -p --
+version.md` whether some commit ever carried each version, and on a one-commit
+checkout the answer is no for all of them. The check was correct; the ground it
+stood on was not there.
+
+Two changes, and both matter.
+
+**The `contracts` job now checks out with `fetch-depth: 0`**, and only that job —
+it is the one that reads history, and the others have no reason to pay for it.
+
+**And the shallow case is detected rather than mis-answered.** A check that
+cannot run must say so instead of producing a confident wrong answer; that is
+the same rule `tools/check.sh` applies with `FAILED, not run — <reason>`, and it
+is the difference between a check that was skipped and a check that passed, which
+`1.6.18` already paid to learn. `git rev-parse --is-shallow-repository` is one
+call, and the message names both remedies: `fetch-depth: 0` in CI,
+`git fetch --unshallow` locally. Verified against a real `--depth 1` clone.
+
+**Caught by watching the run, which is the third time today.** `1.6.51` put a
+step in a job and watching it surfaced 47 red runs nobody had looked at;
+`1.6.53` fixed what that exposed; this one is my own check failing for a reason
+that only exists in CI. A gate that is green on one machine is a claim about that
+machine.
+
 ## 1.6.90 - the gate now notices a version that was written and never committed
 
 `1.6.89` folded away a `CHANGELOG.md` heading for `1.6.87`, a version that had an

@@ -39,7 +39,14 @@ SEMVER = re.compile(r"\b(\d+\.\d+\.\d+)\b")
 
 
 def committed_versions() -> set[str]:
-    """Every value `version.md` has ever held, from one `git log -p`."""
+    """Every value `version.md` has ever held, from one `git log -p`.
+
+    **This needs real history**, which a CI checkout does not have by default:
+    `actions/checkout` is shallow, `git log` then sees one commit, and every
+    heading but the newest reads as uncommitted. The `contracts` job asks for
+    `fetch-depth: 0` for exactly this, and the shallow case is detected below
+    rather than left to produce two hundred confident false failures.
+    """
     out = subprocess.run(
         ["git", "-C", str(ROOT), "log", "-p", "--format=", "--", "version.md"],
         capture_output=True, text=True, check=True).stdout
@@ -52,7 +59,20 @@ def committed_versions() -> set[str]:
     return found
 
 
+def shallow() -> bool:
+    return subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "--is-shallow-repository"],
+        capture_output=True, text=True, check=True).stdout.strip() == "true"
+
+
 def main() -> int:
+    if shallow():
+        print("changelog-versions: FAILED, not run — this is a shallow clone, "
+              "and the check reads `git log -- version.md`. Use "
+              "`fetch-depth: 0` in CI, or `git fetch --unshallow` locally.",
+              file=sys.stderr)
+        return 1
+
     current = (ROOT / "version.md").read_text().split()[0]
     headings = list(dict.fromkeys(HEADING.findall((ROOT / "CHANGELOG.md").read_text())))
     committed = committed_versions()

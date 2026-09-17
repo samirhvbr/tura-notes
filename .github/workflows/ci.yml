@@ -21,7 +21,15 @@ jobs:
     name: contracts
     runs-on: ubuntu-latest
     steps:
+      # `fetch-depth: 0`, and only on this job. `tools/changelog-versions.py`
+      # asks whether some commit ever carried each version in `CHANGELOG.md`,
+      # which it answers with `git log -p -- version.md`. The default shallow
+      # checkout has one commit, so every heading but the newest reads as
+      # uncommitted — 264 false failures on the run that added the check. The
+      # other jobs stay shallow: none of them looks at history.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
 
       # docs/ARCHITECTURE.md §12: "No `fs:*` permission exists in the file. A PR
