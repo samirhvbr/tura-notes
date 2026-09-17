@@ -24,13 +24,19 @@ and in every clone.
 
 ## Supported versions
 
-<!-- Replace with this project's real support window, or keep the line below if
-     there is no released artefact yet. -->
-The current `master` is the supported state.
+**The newest published Release, and `master`.** Nothing older is supported, and
+nothing is backported: a fix ships **forward**, as a new `X.Y.Z` with its own
+Release, and an installed desktop build receives it through the signed updater
+([docs/updater.md](docs/updater.md)). There is no maintenance branch and there
+will not be one — `origin/master` is the only branch this project publishes from.
+
+So the answer to *"is my version affected?"* is decided by the version number,
+not by a support matrix: if the fix is in `X.Y.Z` and you are below it, you are
+affected and the remedy is to update.
 
 ## Context
 
-notes is a **public** repository, and has been since its first commit.
+Tura Notes is a **public** repository, and has been since its first commit.
 
 That makes this file the first point of contact for anyone reporting a problem
 from outside the house, and it makes the pre-flight in

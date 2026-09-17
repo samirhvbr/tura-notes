@@ -188,6 +188,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   A página também ganhou o que **continua** sem concessão, conferido contra o arquivo
   em vez de lembrado. E os dois arquivos ainda chamavam o projeto de `notes`
 
+- [x] R5i — o `SECURITY.md` ainda tinha o TODO do esqueleto (1.6.40). É o arquivo
+  que o GitHub reconhece, o que liga o botão *Report a vulnerability* e a primeira
+  coisa que alguém de fora lê — e a seção *Supported versions* ainda era o comentário
+  HTML mandando substituí-la, com a frase *"no released artefact yet"* que é falsa
+  há 214 Releases e um updater assinado servindo feeds vivos. Medido em vez de
+  descrito: `origin/master` é a única branch de onde este projeto publica (as outras
+  remotas são do Dependabot) e toda correção sai **para frente**, como `X.Y.Z` nova.
+  A seção diz isso e o que decorre: nada é backportado, e *"minha versão está
+  afetada?"* se responde pelo número, não por matriz de suporte
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

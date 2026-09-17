@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.40 - the file GitHub shows to a vulnerability reporter still carried a template TODO
+
+`SECURITY.md` is the path GitHub recognises — it is what turns on *"Report a
+vulnerability"*, and the first thing an outside reporter reads. Its *Supported
+versions* section was still the skeleton's:
+
+```
+<!-- Replace with this project's real support window, or keep the line below if
+     there is no released artefact yet. -->
+```
+
+There are 214 Releases and a signed desktop updater serving live feeds, so *"no
+released artefact yet"* has been false for some time — and an HTML comment
+telling the reader to go and write the section is visible to anyone who opens the
+raw file.
+
+The real window, measured rather than described: `origin/master` is the only
+branch this project publishes from — the only other remote branches are
+Dependabot's — and every fix has shipped forward as a new `X.Y.Z` with its own
+Release. So the section now says that, and says what follows from it: nothing is
+backported, an installed build gets the fix through the updater, and *"is my
+version affected?"* is answered by the version number rather than by a support
+matrix.
+
+It also still called the project `notes`, which it stopped being at `1.0.0` — on
+the one page where the name is read by someone who does not otherwise know this
+repository.
+
 ## 1.6.39 - the permission posture's own record said no grant had ever been made
 
 `.claude/README.md` carries a table for every permission granted to the agent —
