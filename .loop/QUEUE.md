@@ -28,4 +28,31 @@ commit, e nunca `git add -A` num tree que não seja meu.
 - [x] R4f — `ACCEPTANCE-0.5.md` estendido (1.6.23). Estava escrito contra o 0.18.0, quando o 0.5 era um servidor; o que chegou depois é o que faz dele uma **implantação** — nome público, CDN na frente, script que atualiza, assinatura que trava a atualização, e jeito de emitir credencial sem ssh. A página ainda dizia *no public deployment is claimed by this milestone*, que deixou de ser verdade em 16/09. **Duas caixas o servidor não consegue checar sobre si mesmo:** Cloudflare em Flexible mente o `X-Forwarded-Proto`, e `NOTES_SERVER_TRUSTED_HOPS` precisa valer o número de proxies que existe de fato. A assinatura é percorrida como **recusa**, não como sucesso — e está bloqueada até o OWNER-ACTS §1, o que a página diz em vez de listar passo que não roda
 - [ ] R4g — **bloqueado pelo KVM.** Com o emulador de pé: instalar o app gerado e registrar o que de fato acontece — abrir, escolher pasta, listar, editar. É a primeira evidência de execução do 0.4; até aqui só existe evidência de compilação
 
+## Reabastecimento — 17/09, medido
+
+A rodada 4 ficou com um item só, e ele é `sudo`. Antes de encerrar, medi o que
+ainda dá para produzir sem sudo e sem aparelho, e achou-se um buraco de verdade:
+
+- **`docs/ACCEPTANCE-0.7.md` não existe.** O 0.7 (MCP remoto) foi entregue em
+  1.6.5, o item saiu do `.continue/`, e `docs/MCP-0.7.md` é o contrato — mas
+  todo marco entregue neste repositório tem página de aceite e este não tem.
+  Medido: `ls docs/ACCEPTANCE-*` traz 0.1a, 0.1b, 0.1c, 0.1d, 0.2, 0.3, 0.4,
+  0.5 e agora 0.6. Falta o 0.7.
+- **`ACCEPTANCE-0.2.md` e `ACCEPTANCE-0.3.md` não são tocados desde 10 e 11/09**
+  (0.16.0 e 1.0.0). Precisa medir se o que entrou depois muda alguma coisa neles
+  — e, se não mudar, escrever que não muda, em vez de deixar a dúvida de pé.
+
+- [x] R4h — `docs/ACCEPTANCE-0.7.md` criado (1.6.25). Era o único marco entregue
+  sem página de aceite, e o `MCP-0.7.md` nem estava listado no `docs/README.md`.
+  **É a página mais curta do repositório, e esse é o argumento do próprio marco:**
+  o MCP remoto não acrescentou comportamento sobre as notas, então o que resta é
+  o que nem o 0.3 nem o 0.5 cobrem — um cliente MCP de verdade. A linha M2 é a que
+  pode virar ADR: o contrato recusa abrir SSE, e o primeiro cliente que exigir um
+  decide se isso se mantém. M11 e M12 existem por causa de *quando* isso entrou:
+  release que traz transporte de rede é exatamente quando "o app não abre porta"
+  para de ser conferido
+- [ ] R4i — medir 0.2 e 0.3 contra o que entrou depois de 10/09 e 11/09.
+  Estender o que estiver desatualizado; e onde não estiver, registrar a medição
+  na própria página, com a data, para o próximo turno não remedir
+
 ## Colhidos automaticamente

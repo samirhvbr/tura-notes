@@ -81,3 +81,8 @@ and the fleet adopted it the same day.
 
 - [SYNC-0.6.md](SYNC-0.6.md) — implemented causal model and pairing preview; remaining sync work stays queued.
 - [ACCEPTANCE-0.6.md](ACCEPTANCE-0.6.md) — the owner walk on two installed builds, which is all that remains of the milestone.
+
+## Agents over the network
+
+- [MCP-0.7.md](MCP-0.7.md) — remote MCP as a second envelope over the server's existing call path, and what it deliberately does not open.
+- [ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md) — the walk from a real MCP client, which is the only part the suite cannot stand in for.

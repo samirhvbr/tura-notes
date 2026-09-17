@@ -106,3 +106,7 @@ The desktop app still opens no listening port
 ([ADR-007](decisions.md#adr-007--the-desktop-app-opens-no-network-port-by-default)).
 Local stdio MCP keeps working exactly as 0.3 shipped it, with its config file and
 no server. `notes-server` remains optional, for one owner and their integrations.
+
+Both of those are rows in [ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md), because a
+milestone that adds a network transport is exactly when "the desktop app opens
+no port" stops being checked by anybody.

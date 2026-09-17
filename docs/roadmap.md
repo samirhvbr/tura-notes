@@ -201,6 +201,10 @@ Both go through the same authentication and the same scopes. REST stays the
 generic interface; MCP is the agent-facing layer over it, not a second
 implementation.
 
+Delivered at `1.6.5` over `POST /v1/mcp`; the contract is
+[MCP-0.7.md](MCP-0.7.md) and the remaining owner walk is
+[ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md).
+
 ---
 
 ## What is deliberately absent from every stage above

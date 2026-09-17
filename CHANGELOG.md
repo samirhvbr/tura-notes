@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.25 - remote MCP was the one shipped milestone with no acceptance page
+
+0.7 was delivered at 1.6.5, its queue item left `.continue/`, and `MCP-0.7.md`
+moved to `ACTIVE`. Every other shipped milestone in this repository has an
+`ACCEPTANCE-*.md`; this one had none, and `MCP-0.7.md` was not even listed in
+`docs/README.md`. A milestone with a contract and no walk reads as accepted by
+whoever built it.
+
+**It is the shortest acceptance document here, and that is the milestone's own
+argument.** Remote MCP added no behaviour over the notes — it is a second
+envelope over a call path that was already authenticated, already scoped and
+already shared with the stdio server. The notes behaviour is accepted in 0.3 and
+the transport boundary in 0.5, so what is left is the one thing neither covers:
+a real MCP client, configured by the owner, against their own server.
+
+`server/tests/mcp.py` is a real protocol client and cannot stand in for that. A
+real protocol client is not a real product, and every gap between the two lives
+in the client — **M2 is where that shows.** MCP's Streamable HTTP defines a `GET`
+that opens SSE and this server deliberately opens none, because none of the eight
+tools notifies, samples or elicits. Whether a client the owner actually uses
+works anyway is not knowable from here, and the answer decides whether the absent
+stream stays a choice or becomes an ADR. The row says so instead of assuming.
+
+**M11 and M12 exist because of when this shipped.** A release that adds a network
+transport is exactly when "the desktop app opens no listening port" quietly stops
+being true, and exactly when a refactor that moved `tools()` into the library
+could have cost the stdio path something nobody re-ran. Both are one command to
+check and neither is checked by anything else.
+
+M4 is written as a question to the agent rather than a look at a response body:
+ask it to summarize what it just learned. A refusal that leaks through a model's
+paraphrase is still a leak, and it is not visible in the JSON the test asserts on.
+
+`docs/README.md` gains the section 0.7 never had, and the roadmap, the contract
+and the queue index all point at the page.
+
 ## 1.6.24 - the loop queue existed twice, and the committed copy was the poorer one
 
 `.loop/` became tracked at 1.6.19, in the worktree the work was happening in.
