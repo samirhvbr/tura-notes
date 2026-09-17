@@ -1,5 +1,5 @@
 import { reviewedMove } from "../app/ReferenceReview";
-import { MoreVertical } from "lucide-react";
+import { FileText, Folder, FolderOpen, MoreVertical } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "../stores/workspace";
 import { useEditor } from "../stores/editor";
@@ -107,8 +107,18 @@ function Row({
         disabled={!isDir && !entry.is_note}
         title={entry.path}
       >
+        {/* A folder looks like a folder. It was `▸` against `•` for a note and
+            `·` for anything else — three characters a few pixels apart, which
+            asked the reader to learn a legend before they could tell a folder
+            from a file. The icon says it without one, and the triangle it
+            replaces was carrying the open/closed state too: an open folder is
+            drawn open. */}
         <span className="glyph" aria-hidden="true">
-          {isDir ? (isOpen ? "▾" : "▸") : entry.is_note ? "•" : "·"}
+          {isDir ? (
+            isOpen ? <FolderOpen size={14} /> : <Folder size={14} />
+          ) : (
+            <FileText size={14} className={entry.is_note ? undefined : "faint"} />
+          )}
         </span>
         <span className="label">{entry.name}</span>
       </button>
@@ -149,6 +159,7 @@ function useEntryActions(entry: Entry): MenuRow[] {
   const refresh = useWorkspace((s) => s.refresh);
   const fail = useWorkspace((s) => s.fail);
   const note = useWorkspace((s) => s.note);
+  const openPath = useTabs((s) => s.openPath);
   const parent = parentOf(entry.path);
 
   const run = useCallback(
@@ -229,6 +240,44 @@ function useEntryActions(entry: Entry): MenuRow[] {
           : t("tree.delete.permanent", { name: entry.name }),
       );
     });
+
+  /* Creating INSIDE a folder had no route at all. The toolbar's two buttons
+     always passed the workspace root, and `create_note` has taken a directory
+     since 0.1a — so the capability existed and the interface reached the root
+     and nowhere else. A folder in the tree was therefore something you could
+     expand and could not put anything into, which reads as a folder that does
+     not work rather than one the interface forgot. */
+  const createIn = (kind: "Note" | "Folder") => () =>
+    run(async () => {
+      const name = await askText({
+        title: t(kind === "Note" ? "tree.newNoteHere" : "tree.newFolderHere", { folder: entry.name }),
+        label: t(kind === "Note" ? "tree.newNote.prompt" : "tree.newFolder.prompt"),
+        initial: "",
+        confirmLabel: t("dialog.create"),
+        validate: (v) => (v.trim() ? null : t("dialog.nameRequired")),
+      });
+      if (!name) return;
+      if (kind === "Note") {
+        const created = await ipc.noteCreate(entry.path, name);
+        await refresh(entry.path);
+        await openPath(created.path);
+      } else {
+        await ipc.dirCreate(entry.path, name);
+        await refresh(entry.path);
+      }
+    });
+
+  if (entry.kind === "Dir") {
+    return [
+      { id: "new-note", label: t("tree.newNoteHere", { folder: entry.name }), run: createIn("Note") },
+      { id: "new-folder", label: t("tree.newFolderHere", { folder: entry.name }), run: createIn("Folder") },
+      { separator: true },
+      { id: "rename", label: t("tree.rename"), run: rename },
+      { id: "move", label: t("tree.move"), run: move },
+      { separator: true },
+      { id: "delete", label: t("tree.delete"), danger: true, run: remove },
+    ];
+  }
 
   return [
     { id: "rename", label: t("tree.rename"), run: rename },

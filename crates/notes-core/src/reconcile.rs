@@ -547,11 +547,17 @@ impl super::WorkspaceService {
         self.reconcile(&BTreeSet::new(), dirty)
     }
 
-    /// Start (or restart) watching this workspace. Returns the reason when the
-    /// platform cannot, so the caller can poll and the UI can say why.
+    /// Start (or restart) watching this workspace.
+    ///
+    /// **Returns immediately, and therefore usually returns `None`.** The
+    /// platform handle is established on the watcher's own thread — it costs
+    /// ~270 ms on macOS regardless of tree size — so at this instant the
+    /// question "can this platform watch?" has no answer yet. `watch_status()`
+    /// carries it once it does, which is where the interface reads it from.
+    /// Only a failure this call can see without waiting is reported here.
     pub fn start_watch(&mut self) -> super::Result<Option<String>> {
         let watch = self.open()?.fs.watch();
-        let reason = watch.degraded.as_ref().map(|d| match d {
+        let reason = watch.degraded().as_ref().map(|d| match d {
             notes_fs::Degraded::Unsupported(m) | notes_fs::Degraded::WatchLimit(m) => m.clone(),
         });
         self.open_mut()?.watch = Some(watch);

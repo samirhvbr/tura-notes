@@ -72,8 +72,9 @@ one-line version of both:
 
 - **Stack:** Tauri 2 · React · TypeScript · Rust · CodeMirror 6 · SQLite.
 - **Layout:** `apps/notes-app/` (the Tauri app: `src/` React, `src-tauri/` thin
-  shell) · `crates/` (`notes-core`, `notes-fs`, `notes-index`, `notes-mcp`, `notes-sync`, `notes-sync-client` —
-  where the Rust logic lives) · `packages/ui/` · `server/notes-server/` (standalone REST process, milestone 0.5).
+  shell) · `crates/` (`notes-core`, `notes-fs`, `notes-index`, `notes-markdown`,
+  `notes-mcp`, `notes-model`, `notes-sync`, `notes-sync-client` — where the Rust
+  logic lives) · `server/notes-server/` (standalone REST process, milestone 0.5).
   [ADR-003](docs/decisions.md#adr-003--the-rust-logic-lives-in-crates-and-the-tauri-shell-stays-thin).
 - **Runs locally with:** `cd apps/notes-app && npm ci && npm run tauri dev`.
   Milestones 0.1a–0.1d, 0.2, 0.3 and 0.5 are implemented; 0.4 has its mobile core foundation. The 0.6 blocks provide causal planning, a server inbox and a durable CLI transfer client;
@@ -279,6 +280,43 @@ Two details this repository holds that the fleet rule does not spell out, and
 both survive: `.continue/README.md` is the folder's index rather than queue
 material, and is English like the rest; and writing the `docs/` page in English
 is part of checking that the thing was actually built.
+---
+
+## One session per worktree
+
+> **Deliberately OUTSIDE the marked echo blocks above.** This is a local rule,
+> not a fleet one; written inside the markers it would be erased by the next
+> regeneration with nobody noticing.
+
+**Two agent sessions may not share a working tree.** One session, one worktree —
+`git worktree add`, or a separate clone. This is not a style preference, and the
+cost of ignoring it is on the record from the day the rule was written:
+
+- A blanket `git add -A` in one session swept another session's scratch file
+  into its commit and published it, along with a stray 16-byte file the first
+  session had left in the repository root.
+- A `Cargo.lock` change — the `rustls` security bump of 1.4.4 — was reverted
+  under the session that made it, between the command that wrote it and the
+  command that read it back. It was noticed only because the version was
+  re-read; a commit two seconds earlier would have shipped nothing.
+- Two `cargo test` runs on one `target/` produced a failure that took twelve
+  clean runs to fail to reproduce, and it is still in the queue as an unexplained
+  intermittent.
+
+**None of those was a mistake anybody made.** They are what concurrent writers to
+one tree produce, and no amount of care inside a session prevents them, because
+the other session is not in it.
+
+**Practically:** start a session with `git worktree add ../tura-notes-<subject>`,
+work there, push from there. The hooks are `core.hooksPath`-based and per-clone,
+so a fresh worktree needs `git config core.hooksPath tools/git-hooks` once, the
+same as a fresh clone. Delete the worktree when the work is merged.
+
+**If you find yourself sharing a tree anyway** — it happens, a session inherits a
+directory — then say so before you commit, prefer `git add <path>` over
+`git add -A`, and re-read `version.md` and `git log` immediately before writing
+a commit rather than trusting what you read earlier in the session.
+
 ---
 
 ## Branch

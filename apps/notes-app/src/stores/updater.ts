@@ -33,13 +33,38 @@ export const useUpdater = create<State>((set, get) => ({
     try { if (get().version) localStorage.setItem(dismissedKey, get().version!); } catch { /* session-only dismissal */ }
     set({ phase: "idle" });
   },
+  /**
+   * ADR-074 puts the installation *after* the normal workspace-close flow, and
+   * this is where that flow is run.
+   *
+   * It used to be a precondition left to the user: the banner said to close the
+   * workspace and its only button repeated the sentence, while the one command
+   * that closes a workspace lives in a menu in the sidebar footer. A guard that
+   * states a rule and offers no way to obey it does not read as a guard — it
+   * reads as an update that is broken, which is how it was reported.
+   *
+   * `leave()` is the same path the workspace menu takes, so unsaved work still
+   * stops the close and is still named in the question it asks, and it answers
+   * `false` when the user declines. The close is invisible across the restart:
+   * `restore_last_workspace` opens the same workspace on the way back.
+   */
   install: async () => {
     if (!["available", "closeWorkspace", "error"].includes(get().phase) || !get().version) return;
-    if (useWorkspace.getState().info) { set({ phase: "closeWorkspace" }); return; }
-    if (!beginSyncBarrier()) { set({ phase: "error" }); return; }
-    set({ phase: "installing" });
-    try { await installUpdate(); }
-    catch { set({ phase: "error" }); }
-    finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
+    const root = useWorkspace.getState().info?.root ?? null;
+    if (root && !(await useWorkspace.getState().leave())) { set({ phase: "closeWorkspace" }); return; }
+    if (beginSyncBarrier()) {
+      set({ phase: "installing" });
+      try { await installUpdate(); }
+      catch { set({ phase: "error" }); }
+      finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
+    } else {
+      set({ phase: "error" });
+    }
+    // Still running, so the restart did not happen and the workspace was closed
+    // for an installation that did not take place. Put it back: `update_install`
+    // never returns on success, so reaching this line at all means the failure
+    // path, and stranding the user at the Welcome screen would be a second
+    // failure caused by the first.
+    if (root && !useWorkspace.getState().info) await useWorkspace.getState().switchTo(root);
   },
 }));

@@ -7,6 +7,1963 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.1 - the deb installs over the package it was renamed from
+
+```
+dpkg: error processing archive TuraNotes_1.3.6_amd64.deb (--install):
+ trying to overwrite '/usr/bin/notes', which is also in package notes (0.11.11)
+```
+
+That is what a Tura Notes package has done on a machine carrying a pre-1.0.0
+release, every version since 1.0.0. ADR-069 renamed the product and **kept** the
+`notes` binary, the identifier and the data paths on purpose, so that installed
+users kept their settings and their workspace. The name it could not keep is the
+one nobody writes: the bundler derives the **package** name from `productName`,
+so the package became `tura-notes` while every path inside it stayed where it
+was — and dpkg does not own files, packages do. The identity that was preserved
+is exactly the identity that refuses the upgrade.
+
+Nothing caught it because nothing in the build, the gate or CI ever installs a
+package over an older one. It surfaced when the owner typed `dpkg -i`.
+
+ADR-082: the rename is **declared**, not performed. The deb now carries
+`Conflicts: notes (<< 1.0.0)` and `Replaces: notes (<< 1.0.0)` — both, because
+each alone is the wrong half. `Conflicts` by itself refuses the install politely
+and permanently; `Replaces` by itself overwrites the file and leaves the old
+package installed, still claiming `/usr/bin/notes` and still shipping a
+`notes.desktop` that points at it. Together they are the one operation dpkg
+performs unforced: remove the old, install the new. `--force-overwrite` reaches
+the same screen and leaves the machine in the state `Replaces` alone produces.
+
+**The bound is `<< 1.0.0`, and the claim reaches no further.** Every release
+under the old package name was a `0.x`; `notes` is a generic enough name for the
+archive to give to somebody else, and an unbounded `Conflicts: notes` would
+remove *their* package on any machine that had it. No `Provides`: nothing
+depends on the old name. No rpm equivalent either — rpm packaging arrived at
+1.0.3, after the rename, so no rpm ever carried the old name, and the AUR
+package kept its `notes-bin` name throughout.
+
+**What it measured.** The 1.6.1 deb was built and read back: `dpkg-deb -I` shows
+both fields in the control file. Then `dpkg --dry-run --install`, against this
+machine's own database, where 0.11.11 is still the installed package:
+
+```
+dpkg: considering removing notes in favour of tura-notes ...
+dpkg: yes, will remove notes in favour of tura-notes
+```
+
+A dry run changes nothing — it could not even open `/var/log/dpkg.log` — so the
+install itself is still the owner's step, with root. The new
+`DebianRename` test asserts both fields in the committed configuration and that
+the binary name they exist for is still `notes`; it was re-broken twice to
+confirm it fails, once with the declaration removed and once with `Replaces`
+alone, which is the half-fix somebody will reach for.
+
+## 1.6.0 - the deploy refuses a server binary it cannot prove came from us
+
+ADR-081 implemented. `deploy-server.sh` fetches the `.minisig` beside the
+tarball and verifies it with `minisign` against a public key committed in this
+repository, **before `tar` and long before `/usr/local/bin`** — extracting an
+unverified archive is already trusting it. A missing pinned key, a host without
+`minisign`, an absent signature and a signature that does not match are four
+refusals, not four skips.
+
+**Refusing does not stop the server.** The running binary keeps running: a
+mismatch is far more often a publishing mistake than an attack, and turning one
+into an outage of every paired device's notes would be a second failure caused
+by the first. The test asserts that too — `systemctl` may not appear anywhere in
+the failure path.
+
+`tools/sign-server-release.sh` is what the owner runs: `init` generates the pair
+once and **refuses to overwrite** an existing key, because regenerating over one
+in use silently invalidates every signature already published and the symptom
+appears in a deploy, on a host that is serving. Signing downloads the release
+asset, verifies its checksum *before* signing — signing a truncated download
+publishes a valid signature over wrong bytes, which is worse than not signing,
+since it passes the deploy and installs a binary that will not execute — and
+verifies the result against the **committed public half** rather than the
+private key that just produced it, which is what catches a restored backup or
+last year's key here instead of on the host.
+
+**Two of my own assertions were decoration, and the negative control is what
+said so.** `minisign -Vm` before `install` passed a regression that moved
+verification past the extraction; checking that `[ -f "$pubkey" ]` appears
+passed `[ -f "$pubkey" ] || true`. They assert the ordering against `tar` and
+the guarded *form* now, and each was re-broken to confirm it fails. The checks
+also run before the ordering ones, so deleting a step reports what is missing
+instead of a `substring not found` traceback.
+
+**ADR-081's decision 2 is corrected in the same pass, and the correction is the
+honest part of this commit.** It said the Release asset would be *produced* by
+the same local act as the desktop bundles. Implementing it showed that act does
+not exist — neither `build-local.sh` nor `tools/build-linux.sh` builds
+`notes-server`, and what they publish goes to the owner's download service, not
+to GitHub Releases. CI keeps building and attaching; the signature is what moves
+offline. That closes asset substitution, which is what the finding was about,
+and does not close a compromised CI, which is written into the ADR rather than
+left for someone to discover.
+
+**Nothing verifies yet, and that is the intended state.** No key exists, so the
+deploy refuses — deny by default, `security.md` §3.5. The two commands that
+finish it are in the queue and in `SELF-HOSTING.md`; only the owner can run
+them, because the private half must never touch anything else.
+
+## 1.5.7 - the connection test, against a server that is actually running
+
+Every other test of `Remote::probe` answers it from a `TcpListener` with canned
+bytes. That proves the mapping from a response to an outcome and says nothing
+about DNS, TLS, a proxy in front of the server, or a credential a real server
+issued — which is the half that fails in the field, and the half that cannot be
+faked usefully.
+
+`NOTES_PROBE_URL` and `NOTES_PROBE_TOKEN_FILE`, ignored by default, the same
+shape `deep.rs` already uses for `NOTES_DEEP_ROOT`. It prints the outcome, the
+status, the workspace, the scope, the permissions and the review flag, and never
+the credential.
+
+It earned itself immediately. The owner reported the panel saying nothing on a
+real pairing attempt, and this separated the two halves in one run: against
+`tura.samirhv.com.br` the Rust side answered `Granted · 200 · workspace
+"personal"` with all five permissions. The fault is between the button and that
+function, which is a much smaller place to look than "the connection test does
+not work".
+
+`SyncProbeOutcome` derives `Debug` so the outcome can be printed at all.
+
+## 1.5.6 - the connection test's answer stops looking like the advice around it
+
+`.device-probe` shipped in 1.3.8 with no rule in the stylesheet. The result
+rendered as a plain paragraph between *Still needed before pairing…* and *Close
+the workspace to review identities…* — three grey sentences in a row, one of
+which was the answer. The owner installed the build, looked at the panel and
+said *não sei, pelo que vejo é indefinido se está ou não funcionando*, which is
+the sentence the whole feature was built to stop.
+
+An answer indistinguishable from the advice around it has not answered anything.
+The verdict is now a colour — green for a credential that works, red for
+something that is not this machine's to fix, amber for something that is — and
+the words still carry the reason. Three tones rather than seven, because a
+colour can only say *done*, *not yours* and *yours*; the seven outcomes are what
+the sentence is for.
+
+A credential that works and requires server-side review is amber, not green:
+pairing refuses it, so it is not a pass.
+
+The three colours are `--good`, `--bad` and `--warn`, already checked at AA
+against every surface by `tools/contrast.sh`; a tinted block would have been a
+new surface nothing verifies. The tone map is exhaustive over the generated
+union, like the sentence map beside it, so a variant added in Rust has to pick a
+tone or fail the TypeScript build.
+
+## 1.5.5 - the build stops cancelling the only version that builds anything
+
+`build.yml` had `group: build` with `cancel-in-progress: true` at workflow
+level, and the comment defending it stated the hole as a virtue: *"what has to
+be installable is the newest — which is exactly the one this rule always
+builds."*
+
+**That does not hold for a minor.** Artifacts are built on `X.Y.0` and never on
+a patch (ADR-036), so when the push of 1.5.1 cancelled 1.5.0's build, the newest
+version was a patch, patches build nothing, and nothing ever rebuilt them.
+1.4.0 and 1.5.0 both carry no server tarball at all — while `deploy-server.sh`
+derives `X.Y.0` and downloads exactly that asset. The deploy is broken against
+the last two minors, today.
+
+The cancelling group moves to the jobs that cost something, where
+`needs.what.outputs.version` exists and the group can be keyed on it:
+`build-linux-1.5.0`, `build-arch-1.5.0`. A version is unique, so a minor's build
+is never cancelled by a different one; re-running the same version still cancels
+the older, which is the case where "the newest wins" meant something.
+
+**Nothing is starved, which was the original and correct worry.** A patch's run
+is the `what` job and nothing else — `build` comes back false and every
+expensive job is gated on it — so the burst of Releases a working session
+produces costs seconds, not nine minutes each. The protection was aimed at a
+problem that the `build` gate had already solved on its own.
+
+Validated with `actionlint`, which confirms `needs` is a legal context in a
+job-level `concurrency` — the thing that makes this possible at all — and
+reports no finding this change introduced: the four it does report on the file
+are byte-identical to the ones it reports against `HEAD`.
+
+The cause is fixed; the two Releases that already lost their assets are not, and
+that stays in the queue. Rebuilding them is a `workflow_dispatch` that publishes
+artifacts, which is the owner's call rather than a repair to make quietly.
+
+## 1.5.4 - ADR-081: the server binary is signed with a key CI never holds
+
+The review of 1.5.3 left one finding unfixed on purpose, because "sign it"
+answers none of the three questions inside it. This is the decision; the work is
+queued.
+
+**What the checksum was actually claiming.** `deploy-server.sh` fetches the
+tarball and its `.sha256` from the same GitHub Releases URL, and `build.yml`
+produces both in one step on one runner. Anyone in a position to serve a
+different tarball is in a position to serve its digest. The script's comment
+claims only truncation and is right to; the ADR is about the claim nobody was
+making.
+
+**Why the asymmetry with ADR-074 exists at all** turns out not to be a
+difference of principle. The macOS and Windows jobs are `if: false` (ADR-024),
+so those bundles come from `build-local.sh` on the owner's machine — where the
+key is. The Linux job runs in CI, where it is not. The artifact is built where
+the key is absent, and the signature went missing with it.
+
+The three decisions: **the key never enters CI**, because a key in a workflow
+secret is usable by anything that can make a workflow run, and signing there
+would move the trust boundary from GitHub-the-CDN to GitHub-the-CI and call it
+provenance. It is a **separate** minisign key from the updater's, whose public
+half ships inside every installed desktop application — one compromise should
+not have two blast radii. **CI keeps building the binary unsigned** as a check
+that it compiles, and the published asset comes from the same local act that
+already produces the desktop bundles. And **a deploy that cannot verify changes
+nothing and does not stop the service**: a mismatch is far likelier to be a
+publishing mistake than an attack, and turning one into an outage of every
+paired device's notes is a second failure caused by the first.
+
+**A precondition the ADR names and does not fix.** 1.4.0 and 1.5.0 carry no
+server tarball at all. `build.yml` has `concurrency: cancel-in-progress: true`,
+and the minor's artifact build was cancelled by the next push; everything after
+was a patch, which builds nothing by design. The workflow's comment accepts
+losing artifacts on an intermediate version because "what has to be installable
+is the newest" — which does not hold for a **minor**, since the newest is
+usually a patch and a patch never rebuilds it. `deploy-server.sh` derives
+`X.Y.0` and would download an asset that does not exist. Signing something that
+is not being published is not worth doing first, so both go to the queue in
+order.
+
+Nothing is implemented here. The ADR says so on its status line and the queue
+carries the work, because `.continue/` is where work that does not exist lives.
+
+## 1.5.3 - the deploy stops instead of reporting success when a step fails
+
+`deploy-server.sh` runs under `set -uo pipefail` and deliberately not `-e`, so
+every failure path is explicit and the message names the step. Three commands
+had been left without their `|| fail`, and the worst was inside the block that
+exists to prevent exactly this.
+
+**The self-pinning copy could report a successful deploy in which nothing ran.**
+The block copies the script to `/run` and `exec`s the copy, so a `git pull`
+cannot swap the file underneath a running deploy — the header cites a real case
+where that skipped a step in silence and still reported success. But `cp` was
+unchecked, `mktemp` leaves an **empty** file, and `bash` on an empty file exits
+**0**. A failed copy therefore made `exec` run nothing, successfully, and the
+orchestrator printed a green deploy. Measured against the previous version of
+the block with a `cp` that returns 0 without writing: **exit 0, no output**.
+After: exit 1, `a cópia fixada em … saiu vazia`.
+
+The content is asserted, not just the exit code, and that is the point rather
+than belt-and-braces: `/run` is a tmpfs, and a full one lets `cp` return 0
+having written zero bytes. The check is on the property the next line depends
+on.
+
+The other two are the same shape one step down. `mkdir -p "$(dirname "$STAMP")"
+&& printf … > "$STAMP"`: a failed `mkdir` skipped the `printf` and failed
+nothing, leaving no stamp — so the next deploy re-downloaded the binary and
+restarted a service that holds notes, believing it had never installed. And
+`systemctl daemon-reload` was unchecked immediately after the unit file had been
+rewritten, so a failure there would have had the `restart` below bring the
+**old** unit up and report success.
+
+`server/tests/cotenant.py` asserts the class rather than the three lines,
+because the next one is a fourth command somebody adds without the suffix: every
+line starting `cp`/`mkdir`/`install`/`systemctl`/`mv`/`tar`/`printf`, outside
+comments and across `\` continuations, must carry `|| fail`. Plus the one
+property no exit code reports — that the pinned copy has content, checked before
+the `exec` rather than after. Both verified by removing them: the first names
+the line and the command, the second says the copy is exec'd unchecked.
+
+Finding 2 of the same review is deliberately **not** here. The server binary is
+verified by a checksum fetched from the same URL as the tarball, which catches
+truncation and not substitution, while the desktop updater has a pinned key and
+signature verification (ADR-074). Closing that asymmetry decides where a private
+key lives, who signs in the release pipeline, and what a deploy does when a
+signature fails on a host that is already serving. That is an ADR, not a line in
+this script.
+
+## 1.5.2 - one session per worktree
+
+Two agent sessions shared this working tree for the length of a review, and the
+rule is written from what that produced rather than from principle:
+
+- A blanket `git add -A` in one session swept the other's scratch file into its
+  commit and published it, with a stray 16-byte file from the repository root
+  alongside.
+- The `rustls` security bump of 1.4.4 was reverted in `Cargo.lock` underneath
+  the session that made it, between the command that wrote it and the command
+  that read it back. It was caught only because the version was re-read; a
+  commit two seconds earlier would have shipped an empty fix.
+- Two `cargo test` runs against one `target/` produced a failure that twelve
+  subsequent runs could not reproduce, and it is still queued as unexplained.
+
+None of those was anybody's mistake. They are what concurrent writers to one
+tree produce, and care inside a session cannot prevent them, because the other
+session is not in it.
+
+The rule goes in `CLAUDE.md` and `AGENTS.md` **outside the marked echo blocks**:
+it is local, and written inside the markers it would be erased by the next fleet
+regeneration with nobody noticing. It carries the practical form —
+`git worktree add`, and the `core.hooksPath` a fresh worktree needs the same way
+a fresh clone does — and what to do when a session inherits a shared tree
+anyway: say so before committing, `git add <path>` rather than `-A`, and re-read
+`version.md` and `git log` immediately before writing a commit.
+
+## 1.5.1 - a missing tool is a failure, not a warning
+
+`tools/check.sh` had two steps that printed `WARNING, not run` and let the gate
+finish green: the Windows cross-check, when rustup or the MinGW compiler was
+absent, and `rust advisories`, when `cargo-audit` was not installed.
+
+The second one had been silently skipped on the owner's machine for its whole
+life. CI ran it and was red on it, and a real `rustls` TLS 1.3 handshake flaw —
+on the path every device sync request and every signed update download takes —
+sat inside that red for two versions (1.4.4). The local gate said "all green"
+the entire time. **The difference between a check that was skipped and a check
+that passed has to survive into the exit code**, or the two are the same thing
+to whoever reads the output.
+
+`require_tool` installs what can be installed unattended — `cargo install
+cargo-audit --locked` — and fails if it cannot. `missing` prints the step with
+`FAILED, not run` and the one command that fixes it, which is what the warning
+was useful for; what it no longer does is let the run claim to have checked
+something it skipped.
+
+**`NOTES_NO_WINDOWS_CHECK=1` is now the only way that step does not run.** An
+escape hatch somebody chose, in writing, in the environment, is a skip and
+prints as one. A tool nobody noticed was missing is a failure. The file's own
+header argued for exactly this one paragraph above the code that contradicted
+it — *a check that silently opts out is not a check* — and the header is
+corrected in the same pass.
+
+Verified by asking for a tool that does not exist and cannot be installed: the
+step prints `FAILED, not run` and `fail` is 1.
+
+## 1.5.0 - the one-second rule is asserted where its numbers came from
+
+ADR-080, amending ADR-034. **The criterion does not move** — `workspace_open`
+returns and the tree appears in under one second, at any size. What moves is
+where that number is a verdict.
+
+The ceiling was asserted as a wall clock on all three platforms. On
+`windows-latest` the same 2 160 directories that open in ~10 ms here measured
+**1 243 ms**, on a commit whose contents were a Linux-only test file, a queue
+row and `Cargo.lock` — nothing that could slow an open. The next commit was
+green and the one after red again on a different test. The number was reporting
+a contended runner scanning a tree created milliseconds earlier, not the code.
+
+**Why that gets an ADR instead of a bigger number.** This repository has just
+paid for the answer: `cargo audit --deny warnings` sat red on eight advisories
+nobody could act on, and a real `rustls` TLS 1.3 flaw — on the path every sync
+request and every signed update takes — lived inside that red for two versions
+before anyone read past it. A check that is red for a reason which is not the
+code spends the attention the next real finding needs.
+
+So: asserted on Linux, the platform whose numbers the rule was written from and
+the least contended runner; **measured and published on every platform** into
+the CI job summary, with the directory count and whether it was asserted. An
+assertion that is dropped without a reading in its place leaves a criterion
+nothing reports the drift of, which decays faster than a flaky one.
+
+`received_bytes_remain_pending_until_explicit_application` gets
+`#[cfg_attr(windows, ignore = …)]` with the queue item named in the reason —
+intact on Linux and macOS, skipped only where it is intermittent, and not
+weakened anywhere. It has no diagnosis and the honest ways to get one need a
+Windows machine.
+
+The ADR says what this is not: a licence to move an assertion to a friendlier
+platform when it goes red. The test here was measuring the runner and not the
+code, demonstrably — same input, three verdicts across commits that could not
+have changed it. A test that fails because the code is slow on a platform is a
+bug on that platform, and it is fixed there.
+
+Verified both halves. The assertion still fails when it should: forcing the
+Linux branch on with an impossible ceiling produces
+`2 160 directories took 11.01 ms … over the one-second rule`. The publication
+produces a markdown table in `$GITHUB_STEP_SUMMARY` and is silent outside
+Actions. Both changes cross-check clean against `x86_64-pc-windows-gnu`.
+
+`ADR-034` rule 1, `ARCHITECTURE.md`'s one-second section and
+`ACCEPTANCE-0.1b.md`'s test row are corrected in the same pass.
+
+## 1.4.7 - version.md had a literal backslash-n where a newline belonged
+
+1.4.6 was written by a Python snippet inside a quoted heredoc, where `"\\n"`
+is two characters and not a line ending. `version.md` came out as
+`1.4.6\\n` — six bytes of version and two of garbage.
+
+**Nothing caught it**, and the reason is the tolerance that exists for good
+reasons: `docs/versioning.md` says the version is the *first* semver in the
+file, so a bare string and a markdown document both satisfy it. `1.4.6\\n`
+satisfies it too. The `pre-push` hook read 1.4.6, compared it against the
+remote, and passed — correctly, by the rule as written.
+
+So the file is corrected and the tolerance is left alone. Narrowing "first
+semver" to "exactly one semver and a newline" would break the markdown form the
+rule deliberately allows, to catch a typo that a `printf` does not make in the
+first place.
+
+## 1.4.6 - the Windows job is intermittent in two different places
+
+With ubuntu, Arch, the advisories and the contract checks green, `rust
+(windows-latest)` became the only red left — and it turns out to alternate on
+commits that cannot have caused it:
+
+| version | Windows | what failed |
+|---|---|---|
+| 1.4.3 | red | `the_tree_appears_in_well_under_a_second` — 2 160 directories in **1 243 ms** against a 1 000 ms ceiling |
+| 1.4.4 | green | — |
+| 1.4.5 | red | `received_bytes_remain_pending_until_explicit_application`, `control.rs:901`, the peer log holding 3 where 4 was expected |
+
+Two different tests, and the only commits between them touch a Linux-only test
+file, a queue row, `Cargo.lock` and CI YAML. 1.4.4 is the `rustls` bump and it
+is the one that passed, which exonerates the dependency change specifically.
+
+**Neither is fixed here, and the first one should not be fixed quietly.**
+ADR-034 promises the tree appears in under a second at any size, and 1 243 ms on
+a contended shared runner is not evidence that a user's machine misses it —
+but loosening a product criterion's assertion to make CI green is a decision
+with an ADR attached, not a patch. The second has no diagnosis at all and wants
+a Windows machine to get one.
+
+They go to the queue with their evidence instead. This is the same call as the
+`recovery` flake recorded in 1.4.3: an intermittent failure nobody wrote down is
+one somebody rediscovers.
+
+## 1.4.5 - eight advisories nobody can act on stop hiding the ones we can
+
+`cargo audit --deny warnings` had been failing CI on eight `unmaintained` and
+`unsound` warnings, and none of the eight is this repository's to upgrade: five
+`unic-*` crates arrive through Tauri's `urlpattern`, `glib` and
+`proc-macro-error` through GTK on Linux, and `ttf-parser` through `pdf-extract`.
+
+Leaving them red was not the safe direction. **RUSTSEC-2026-0285 — a real TLS
+1.3 handshake flaw in `rustls`, on the path every device sync request and every
+signed update download takes — sat in the middle of them for two versions and
+was found only by reading past them** (1.4.4). A permanently red check is one
+nobody reads, and this one had already cost a genuine finding.
+
+`.cargo/audit.toml` names all eight with their source and the condition that
+retires each: the `unic-*` family leaves when Tauri drops `urlpattern`, the GTK
+pair when Tauri moves to glib 0.20, and `ttf-parser` is flagged as the only one
+that is our own choice to revisit, since `pdf-extract` is a dependency this
+workspace picked. The file says in as many words what may not go in it: a
+vulnerability is fixed or the dependency goes, and 1.4.4 is the precedent.
+
+Everything not listed still fails the build — verified by deleting one ID and
+watching `cargo audit --deny warnings` go back to exit 1, then restoring it.
+
+The GTK pair is worth one more note: it is invisible on macOS and Windows, where
+GTK is not in the dependency tree at all. A gate run on a Mac cannot see those
+two, which is why they were only ever red in CI.
+
+## 1.4.5 - the co-tenant check needs a binary, and `contracts` builds nothing
+
+`server/tests/cotenant.py` joined the `contracts` job in 1.4.2 and failed on the
+first run: it needs `target/debug/notes-server` on disk, and that job's whole
+premise is that it compiles nothing. It had passed locally for the worst reason
+— the binary was already sitting in `target/` from an earlier build — which is
+exactly the kind of green a clean runner exists to refuse.
+
+It moves to `server HTTPS container`, which already has a toolchain and is about
+the server, and builds `notes-server` before running it. The other seven checks
+stay: the same CI run proved them on a machine with no `target/` at all.
+
+**The grouped step earned itself on its first outing.** One check failed, the
+seven after it still ran and reported, and the step exited non-zero. As eight
+separate steps the first failure would have hidden the rest, and the answer to
+"is anything else wrong" would have cost another push.
+
+## 1.4.4 - rustls carried a TLS 1.3 handshake flaw on both transport paths
+
+`cargo audit` reports **one vulnerability**, not only the unmaintained warnings
+that were drowning it in the log: RUSTSEC-2026-0285, medium (5.3) —
+*TLS 1.3 handshake messages incorrectly accepted across encryption level
+boundaries* — against `rustls 0.23.44`, fixed in 0.23.45.
+
+It is not an incidental transitive crate. It is a direct dependency of
+`notes-sync-client`, and it backs both paths where this product speaks TLS:
+`reqwest`, which carries every device sync request to the server, and
+`tauri-plugin-updater`, which downloads the signed desktop update. ADR-074 pins
+the updater's public key and verifies the signature before installing, so a
+tampered payload is still refused — but the transport underneath it was the one
+with the advisory.
+
+`cargo update -p rustls` moves it inside its own semver range: one line of
+`Cargo.lock`, no API change, no code change. `cargo audit` then reports no
+vulnerabilities.
+
+**It had not been seen locally because the tool is not installed on this
+machine**, and `tools/check.sh` degrades that step to
+`WARNING, not run — install it once` rather than failing. That degradation is
+the right call — the same one the Windows cross-check makes — but it means the
+local gate and CI disagree about what green means, and CI is the one that had
+been red. Installing `cargo-audit` is what turned eight lines of unmaintained
+noise into a finding.
+
+## 1.4.3 - the Linux-only watcher test still read `degraded` as a field
+
+Moving the watcher's setup onto its own thread — the fix that stopped
+`start_watch` costing 270 ms of held service mutex on macOS — turned
+`Watch::degraded` from a public field into a method, because the answer now
+arrives after the caller already holds its `Watch`.
+`crates/notes-fs/tests/watch_walk.rs` still read it as a field, in four places,
+and the file is `#![cfg(target_os = "linux")]`.
+
+**So the macOS gate compiled none of it and was green.** CI was red on
+`rust (ubuntu-latest)` and on the Arch job for two versions, with
+`error[E0615]: attempted to take value of method `degraded``.
+
+The fix is not the parentheses. `degraded()` is `None` until the thread has
+tried, which the API says in as many words, so a guard that asks the moment
+`watch()` returns reads `None` on a machine that cannot watch at all — it would
+have compiled and stopped skipping, and the test would have failed on the
+assertions instead. `fail()` records the reason and clears `walking` together,
+so each test asks where its own shape allows:
+
+- `the_walk_reports_its_progress_and_finishes` already polls until `!walking`;
+  the guard moved below that loop and reads `WatchProgress::degraded`.
+- `dropping_the_watch_stops_the_walk_where_it_is` drops the `Watch` before the
+  walk starts, which is its whole point, so there is no moment at which asking
+  the `Watch` would have an answer. It reads the reason from the counters it
+  already keeps for the count.
+
+Verified by reproducing the failure on this machine before fixing it:
+`rustup target add x86_64-unknown-linux-gnu` and `cargo check --target
+x86_64-unknown-linux-gnu -p notes-fs --all-targets` gave the same four E0615s,
+and pass after. `notes-model`, `notes-markdown` and `notes-sync` cross-check
+clean too; the rest of the workspace needs a Linux C cross-compiler for SQLite,
+which this machine does not have.
+
+**The gate cross-checks Windows and not Linux, and that is the gap this fell
+through.** `tools/check.sh` says why the Windows round exists — `cfg`-gated code
+the native target cannot see, two CI rounds spent on exactly that — and the same
+argument covers Linux, where `PER_DIRECTORY` puts the watcher's only per-directory
+walk. Adding the round is its own commit; this one repairs the break.
+
+## 1.4.2 - eight contracts the local gate checked and no pull request did
+
+`tools/check.sh` and `.github/workflows/ci.yml` are two lists of the same
+contracts, and two lists drift. Comparing them command by command found eight
+checks that existed only in the local gate:
+
+- `tools/ts-serde.py` — a serde wrapper declares its wire shape
+- `tools/doc-status.sh` — every document declares one of the five statuses
+- `server/tests/cotenant.py` — the co-tenant templates and the credential wrapper
+- `tools/tests/test_build_linux.py` — Linux packaging orchestration
+- `tools/tests/test_updater_release.py` — updater publication
+- `tools/tests/test_build_local.py` — the macOS build script
+- `tools/tests/test_selfhosting_doc.py` — the guide matches the code
+- `tools/tests/test_env_report.py` — the env report is not a hand-written IPC shape
+
+**A pull request that broke any of them merged green.** Three of the eight guard
+things a reviewer cannot see by reading the diff — that the Apache template does
+not take the other eight sites down, that the self-hosting guide still describes
+the commands the code actually has, that a newly generated binding matches the
+wire — and the local gate only runs when somebody remembers to run it. That is a
+convention, not a gate, and the distinction is the whole reason this repository
+writes checks instead of rules.
+
+They run in `contracts`, the job that deliberately builds nothing: all eight are
+pure `python3`/`bash`, with no toolchain, no system package and no network. They
+are one step rather than eight because a failing step hides the ones after it,
+and "what else is broken" should not cost another push — every check reports,
+and the step fails if any did.
+
+Verified by running the block exactly as the workflow will: eight green and exit
+0, then with `RelPath`'s `#[ts(type = "string")]` deleted — one `::error::`, the
+other seven still reported, exit 1. A grouped step that swallowed a failure
+would have looked identical to a passing one from the outside.
+
+The first comparison was wrong in the other direction and worth recording: it
+matched step *names* rather than commands and reported `i18n keys resolve` as
+missing when CI already runs `tools/i18n-keys.py`. Redoing it against the
+commands is what produced the eight above.
+
+## 1.4.1 - the serde/ts check could not see the two ids every payload carries
+
+`tools/ts-serde.py` asserts that a type ts-rs cannot parse — `transparent`,
+`try_from`, `into` — also carries an explicit `#[ts(type = "…")]`, because
+without one the generated binding describes `{0: T}` while the wire carries a
+bare `T`. It was green. It was green over a blind spot.
+
+The parser read one line at a time and ended an attribute block at the first
+line that was not an attribute, so a derive written across lines ended at its
+own second line:
+
+    #[derive(
+        Debug, Clone, Copy, …, Serialize, Deserialize, TS,
+    )]
+
+That is exactly how `notes-model/src/ids.rs` writes `uuid_newtype!`, and the two
+types it declares are `WorkspaceId` and `NoteId` — the identifiers on nearly
+every IPC payload there is. A second miss compounded it: the item line inside
+the macro reads `pub struct $name(Uuid);`, and a pattern requiring `\w` after
+the keyword does not match a metavariable. Removing the `#[ts(type = "string")]`
+from either one left the check reporting success.
+
+Attributes are now accumulated until their brackets balance, string literals are
+removed before those brackets are counted, and `$name` is accepted as a name.
+Verified the way the claim deserves — by deleting the override at each of the
+three real sites in turn and watching the check name the file and the line:
+`SearchId`, `$name` in `ids.rs`, `RelPath`. Before the fix, `ids.rs` was missed.
+
+**The reason the blind spot survived is that nothing ever asserted a failure.**
+So `SELF_TEST` runs first, on seven synthetic blocks including both the
+multi-line derive and the macro form, in their violating and their compliant
+shapes. A run that cannot tell the two apart exits non-zero and says its silence
+means nothing, before it has looked at the repository at all. A check that has
+never been seen to fail is a check nobody has tested — this one now tests itself
+every time it runs.
+
+The ten `warning: failed to parse serde attribute` lines stay. They are noise,
+and they are allowed to be noise precisely because the pairing they announce is
+asserted here instead — silencing them would have hidden the same signal one
+level further down.
+
+## 1.4.0 - the MIT licence the metadata had been claiming for 78 versions
+
+`Cargo.toml` says `license = "MIT"`. `tauri.conf.json` says `"license": "MIT"`.
+There was no licence text anywhere in the repository, which is the one thing MIT
+actually requires: *the above copyright notice and this permission notice shall
+be included in all copies or substantial portions of the Software.* A licence
+named in metadata and shipped nowhere grants nothing — the reader has to guess
+which MIT, from which year, held by whom.
+
+`LICENSE` now says it, and `bundle.copyright` carries the same line into the
+installers and the About dialog, which reads it back rather than holding a
+second copy of the year.
+
+Found while looking for a copyright string to suggest, which is the only reason
+it was noticed at all.
+
+## 1.4.0 - Help ▸ About is a dialog of ours, and it can be copied
+
+1.3.9 put the platform's own About panel in Help, on the argument that it
+already carries the name, the version and the copyright and that a dialog of
+ours would be one more thing to translate, style and keep in step with a number
+it does not own. That argument answers the question the owner asked first —
+*which version am I on* — and nothing else, which is the flaw in it.
+
+The questions that actually arrive with a problem had no surface anywhere:
+which engine is drawing this window, where the data directory is, which folder
+is open. They were readable, if at all, from three different screens, and
+somebody reading five values off three screens transcribes one of them wrong.
+
+So the dialog states all five and **copies them**, and the Copy button is the
+reason it exists rather than a convenience on top of it. These lines get written
+down in order to be sent to somebody else, and a platform panel cannot be copied
+at all. The copied text is built from the rendered rows, so the paste cannot
+drift from the screen.
+
+The engine line is read from the window's own user agent, because a rendering
+fault is an engine fault and "macOS 26" does not say which WebKit shipped inside
+it. Windows is matched first: WebView2's user agent carries `AppleWebKit` too,
+and checking that first would report every Windows install as WebKit. There is a
+test for exactly that.
+
+Help is emptied before the item is added. Linux and Windows get a predefined
+About there from Tauri's default and macOS gets an empty Help, so without the
+clearing the two platforms that already had one would have two. macOS keeps the
+system About in its application menu, which belongs to the system.
+
+The menu emits `menu://about` — the first Rust-to-frontend event in this
+application, where every other exchange is the frontend asking and a command
+answering. A command cannot carry this one: the menu is on the shell's side and
+nothing in the WebView knows it was clicked. `core:default` already includes
+`core:event:default`, so nothing was granted and `capabilities/default.json` did
+not change. [ADR-079](docs/decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens),
+which reverses 1.3.9 and is why this is a minor rather than a patch.
+
+## 1.3.9 - About in the Help menu, where macOS left it empty
+
+Tauri's default menu puts About in the application menu on macOS and leaves Help
+with nothing in it; on Linux and Windows it puts About *in Help*, because there
+is no application menu to hold it. macOS is the one platform where opening Help
+opens nothing, which is where the request came from.
+
+The item is the platform's own About panel rather than a window of ours. It
+already carries the name, the version stamped from `version.md` and the
+copyright, and a dialog we drew would be one more thing to translate, style and
+keep in step with a number it does not own.
+
+It appends to the default menu rather than rebuilding one. The default carries
+Edit with cut, copy, paste and select-all, and a WebView whose menu loses those
+loses the shortcuts with them.
+
+Compile-checked here; a menu is confirmed by opening it, on the installed build.
+
+## 1.3.9 - the update screen says which version is running
+
+*"Na tela de update é obrigatório mostrar a versão."* It was not there. The
+banner announced the version being offered and the Settings panel offered to
+check for one, and neither said what the application was. *Tura Notes update
+1.3.6* above something already running 1.3.6 reads as a loop rather than as an
+offer.
+
+`env_report` gains it, read from the package rather than `CARGO_PKG_VERSION` —
+the constant in `Cargo.toml` is the `0.0.0` placeholder, and a diagnostic that
+confidently reports `0.0.0` is worse than one that reports nothing. The banner,
+the Settings check and the Diagnostics list all show it; a failed read leaves the
+line out rather than the panel.
+
+`EnvReport` is the one IPC shape the frontend hand-writes, so the drift it
+invites is now a test. Add a field in Rust and forget the TypeScript and it is
+invisible; rename one and the frontend reads `undefined`, which React renders as
+nothing — and a blank where the version should be is indistinguishable from a
+screen that never had one, which is the complaint this answers. The Rust struct
+and the TypeScript interface are compared by name through serde's camelCase, and
+the version field is asserted by name as well, because both sides agreeing it is
+absent would pass the comparison.
+
+## 1.3.8 - the cloud deployment leaves the queue, verified from outside
+
+The queue said, checked on the morning of 16/09/2026, that `tura.samirhv.com.br`
+resolved and still answered 404 from the default virtual host, that nothing
+listened on 8787 and that `notes-server` was not installed. All three have
+stopped being true, and a queue that describes a state the world left behind is
+worse than an empty one.
+
+Verified from this machine rather than assumed: `/healthz` returns
+`{"status":"ok"}`, and `/v1/workspaces` without a credential returns `401
+{"error":"unauthorized"}` as `application/json`. The second one is the proof.
+`/healthz` sits **behind** the trusted-proxy gate, so answering at all means the
+front end is setting `X-Forwarded-Proto`; and `{"error":"unauthorized"}` in JSON
+is this server's own error shape, where a default virtual host would have
+returned HTML.
+
+What that closes is the deployment, and only the deployment. Owner acceptance
+stays in the queue, because acceptance is somebody using the thing and `curl` is
+not somebody.
+
+## 1.3.8 - a connection test that names the step that failed
+
+*"Não está claro se está funcionando, e se não está funcionando, por quê."* The
+panel could say what was still empty on this machine and nothing at all about
+the server. The only way to find out whether the address, the credential and the
+workspace were right was to close everything, press **Create pairing and
+review**, and read one of three sentences.
+
+Three, for about thirty causes. `Error::Invalid` stands for a bad URL, a path or
+query on the origin, a workspace name with the wrong characters, a scope
+starting with a dot, plain HTTP, a name resolving to a private address, too many
+addresses, and four ways a trust anchor can be wrong. `Error::Denied` stands for
+a credential file that is missing, relative, too large, group-readable or
+unreadable, contents that are not a credential, a credential the server
+rejected, a workspace name that does not match, a scope that does not match, and
+a review credential. That is the right shape for a transport — it retries, and
+it must not narrate what it found in a secret file — and the wrong shape for a
+person asking whether the thing works.
+
+**Test connection** is a seventh `sync_control_*` command and the only remote
+call that runs with a workspace open, because it writes nothing. It takes the
+address, the credential file and the private-address permission — deliberately
+**not** a workspace name. The name is the one field the owner cannot know: the
+credential decides it and the server is the only thing that can say it. So the
+test reports it, fills the empty field, and reports a disagreement rather than
+overwriting a field somebody typed.
+
+Seven outcomes, one per thing to go and fix: `address`, `credential_file`,
+`credential_shape`, `unreachable`, `refused`, `unexpected`, `granted`. The one
+worth naming is `unexpected` — the name resolves, a web server answers, and what
+answers is not this API. On a host that already serves eight other sites that is
+the default virtual host, and until now it was indistinguishable from a bad
+credential.
+
+**Every check is the function `connect` calls.** `Endpoint::validate`'s address
+half, the credential file checks, the address policy and `decode` were split out
+and are now called from both, because a test that approves what the transport
+refuses is worse than no test: it moves the search for the cause to somewhere
+the cause is not. The refactor is behaviour-preserving — the crate's 77 tests
+passed before the probe existed.
+
+The frontend maps the outcomes through a `Record<SyncProbeOutcome, string>` over
+the generated union, so a variant added in Rust fails the TypeScript build
+instead of rendering its own key at the user, which is how `tree.newNote.prompt`
+shipped. The keys inside it are literals, so `tools/i18n-keys.py` checks that
+both languages have them.
+
+## 1.3.7 - a received workspace stops outliving the workspace it belongs to
+
+Found while fixing the update banner, on the same path and one step further
+along. The Tauri shell holds the received-queue client's store in
+`App.received`. `sync_open` sets it; **nothing ever set it back to `None`.** So
+`Some` meant "a received workspace was opened at some point in this session",
+while both readers were asking "is one open now".
+
+`update_install` was one of those readers, and it refuses to restart while a
+workspace is open. A session that opened a received workspace once could
+therefore never install an update again — not by closing the received workspace,
+not by closing every workspace, not by anything short of restarting the
+application by hand. The dialog fixed above would have run its close flow
+correctly and then been refused natively, with a message about a workspace that
+was not open.
+
+`sync_apply` was the other reader, and there the stale store was worse than a
+refusal: it would have applied one workspace's received state into whichever
+workspace happened to be open. The frontend never let it, because `ReceivedSync`
+compares workspace ids before it offers the control — but that made the guard a
+property of the caller rather than of the command.
+
+The store now carries the `WorkspaceId` it was opened for, and both readers
+compare it against what is open now. `update_install` needs no check of its own
+any more: `sync_open` opens the workspace through the same service, so a live
+received store implies an open workspace, which the existing refusal already
+covers. The check that was deleted is the one that could not answer the question
+it was asked.
+
+## 1.3.7 - the update closes the workspace instead of asking the user to
+
+The update banner could not be obeyed. It said *Close your workspace through the
+normal save flow, then try again*, and its only button — **Install and restart** —
+did nothing but say it again, because the one command that closes a workspace
+lives in a menu in the sidebar footer that nobody reading an update dialog would
+think to open. Every press produced the same sentence, which is exactly how it
+was reported: the update never installs.
+
+[ADR-074](docs/decisions.md#adr-074--signed-desktop-updates-with-explicit-installation)
+puts the installation *after* the normal workspace-close flow. It never said the
+user performs that flow, and now the button does: `install()` calls the same
+`leave()` the workspace menu calls, so unsaved work still stops the close and is
+still named in the question it asks, and declining still installs nothing. A
+guard that states a rule and offers no way to obey it is not read as a guard.
+
+The close is invisible across the restart — `restore_last_workspace` opens the
+same workspace on the way back — and when the installation fails instead of
+restarting, the workspace is reopened where it was. `update_install` never
+returns on success, so reaching that line at all means the failure path, and
+leaving somebody at the Welcome screen holding a failed update would be a second
+failure caused by the first.
+
+`update.closeWorkspace` now reports what happened rather than prescribing what to
+do, because it is only reachable when the user declined the close.
+
+Two of the three new tests fail against the old store, which is why they were
+written that way round. The third — *installs nothing when the close is
+declined* — passes against both, because that is the guarantee the change had to
+keep rather than the behaviour it changed.
+
+## 1.3.6 - say why the credential store is re-read on every request
+
+A review raised `admin::load()` reparsing `tokens.json` per HTTP request as a
+thing to improve. Measured rather than assumed: at the documented ceiling of
+1024 credentials the file is 285 KB, and reading and parsing it costs well under
+a millisecond — on a request that has already taken a permit from a semaphore of
+eight, taken a file lock, and is about to do filesystem work. A real store is a
+handful of devices and a few kilobytes.
+
+**Declined, and the reasoning is now at the call site**, because the next person
+to look will reach for the same cache. `token revoke` runs in a separate process
+and `SERVER-0.5.md` promises it takes effect with no server restart. A cache
+keeps that promise only while its invalidation is right, and the failure mode of
+getting it wrong is a revoked credential that still works. Trading a correct
+security control for microseconds is how that bug gets written.
+
+Nothing else changed. An item closed by deciding against it is still closed, and
+a decision nobody wrote down gets re-raised.
+
+## 1.3.5 - the ts-rs warnings stop being the only thing standing between a wrong type and the frontend
+
+Every `cargo clippy` prints ten `warning: failed to parse serde attribute` lines.
+`ts-rs` cannot read `#[serde(transparent)]`, `try_from` or `into`, so it says so
+and then generates TypeScript for the **Rust** shape rather than the wire shape.
+
+They are harmless today: all three types that carry one of those attributes —
+`SearchId`, `RelPath` and the `uuid_newtype!` ids — also carry an explicit
+`#[ts(type = "…")]`, so the declarations are right. **The problem is the next
+one.** A `#[serde(transparent)]` newtype added without the override is described
+to the frontend as `{0: T}` while the wire carries a bare `T`, and nothing
+fails: the types compile, the IPC works at runtime, and the declaration is
+quietly wrong. The warning that would announce it arrives in the middle of ten
+identical ones everybody has learned to scroll past — which is what a warning
+nobody can act on costs, the attention of the one that matters.
+
+`tools/ts-serde.py` asserts the pairing instead, so failing the gate becomes the
+signal and the warnings can stay noise. It was run against the failure it exists
+for — `SearchId` with its `#[ts(type)]` removed — and names the type, the file
+and the line.
+
+Found by a review in another session, which had already checked that all three
+overrides are in place today.
+
+## 1.3.4 - the five status words are five, and something checks
+
+Golden rule 3 lists five: `ACTIVE`, `HISTORICAL`, `PROPOSED`, `DEPRECATED`,
+`NOT ADOPTED`. `architecture-v1.md` declared a sixth — `SUPERSEDED` — and
+`roadmap.md` declared its status in prose with no word in it at all. The three
+drafts under `docs/history/` declared nothing; the folder's index says they are
+superseded, which is true of the folder and not of a file opened directly.
+
+None of that is ambiguous to a human reading carefully, and that is not what the
+rule is for. It exists for one sentence: **a document with no declaration is
+read as ACTIVE**. A planning draft nobody has built, read as the thing that was
+built, is worse than a missing document, because it has the authority of being
+written down.
+
+`SUPERSEDED` becomes `HISTORICAL`, which means the same thing and is one of the
+five — a sixth word for one file costs more than the word it saves. `roadmap.md`
+gains `ACTIVE` in front of its prose, and each `history/` draft says what it is
+on its own first lines.
+
+`tools/doc-status.sh` joins the gate and checks the **vocabulary**, not only the
+presence: a sixth word is the same failure one step along, a word the reader
+interprets instead of looking up. First eight lines only — a status further down
+is a status nobody reads before they have started believing the document. It was
+run against both failures, a missing declaration and an unlisted word, and
+catches each.
+
+## 1.3.3 - ask whether the pinned versions are vulnerable, not whether they are old
+
+`security.md` §10 names dependency maintenance as a control and nothing checked
+it. Dependabot exists and covers five ecosystems, but it answers a different
+question: it opens a pull request when a newer version exists, which is not the
+same as saying the version pinned right now carries a known advisory.
+
+`cargo audit --deny warnings` against the lockfile — the lockfile is what ships,
+so the lockfile is what is audited — and `npm audit --audit-level=high` for the
+frontend, in both `tools/check.sh` and CI. The frontend is clean today, which is
+the cheap moment to add the step rather than the expensive one.
+
+**`--audit-level=high` and not `low`**, deliberately: a moderate advisory in a
+build-time dependency of a desktop application that opens no port is a queue
+item, and a gate that goes red for one of those is a gate people learn to
+override. A gate nobody overrides is worth more than a gate that catches more.
+
+**CI runs it weekly as well as on push.** An advisory is published against code
+that has not changed, so a check that runs only on our commits learns about it
+whenever we happen to commit next. The rest of the workflow coming along on that
+schedule is not waste — a suite that has not run in a fortnight is a suite whose
+state nobody knows.
+
+Locally a missing `cargo-audit` warns and names the one install command, the way
+the Windows cross-check already does: refusing to run the rest of the gate over
+an absent checker helps nobody.
+
+CI also stops duplicating the i18n parity check in shell and runs
+`tools/i18n-keys.py`, which resolves keys rather than comparing catalogues — the
+weaker check is what let `tree.newNote.prompt` ship missing from both.
+
+## 1.3.2 - a damaged journal declines the prune instead of crashing
+
+`linear_payload_is_prunable` walked back from a note's head by indexing
+`journal.revisions[&next]`, with no check and no cap. Two shapes broke it: a
+parent naming a revision the vault does not hold panicked the command outright,
+and two revisions naming each other looped for ever, growing the backward list
+until the process died.
+
+Neither is reachable over HTTP — `sync-prune` is an offline operator command and
+ADR-063 keeps it that way, so this is robustness rather than surface. It is
+worth fixing anyway for where it lands: **a damaged vault is exactly the state
+someone runs a maintenance command in**, and a maintenance command that aborts
+the process is worse than one that declines to prune. Declining is also the safe
+direction, since it keeps the payload.
+
+The lookup returns rather than indexes, and the walk is bounded by the number of
+revisions — a linear chain cannot visit more than the journal holds, so anything
+longer is a cycle. Both shapes are built and asserted.
+
+Found by a review in another session.
+
+## 1.3.1 - the rate budget follows the client instead of the proxy
+
+The server charges 120 requests a minute to an address, before authentication,
+to bound a flood that never presents a credential. Behind a proxy the address is
+the proxy, so it became the budget of every device put together. Past three
+active devices that is **tighter than the 60/min each credential already has**,
+and one busy device locks the others out — the control hitting the wrong people
+rather than failing open. It is live now, on the co-tenant deployment.
+
+The budget is charged to the last `X-Forwarded-For` entry, and only the last.
+Each hop appends the address it saw, so everything further left came from the
+client and can say anything, including the address of a device it would like to
+lock out. Reading the header is safe here for one reason: the peer has already
+been checked to *be* the trusted proxy, so the header is something our proxy
+appended rather than something a client sent.
+
+`NOTES_SERVER_TRUSTED_HOPS` (default 1, maximum 8) covers a CDN in front of the
+site's own front, which is this deployment. **It defaults low on purpose.**
+Wrong low costs a shared bucket — what shipped before. Wrong high counts back
+into an entry the client supplied and makes the budget forgeable. The two
+mistakes are not the same size, so the default is the safe one and the unit file
+carries the other commented out with the reason.
+
+**nginx does not send `X-Forwarded-For` unless told to**, which would have made
+this change do nothing there; the template now carries the line. Apache's
+`mod_proxy` and Caddy append it themselves, and the Apache template says so
+rather than leaving the reader to wonder what is missing.
+
+Four cases: one device spending its budget leaves the second device's alone; a
+client naming a victim in the header spends its own budget and not the victim's;
+a second hop is counted when configured; and a header nothing can be made of
+falls back to the shared bucket rather than to a refusal.
+
+## 1.3.0 - the watcher stops holding the service mutex for 270 ms
+
+The gate has had one failing test for a while — `starting_the_watcher_returns_immediately_and_walks_behind`
+— and its assertion message was pointing at the wrong thing. It said "it is
+walking the tree inline", and on macOS there is no walk: one handle covers the
+subtree. Measured, the cost is **280 ms for a workspace with 0 directories and
+281 ms for one with 3 600**. Constant, inside `FSEventStreamCreate` and the run
+loop `notify` waits to have scheduled.
+
+Constant is not free. `commands.rs` held `app.svc` across the call and the
+frontend awaited it on workspace open, so every IPC command queued behind those
+270 ms. That is precisely the hazard D-09 removed from Linux in 0.1c, left
+intact on macOS because the reasoning stopped at "there is no walk here" — true
+of handles, never true of time.
+
+Creating the backend and installing the root watch now happen on the watcher's
+own thread on every platform. `start_watch` returns at once.
+
+**The design cost is real and is the interesting half.** `degraded` was known at
+construction and is not any more: it moves into the counters beside `walking`,
+`WatchProgress` carries it, and `watch_status()` reports it — which the
+interface was already polling for coverage. `start_watch` therefore usually
+returns `None`, meaning "no answer yet" rather than "this platform can watch".
+
+**And there is now a window that did not exist.** A change made between
+`start_watch` returning and the handle existing is not seen by the watcher. The
+5 s poll and the scan on focus cover it — the same two mechanisms that already
+cover a watch lost silently — so it costs latency and not a missed change. It is
+why the two watcher tests in `reconcile.rs` now wait for `walking` to clear
+before they write: a test that did not wait would be asserting the poll while
+claiming to assert the watcher. Recorded as ADR-078, along with the two module
+comments that were wrong about latency.
+
+`Y`: `Watch::degraded` is a method now and `WatchProgress` gained a field.
+
+The whole Rust suite passes, including the deep tests that gated this. The
+"Release gate repairs" item leaves the queue.
+
+## 1.2.0 - a rename stops being able to delete a file nobody asked it to
+
+`LocalFs::rename` checked `b.exists()` and then called `fs::rename`, and
+everything between the two was a window. `fs::rename` **replaces** the
+destination on every platform — that is what POSIX `rename` and
+`MOVEFILE_REPLACE_EXISTING` both mean — so anything that created `b` in that gap
+had its bytes deleted, with no error raised anywhere.
+
+That is not a theoretical race here. This product's premise is that other tools
+write in that folder: a sync client that is now actually deployed, a `git
+checkout`, a restore, Dropbox. The window is ordinary rather than adversarial,
+and what it costs is a file the user wrote — ADR-001 failing silently, which is
+the worst way for it to fail.
+
+The operating system can say this in one call, and all four targets have a
+spelling for it: `renameat2(RENAME_NOREPLACE)` on Linux and Android,
+`renamex_np(RENAME_EXCL)` on macOS and iOS, and `MoveFileExW` with no
+`MOVEFILE_REPLACE_EXISTING` on Windows — which is precisely the flag
+`std::fs::rename` opts into. `create_new` thirty lines above had already
+answered the same question for creation with `persist_noclobber`; this is the
+rename half of it.
+
+**The fallback is a decision.** `RENAME_NOREPLACE` is not implemented by every
+filesystem — some network mounts and older overlay setups answer `EINVAL` — and
+refusing there would break renaming on those volumes in order to protect against
+a race. On that answer the code falls back to exactly what shipped before, so
+those volumes are no worse off and every other one loses the window. Recorded as
+ADR-077, along with the consequence that a Windows rename across volumes now
+fails rather than silently becoming a copy.
+
+The tests assert the primitive and not the race, and that is the point worth
+keeping: asserting through the public `rename` passes against the broken code
+too, because the pre-check catches the simple case. What removes the window is
+the syscall refusing, so that is what is tested — it refuses and leaves the
+destination's bytes, and it still renames when the destination is free. A guard
+that refused everything would satisfy the first half alone.
+
+`Y`, not `Z`: the `FileSystemAdapter` surface behaves differently on a
+destination that exists.
+
+Also gone: `TMP_COUNTER`, incremented on every atomic write and never read since
+the temporary file stopped having a random name.
+
+Found by a review in another session. Two of its findings were already fixed
+here — the stray credential fixture and the guard against a suite writing
+outside its temporary directory, both in 1.1.25 — and its reading of the queue's
+"Release gate repairs" was right: one of the two named failures passes now, and
+the item says which one is left and what it costs.
+
+## 1.1.31 - a folder you can see, and put something into
+
+Three faults in the explorer, and the first one is the reason the other two were
+never found.
+
+**`tree.newNote.prompt` was rendering as body text.** `t()` returns the key when
+it does not resolve, so the New note dialog asked for a name under the label
+`tree.newNote.prompt`. It and `tree.newFolder.prompt` were used by
+`ExplorerToolbar` and defined in neither language. The gate checked that the two
+locales covered the SAME keys, which they did — both were missing it equally.
+`tools/i18n-keys.py` now resolves every literal `t("…")` against both, and
+replaces the parity check rather than joining it. Its regex carries a lookbehind
+worth the line it costs: without one, `closest("a")` and `keepDraft("conflict")`
+match, and a checker that cries wolf is a checker that gets skipped.
+
+**A folder could be expanded and could not be put into.** `create_note` has
+taken a directory since 0.1a, and the only interface reaching it was the
+toolbar's two buttons, which always pass the workspace root. So the capability
+existed, the folder was inert, and nothing said where a new note would land — it
+reads as a folder that does not work rather than one the interface forgot.
+A directory's context menu now offers **New note in {folder}** and **New folder
+in {folder}**, creating in that folder; the toolbar's dialogs say they create at
+the root and where to go instead.
+
+**And a folder did not look like one.** The row drew `▸` for a directory, `•`
+for a note and `·` for any other file — three characters a few pixels apart,
+which asks the reader to learn a legend before they can tell a folder from a
+file. Folders are drawn as folders, open when open, notes as documents, and a
+file the core does not consider a note is drawn faint: present, and not offered.
+
+`Tree.test.tsx` is new — the component had no suite. Three cases: the folder
+menu creates in the folder and not in the root, a note's menu does not offer it,
+and the two kinds draw different icons. 96 frontend tests pass.
+
+## 1.1.30 - the context menu stops looking like a document
+
+A screenshot of the explorer's right-click menu had every item highlighted at
+once — Rename, Move to, Duplicate and Delete all wearing a selection colour. Not
+a hover state: the highlight hugged the words rather than filling the rows,
+because it was **text selection**. `styles.css` set `user-select` on exactly two
+elements, both of them line numbers in the diff view, so a stray selection
+anywhere painted the labels of the chrome. No native menu, tab strip or tree row
+on this platform selects, and that is most of what made the menu look wrong —
+not any of its colours.
+
+`.menu`, `.menu-item`, `.rail`, `.tabbar`, `.statusbar` and `.row-wrap` no
+longer select. The editor, the preview and every input are untouched: those are
+the document.
+
+**And `.menu` had two rule blocks**, which is not a style question. The later
+wins on what it sets and the earlier survives on what it does not, so the menu
+rendered as a mix nobody designed: geometry from the live block, `display:flex`
+and a 2px gap between items from a block written for markup that no longer
+exists, and — by specificity — that dead block's `padding: 5px 8px` and
+`border-radius: 4px` beating the live `6px 8px` and `5px`.
+
+It was not dead enough to simply delete. `.menu button.danger` at (0,2,1) was
+the only rule giving Delete its colour, and nothing in the live block replaced
+it; removing the old block without noticing would have quietly turned the
+destructive item into ordinary text. It moves to `.menu-item.danger`.
+
+Two guards in `tools/check.sh`, because both failures are invisible in a passing
+build: `.menu` must have exactly one rule block, and the chrome must still carry
+its `user-select`. 93 frontend tests pass and the contrast gate is unchanged at
+42 pairs.
+
+## 1.1.29 - the downloadable file loses the space the application keeps
+
+The bundler names artefacts after `productName`, and that name has a space in
+it, so the first published release put this in the updater feed:
+
+    .../1.1.27-darwin-aarch64-app-8758989e-Tura%20Notes.app.tar.gz
+
+A space in a released filename is `%20` in every URL that points at it and a
+word boundary in every script that has not been written carefully. ADR-071
+exists because one of those scripts was not: the Arch job split a path on
+whitespace and ended up asserting against a file belonging to another package.
+
+`tools/name-bundles.sh` takes the spaces out, on both pipelines, immediately
+after the bundler and before anything hashes, signs, records or publishes the
+name — `TuraNotes_1.1.29_aarch64.dmg`, and the same for .deb, .AppImage and
+.rpm.
+
+**What it does not rename is the point.** `Tura Notes.app`, the Debian package
+name, `br.com.samirhv.notes` and `Tura Notes.desktop` are installed identities,
+frozen by ADR-069: rename one and the next release installs *beside* the
+previous one instead of over it. The helper touches regular files only, so the
+application bundle — a directory — is out of reach by construction rather than
+by remembering. The `.app` inside the updater tarball keeps its name for the
+same reason; only the tarball around it changes.
+
+`productName` was the other way to do this and is the wrong one: it is what
+gives all four of those their names.
+
+Four cases. The Linux suite asserts the built package carries no space and that
+its checksum sidecar names the renamed file — the sidecar is written after the
+rename, so it agrees with what gets published. The macOS suite asserts the
+rename precedes the sidecar, the updater payload and the publication, and that
+the application bundle's name survives it.
+
+Feeds already published are unaffected: each entry carries its own payload URL,
+and the next publication writes a new one.
+
+## 1.1.28 - the deploy warns about the vhost instead of overwriting half of it
+
+1.1.27 reinstalled `apache-tura.conf` whenever it differed from the repository's
+copy. That is wrong on any host where the certificate came from
+`certbot --apache`, which is to say the host it was written for.
+
+Certbot **clones** the HTTP vhost into `<name>-le-ssl.conf` at issuance, and it
+is the clone that serves 443. Reinstalling the original therefore updates the
+half almost nobody reaches and leaves TLS running the old directives — silently,
+with a deploy that reports success. Half a configuration updated is worse than
+none, because nobody suspects it. Certbot also edits the HTTP vhost when it
+configures a redirect, so the overwrite would delete that edit on the next
+deploy, and the site would quietly stop redirecting.
+
+The script now compares and says so, naming why the update is manual, and does
+not touch Apache at all — no install, no configtest, no reload. The suite
+asserts the absence rather than the ordering it asserted before: no
+`systemctl reload apache2`, no `restart`, no `a2ensite`, and the comparison
+still there so the warning cannot be dropped along with the write.
+
+The unit file and the credential wrapper are still installed automatically.
+Nothing else owns those two.
+
+## 1.1.27 - a deploy script for the server, and a checkout the orchestrator leaves alone
+
+The deployment host runs an orchestrator that executes every
+`/srv/www/*/deploy.sh` it finds. The Tura checkout had been put there, and the
+root of this repository has a `deploy.sh` — the desktop packaging entry point
+(ADR-072). So the fleet deploy ran the Tura build pipeline on the production web
+server. It failed, loudly, on `Missing prerequisite: rustc`, which is the good
+version of that outcome: on a machine with a Rust toolchain it would have
+compiled.
+
+Two names, one meaning each. `server/cotenant/deploy-server.sh` is the server
+deploy, and the checkout moves one level down — `/srv/www/tura.samirhv.com.br/`
+holds a `deploy.sh` symlink into `repo/server/cotenant/`, and the scanner, which
+walks one level, sees the symlink and nothing else.
+
+What the script does is narrower than it looks. It reinstalls the unit, the
+vhost and the credential wrapper **only when their contents differ**, compared
+with `cmp` rather than inferred from the commit — restarting a service that
+holds notes because of a commit that did not touch it is cost with nothing on
+the other side. It installs a binary only when the release line moves, deriving
+that release from `version.md` as `X.Y.0`, because assets are published on minor
+bumps; deriving instead of asking spends none of the sixty GitHub API calls an
+hour that this host shares with the site's release monitor.
+
+**It never writes into the data directory**, and the suite asserts it: the notes
+are there, and a deploy that touches them is a deploy that eventually loses
+someone's notes. Backup stays separate and explicit.
+
+Three more properties are pinned rather than trusted, each because its failure
+is silent or expensive: the release derivation against five versions, the
+checksum verified before anything reaches `/usr/local/bin` (a truncated tarball
+installs a binary that exists and does not execute), and the Apache reload gated
+on a configtest — that Apache serves eight other sites, and a bad vhost takes
+all of them down.
+
+It copies itself to `/run` and re-executes before pulling, the same guard the
+site's deploy carries and for the same reason: the script is inside the
+repository it updates, and bash reads a script as it runs.
+
+## 1.1.26 - the pairing panel says what is missing instead of going grey
+
+The first person to pair against a real server filled in the credential file and
+the server address, and nothing happened. Not an error — nothing. The button
+stayed grey, and there was no way to find out which of its six preconditions was
+unmet.
+
+Six, and it stated none of them: five fields and a closed workspace. The notice
+about the workspace existed, but at the bottom of the panel and worded for a
+different moment ("close the workspace to review identities or apply received
+files"), so it read as a note about later rather than the reason for now. The
+panel now lists what is still needed, by the label of the field that supplies
+it, and the list disappears as the fields fill. "Disabled" is an answer to a
+question the person has not been allowed to ask yet.
+
+**A pairing that worked also said nothing**, which is the same failure from the
+other side: `task` clears the message and writes one only on failure, so success
+was indistinguishable from a button that did nothing. The phase in the summary
+does move, but on the next poll, up to fifteen seconds later. It says so now,
+immediately.
+
+The `Reconnect existing queue` button also gains the busy guard its neighbour
+had — it could be pressed during an in-flight pairing.
+
+Three cases: the missing list names the empty fields and clears as they fill, an
+open workspace appears in that list by name, and a successful pairing is
+reported. 93 frontend tests pass; the contrast gate covers the hint's colours
+already, which is why it uses existing tokens.
+
+## 1.1.25 - stop the credential suite writing into the checkout
+
+1.1.23 committed a file called `read,create,update,move,delete`, sixteen bytes,
+at the root of the repository. It surfaced in a fresh clone on the deployment
+host, in an `ls` next to the real files, which is the only place a name like
+that is going to be noticed.
+
+It is the fixture string `the-secret-bytes` and not a credential — no secret
+was published — but the way it got there is worth the entry. The first draft of
+the wrapper suite had its fake CLI write to `$6` instead of `$7`, and `$6` in
+`token create LABEL WORKSPACE . PERMISSIONS OUTPUT` is the permissions list. The
+fake ran with the repository as its working directory, so it created a file
+named after that argument, and `git add -A` swept it in. The test was corrected
+the same hour; the file it had already left behind was not, because a passing
+suite says nothing about what it wrote on the way.
+
+Two changes, and the file is the smaller one. The suite now runs the wrapper
+with its temporary directory as the working directory, so a relative write
+cannot reach the checkout at all. And it snapshots the repository root before
+and after and asserts they match — the guard for the class rather than for the
+instance, because the next stray write will not be this one and will be just as
+invisible in a green run.
+
+## 1.1.24 - remove the watcher probe a blanket add swept into the tree
+
+`crates/notes-fs/tests/probe_watch.rs` was a throwaway measurement written
+during a review to find out where `start_watch` spends its time on macOS. It
+was never meant to be committed; a blanket `git add` in the next commit picked
+it up and 1.1.23 published it.
+
+It is deleted rather than kept, because what it measured belongs in the record
+and not in the suite: `notify`'s FSEvents backend costs a **flat ~270 ms**
+inside `Watcher::watch`, on an empty directory and on 3 600 directories alike —
+280 ms for zero directories, 281 ms for 3 600. The cost is `FSEventStreamCreate`
+plus the run-loop thread that `run()` blocks on until it is scheduled, and it is
+constant in the size of the tree.
+
+That number is the diagnosis for the `deep.rs` failure the queue carries, and it
+contradicts the message the assertion prints: `start_watch` is not "walking the
+tree inline" on macOS — there is no walk, and the same 270 ms is paid for a
+workspace with nothing in it. The finding goes to the queue item; the file that
+produced it does not belong in `cargo test`.
+
+The stray 16-byte file at the repository root from the same commit is left
+untouched deliberately — reading it was refused as credential material, and a
+file nobody has read is not a file to delete on a guess.
+
+## 1.1.23 - a credential wrapper a web administration screen can actually call
+
+The site on the publication host is getting a screen that creates and revokes
+sync credentials, so enrolling a device becomes downloading a file rather than
+opening an ssh session. That screen runs as `www-data`, and the obvious way to
+let it reach the CLI does not work.
+
+`/var/lib/notes-server` is 0700 and owned by `notes`, so the web user cannot run
+`notes-server` at all. Granting it `(notes) NOPASSWD: notes-server token create
+*` gets past that and into the second half of the problem: `token create` writes
+the secret to a **new** file at mode 0600 owned by whoever ran it, which the web
+user then cannot read. The sudoers line buys a file nobody can open.
+
+`server/cotenant/tura-credential` is the answer: it returns the secret over the
+pipe, removes the file whatever happens next, sets the `NOTES_SERVER_DATA` that
+sudo strips, and validates its own arguments. That last part is the reason it
+is a script rather than a wildcard — the caller is a web application, so "the
+caller validated it" is not a property this side may assume. The grant becomes
+one reviewed script with no path argument, and the web user cannot choose where
+a secret is written.
+
+The permission list is spelled out rather than matched: a pattern accepting
+"anything comma-separated and lowercase" also accepts a permission invented
+later, and that failure is a credential quietly holding more than the screen
+offered. Scope is always the whole workspace, because a flag no interface sets
+is a flag that gets set wrong.
+
+Eleven refusals are asserted against a fake CLI — a label carrying a shell
+metacharacter, an uppercase workspace, two unknown permissions, wrong arity in
+both directions, a malformed id, an unknown subcommand and no subcommand — plus
+that a refused call never reaches the CLI, and that the secret file does not
+outlive the call. `mktemp` takes a full template, because BSD appends its own
+suffix to a `-t` prefix and GNU deprecates the flag: one line, two meanings, and
+this script runs on Linux while its tests run here.
+
+## 1.1.22 - the Apache template stops hand-writing a TLS vhost
+
+The publication host turns out to be the deployment host too: Debian 13, x86_64,
+**Apache** with more than eight sites and `certbot --apache`, which is visible in
+the `-le-ssl.conf` files beside every `.conf` in `sites-enabled`. That convention
+matters, because `apache-tura.conf` shipped a hand-written `<VirtualHost *:443>`
+naming a certificate under `/etc/letsencrypt/live/`.
+
+**On that host, enabling it would have taken the other sites down.** Apache
+refuses to start when a vhost names an `SSLCertificateFile` that is not on disk,
+and the certificate does not exist until certbot has run — which it cannot do
+until the HTTP vhost is enabled. The template was a deadlock whose failure mode
+is not "the new site does not work" but "samirhv.com.br, shvia.org and six
+others stop answering", which is the one kind of mistake a co-tenant deployment
+must not make.
+
+The template is HTTP-only now, with the three load-bearing directives and an
+exclusion so `/.well-known/acme-challenge/` is served from disk instead of being
+proxied into the notes server. `certbot --apache` clones it into the TLS vhost
+once the certificate exists. The header says what to do instead if you issue
+certificates another way, and repeats the Cloudflare caveat: HTTP-01 through a
+proxied record is answered by the CDN, so the record goes DNS-only for the
+issuance.
+
+`server/tests/cotenant.py` asserts the absence — no `<VirtualHost` line naming
+`:443`, and the ACME path excluded from the proxy. It matches directives rather
+than text, because the comment explaining why there is no TLS vhost necessarily
+contains the thing it is warning about, and the first version of the assertion
+failed on its own documentation.
+
+The queue carries the ordered sequence for this host, with the trap named.
+
+## 1.1.21 - let the remote sudo ask for its password
+
+The first real publication got through the build, the notarisation, the
+staple, the preflight and a verified 6 MB upload, and then stopped on
+`sudo: a terminal is required to read the password`. `ssh host "cmd"` allocates
+no terminal, and `sudo` will not prompt into one that does not exist. The ingest
+runs `sudo -u www-data php artisan files:add` because artisan writes into
+`storage/`, so it has always needed this and has never had it — the step had
+simply never run.
+
+`ssh -t` on the two calls that use sudo: the ingest in both pipelines, and the
+feed install in `tools/updater-release.py`. The calls that do not use sudo keep
+their default, because a pty there only mangles the output they are parsed for.
+
+**The pipe had to go with it, and that is the half worth writing down.** The
+ingest's output was indented with `| sed 's/^/      /'`. A password prompt
+carries no newline, and sed reads a line at a time, so it would hold
+`Password:` until something ended the line — the build sits there looking hung,
+with nothing on screen to type into, which is a worse failure than the one being
+fixed because it looks like a different problem. Six spaces of indentation are
+not worth a prompt nobody can see.
+
+Failing the ingest now prints the one-line sudoers rule that makes it stop
+asking, which is what an unattended release wants, and says where the uploaded
+file is still staged. `docs/runbook.md` carries the rule for both commands and
+the warning against a blanket `NOPASSWD: ALL`.
+
+Two regression cases. The updater suite asserts that every sudo call carries
+`-t` and that no other call does; the build-script suite asserts the same of
+both pipelines' ingest lines — including that the ingest is one `ssh` call, so
+re-piping it fails the gate.
+
+## 1.1.20 - write the self-hosting guide for the person who will run the server
+
+Pointing the app at your own server has been possible since the 0.6 pairing
+panel shipped, and there has been nowhere to send someone who wanted to. What
+existed was `SERVER-0.5.md`, which is a contract: routes, limits, peer checks,
+backup restrictions. Correct, and not a route through itself — it never says
+which of three deployments to pick, never names a field on the screen, and opens
+by explaining what the process is rather than what it is for.
+
+`docs/SELF-HOSTING.md` is the route: what you get and what you do not, what you
+need, five steps, and the failures that actually happen. One recommended path
+end to end — Compose on a host with both ports free — with the co-tenant and
+tailnet deployments as short sections that say what each is *for* and link to
+the contract. The pairing panel is described by the labels on the screen,
+including the one that has to be right: the mode, which is upload, download or
+reconcile, and means three different things about what the two sides already
+hold.
+
+Three things it says that the contract states without emphasising, and that a
+person deciding to self-host has to read before they decide: **there is no
+end-to-end encryption and the server reads its own notes**; **one credential per
+device**, because two devices sharing one cannot be told apart and revoking the
+lost one cuts off the kept one; and **sync is not a backup** — it copies your
+mistakes to the other machine promptly and correctly.
+
+It stays English, like the rest of the repository. The Portuguese reader is
+served by product copy on the site, which is where product copy lives; the guide
+here is the contract's route and the thing the site's copy is written from.
+
+`tools/tests/test_selfhosting_doc.py` keeps it honest. Every on-screen label the
+guide tells a reader to look for is checked from both ends — it must still be a
+string the app ships, and it must still appear in the guide — so renaming a
+field fails the gate instead of stranding a reader in front of a panel that does
+not say what they were told. The transfer interval bounds are read off the
+control, and the `token create` argument order off the server's own usage line,
+because a swapped workspace and scope produces a credential that authenticates
+and reaches nothing. Five cases.
+
+## 1.1.19 - unstamp the tree before asking whether it changed during the build
+
+A signed, notarised, stapled 1.1.17 DMG was refused with "sources changed during
+the build; retry before publishing", and nothing had changed. The guard compares
+`build-cache.py fingerprint` against the `SOURCE_HASH` taken before the build —
+but `tools/stamp-version.sh` writes the version into
+`apps/notes-app/src-tauri/tauri.conf.json`, that file is under one of the
+fingerprint's INPUTS, and `SOURCE_HASH` is read *before* stamping while the
+comparison was made *while still stamped*. Two different files, two different
+hashes. **The guard therefore fired on every macOS build that actually
+compiled**, after the notarisation round-trip, and the build it refused to
+record was correct every time.
+
+Two things hid it. The reuse path skips the entire block, so a second run of an
+unchanged version never reaches the check. And no macOS build has ever been
+published, so the failure had nowhere to become visible — the DMG was produced,
+signed and stapled, and only the bookkeeping step said no.
+
+`tools/build-linux.sh` restores the placeholder on the line before its own
+check, and has since 1.0.3. `build-local.sh` now does the same, immediately
+after `tauri build` rather than only in the exit trap, which also returns the
+tree to its committed state sooner. Same asymmetry as the publication ordering
+in 1.1.14, same fix: do what the other platform already does.
+
+`tools/tests/test_publish_preflight.py` becomes `test_build_local.py`, because
+it now covers two unrelated things that share a cause — both bugs lived where
+they did because a full macOS build is expensive to fake. One new test stamps
+the real tree, asserts the fingerprint moves, and restores it; a second asserts
+the restore precedes the comparison in the script, which is an ordering and
+cannot be checked by running the parts. Eight cases pass.
+
+## 1.1.18 - confirm the publication path and say where the download link comes from
+
+`ssh b3sys@100.64.100.125 test -f /srv/www/samirhv.com.br/samirhv/artisan`
+succeeds. **The path was never wrong** — the site's own `deploy.sh` puts the
+Laravel application at exactly that address, and `docs/AI-MEMORY.md` on that
+repository has been calling `artisan` there by its full path all along. The host
+was wrong, for six releases, and a wrong host reports itself as a missing path.
+That is why 1.1.14's preflight prints the host it asked as well as the path it
+asked for; it is also why this note had survived since 1.1.0 asking someone to
+confirm a directory that was already correct.
+
+So nothing stands between here and a published release except the act: a signed,
+notarised build, `--publish`, and the feed read back from samirhv.com.br.
+
+**The download link on the site is data, not code.** `samirhv.com.br/p/tura-notes`
+already renders tabs per operating system, groups by version with the newest
+expanded, detects the visitor's platform to recommend a build, and counts each
+download through `/d/{file}`. It shows "Em preparação" because `ProjectFile` has
+no rows for that project, and `php artisan files:add` — which is the second half
+of `--publish` — is what creates them. The `.dmg` will land under macOS with the
+right architecture without anyone configuring it: the site infers both from the
+filename, and Tauri's `Tura Notes_<version>_<arch>.dmg` carries both.
+
+Nothing in the site repository needs to change for the link to appear, which is
+the useful half of this entry: the work is one publication, not a feature.
+
+## 1.1.17 - publish to the machine that actually answers for samirhv.com.br
+
+`--publish` has pointed at `b3sys@100.64.100.242` since 1.0.4 and that is a
+different machine: a different ed25519 host key, and `shvia-site` rather than
+the host serving samirhv.com.br. `docs/updater.md` recorded the symptom in 1.1.0
+— "the private host responds, but `/srv/www/samirhv.com.br/samirhv` does not
+exist there" — which reads like a wrong path and was a wrong host. The default
+is now `b3sys@100.64.100.125`, the machine that answers for both shvia.org and
+samirhv.com.br.
+
+**That also answers whether the download page and auto-update still work.** The
+updater endpoint is compiled into every build — `plugins.updater.endpoints` in
+`tauri.conf.json`, `https://samirhv.com.br/updates/tura-notes/…` — so it is
+fixed at build time and an installed application cannot be told to look
+elsewhere. The upload host does not appear in it: publication works from any
+machine to any path, as long as the bytes land somewhere that URL serves them.
+`.125` is that machine, so nothing needs redirecting. And the combination is
+enforced rather than trusted: `tools/updater-release.py` fetches the feed back
+from `TURA_PUBLIC_BASE`, compares it byte for byte with what it generated and
+re-downloads the payload to check its hash, so uploading to a host that serves
+a different domain fails the publish instead of leaving a feed nobody reads.
+
+Moving the feed to `tura.samirhv.com.br` would mean editing `endpoints` and
+rebuilding, and only later builds would follow it — free today because nothing
+has been published, and not free afterwards. It is also unnecessary.
+
+`tura.samirhv.com.br` exists in DNS and **answers from the server's default
+vhost, which is a Matomo instance**, because no vhost claims the name yet. The
+templates now carry that name instead of a placeholder, and
+`server/cotenant/apache-tura.conf` joins them, because the host may be running
+Apache rather than nginx. The suite asserts its directives like the others'.
+
+The name also resolves to Cloudflare rather than to the host, and
+`docs/SERVER-0.5.md` now says what that costs. `X-Forwarded-Proto: https` is an
+assertion the front makes, not something it observes: under Cloudflare's
+Flexible mode the CDN-to-origin hop is plain HTTP and the server is told `https`
+anyway, then sends HSTS on the strength of it. Full (strict), or a DNS-only
+record. TLS terminating at the CDN also means the CDN sees the note bytes, which
+is a second party where the design had one.
+
+## 1.1.16 - record the reachability the cloud notes will be paired against
+
+ADR-076 left one thing open and named the cost of leaving it open: the sync
+client treats `100.64.0.0/10` as private, so a tailnet name needs
+`--allow-private` at pairing and a public name needs nothing, and changing the
+answer afterwards means re-pairing every device. The owner chose the public
+name — `notes.samirhv.com.br` at the public address, ACME certificate, no flag.
+
+Written into the ADR, into SERVER-0.5's reachability table, into the queue item
+so the deployment does not re-open it, and into ACCEPTANCE-0.5 as the one owner
+check this mode adds: 8787 on 127.0.0.1 only, the public name answering over
+TLS, and the same request without `X-Forwarded-Proto: https` refused. That
+header is what the whole arrangement rests on and it lives in a file the owner
+edits, which is the definition of a thing to verify rather than assume.
+
+A public name makes the credential the entire boundary — the server can read its
+notes and there is no end-to-end encryption — so the acceptance text says what
+follows from that: one credential per device, only the permissions that device
+needs, and revoke rather than rotate when one is lost.
+
+The publication host stays `b3sys@100.64.100.242` by the owner's call; what
+1.1.14's preflight has to establish there is the application path, not the host.
+
+## 1.1.15 - run the notes server on the host that already serves the site
+
+Storing the `.md` files in the cloud has had an implementation since 0.18.0 and
+no deployment, and the missing piece was not code. `server/compose.yml` assumes
+the host is the server's: Caddy binds 80 and 443 and reaches `notes-server` on a
+private Docker address nothing else can. The host this project actually has is
+the one already serving samirhv.com.br — the same machine whose download service
+`--publish` ingests into — and it has neither port to give. A second machine to
+avoid sharing one is a machine to pay for, patch and back up.
+
+`server/cotenant/` is the second deployment: the native binary on loopback under
+systemd, with whatever already terminates TLS there proxying one name to it. A
+unit, an nginx `server` block and a Caddy site block, all templates. The server
+did not change — `NOTES_SERVER_BIND` and `NOTES_SERVER_TRUSTED_PROXY` already
+described exactly this, which is also why nothing had ever exercised it.
+
+The container was the obvious alternative and it does not work: Docker rewrites
+the source address of a published port, so a container reached at
+`127.0.0.1:8787` sees the bridge gateway as its peer. `NOTES_SERVER_TRUSTED_PROXY`
+would have to name an address that changes with the network, and naming it
+wrongly fails closed on every request. The native process has no such gap.
+
+**Three properties of this mode are invisible until they fail in production, so
+`server/tests/cotenant.py` runs a real process and asserts each.** `/healthz` is
+checked *after* the proxy gate, so a plain `curl http://127.0.0.1:8787/healthz`
+returns 403 on a server that is working — the probe an operator would reach for
+to decide whether the server or the proxy is at fault is the one that lies.
+`Origin` is refused outright, so a front that passes a browser's through turns
+real requests into 403s. And nginx's 1 MiB body default refuses an attachment
+bundle before the server sees it, with an error page that names nginx. The suite
+also asserts that a created note lands as an ordinary file in
+`workspaces/<name>/` — ADR-001 on the server side — and that the three templates
+still carry the directives the assertions depend on, so dropping one fails the
+gate instead of production. It joins `tools/check.sh`.
+
+The reachability choice is recorded because it is not reversible without
+re-pairing: `notes-sync-client` treats `100.64.0.0/10` as private, so a tailnet
+name needs `--allow-private` while a public name needs nothing. A phone off the
+tailnet is the case that decides it. Recorded as ADR-076; the queue now carries
+the deployment itself, which is DNS, a certificate and a running process, and
+none of those exist yet.
+
+## 1.1.14 - ask the download service whether it exists before publishing to it
+
+`--publish` had never run. `docs/updater.md` has carried the reason since 1.1.0
+— "the private host responds, but `/srv/www/samirhv.com.br/samirhv` does not
+exist there" — and that sentence was the only place it was written down, which
+is why it stayed true: nothing in the pipeline asked. `TURA_PUBLISH_APP` is a
+written-down guess, and the first thing that touched it was a `cd` inside the
+ingest, after the build, after a 20 MB upload, reporting `cd: no such file or
+directory`. That message is accurate and names neither the path it wanted nor
+the way to find the right one.
+
+Both pipelines now ask first: one `ssh … test -f <app>/artisan`, before the
+build on Linux and before the upload on macOS. A missing artisan prints the
+command that lists the candidate directories and the variable to set; an
+unreachable host says that instead, because exit 255 is ssh's own failure and
+not an answer about the path. A wrong destination now costs a second.
+
+**macOS also ingested before it verified, and that order publishes the failure
+it was written to catch.** The read-back exists because a truncated `scp` leaves
+a file that exists, that `files:add` ingests happily and that the downloads page
+links — it fails only in the user's browser. Verifying afterwards finds it once
+it is already on the page, and the script then exits non-zero over a release
+that is live and broken. `tools/build-linux.sh` verified before ingesting from
+the day it was written in 1.0.3; macOS did not, and the two now agree. On a
+mismatch the staged copy is removed and nothing is ingested.
+
+Every remote argument on the macOS side is quoted with `shlex.quote` the way
+Linux has quoted since 1.0.3, and the host, staging and application paths are
+validated against the same patterns on both sides — `--dest` and the five
+`TURA_*` variables all reach a remote POSIX shell. The header comment claiming
+"one password — a single scp connection, then a single ssh call" described a
+flow that already made four connections; it now describes the four steps.
+
+Nine new cases, all passing: three in the Linux suite (a missing service refuses
+before npm runs, an unreachable host is named as such, and a non-plain
+application path is refused) and a new `tools/tests/test_publish_preflight.py`
+with six that extract the two new functions from `build-local.sh` itself, so a
+rename fails the suite instead of quietly testing nothing. It is wired into
+`tools/check.sh`. The live publication is still unperformed: this release makes
+the pipeline able to say which host and which path are wrong, not which are
+right.
+
+## 1.1.13 - cover the per-IP request budget, which no test reached
+
+The server enforces two rate limits and only one of them was tested.
+`rate_limit_bounds_authenticated_requests` sends sixty requests, asserts the
+sixty-first is refused, and stops there — that is the 60/min a credential gets.
+The 120/min an address gets had no test at all, and it is the harder of the two
+to reason about: it is charged before authentication, so it counts requests that
+never present a credential, and holding a second credential does not divide it.
+
+That gap was not hypothetical. Removing the smoke suite's rate-limit waits in
+1.1.9 failed on exactly this limit, and the reason it took instrumentation to
+see is that no test described the behavior anywhere.
+
+The new test spends the budget through `/healthz`, which answers after the
+address check and before the credential one, so 120 requests land on the per-IP
+bucket while the per-token bucket stays at zero. The 121st is refused with
+`retry-after`. It then mints a credential that has spent nothing and shows it is
+refused too, because the bucket that refuses it was emptied before any
+credential was read.
+
+Both halves were mutation-checked. Raising the ceiling to 200, and deleting the
+pre-authentication check outright, each make the new test fail — and each leave
+`rate_limit_bounds_authenticated_requests` passing, which is the measurement of
+what was uncovered.
+
+## 1.1.12 - cover the Arch package the installer globs were missing
+
+1.1.10 ignored `*.deb`, `*.AppImage` and `*.rpm`, and justified scoping the group
+by format with the claim that nothing in this repository writes an installer
+outside `target/`. That claim was false, and it was false about the one installer
+format the group did not list. `makepkg` builds the Arch package inside
+`packaging/aur/notes-bin/`, which is not under `target/`;
+`.github/workflows/build.yml` installs it with
+`pacman -U packaging/aur/notes-bin/*.pkg.tar.zst`, and `docs/runbook.md` runs the
+same build. `git check-ignore` confirmed the result was untracked and unignored.
+
+The existing block above it was written for exactly this workflow — it already
+covers `PKGBUILD` and the source tarball `gen-pkgbuild.sh` copies in for a local
+build — and simply stopped short of what the build produces. `*.pkg.tar.zst`
+joins the installer group, and `makepkg`'s `src/` and `pkg/` working directories
+join the block that anticipated the local build.
+
+The scoping decision itself stands, and this accident is the argument for it: a
+rule scoped to `apps/notes-app/` would have guarded one directory and missed
+`packaging/aur/`, and the reverse would have missed the `.deb`. ADR-011's
+paragraph carried the same false sentence and is corrected rather than deleted,
+so the record shows what the reasoning was and where it was wrong.
+
+Checked before committing, because the previous pattern choice was not: feeding
+every tracked path to `git check-ignore` matches nothing. No file leaves a fresh
+clone, on any platform.
+
+## 1.1.11 - make the Linux build survive a pull it cannot fast-forward
+
+`build-local.sh` has said since it was written that the pull before a build
+"never fails the build — offline, dirty tree or a diverged branch only produce a
+warning", because a build that refuses to run when the network is down is worse
+than one that tells you it used the local tree. On Linux that was not true.
+`build-local.sh` execs `tools/build-linux.sh` before any of it applies, and what
+that script ran was a bare `git pull --ff-only` under `set -e`: an offline
+machine, a detached HEAD or a diverged branch aborted the build outright, and
+the header a reader meets first described the other platform.
+
+The Linux path now performs the same three-way sync: `--skip-git-pull` skips the
+step, a directory that is not a git checkout is reported and skipped, and a pull
+that cannot fast-forward warns on stderr and builds what is checked out.
+`--ff-only` still never creates a merge, so nothing about what gets built is
+loosened — only what happens when the sync itself cannot complete.
+
+`test_failed_pull_stops_before_stamping` asserted the behavior that changed and
+now asserts the new one, renamed to match. It fakes a `git` that fails only for
+`pull`, because one failing at everything takes the not-a-checkout branch and
+never reaches the pull it means to test — the first version of the test passed
+for that wrong reason. A second case covers the not-a-checkout branch itself.
+Both fail against the previous script with the build aborting on 17. Twelve
+orchestration tests pass.
+
+## 1.1.10 - untrack the installer that was committed into the app directory
+
+`apps/notes-app/notes_0.11.11_amd64.deb` was 4.2 MB of build output tracked in
+git. It arrived at 0.12.0, in a commit about attaching artifacts to a minor bump,
+and stayed through a hundred versions after that practice moved to GitHub
+Releases and the download service. It is untracked now and stays on disk; the
+blob remains in history, which is what history is for.
+
+The `.gitignore` header forbids a new line without an ADR, so ADR-011 records
+the coverage rather than the line arriving unargued. This is not a new exception:
+an installer passes ADR-011's existing test without strain — `./build-local.sh`
+produces it, from sources here, and reproducing it is running that command.
+
+The pattern is scoped by format, not by path, and checking first is what decided
+that. Nothing in this repository writes an installer outside `target/`: Tauri
+bundles land in `target/local-linux/<host>/release/bundle/<format>/`, already
+covered. So `apps/notes-app/*.deb` would guard a directory nobody writes to and
+would miss the same accident one directory over. `*.deb`, `*.AppImage` and
+`*.rpm` are the three formats one `--bundles` run produces, and none of them is
+ever source. No tracked file other than that one matched them.
+
+## 1.1.9 - restart the smoke server for a fresh rate window instead of waiting
+
+Two `time.sleep(61)` calls cost 122 seconds of every gate run. They were waiting
+out the rate limiter's window, and the comment beside them was right that
+weakening production limits was not the answer. Restarting the server is: the
+limiter's buckets are a `HashMap` built in `Server::new` and held in memory for
+the life of the process, so a restart empties them while every limit stays
+exactly as production runs it.
+
+A credential per phase cannot do this job, which is worth recording because it
+is the obvious idea. The per-IP bucket is checked *before* authentication, and
+every request in this suite — urllib's and every `notes-sync-client`
+subprocess's — arrives from the same loopback address, so one 120/min bucket
+covers all of them and no number of credentials divides it. Measured: ~270
+authenticated requests overall, of which the first two phases alone are ~145
+inside three seconds.
+
+Both paths restart now. The native one follows the pattern already in the file;
+the compose one had no restart at all, which mattered because CI runs
+`--compose`. It uses `docker compose restart notes-server`, which reuses the
+same container. Verified against the running stack rather than assumed: `/data`
+is a named volume and survives, while `/tmp` is a tmpfs on a `read_only: true`
+container and does **not** survive even a plain restart — a recreate is not
+required to lose it. That costs nothing here, because every secret written to
+`/tmp` is read back into the test process in the same breath it is created, and
+none is re-read after a restart point.
+
+**A third restart was needed, and finding out why was the substance of this
+change.** The client-recovery block already carried a dedicated credential to
+isolate its request budget; that isolates the token bucket and not the per-IP
+one above it. Together with the section before it, it is ~128 requests against a
+120/min ceiling. It had been fitting only by accident: the suite ran slowly
+enough that the limiter's 60-second window rolled over mid-phase and handed it a
+second budget. At full speed all 128 land in one window, and `recover-client` —
+which does not retry — failed with `client or server is busy`. The restart makes
+the isolation that comment intends actually reach the bucket that binds.
+
+The four hand-copied health-poll loops became one `wait_healthy`, which also
+catches the `ValueError` a 502 from Caddy produces when its non-JSON body
+reaches `json.load` — the one case the copies did not handle, and the one a
+compose restart creates.
+
+Measured end to end, both passing: native 188.0 s to 5.3 s, compose 192.0 s to
+9.8 s. The limiter's own behavior is unaffected and stays covered by
+`rate_limit_bounds_authenticated_requests` in `server/notes-server/tests/http.rs`.
+
+## 1.1.8 - correct the crate layout in the agent instructions
+
+The `Layout:` line in `CLAUDE.md` and `AGENTS.md` listed `packages/ui/` as part
+of the tree. That directory does not exist and never has: ADR-043 defers it
+until real sharing requires it, and `docs/ARCHITECTURE.md` annotates it as "may
+stay empty until 0.4 needs it". Only the two agent files presented it as a
+current fact, which is the shape of stale documentation that does damage — an
+instruction file carries the authority of being the first thing read.
+
+Checking the rest of the line before editing turned up a second error in it. The
+crate list named six of the eight crates under `crates/`, omitting
+`notes-markdown` and `notes-model` — the Markdown parse/render/sanitize layer
+and the foundation crate that every other one depends on for ids, paths, stat,
+caps and errors. Both are now listed, in the same alphabetical order.
+
+`docs/ARCHITECTURE.md` keeps its `packages/ui/` row on purpose: it is annotated
+as deferred and is the record ADR-043 points at, so removing it there would
+erase a decision rather than correct a fact. The twins remain byte-identical
+below the H1.
+
+## 1.1.7 - update trash to 5.2.8
+
+The desktop trash integration moves from 5.2.7 to 5.2.8. Its Windows backend
+now resolves through the current `windows` 0.62 family instead of the older
+0.56 family; Linux and macOS behavior keep the same public interface. The
+dependency branch passed the complete GitHub matrix before versioning, and the
+versioned lockfile was regenerated from the current 1.1.6 master rather than
+copying a stale pre-uuid resolution.
+
+## 1.1.6 - update uuid to 1.26.1
+
+The lockfile moves `uuid` from 1.26.0 to 1.26.1. The patch release fixes an
+overflow panic when converting timestamps to `SystemTime` and corrects the v7
+counter placement without changing this repository's declared dependency
+surface. The complete GitHub matrix passed on the dependency branch after it
+was refreshed onto 1.1.5; the versioned delivery was then checked again from
+the current master before merge.
+
+## 1.1.5 - enforce the root jail at the open, not only at the path
+
+`LocalFs::resolve` checked every path segment with `symlink_metadata` and then
+returned a path the caller handed to `fs::read` or `fs::File::create`, both of
+which follow symlinks. The gap between the check and the syscall was the jail's
+whole coverage, and this product's premise is that other tools write in that
+folder — a sync client, a `git checkout`, a restore from backup.
+
+The temporary file needed no race to exploit. `tmp_path` is deterministic by
+design — `.{name}.tmp` beside the note, so a crash leaves at most one to clean
+up — which also makes it predictable. A symlink left at that name received the
+next save's bytes wherever it pointed, outside the workspace, through a path the
+jail had already approved. The new regression test writes through such a link
+and asserts the outside file is untouched; run against the previous code it
+fails with the outside file overwritten.
+
+Reads now open with `O_NOFOLLOW` on Unix and report `ELOOP` as the same
+`SymlinkNotFollowed` the path check produces. The temporary file is unlinked —
+which removes a link, never its target — and then created with `O_CREAT|O_EXCL`,
+which refuses a symlink outright; losing the race between the two refuses the
+write rather than redirecting it. A divergence check that meets a symlink
+reports `Diverged`, so the write is refused instead of followed.
+
+This closes the final component and says so. An intermediate directory swapped
+mid-operation is still followed: closing that needs
+`openat2(RESOLVE_NO_SYMLINKS)`, Linux 5.6+ with no macOS equivalent, which would
+buy one platform rather than the jail. Windows keeps the path half only, because
+its nearest flag opens the reparse point rather than refusing it. ADR-075 records
+the boundary and `docs/security.md` no longer claims more than the code does.
+
+`libc` becomes a direct Unix-only dependency of `notes-fs` for `O_NOFOLLOW` and
+`ELOOP`. It was already in the tree through `tempfile`, `uuid` and `notify`, so
+nothing is added to the build; the constants differ per target and spelling them
+out by hand is a portability bug waiting for a platform we do not test on.
+
+## 1.1.4 - decide macOS build reuse by source fingerprint instead of mtime
+
+The two release paths answered "is the build on disk still the build for this
+source tree?" differently. Linux hashed every input file and compared the
+digest; macOS ran `find -newer` against the DMG. Timestamps cannot answer that
+question: a file restored with `cp -p`, or from any checkout that preserves
+mtimes, is different from the build *and* older than it, so the test passed and
+the reuse path skipped straight to publication. The weaker check was on the side
+that signs, notarizes and uploads to the download service — a stale binary
+republished under a new version number, with a valid Developer ID signature and
+a notarization ticket, and nothing in the output to notice it by.
+
+macOS now calls the same `check`, `record` and `fingerprint` operations Linux
+does, writing `.build.json` beside the image after stapling. The manual sha256
+comparison and the `find -newer` clause are gone; the shared code already
+verified the artifact digest and its sidecar. The macOS path also gained the
+during-build guard Linux had: if the fingerprint changes between the start of
+the build and the recording, the script refuses rather than recording a
+manifest that describes sources the image does not contain.
+
+Measured on Linux against the shared implementation: a source file given
+different content and a 2020 mtime is invisible to `find -newer` against the
+build, and changes the fingerprint. The call shape macOS now uses was exercised
+directly — matching state reuses; a changed fingerprint, version or build mode
+and a tampered image each refuse with their own reason. The 11 packaging
+orchestration tests and the 5 updater publication tests pass.
+
+`tools/linux-build-cache.py` is now `tools/build-cache.py`. It was named for its
+only caller, and it has two.
+
+**Not verified on macOS.** The Darwin branch of `build-local.sh` cannot execute
+on a Linux host; the Python it now calls is covered above, the shell around it
+is not. The next macOS build establishes the first manifest and costs one
+rebuild.
+
+## 1.1.3 - ignore the CPython bytecode the gate generates
+
+`tools/check.sh` runs the Python packaging and updater suites, which import
+their module under test, so CPython writes `tools/__pycache__/` on every run of
+the gate. Nothing ignored it, so a clean checkout reported an untracked
+directory it had created itself.
+
+In a repository whose first rule is that everything is versioned and the only
+exception is a secret, an untracked directory appearing on its own is not
+harmless noise: it is one `git add -A` away from putting compiled bytecode in
+the history, where it would go stale against the source it was built from. It is
+derived, reproducible build output of the same class as `target/` and
+`node_modules/`, and it is ignored under the same ADR-011 those entries cite.
+
+## 1.1.2 - degrade the Windows cross-check when its C compiler is missing
+
+The `clippy (windows)` step guarded itself on `rustup` and on the
+`x86_64-pc-windows-gnu` target, but never on the MinGW C compiler that bundled
+SQLite needs to build for that target. On a machine with the target installed
+and no compiler — a Debian workstation without `gcc-mingw-w64-x86-64` — the
+guard passed, `cargo` reached `libsqlite3-sys`, and cc-rs failed the whole gate
+with sixty lines of environment probing that never name the missing package.
+
+That contradicted the step's own stated design: a missing prerequisite degrades
+to a printed warning, because refusing to run the remaining eighteen checks over
+a cross-check helps nobody. The gate was red on the owner's Linux machine for a
+reason that was not the code, and a permanently red gate is an ignored gate.
+
+The guard now checks `x86_64-w64-mingw32-gcc` before installing the target, and
+reports the package to install in one sentence. Measured on that machine: the
+step prints `WARNING, not run — no MinGW C compiler (gcc-mingw-w64-x86-64 on
+Debian, mingw-w64 on Homebrew)` and the gate continues. `NOTES_NO_WINDOWS_CHECK`
+and the install-the-target behavior are unchanged; D-01 in
+`docs/DECISIONS-0.1b.md`, which described the old two-prerequisite degrade, was
+corrected in the same pass.
+
+## 1.1.1 - remove the Rust 1.96 Clippy blocker from the release gate
+
+Rust 1.96 started flagging an unnecessary borrow in a sync-client regression
+test, making every dependency pull request fail Clippy on Linux, macOS and
+Windows even though the same failure was already present on `master`. Pass the
+owned path directly to `WorkspaceService::with_data_dir`; runtime behavior and
+the test's workspace isolation remain unchanged.
+
+Native `cargo clippy --all-targets -- -D warnings` passes after the change. The
+separate macOS watcher timing failures remain in the queue and are not described
+as fixed by this release.
 
 ## 1.1.0 - add guarded desktop update installation
 

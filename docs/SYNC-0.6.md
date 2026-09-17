@@ -1267,3 +1267,41 @@ device under a new credential and reconcile normally. If retirement leaves no
 known devices, `sync-prune` still removes nothing. Tests cover active-owner
 refusal, stopped-server locking, revoked ownership, preservation of another
 device, repeat refusal and the pruning device count.
+
+## Connection test (1.3.8)
+
+`sync_control_probe` asks the server what a credential is for and reports which
+step answered. It takes the server address, the credential file and the
+private-address permission — **not a workspace name**, because the name is what
+it exists to discover.
+
+It is the only remote call that runs with a workspace open, and it takes no
+lock. It writes nothing, reads no client state and touches no note, so the
+reasons pairing waits for a closed workspace do not apply to it; holding the
+operation mutex would only mean that a transfer already running turns a
+diagnostic into `Busy`, at the moment somebody most wants to run it.
+
+The outcomes are `address`, `credential_file`, `credential_shape`,
+`unreachable`, `refused`, `unexpected` and `granted`, each a different thing for
+the owner to go and fix. `granted` carries the workspace name, the scope, the
+permissions and the review flag. The HTTP status is reported when something
+answered, because `401` and `502` send the owner to different machines.
+
+**Every check is the function `Remote::connect` calls.** A test that approves
+what the transport would refuse is worse than no test, because it moves the
+search for the cause to somewhere the cause is not; `Endpoint::validate`'s
+address half, the credential file checks, the address policy and `decode` are
+each called from both. The transport still collapses them into `Invalid`,
+`Offline` and `Denied` — that is the right shape for something that retries and
+must not narrate what it found in a secret file, and the wrong shape for a
+person asking whether the thing works.
+
+`unexpected` is the one worth naming: the address resolves, a web server
+answers, and what answers is not this API. On a host that already serves other
+sites that is the default virtual host, and it is otherwise indistinguishable
+from a bad credential.
+
+The app fills an empty **Server workspace** field from `granted`, and reports a
+disagreement rather than overwriting a field the owner typed. The frontend maps
+the outcomes through a `Record<SyncProbeOutcome, string>`, so a variant added in
+Rust fails the TypeScript build instead of rendering its own key.

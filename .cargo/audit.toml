@@ -1,0 +1,60 @@
+# Advisories this repository has looked at and cannot act on, with the reason.
+#
+# WHY THIS FILE EXISTS, AND WHY IT IS NOT A WAY OF LOOKING AWAY.
+#
+# `cargo audit --deny warnings` is the right setting: docs/security.md §10 says
+# an unmaintained package is a vulnerability with a delay, and this repository
+# would rather be told. But eight of these arrived at once, none of them ours to
+# upgrade, and a check that is permanently red stops being read — `tools/check.sh`
+# says it in its own header, about a different check: *a gate that is red for a
+# reason which is not the code is a gate that gets ignored.*
+#
+# That is not hypothetical here. RUSTSEC-2026-0285 — a real TLS 1.3 handshake
+# flaw in `rustls`, on the path every device sync request and every signed
+# update download takes — sat in the middle of these eight for two versions of
+# red CI and was fixed only when somebody read past them (1.4.4). The noise did
+# not merely annoy; it hid the one finding that mattered.
+#
+# So each advisory below is named, sourced and reasoned about, and everything
+# NOT in this list still fails the build. Removing an entry is how it comes
+# back: when Tauri moves off `urlpattern` or onto `glib` 0.20, delete the lines
+# and let the check answer.
+#
+# WHAT IS NOT ALLOWED IN THIS FILE: a vulnerability. Every ID here is an
+# `unmaintained` or `unsound` warning about a crate this workspace does not call
+# directly. A `cargo audit` vulnerability is fixed or the dependency goes, and
+# 1.4.4 is the precedent.
+
+[advisories]
+ignore = [
+  # --- Tauri, through `tauri-utils` -> `urlpattern` -------------------------
+  # Five crates of one unmaintained family. `urlpattern` is Tauri's, not ours;
+  # nothing in this workspace parses a URL pattern. They leave together when
+  # Tauri drops the dependency.
+  "RUSTSEC-2025-0100",  # unic-ucd-ident unmaintained
+  "RUSTSEC-2025-0098",  # unic-ucd-version unmaintained
+  "RUSTSEC-2025-0081",  # unic-char-property unmaintained
+  "RUSTSEC-2025-0075",  # unic-char-range unmaintained
+  "RUSTSEC-2025-0080",  # unic-common unmaintained
+
+  # --- Tauri, through GTK on Linux -----------------------------------------
+  # `glib` 0.18.5 <- atk <- gtk <- muda <- tauri, and `proc-macro-error` is
+  # `glib-macros`' own build dependency. The unsoundness is in
+  # `glib::VariantStrIter`'s Iterator impls; no code in this workspace
+  # constructs or iterates a GVariant string array — the webview stack does,
+  # and it goes when Tauri moves to glib 0.20.
+  #
+  # Note this pair is invisible on macOS and Windows, where GTK is not in the
+  # tree at all. A gate run on a Mac cannot see them, which is why they were
+  # only ever red in CI.
+  "RUSTSEC-2024-0429",  # glib unsound (VariantStrIter)
+  "RUSTSEC-2024-0370",  # proc-macro-error unmaintained
+
+  # --- Ours, through `pdf-extract` -----------------------------------------
+  # The one entry here that is a choice this repository made: `ttf-parser`
+  # <- `lopdf` <- `pdf-extract`, which reads PDF text for the knowledge index.
+  # It is the only one worth revisiting on our own initiative rather than
+  # Tauri's, and the question is whether `pdf-extract` is still the right
+  # crate — not whether to keep ignoring this.
+  "RUSTSEC-2026-0192",  # ttf-parser unmaintained
+]

@@ -119,3 +119,48 @@ fn a_symlink_appears_in_the_listing_but_is_not_a_note() {
     #[cfg(not(unix))]
     let _ = (dir, fs);
 }
+
+/// The temp file is the half of the jail that a path check cannot reach.
+///
+/// `tmp_path` uses a deterministic `.{name}.tmp` beside the note — deliberate,
+/// so a crash leaves at most one of them — which also makes it predictable. A
+/// link left at that name used to receive the next save's bytes, because
+/// `File::create` follows a symlink and no path check ever looks at the temp.
+#[cfg(unix)]
+#[test]
+fn a_symlink_at_the_temp_path_never_receives_the_write() {
+    let (dir, fs) = workspace();
+    let outside = tempfile::tempdir().unwrap();
+    let victim = outside.path().join("victim");
+    std::fs::write(&victim, b"untouched\n").unwrap();
+
+    std::os::unix::fs::symlink(&victim, dir.path().join(".inside.md.tmp")).unwrap();
+
+    let path = RelPath::parse("inside.md").unwrap();
+    fs.write_atomic(&path, b"# changed\n", None).unwrap();
+
+    assert_eq!(
+        std::fs::read(&victim).unwrap(),
+        b"untouched\n",
+        "the write escaped the root through the temp path"
+    );
+    assert_eq!(fs.read(&path).unwrap(), b"# changed\n");
+}
+
+/// The leftover-temp contract the deterministic name exists for still holds:
+/// a stale temp is reused rather than accumulating, and the note still saves.
+#[test]
+fn a_stale_temp_file_does_not_block_the_next_save() {
+    let (dir, fs) = workspace();
+    std::fs::write(
+        dir.path().join(".inside.md.tmp"),
+        b"leftover from a crash\n",
+    )
+    .unwrap();
+
+    let path = RelPath::parse("inside.md").unwrap();
+    fs.write_atomic(&path, b"# saved\n", None).unwrap();
+
+    assert_eq!(fs.read(&path).unwrap(), b"# saved\n");
+    assert!(!dir.path().join(".inside.md.tmp").exists());
+}

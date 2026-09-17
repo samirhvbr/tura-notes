@@ -1,5 +1,9 @@
 # Scope — Aplicativo de Notas Markdown
 
+> **Status:** `HISTORICAL` · rascunho de planejamento preservado por procedência,
+> nunca autoridade de implementação. O documento vivo é
+> [`../SCOPE.md`](../SCOPE.md).
+
 ## 1. Objetivo
 
 Desenvolver um aplicativo de notas Markdown **local-first**, disponível inicialmente para:

@@ -1,6 +1,6 @@
 # ARCHITECTURE — Notes
 
-> **SUPERSEDIDO — não construa contra este arquivo.** O documento vivo é
+> **Status:** `HISTORICAL` · **SUPERSEDIDO — não construa contra este arquivo.** O documento vivo é
 > [`../ARCHITECTURE.md`](../ARCHITECTURE.md), alinhado ao
 > `SCOPE_final.md` v2.0 e `ACTIVE` desde o `0.7.0`. Este ficou como registro de
 > **onde as perguntas foram feitas** — o §5 abaixo é a lista que o documento

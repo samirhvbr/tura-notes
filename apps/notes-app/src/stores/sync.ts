@@ -128,21 +128,29 @@ export const useSync = create<SyncState>((set, get) => ({
   async start() {
     get().stop();
     try {
-      // `null` means the platform is watching. A reason means it is not, and
-      // the reason is shown rather than swallowed — the inotify limit comes
-      // back with the `sysctl` that raises it.
+      // A reason here means the start itself failed and there was no need to
+      // wait — a thread that would not spawn. **`null` is not the answer to
+      // "is it watching?"**: establishing the platform handle moved onto the
+      // watcher's thread (it costs ~270 ms on macOS regardless of tree size),
+      // so at this instant the question has no answer. The coverage poll below
+      // carries it when it arrives.
       set({ degraded: await ipc.watchStart() });
     } catch (e) {
       set({ degraded: ipc.asCoreError(e).code });
     }
 
-    // Coverage, until the walk is done. Polling rather than an event because
+    // Coverage, until the watcher is established — and, on Linux, until the
+    // per-directory walk under it is done. Polling rather than an event because
     // the reading is three counters the interface renders whole: there is no
     // moment to be notified *of*, only a number that is still climbing.
     const coverage = async () => {
       try {
         const w = await ipc.watchStatus();
-        set({ watch: w });
+        // The reason the watcher could not start arrives here now. It never
+        // clears one already set by the start call: that one names a failure
+        // this side saw, and losing it would leave the interface claiming a
+        // watch that does not exist.
+        set((s) => ({ watch: w, degraded: s.degraded ?? w.degraded ?? null }));
         if (!w.walking && watchPoll) {
           clearInterval(watchPoll);
           watchPoll = null;

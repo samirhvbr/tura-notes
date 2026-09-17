@@ -530,12 +530,33 @@ and is reconciled by the 5 s poll and the scan on focus ([ADR-027](decisions.md)
 The poll and the focus scan run whether or not there is a watcher, so a watch
 silently lost degrades to 5 s rather than to nothing.
 
+**Establishing the watch is asynchronous on every platform, and that leaves a
+window.** `start_watch` returns before the platform handle exists — it costs
+~270 ms on macOS whatever the tree size, inside `FSEventStreamCreate`, and it
+used to be paid with the service mutex held, so every IPC command queued behind
+a workspace open ([ADR-078](decisions.md#adr-078--the-watcher-is-established-on-its-own-thread-on-every-platform)).
+A change made during that window is not seen by the watcher. It is seen by the
+5 s poll and by the scan on focus — the same two mechanisms that already cover a
+watch lost silently — so the window costs latency and never a missed change.
+The consequence for a caller is that `start_watch` usually returns `None`
+because the answer does not exist yet: `watch_status()` carries both the reason
+and `walking`, which stays true until the handle is up.
+
 ### The one-second rule, and what runs in the background
 
 **`workspace_open` returns and the tree appears in under one second, at any
 size.** This is an acceptance criterion, not an aspiration
 ([ADR-034](decisions.md), `ACCEPTANCE-0.1b.md` §6, `ACCEPTANCE-0.1c.md` §3), and
 it is stated in this section because reconciliation is where it was broken.
+
+**It is asserted on Linux and published everywhere** ([ADR-080](decisions.md)).
+The ceiling is a wall clock, and a wall clock on a shared CI runner reports the
+runner: 2 160 directories that open in ~10 ms on the owner's machine measured
+1 243 ms on a contended `windows-latest`, on a commit that could not have
+slowed an open. `deep.rs::the_tree_appears_in_well_under_a_second` therefore
+asserts the ceiling on the platform the rule's numbers came from, and writes the
+measurement — directory count, cost, and whether it was asserted — into the CI
+job summary on all three.
 
 Everything that has to walk the **whole tree** runs off the critical path — on
 its own thread, cancellable, with its progress visible in the status bar:
@@ -756,6 +777,13 @@ built from. Because that costs an open, **the id is filled in by `stat`, not by
 - `commands/*.rs` — one function per §7.1 row: parse → call core → map
   `CoreError` to the response. No branching on business state.
 - `asset_protocol.rs` — `notes-asset://` handler (§10).
+- the native menu — Tauri's default with one item appended: Help ▸ About, which
+  emits `menu://about`. **It is the only thing here that speaks to the frontend
+  rather than answering it**, and it has to be: the menu is on this side and
+  nothing in the WebView knows it was clicked
+  ([ADR-079](decisions.md#adr-079--the-about-dialog-is-ours-and-help-is-where-it-opens)).
+  Emptying Help first is deliberate — Linux and Windows get a predefined About
+  there from the default, and two would be worse than none.
 - `linux.rs` — before the WebView exists: if `WAYLAND_DISPLAY` is set and an
   NVIDIA driver is present (`/proc/driver/nvidia/version`, `/sys/module/nvidia`,
   or `nvidia-smi` on `PATH`), set `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Logged
@@ -1062,6 +1090,12 @@ owns HTTP/authentication, request limits, audit and backup transport. Deployment
 and the versioned API are in [SERVER-0.5.md](SERVER-0.5.md); ADR-043 records the
 security boundary. No desktop listener or synchronization engine is added.
 
+It has two deployments, not one. The Compose stack owns the host's 80 and 443;
+`server/cotenant/` runs the same binary on loopback behind a front that already
+serves another site, which is the host this project has (ADR-076). The server
+code is identical — `NOTES_SERVER_BIND` and `NOTES_SERVER_TRUSTED_PROXY` already
+described both.
+
 ## Milestone 0.6 — causal domain boundary
 
 The first 0.6 block adds `notes-sync` as a dependency of core, beside `notes-fs`.
@@ -1088,7 +1122,12 @@ apply or upgrade in place. See the host contract in [SYNC-0.6.md](SYNC-0.6.md).
 
 In 0.20.6 the Tauri shell delegates received queue/session operations to
 `notes-sync-client`. It shares the core service mutex with ordinary commands;
-there is no second workspace service for app application. React's synchronous
+there is no second workspace service for app application. The shell holds that
+client's store paired with the `WorkspaceId` it was opened for, and every reader
+compares the pair against the workspace open now: an `Option` that is only ever
+set answers *was one opened* rather than *is one open*, and until 1.3.7 the
+updater read the first as the second and refused to install for the rest of the
+session (`commands::Received`). React's synchronous
 input/IPC barrier spans snapshot, bounded application and verified reload, with
 a persistent recovery control after unknown outcomes (ADR-050). The current
 single-buffer editor supplies its complete inventory; Split is a preview.

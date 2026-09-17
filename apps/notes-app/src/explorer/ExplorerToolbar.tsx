@@ -43,7 +43,10 @@ export function ExplorerToolbar() {
   const newNote = async () => {
     const name = await askText({
       title: t("tree.newNote"),
-      label: t("tree.newNote.prompt"),
+      // These two create at the ROOT, and nothing said so — which is half
+      // of why a folder looked unusable. The other half is now a right-click
+      // on the folder itself.
+      label: `${t("tree.newNote.prompt")} ${t("tree.create.where")}`,
       initial: "",
       confirmLabel: t("dialog.create"),
       validate: (v) => (v.trim() ? null : t("dialog.nameRequired")),
@@ -63,7 +66,10 @@ export function ExplorerToolbar() {
   const newFolder = async () => {
     const name = await askText({
       title: t("tree.newFolder"),
-      label: t("tree.newFolder.prompt"),
+      // These two create at the ROOT, and nothing said so — which is half
+      // of why a folder looked unusable. The other half is now a right-click
+      // on the folder itself.
+      label: `${t("tree.newFolder.prompt")} ${t("tree.create.where")}`,
       initial: "",
       confirmLabel: t("dialog.create"),
       validate: (v) => (v.trim() ? null : t("dialog.nameRequired")),

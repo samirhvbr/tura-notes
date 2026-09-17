@@ -28,17 +28,56 @@ const BODY_LIMIT: usize = 16 * 1024 * 1024;
 pub struct Server {
     pub data: PathBuf,
     pub trusted_proxy: Option<IpAddr>,
+    /// How many proxies stand in front, so the client's own address can be
+    /// picked out of `X-Forwarded-For`. Meaningless without `trusted_proxy`.
+    trusted_hops: usize,
     slots: Arc<Semaphore>,
     rates: Arc<Mutex<HashMap<String, (Instant, u32)>>>,
 }
 impl Server {
     pub fn new(data: PathBuf, trusted_proxy: Option<IpAddr>) -> Self {
+        Self::with_hops(data, trusted_proxy, 1)
+    }
+
+    pub fn with_hops(data: PathBuf, trusted_proxy: Option<IpAddr>, trusted_hops: usize) -> Self {
         Self {
             data,
             trusted_proxy,
+            trusted_hops: trusted_hops.max(1),
             slots: Arc::new(Semaphore::new(8)),
             rates: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// The address the per-address budget is charged to.
+    ///
+    /// **Behind a proxy the peer is the proxy**, so a budget meant to bound one
+    /// caller became the budget of everyone put together: past three active
+    /// devices it is tighter than the 60/min each credential already has, and
+    /// one busy device locks the others out. That is not the control failing
+    /// open, it is the control hitting the wrong people.
+    ///
+    /// `X-Forwarded-For` is the answer and only because the peer has already
+    /// been checked to *be* the trusted proxy: the header is then something our
+    /// proxy appended, not something a client sent. **The last entry is the one
+    /// to trust** — each hop appends the address it saw, so anything further
+    /// left came from the client and is forgeable. With more than one proxy in
+    /// front, `trusted_hops` says how far back to count.
+    ///
+    /// Anything unparseable falls back to the peer, which is the shared bucket:
+    /// the old behaviour, and the safe direction.
+    fn charged_address(&self, peer: IpAddr, headers: &HeaderMap) -> IpAddr {
+        if self.trusted_proxy.is_none() {
+            return peer;
+        }
+        let Some(forwarded) = header(headers, "x-forwarded-for") else {
+            return peer;
+        };
+        let hops: Vec<&str> = forwarded.split(',').map(str::trim).collect();
+        let Some(index) = hops.len().checked_sub(self.trusted_hops) else {
+            return peer;
+        };
+        parse_address(hops[index]).unwrap_or(peer)
     }
     fn rate(&self, key: String, limit: u32) -> bool {
         let Ok(mut rates) = self.rates.lock() else {
@@ -53,6 +92,22 @@ impl Server {
         entry.1 <= limit
     }
 }
+/// One `X-Forwarded-For` entry as an address: bare, bracketed IPv6, or with a
+/// port, which some proxies append and others do not.
+fn parse_address(entry: &str) -> Option<IpAddr> {
+    let entry = entry.trim();
+    if let Ok(ip) = entry.parse::<IpAddr>() {
+        return Some(ip);
+    }
+    if let Ok(socket) = entry.parse::<std::net::SocketAddr>() {
+        return Some(socket.ip());
+    }
+    entry
+        .strip_prefix('[')
+        .and_then(|e| e.split(']').next())
+        .and_then(|e| e.parse::<IpAddr>().ok())
+}
+
 pub fn router(server: Server) -> Router {
     Router::new().fallback(any(handle)).with_state(server)
 }
@@ -218,7 +273,10 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
     if request.headers().contains_key("origin") {
         return Err(err(StatusCode::FORBIDDEN, "browser_origin_denied"));
     }
-    if !server.rate(format!("ip:{peer}"), 120) {
+    if !server.rate(
+        format!("ip:{}", server.charged_address(peer, request.headers())),
+        120,
+    ) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
     }
     if request.method() == "GET" && request.uri().path() == "/healthz" {
@@ -239,6 +297,21 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
         let _permit = permit;
         let lock = admin::lock(&server.data).map_err(|_| internal())?;
         let _guard = lock.read().map_err(|_| internal())?;
+        // RE-READ ON EVERY REQUEST, AND DELIBERATELY. Caching the parsed store
+        // is the obvious optimisation and it is the wrong trade here.
+        //
+        // The ceiling is 1024 credentials, which is a 285 KB file; reading and
+        // parsing it is well under a millisecond, on a request that has already
+        // taken a permit from a semaphore of eight, taken a file lock, and is
+        // about to do filesystem work. It is not the bottleneck, and nothing
+        // measured says otherwise.
+        //
+        // What a cache costs is the other side: `token revoke` is a separate
+        // process, and SERVER-0.5 promises it takes effect with **no server
+        // restart**. A cache keeps that promise only while its invalidation is
+        // right, and the failure mode of getting it wrong is a revoked
+        // credential that still works. Trading a correct security control for
+        // microseconds is how this kind of bug is born.
         let store = admin::load(&server.data).map_err(|_| internal())?;
         let credential = header(&parts.headers, "authorization")
             .and_then(|s| s.strip_prefix("Bearer "))

@@ -21,5 +21,8 @@ tempfile = { workspace = true }
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 trash = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true }

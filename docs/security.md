@@ -61,7 +61,7 @@ credential disclosure are the concrete failures the core and transports prevent.
 | Documents read by an agent | Prompt injection through text the agent treats as instruction | §4.9 |
 | Published history | Force-push or hard reset destroys the audit trail | `git push --force`, `-f`, `reset --hard`, `clean -fd` are denied |
 | The repository's own visibility | A private repo made public with content that assumed privacy | The pre-flight checklist in [runbook.md](runbook.md) |
-| Markdown and drafts | Destructive overwrite or out-of-root access | Core revision checks, atomic writes, relative-path jail, no symlink traversal |
+| Markdown and drafts | Destructive overwrite or out-of-root access | Core revision checks, atomic writes, relative-path jail, no symlink traversal — refused at path resolution *and* again at the open, so a link appearing between the two is caught; the temporary file is unlinked and created exclusively; a rename refuses an occupied destination in the syscall rather than in a check before it, so a file created in between is not replaced (ADR-077). The final component only: an intermediate directory swapped mid-operation is still followed (ADR-075) |
 | Server credentials and notes | Remote scope escalation or accidental public backend | Per-integration digests, revocation locks, core scopes, private backend and trusted HTTPS proxy (ADR-043) |
 | Operational state and backups | Lost identities or incompatible schema replacement | Offline full-data backup, staged restore, enrollment rebinding and future-schema refusal; scoped client recovery compares the exact visible sequence while preserving absolute cursor gaps (ADR-065) |
 | Sync revision inbox | Scoped history disclosure or torn content/head publication | Whole-history path authorization, original-byte hash validation, atomic bounded vault, no source application (ADR-045); imported branches require per-edge authorization, hashes and aggregate quotas in the same CAS resolution transaction (ADR-051); explicit path/tombstone choices retain Create/Move/Delete requirements (ADR-052); offline branch-payload pruning requires every known device's descendant receipt, retains metadata/tombstones and cannot be invoked through HTTP (ADR-063) |
@@ -227,6 +227,16 @@ Dependabot watches this repository's manifests (`.github/dependabot.yml` — add
 the ecosystems this project actually uses). A dependency is added deliberately,
 pinned, and reviewed for its own transitive surface. An unmaintained package is
 a vulnerability with a delay.
+
+**Dependabot answers a different question from the one this section asks.** It
+opens a pull request when a newer version exists; it does not say whether the
+version pinned right now carries a known vulnerability. From 1.3.3 the gate and
+CI ask that one directly: `cargo audit --deny warnings` against the lockfile and
+`npm audit --audit-level=high` for the frontend. CI runs them weekly as well as
+on every push, because an advisory is published against code that has not
+changed — a check that runs only on our commits learns about it whenever we
+happen to commit next. Locally, a missing `cargo-audit` is a warning naming the
+install rather than a refusal to run the rest of the gate.
 
 ## 11. Incident response
 

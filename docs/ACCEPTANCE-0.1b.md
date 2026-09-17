@@ -192,7 +192,7 @@ Two halves belong to 0.1b, because both are the watcher's:
 
 | Test | What it holds to |
 |---|---|
-| `notes-core`, `deep.rs::the_tree_appears_in_well_under_a_second` | opening a workspace of 2 160 directories and listing its root, **under 1 s** |
+| `notes-core`, `deep.rs::the_tree_appears_in_well_under_a_second` | opening a workspace of 2 160 directories and listing its root, **under 1 s** — asserted on Linux, measured and published into the CI job summary on macOS and Windows ([ADR-080](decisions.md)) |
 | `notes-core`, `deep.rs::starting_the_watcher_returns_immediately_and_walks_behind` | `start_watch` returns in under a fifth of the walk it then waits for, over **7 200 directories** |
 | `notes-core`, `deep.rs::an_unreadable_directory_does_not_demote_the_workspace` | a mode-000 subdirectory is **counted and skipped**; `degraded` stays `None` and the rest stays watched |
 | `notes-fs`, `watch_walk.rs::the_walk_reports_its_progress_and_finishes` | the counters the status bar reads are real: over 300 directories walked, and `walking` turns off |

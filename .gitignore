@@ -31,6 +31,32 @@ dist/
 .vite/
 apps/notes-app/src-tauri/gen/schemas/
 
+# CPython bytecode. `tools/check.sh` imports the Python tools (the packaging and
+# updater suites import their module under test), so every run of the gate
+# creates this directory — and with "everything is versioned" as the house rule,
+# an untracked directory that appears on its own is one `git add -A` away from
+# being committed. Same class as the entries above, same ADR-011.
+__pycache__/
+
+# Installer artifacts, wherever they land. The group is scoped by format rather
+# than by path because of `apps/notes-app/notes_0.11.11_amd64.deb`: committed at
+# 0.12.0, when artifacts were still attached to the tree, and still sitting there
+# a hundred versions later. A path-scoped rule would have guarded one directory
+# and missed that one.
+#
+# `*.pkg.tar.zst` is the correction to the reasoning this group shipped with,
+# which claimed nothing here writes an installer outside `target/`. `makepkg`
+# does: it builds the Arch package inside `packaging/aur/notes-bin/`, and
+# `.github/workflows/build.yml` installs it from exactly that path. The claim was
+# false and the glob set was incomplete while that sentence was justifying it.
+#
+# Same ADR-011 test as the entries above: a command in this repository produces
+# them, from inputs in this repository, and reproducing one is running it.
+*.deb
+*.AppImage
+*.rpm
+*.pkg.tar.zst
+
 # Generated test corpus — tools/gen-large.sh rebuilds it deterministically (ADR-011)
 fixtures/large/
 fixtures/deep/
@@ -43,6 +69,10 @@ Thumbs.db
 # and the PKGBUILD it generates. Both come from `PKGBUILD.in` and version.md.
 packaging/aur/notes-bin/PKGBUILD
 packaging/aur/notes-bin/*.tar.gz
+# `makepkg`'s own working directories, which a local build leaves in that folder
+# next to the package the group above now covers.
+packaging/aur/notes-bin/src/
+packaging/aur/notes-bin/pkg/
 dist-release/
 
 # Per-machine signing credentials — a secret, which is the one thing this file

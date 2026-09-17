@@ -30,6 +30,7 @@ export function DeviceSync() {
   const [request,setRequest]=useState(initial);
   const [settings,setSettings]=useState<ipc.SyncConnection|null>(null);
   const [preview,setPreview]=useState<ipc.SyncPairPreview|null>(null);
+  const [probe,setProbe]=useState<ipc.SyncProbe|null>(null);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
   const [chosen,setChosen]=useState<{local:string;remote:string}|null>(null);
@@ -72,8 +73,59 @@ export function DeviceSync() {
   async function pair() {
     await ipc.devicePair(request);await attach();
     if(request.mode!=="upload")setPreview(await ipc.devicePreview());
+    /* `task` clears the message and only writes one on failure, so a pairing
+       that worked said nothing at all — indistinguishable from a button that
+       did nothing. The phase in the summary moves too, but only after the next
+       poll. */
+    setMessage(t("device.paired"));
   }
+  /* The one remote call that runs with the workspace open, because "is the
+     server there and does this credential work" is what people ask *before*
+     they are willing to close everything and commit to a pairing. Until this
+     existed the only way to find out was to press Create pairing and read one
+     of three sentences that stand for about thirty causes. */
+  async function test() {
+    const found=await ipc.deviceProbe(request.origin,request.allow_private,request.token_file);
+    setProbe(found);
+    /* The credential decides the workspace; the field is the owner's copy of a
+       name only the server knows. Filling an empty field is help — overwriting
+       a different one is a surprise, so a mismatch is reported instead. */
+    if(found.outcome==="granted"&&found.workspace&&!request.workspace)
+      setRequest(r=>({...r,workspace:found.workspace!,scope:found.scope}));
+  }
+  /* Exhaustive over the generated union, so a variant added in Rust fails the
+     TypeScript build rather than rendering its own key at the user
+     (`tree.newNote.prompt` shipped exactly that way). The keys are literals, so
+     tools/i18n-keys.py checks both languages have them. */
+  const said:Record<ipc.SyncProbeOutcome,string>={
+    address:t("device.probe.address"),
+    credential_file:t("device.probe.credentialFile"),
+    credential_shape:t("device.probe.credentialShape"),
+    unreachable:t("device.probe.unreachable"),
+    refused:t("device.probe.refused"),
+    unexpected:t("device.probe.unexpected"),
+    granted:t("device.probe.granted"),
+  };
+  /* The verdict, as a colour. Exhaustive over the generated union for the same
+     reason `said` is: a variant added in Rust must pick a tone or fail the
+     build. Three tones and not seven, because the only thing a colour can say
+     here is *done*, *not your machine* and *something to fix on this one*. */
+  const tone:Record<ipc.SyncProbeOutcome,string>={
+    granted:"ok",
+    refused:"no", unreachable:"no", unexpected:"no",
+    address:"fix", credential_file:"fix", credential_shape:"fix",
+  };
+  /* A credential that works and needs server-side review is not a pass: the
+     pairing will refuse it. Amber, not green. */
+  const verdict=probe?(probe.outcome==="granted"&&probe.review?"fix":tone[probe.outcome]):"";
   const blocked=busy||!!workspace;
+  /* The pair button has six preconditions and used to state none of them: it
+     rendered grey, and a filled-in field changed nothing anyone could see. The
+     panel now names what is still missing, because "disabled" is an answer to a
+     question the person has not been allowed to ask yet. */
+  const required=[["source","device.source"],["state_dir","device.state_dir"],["token_file","device.token_file"],["origin","device.server"],["workspace","device.remoteWorkspace"]] as const;
+  const missing=[...(workspace?[t("device.missing.workspace")]:[]),
+    ...required.filter(([key])=>!request[key]).map(([,label])=>t(label))];
   const conflicts=preview?.rows.some(r=>r.action==="conflict")||!!preview?.attachment_conflicts.length;
   const phase=snapshot?.phase??"disabled";
   return <details className="device-sync">
@@ -92,7 +144,15 @@ export function DeviceSync() {
           <label>{t("device.mode")}<select value={request.mode} onChange={e=>setRequest({...request,mode:e.target.value})}>{["upload","download","reconcile"].map(m=><option key={m} value={m}>{t(`device.mode.${m}`)}</option>)}</select></label>
         </div>
         <label><input type="checkbox" checked={request.allow_private} onChange={e=>setRequest({...request,allow_private:e.target.checked})}/>{t("device.private")}</label>
-        <div className="device-actions"><button disabled={blocked||!request.source||!request.state_dir||!request.token_file||!request.origin||!request.workspace} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
+        <div className="device-actions"><button disabled={busy||!request.origin||!request.token_file} onClick={()=>void task(test)}>{busy?t("device.testing"):t("device.test")}</button><button disabled={busy||missing.length>0} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={busy||!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
+        {probe&&<p role="status" className={`device-probe ${verdict}`}>{said[probe.outcome]}
+          {probe.status!==null&&` (HTTP ${probe.status})`}
+          {probe.outcome==="granted"&&` · ${t("device.probe.workspace",{name:probe.workspace??""})}`}
+          {probe.outcome==="granted"&&!!probe.scope&&` · ${t("device.probe.scope",{path:probe.scope})}`}
+          {probe.outcome==="granted"&&probe.review&&` · ${t("device.probe.review")}`}
+          {probe.outcome==="granted"&&!!request.workspace&&probe.workspace!==request.workspace&&` · ${t("device.probe.mismatch",{name:probe.workspace??""})}`}
+        </p>}
+        {!!missing.length&&<p role="status" className="device-missing">{t("device.missing")} {missing.join(" · ")}</p>}
         {!!workspace&&<p>{t("device.closeFirst")}</p>}
       </fieldset>
       {settings&&<fieldset disabled={busy}><legend>{t("device.schedule")}</legend>

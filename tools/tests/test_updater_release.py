@@ -54,7 +54,7 @@ class UpdaterReleaseTests(unittest.TestCase):
             updater.verify(self.artifact, '1.1.0')
 
     def test_linux_reuse_checks_signed_sidecars(self):
-        cache = Path(__file__).parents[1] / 'linux-build-cache.py'
+        cache = Path(__file__).parents[1] / 'build-cache.py'
         Path(str(self.artifact) + '.sha256').write_text(updater.sha(self.artifact) + '  package\n')
         identity = [str(self.root), '1.1.0', 'aarch64-unknown-linux-gnu', 'source-hash', '0']
         subprocess.run([sys.executable, str(cache), 'record', *identity, str(self.artifact)], check=True)
@@ -82,7 +82,7 @@ class UpdaterReleaseTests(unittest.TestCase):
              patch.object(updater.subprocess, 'check_output', side_effect=output), \
              patch.object(updater, 'urlopen', side_effect=public):
             try:
-                updater.publish(self.artifact, '1.1.0', 'b3sys@100.64.100.242', '/srv/app', '/tmp', 'https://example.com')
+                updater.publish(self.artifact, '1.1.0', 'b3sys@100.64.100.125', '/srv/app', '/tmp', 'https://example.com')
             finally:
                 self.calls = calls
         return calls, manifests
@@ -95,7 +95,25 @@ class UpdaterReleaseTests(unittest.TestCase):
         self.assertIn('mv -f', command)
         self.assertIn('linux-aarch64-deb', manifests[0]['url'])
         self.assertEqual(calls[0][0], 'scp')
-        self.assertTrue(calls[0][-1].startswith('b3sys@100.64.100.242:'))
+        self.assertTrue(calls[0][-1].startswith('b3sys@100.64.100.125:'))
+
+    def test_the_sudo_call_asks_for_a_terminal(self):
+        """`ssh host "cmd"` allocates no tty, and sudo will not prompt without one.
+
+        It dies with "a terminal is required to read the password" — after the
+        build, the notarisation and a verified upload, which is the most
+        expensive possible place to learn it. The calls that do not run sudo
+        keep their default, because a pty there only mangles the output they
+        are parsed for.
+        """
+        calls, _ = self.publish()
+        sudo = [c for c in calls if c[0] == 'ssh' and 'sudo -u www-data' in c[-1]]
+        self.assertTrue(sudo, 'no sudo call was made at all')
+        for call in sudo:
+            self.assertEqual(call[1], '-t', 'the sudo call cannot prompt for a password')
+        for call in calls:
+            if call[0] == 'ssh' and 'sudo -u www-data' not in call[-1]:
+                self.assertNotIn('-t', call, 'a pty here only mangles parsed output')
 
     def test_bad_upload_never_changes_feed_and_staging_is_cleaned(self):
         with self.assertRaisesRegex(ValueError, 'checksum mismatch'):

@@ -3,9 +3,6 @@ use notes_model::{BaseRev, Caps, CoreError, Entry, EntryKind, NativeId, RelPath,
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// The local filesystem, jailed to one root.
 pub struct LocalFs {
@@ -137,7 +134,6 @@ impl LocalFs {
         // Two of our processes writing the same note are serialised by
         // `write.lock`, so the shared name cannot collide; a third-party editor
         // does not use our naming.
-        let _ = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
         Ok(dir.join(format!(".{name}.tmp")))
     }
 }
@@ -186,7 +182,7 @@ impl FileSystem for LocalFs {
 
     fn read(&self, path: &RelPath) -> Result<Vec<u8>> {
         let abs = self.resolve(path)?;
-        fs::read(&abs).map_err(|e| CoreError::io("read", path, &e))
+        read_no_follow(&abs, path)
     }
 
     fn write_atomic(
@@ -198,7 +194,24 @@ impl FileSystem for LocalFs {
         let abs = self.resolve(path)?;
         let tmp = Self::tmp_path(&abs)?;
 
-        let mut f = fs::File::create(&tmp).map_err(|e| CoreError::io("create_temp", path, &e))?;
+        // `File::create` is `O_CREAT|O_TRUNC`, and it FOLLOWS a symlink. This
+        // name is deterministic on purpose (see `tmp_path`), so it is also
+        // predictable: a `.note.md.tmp` left in the workspace as a link — by a
+        // sync client, a restore, anything that writes here — would send the
+        // next save's bytes wherever it points, out of the root, through a jail
+        // that had already approved the path.
+        //
+        // `remove_file` unlinks the link itself and never its target;
+        // `create_new` is `O_CREAT|O_EXCL`, which refuses a symlink outright.
+        // Losing the race between the two means `create_new` fails and the
+        // write is refused — never redirected. The pair keeps the "at most one
+        // leftover temp per note" property the deterministic name exists for.
+        let _ = fs::remove_file(&tmp);
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|e| CoreError::io("create_temp", path, &e))?;
         let write_then_sync = (|| -> std::io::Result<()> {
             f.write_all(bytes)?;
             f.sync_all()
@@ -221,7 +234,10 @@ impl FileSystem for LocalFs {
             match Self::stat_at(&abs) {
                 Ok(current) => {
                     // The final guard checks content even if size and mtime match.
-                    let same = fs::read(&abs)
+                    // A symlink that appeared here reads as "not the same",
+                    // which lands on `Diverged` — refusing the write rather
+                    // than following the link. The safe direction.
+                    let same = read_no_follow(&abs, path)
                         .map(|b| hash(&b) == base.hash)
                         .unwrap_or(false);
                     if !same {
@@ -298,15 +314,45 @@ impl FileSystem for LocalFs {
         }
     }
 
+    /// Move a note, and **refuse rather than replace** when the destination is
+    /// taken.
+    ///
+    /// This was `b.exists()` followed by `fs::rename`, and the gap between the
+    /// two is the bug. `fs::rename` replaces the destination on every platform
+    /// — that is what POSIX `rename` and `MOVEFILE_REPLACE_EXISTING` both mean
+    /// — so anything creating `b` after the check had its bytes deleted with no
+    /// error raised anywhere. This product's premise is that other tools write
+    /// in that folder: a sync client, a `git checkout`, a restore, Dropbox. The
+    /// window is ordinary rather than adversarial, and what it costs is a file
+    /// the user wrote (ADR-001).
+    ///
+    /// `create_new` above already solved the same problem with
+    /// `persist_noclobber`. This is the rename half, and the check survives
+    /// only where no platform primitive exists.
     fn rename(&self, from: &RelPath, to: &RelPath) -> Result<()> {
         let a = self.resolve(from)?;
         let b = self.resolve(to)?;
-        if b.exists() {
-            return Err(CoreError::AlreadyExists {
-                path: to.to_string(),
-            });
+        match rename_noreplace(&a, &b) {
+            Some(Ok(())) => Ok(()),
+            Some(Err(e)) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                Err(CoreError::AlreadyExists {
+                    path: to.to_string(),
+                })
+            }
+            Some(Err(e)) => Err(CoreError::io("rename", from, &e)),
+            // No exclusive rename here: an old kernel, a filesystem that does
+            // not implement the flag, or a target this crate does not name. The
+            // check-then-rename is what it always was — no worse than before,
+            // and the window becomes the exception rather than the whole story.
+            None => {
+                if b.exists() {
+                    return Err(CoreError::AlreadyExists {
+                        path: to.to_string(),
+                    });
+                }
+                fs::rename(&a, &b).map_err(|e| CoreError::io("rename", from, &e))
+            }
         }
-        fs::rename(&a, &b).map_err(|e| CoreError::io("rename", from, &e))
     }
 
     /// Move to the operating system's trash when the backend has one, and say
@@ -453,6 +499,73 @@ fn native_id(_: &Path, _: &fs::Metadata) -> Option<NativeId> {
     None
 }
 
+/// Open a jailed path for reading, refusing a symlink **at the final component**.
+///
+/// [`LocalFs::resolve`] refuses every symlink it can see, and then hands back a
+/// path somebody else can still change. Between that check and this open the
+/// note can become a link, and `fs::read` would follow it straight out of the
+/// root — the jail having already approved the path.
+///
+/// That is not a hostile-user story. The workspace belongs to the user; the
+/// premise of the whole product is that **other tools touch these files** — a
+/// sync client, a `git checkout`, a restore from backup. Those write while the
+/// application reads, which is exactly the window.
+///
+/// **This closes the last component, and only the last component.** A directory
+/// in the middle of the path can still be swapped between `resolve` and here.
+/// Closing that needs `openat2(RESOLVE_NO_SYMLINKS)`, which is Linux 5.6+ and
+/// has no macOS equivalent, so it would buy one platform rather than the jail —
+/// ADR-075 records the choice. The final component is the case that is both
+/// realistic and free.
+#[cfg(unix)]
+fn open_no_follow(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+}
+
+/// Windows has no `O_NOFOLLOW`. `FILE_FLAG_OPEN_REPARSE_POINT` opens the
+/// reparse point *itself* rather than refusing it, which would hand back the
+/// link's own bytes as if they were the note — worse than following it. The
+/// string half of the jail and `resolve` still apply here; this half does not.
+#[cfg(not(unix))]
+fn open_no_follow(path: &Path) -> std::io::Result<fs::File> {
+    fs::File::open(path)
+}
+
+/// `ELOOP` from an `O_NOFOLLOW` open means one thing only, and it is not an I/O
+/// failure: the final component became a symlink after `resolve` cleared it. It
+/// is reported as the error `resolve` itself would have produced, so a caller
+/// never has to know which of the two halves refused.
+#[cfg(unix)]
+fn is_symlink_refusal(error: &std::io::Error) -> bool {
+    error.raw_os_error() == Some(libc::ELOOP)
+}
+
+#[cfg(not(unix))]
+fn is_symlink_refusal(_: &std::io::Error) -> bool {
+    false
+}
+
+fn read_no_follow(abs: &Path, rel: &RelPath) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let mut file = open_no_follow(abs).map_err(|e| {
+        if is_symlink_refusal(&e) {
+            CoreError::SymlinkNotFollowed {
+                path: rel.to_string(),
+            }
+        } else {
+            CoreError::io("read", rel, &e)
+        }
+    })?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)
+        .map_err(|e| CoreError::io("read", rel, &e))?;
+    Ok(bytes)
+}
+
 #[cfg(unix)]
 fn copy_mode(meta: &fs::Metadata, to: &Path) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -501,4 +614,165 @@ fn sync_dir(file: &Path) {
     }
     #[cfg(not(unix))]
     let _ = file;
+}
+
+// ── Exclusive rename ─────────────────────────────────────────────────────────
+// `Some(Ok(()))` renamed · `Some(Err(_))` failed, `AlreadyExists` included ·
+// `None` no exclusive primitive here, so the caller falls back to the check.
+
+#[cfg(unix)]
+fn cpath(path: &Path) -> Option<std::ffi::CString> {
+    use std::os::unix::ffi::OsStrExt;
+    std::ffi::CString::new(path.as_os_str().as_bytes()).ok()
+}
+
+/// Unix errors meaning "this filesystem does not implement the flag" rather
+/// than "the rename failed". `EINVAL` is in the list because that is what a
+/// filesystem without the support answers, and the flag here is a constant —
+/// there is no invalid argument left for it to be about.
+#[cfg(unix)]
+fn rename_unsupported(error: &std::io::Error) -> bool {
+    matches!(
+        error.raw_os_error(),
+        Some(libc::ENOSYS) | Some(libc::EINVAL) | Some(libc::ENOTSUP)
+    )
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn rename_noreplace(a: &Path, b: &Path) -> Option<std::io::Result<()>> {
+    let (from, to) = (cpath(a)?, cpath(b)?);
+    // SAFETY: two valid NUL-terminated paths owned by this frame. Both are
+    // absolute, so `AT_FDCWD` is never consulted.
+    let rc = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            from.as_ptr(),
+            libc::AT_FDCWD,
+            to.as_ptr(),
+            libc::RENAME_NOREPLACE as _,
+        )
+    };
+    if rc == 0 {
+        return Some(Ok(()));
+    }
+    let error = std::io::Error::last_os_error();
+    if rename_unsupported(&error) {
+        return None;
+    }
+    Some(Err(error))
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn rename_noreplace(a: &Path, b: &Path) -> Option<std::io::Result<()>> {
+    let (from, to) = (cpath(a)?, cpath(b)?);
+    // SAFETY: as above. `renamex_np` is Apple's spelling of the same idea and
+    // has existed since macOS 10.12; a volume without the support answers
+    // `ENOTSUP`, which is a fall-back rather than a failure.
+    let rc = unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_EXCL as _) };
+    if rc == 0 {
+        return Some(Ok(()));
+    }
+    let error = std::io::Error::last_os_error();
+    if rename_unsupported(&error) {
+        return None;
+    }
+    Some(Err(error))
+}
+
+#[cfg(windows)]
+fn rename_noreplace(a: &Path, b: &Path) -> Option<std::io::Result<()>> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::MoveFileExW;
+
+    let wide = |p: &Path| {
+        p.as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect::<Vec<u16>>()
+    };
+    let (from, to) = (wide(a), wide(b));
+    // SAFETY: both buffers are NUL-terminated and outlive the call.
+    //
+    // Flags are zero, and that is the point. `MOVEFILE_REPLACE_EXISTING` is what
+    // `std::fs::rename` passes and what deletes the destination.
+    // `MOVEFILE_COPY_ALLOWED` stays off as well: a move inside one workspace
+    // root never crosses a volume, and a rename that silently becomes a copy is
+    // a different operation wearing this one's name.
+    let ok = unsafe { MoveFileExW(from.as_ptr(), to.as_ptr(), 0) };
+    if ok != 0 {
+        return Some(Ok(()));
+    }
+    Some(Err(std::io::Error::last_os_error()))
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "ios",
+    windows
+)))]
+fn rename_noreplace(_a: &Path, _b: &Path) -> Option<std::io::Result<()>> {
+    None
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    /// The refusal has to come from the syscall, not from a check before it.
+    ///
+    /// `b.exists()` followed by `fs::rename` passes the same assertion through
+    /// the public `rename`, which is exactly why this went unnoticed for so
+    /// long: the destination is only destroyed when something creates it
+    /// *between* the two calls, and no test can schedule that window reliably.
+    /// What can be asserted is the primitive — that the rename itself refuses
+    /// and leaves the destination's bytes alone — because removing the window
+    /// is what the primitive is for.
+    #[test]
+    fn an_exclusive_rename_refuses_and_leaves_the_destination_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b) = (dir.path().join("from.md"), dir.path().join("to.md"));
+        fs::write(&a, b"the note being moved").unwrap();
+        fs::write(&b, b"the note already there").unwrap();
+
+        let outcome = rename_noreplace(&a, &b).expect("this platform has an exclusive rename");
+        let error = outcome.expect_err("the destination exists, so the rename must refuse");
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read(&b).unwrap(), b"the note already there");
+        assert!(a.exists(), "a refused rename must not consume the source");
+    }
+
+    /// And it still renames. A guard that refuses everything would pass the
+    /// test above and break the application.
+    #[test]
+    fn an_exclusive_rename_moves_when_the_destination_is_free() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b) = (dir.path().join("from.md"), dir.path().join("to.md"));
+        fs::write(&a, b"content").unwrap();
+
+        rename_noreplace(&a, &b)
+            .expect("this platform has an exclusive rename")
+            .expect("the destination is free");
+        assert_eq!(fs::read(&b).unwrap(), b"content");
+        assert!(!a.exists());
+    }
+
+    /// The half `resolve` cannot test: `resolve` refuses a symlink it can see,
+    /// so a black-box call never reaches the open. This is the open.
+    #[test]
+    fn open_no_follow_refuses_a_symlink_and_says_which_error_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target");
+        fs::write(&target, b"secret\n").unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let error = open_no_follow(&link).expect_err("a symlink must not open");
+        assert!(is_symlink_refusal(&error), "expected ELOOP, got {error:?}");
+
+        // The same call on the real file still works, or the guard would be
+        // refusing everything and the test would prove nothing.
+        assert!(open_no_follow(&target).is_ok());
+    }
 }
