@@ -442,6 +442,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   se ler como medição e passa a se ler como propriedade da suíte, que é como alguém
   depois conclui que a suíte encolheu
 
+- [x] R6i — *"the update could not be completed"*, documentado por plataforma
+  (1.6.67). Reportado em uso, e o `updater.md` não tinha nada sobre isso: cobria
+  construir, assinar e publicar, e parava onde o usuário está. **O feed se inocenta
+  pelo próprio sintoma** — versão mostrada significa endpoint resolvido, JSON lido e
+  comparação feita; medi mesmo assim (`darwin-aarch64-app` em 1.6.63, payload 200).
+  Lido do `tauri-plugin-updater 2.11.0`: no macOS o `rename` do `.app` é o passo que
+  decide — `PermissionDenied` escala e **aparece o prompt de senha**; qualquer outro
+  erro volta na hora e **sem prompt nenhum**, tipicamente `EXDEV`. Uma pergunta
+  separa os dois: *apareceu o prompt?* Sem prompt = o app roda de onde não dá para
+  movê-lo (dmg montado, ou `~/Downloads` com quarentena e App Translocation).
+  E isso explica o que parecia coincidência: todo app Tauri 2 troca o bundle do
+  mesmo jeito, então hábito de instalação que quebra um quebra os três
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

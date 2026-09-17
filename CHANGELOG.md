@@ -7,6 +7,48 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.67 - what "the update could not be completed" actually means, per platform
+
+Reported from use: the banner shows the newer version, *Install and restart*
+answers *"the update could not be completed"*, and the same happens in two other
+applications built the same way. `updater.md` had nothing on it — the page
+covered building, signing and publishing, and stopped where the user is.
+
+**The feed is exonerated by the symptom itself.** A version was shown, so the
+endpoint resolved, the JSON parsed and the comparison ran. Measured anyway:
+`darwin-aarch64-app.json` is at `1.6.63` and its payload answers `200`.
+
+Read out of `tauri-plugin-updater 2.11.0` rather than remembered. On macOS the
+bundle is replaced in three steps — extract into `$TMPDIR`, **`rename` the
+running `.app` out of the way**, move the new one in — and the middle step is
+where the diagnosis lives:
+
+- `PermissionDenied` escalates, so **macOS shows a password prompt**; failing
+  after that gives *"Failed to move the new app into place"*.
+- **Any other error returns immediately with no prompt at all**, and the usual
+  one is `EXDEV`: a rename across filesystems, which `rename(2)` cannot do.
+
+So one question splits it — *did macOS ask for your password?* No prompt means
+the application is running from somewhere it cannot be moved out of: the mounted
+`.dmg`, or `~/Downloads` still carrying the quarantine attribute, where Gatekeeper
+App Translocation runs it from a read-only path under `/private/var/folders/…`.
+The section carries the one-line `osascript` that prints where it is really
+running from, and the `xattr -dr` that clears the attribute after moving it to
+`/Applications`.
+
+**That also explains the part that looked like coincidence.** Every Tauri 2
+application replaces its bundle the same way, so an installation habit that
+breaks one breaks all of them — which is exactly what "the same error in three
+apps" is evidence for.
+
+The Linux half is written from the same reading: `dpkg -i` through `pkexec` with
+`zenity`/`kdialog`/terminal-`sudo` fallbacks, and the AppImage path needing a
+temporary directory on the same device. With one measurement worth keeping — the
+`.deb` upgrade over the pre-`1.0.0` `notes` package **works**, and
+`dpkg --dry-run -i` on the published package says so in as many words. It did not
+before `1.6.1`, and `/var/log/dpkg.log` on this machine still holds the
+`half-installed` → `not-installed` pair from an attempt on 16/09.
+
 ## 1.6.66 - macOS is published, and three commits today said it was not
 
 `1.6.57`, `1.6.59` and `1.6.60` corrected the README's status, the README's

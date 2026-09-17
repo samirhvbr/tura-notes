@@ -144,6 +144,73 @@ key requires an explicit migration. Keep old payloads while clients may still
 be downloading them. CI's existing unsigned Linux installers do not publish a
 signed feed; only this signing/publishing path does.
 
+## When "the update could not be completed"
+
+The banner finds the feed, shows the newer version, and the install fails. The
+feed is therefore **not** the problem — it was read, parsed and its version
+compared. What is left is download, signature check and replacing the
+application, and on each platform the plugin fails differently.
+
+### macOS — the one question that splits it
+
+`tauri-plugin-updater` replaces the bundle in three steps: extract the
+`.app.tar.gz` into `$TMPDIR`, **`rename` the running `.app` out of the way**, and
+move the new one into place. That middle step decides everything:
+
+- **`PermissionDenied`** → the plugin escalates, and macOS shows an
+  administrator password prompt. If you cancel it, or it fails, the error is
+  *"Failed to move the new app into place"*.
+- **Any other error** → the plugin returns it immediately and **no prompt ever
+  appears**. The common one is `EXDEV` — a rename across filesystems, which
+  `rename(2)` cannot do.
+
+So: **did macOS ask for your password?**
+
+**No prompt** means the application is not where it thinks it is. The two ways
+that happens are the same mistake: running it from the mounted `.dmg`, or from
+`~/Downloads` with the quarantine attribute still set, in which case Gatekeeper
+**App Translocation** runs it from a read-only randomized path under
+`/private/var/folders/…/AppTranslocation/`. A rename out of there crosses devices
+and cannot be authorized away.
+
+```sh
+# where is it really running from?
+osascript -e 'POSIX path of (path to application "Tura Notes")'
+```
+
+If that prints anything containing `AppTranslocation` or `/Volumes/`, the fix is
+to quit, drag the `.app` into `/Applications`, clear the attribute and reopen:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Tura Notes.app"
+```
+
+**A prompt that appeared and still failed** is a genuine permission problem on
+`/Applications/Tura Notes.app` — most often an app copied there with `sudo`, so
+it is owned by `root` and the AppleScript's `rm -rf` is what fails.
+
+**This is not specific to this application.** Every Tauri 2 application updates
+through the same three steps, so an installation habit that breaks one breaks all
+of them — which is the signal worth acting on if more than one of your apps
+refuses to update with the same message.
+
+### Linux
+
+The `.deb` path runs `dpkg -i` through `pkexec`, falling back to `zenity` or
+`kdialog` for a password and then to a terminal `sudo`. On a headless session
+with no polkit agent and no `zenity`, all three fail and the message is the same.
+
+Upgrading over the pre-`1.0.0` `notes` package works: the `.deb` declares
+`Conflicts: notes (<< 1.0.0)` and `Replaces: notes (<< 1.0.0)`, and
+`dpkg --dry-run -i` on the published package reports *"considering removing notes
+in favour of tura-notes … yes, will remove"*. It did **not** work before
+`1.6.1`, which is what the `half-installed` / `not-installed` pair in
+`/var/log/dpkg.log` records on a machine that tried it then.
+
+The AppImage path rewrites the AppImage in place and needs a temporary directory
+**on the same device** as the file; it tries `$TMPDIR`, the cache directory and
+the AppImage's own directory in that order before giving up.
+
 ## Validation and remaining acceptance
 
 Automated tests cover notice/dismiss/manual-check behavior, workspace and input
