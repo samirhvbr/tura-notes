@@ -306,6 +306,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   passe: a tabela *where a new document goes* ainda dizia que ADR é `ACTIVE`, o que
   o 1.6.49 mudou uma hora antes
 
+- [x] R5t — o smoke do MCP remoto rodava no gate e em workflow nenhum (1.6.51). O
+  `ci.yml` tem um comentário explicando por que certas checagens são duplicadas
+  lá: *"listas divergem — toda checagem abaixo existia no `check.sh` e em nenhum
+  workflow, então PR que quebrava uma era mergeado verde"*. Medido: divergiu de
+  novo, em quatro scripts. Três são meus, de hoje. **O quarto é mais velho e pior:
+  o `server/tests/mcp.py`**, única prova ponta a ponta do 0.7, rodava local e em
+  lugar nenhum do CI — PR quebrando `POST /v1/mcp` era mergeado verde desde o
+  1.6.5. Entrou ao lado do `cotenant.py`, que já constrói o binário. **E a lista
+  deixou de ser mantida por memória:** `tools/ci-parity.py` lê os scripts do
+  `check.sh` e exige que cada um apareça em algum workflow. Não checa *como* nem
+  *em qual job* — colocar uma checagem é julgamento; só a presença é mecânica
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

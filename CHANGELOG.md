@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.51 - the remote MCP smoke ran in the gate and in no workflow
+
+`.github/workflows/ci.yml` carries a comment explaining why some checks are
+duplicated there rather than left to `tools/check.sh`: *"lists drift: every
+check below existed in `check.sh` and in no workflow, so a pull request that
+broke one was merged green."* Measured against the two lists, it had drifted
+again — four scripts deep.
+
+Three are mine, added today: `doc-links.py`, `adr-status.py`, `doc-index.py`.
+**The fourth is older and worse: `server/tests/mcp.py`**, milestone 0.7's only
+end-to-end proof — a real process, a real handshake, the catalogue filtered per
+credential, an unauthenticated call refused — ran locally and in no workflow at
+all. A pull request breaking `POST /v1/mcp` merged green, and had been able to
+since `1.6.5`.
+
+It now runs in `server HTTPS container`, beside `cotenant.py`: both want the
+`target/debug/notes-server` that job already builds, and neither wants the
+compose stack.
+
+**And the list stops being maintained by memory.** `tools/ci-parity.py` reads
+every `tools/…` and `server/tests/…` script out of `check.sh` and fails unless
+each appears somewhere under `.github/workflows/`. It deliberately does not check
+*how* or *in which job* — placing a check is judgement about toolchains,
+containers and what is on disk, and only presence is mechanical. A script that
+genuinely must not run in CI goes in `EXCLUDED` **with its reason**, which turns
+an invisible omission into a sentence somebody wrote.
+
+Proved non-vacuous: deleting one line from the CI list makes it fail by script
+name, and restoring it passes at 19 scripts.
+
 ## 1.6.50 - three documents were not in the index, and one of them I wrote
 
 `docs/README.md` is the index — the page somebody opens to find out what has been

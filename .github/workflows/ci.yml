@@ -129,6 +129,10 @@ jobs:
           run "macOS build script"                      python3 tools/tests/test_build_local.py
           run "the self-hosting guide matches the code" python3 tools/tests/test_selfhosting_doc.py
           run "the env report is not a hand-written IPC shape" python3 tools/tests/test_env_report.py
+          run "every relative documentation link resolves" python3 tools/doc-links.py
+          run "every ADR status is one of the four words"  python3 tools/adr-status.py
+          run "every docs/ page is in the index"           python3 tools/doc-index.py
+          run "this job runs what the local gate runs"     python3 tools/ci-parity.py
           exit "$fail"
 
   server-container:
@@ -168,6 +172,12 @@ jobs:
         run: |
           cargo build -p notes-server --locked
           python3 server/tests/cotenant.py
+      # 0.7's only end-to-end proof. It starts its own `target/debug/notes-server`
+      # on loopback with its own rate buckets, so it belongs beside `cotenant.py`
+      # rather than in the container step: both want the binary this job has
+      # already built, and neither wants the compose stack.
+      - name: the remote MCP transport answers at POST /v1/mcp
+        run: python3 server/tests/mcp.py
       - name: authenticated CRUD over verified HTTPS
         run: python3 server/tests/smoke.py --compose
       - name: stop disposable services
