@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.45 - the changelog is checked too, and the first way of exempting it was wrong
+
+`1.6.43` skipped `CHANGELOG.md` entirely, reasoning that the file is never
+rewritten so a broken link in a published entry has no legal repair. That reason
+holds for the history and not for the top of the file: the entry being written
+*right now* is the only one a broken link can still be kept out of, and it was
+the one going unchecked.
+
+So the file is checked, with three published entries exempted by name. Two
+breakages exist and both are genuinely unrepairable: `0.2.0` links
+`docs/architecture.md`, which was later renamed to `ARCHITECTURE.md`, and `0.3.2`
+cites ADR-009 and ADR-010 with no anchor — a rule that did not exist until
+`1.6.44`.
+
+**The first exemption keyed on line numbers, and that was wrong by
+construction.** This file grows at the top, so every new entry pushes every
+historical line down and silently un-exempts it; the next commit would have
+turned the check red for reasons nobody could fix. Caught by testing the guard
+rather than by reading it: inserting two lines to prove a new broken link fails
+also made the three pinned lines miss.
+
+Keyed by the version heading instead, an entry carries its exemption wherever it
+ends up. Proved both directions: with two lines inserted at the top, the
+historical exemptions still hold and only the two newly-introduced breakages are
+reported.
+
+`doc-links.py` now covers 69 documents.
+
 ## 1.6.44 - twenty-three ADR citations linked the file instead of the decision
 
 `CLAUDE.md` states the rule the decision record runs on: *do not re-litigate a

@@ -18,9 +18,11 @@ Three things are deliberately not checked, each for a reason:
   URLs, `file:///etc/passwd`, `../../../../etc/passwd`, notes pointing at
   neighbours that do not exist. That is the XSS and link-resolution corpus, and
   a checker that "fixes" it destroys the test.
-- **`CHANGELOG.md`** is never rewritten (its own header says so), so a broken
-  link inside a published entry has no legal repair. Reporting it every run
-  would train everyone to ignore this check.
+- **One line of `CHANGELOG.md`**, and not the file. The file is never rewritten,
+  so a broken link in a published entry cannot be repaired — but skipping the
+  whole file also skips the entry being written right now, which is the only one
+  a broken link can still be kept out of. `EXEMPT_LINES` pins the historical
+  one by line and reason.
 - **Code.** A fenced block or an inline span showing `[text](path/to.md)` as
   *syntax* is documentation of a format, not a link. `product.md` and `SCOPE.md`
   both do it, and both are right to.
@@ -35,7 +37,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SKIP_DIRS = ("fixtures/", "node_modules/", "target/", "dist/")
-SKIP_FILES = {"CHANGELOG.md"}
+SKIP_FILES: set[str] = set()
+
+# `CHANGELOG.md` is checked, with three published entries exempted rather than
+# the whole file.
+#
+# The file is never rewritten — its own header says so — so a broken link inside
+# a published entry has no legal repair, and skipping the file entirely was the
+# first answer. That answer also skips the entry being written *right now*,
+# which is the only one a broken link can still be kept out of.
+#
+# **The exemption is keyed by the version heading, not by line number.** Line
+# numbers were the first attempt and they are wrong by construction here: this
+# file grows at the top, so every new entry shifts every historical line down
+# and silently un-exempts them. Keyed by version, an entry carries its exemption
+# wherever it ends up, and a broken link in a *new* entry is never covered by
+# one.
+EXEMPT_ENTRIES = {
+    ("CHANGELOG.md", "0.3.2"): (
+        "Cites ADR-009 and ADR-010 with no anchor. Published history, and the "
+        "rule requiring the anchor only arrived at 1.6.44."
+    ),
+    ("CHANGELOG.md", "0.2.0"): (
+        "Links `docs/architecture.md`, later renamed to `ARCHITECTURE.md`. "
+        "Published history; the file it describes is one capitalisation away."
+    ),
+}
+ENTRY_HEADING = re.compile(r"^##\s+(\d+\.\d+\.\d+)\b")
 
 # A path that does not exist yet *by design*, with where it comes from. The
 # alternative is a page that cannot say where a file will appear.
@@ -121,7 +149,13 @@ def main() -> int:
     problems = []
     for rel in files:
         p = ROOT / rel
+        entry = None
         for lineno, line in strip_code(p.read_text(errors="replace").splitlines()):
+            heading = ENTRY_HEADING.match(line)
+            if heading:
+                entry = heading.group(1)
+            if entry is not None and (rel, entry) in EXEMPT_ENTRIES:
+                continue
             for m in LINK.finditer(line):
                 text, target = m.group(1), m.group(2)
                 if target.startswith(("http://", "https://", "mailto:", "tel:")):

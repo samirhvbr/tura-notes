@@ -239,6 +239,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   **E a classe foi fechada, não limpa:** o `doc-links.py` ganhou a regra, provada
   não-vácua antes de subir (revertendo uma âncora o gate falha com arquivo e linha)
 
+- [x] R5n — o `CHANGELOG.md` entrou no checker de links (1.6.45). O 1.6.43 pulava
+  o arquivo inteiro porque ele não se reescreve — razão que vale para o histórico e
+  **não** para o topo: a entrada que está sendo escrita agora é a única de onde
+  ainda dá para manter um link quebrado fora, e era justamente a que ninguém
+  checava. Três entradas publicadas isentas por nome. **A primeira isenção usava
+  número de linha e estava errada por construção:** o arquivo cresce por cima, então
+  toda entrada nova empurra as linhas históricas e des-isenta em silêncio — o
+  próximo commit deixaria o gate vermelho por motivo que ninguém conserta. Peguei
+  testando o guard, não lendo: inserir duas linhas para provar que link novo falha
+  também fez as três linhas fixadas errarem o alvo. Chaveado por versão, provado nos
+  dois sentidos
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
