@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.26 - PDF import shipped in 0.20.27 and appeared in no acceptance document
+
+A pass over the two acceptance pages nothing had touched since 10 and 11/09,
+measuring them against what shipped afterwards rather than assuming either way.
+One real gap, one stale sentence, one row that belonged somewhere else, and a
+dated line in each page so the next pass measures from here instead of from the
+version that wrote it.
+
+**The gap: PDF import.** It arrived at `0.20.27` with a preview, a 32 MiB bound
+and a save that writes one note — and `grep -i pdf docs/ACCEPTANCE-*.md`
+returned nothing. K14 and K15 close it, and K14 is the cancel: the import is
+deliberately *not* a workspace operation until the save, so the walk that matters
+is the one where nothing should have been written. K15 covers the save and the
+two refusals — oversized, and not a PDF — because a refusal that produces an
+empty note is worse than one that says no.
+
+**The stale sentence** was 0.2's MinGW line, which predates `1.6.18` teaching the
+gate to report a missing compiler as `FAILED, not run` with the package name
+instead of leaking a shell error. It now names the Debian package too, and says
+what `NOTES_NO_WINDOWS_CHECK=1` is and is not for.
+
+**The row that belonged somewhere else:** `1.3.2`'s damaged-journal fix is the
+sync vault's, reached by the offline `sync-prune`, not the index's `index.db` —
+so it became S26 in the 0.6 walk, next to the other maintenance commands that
+want the server stopped and a backup first. Declining to prune keeps the payload,
+and a damaged vault is exactly the state somebody runs a maintenance command in,
+which is why it is worth having seen once before it matters.
+
+`1.3.0` looked like a third candidate and is not: it is workspace-open latency on
+macOS, which X1 already covers from the user's side. Written down as measured
+rather than left as a question.
+
 ## 1.6.25 - remote MCP was the one shipped milestone with no acceptance page
 
 0.7 was delivered at 1.6.5, its queue item left `.continue/`, and `MCP-0.7.md`

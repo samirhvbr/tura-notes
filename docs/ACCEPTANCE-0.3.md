@@ -25,6 +25,7 @@ was reviewed and integrated in 0.17.0; full mobile acceptance remains in
 | An append retry across process restart does not duplicate text | MCP process integration test |
 | Two first clients share identity without changing GUI last workspace | Two simultaneous MCP child processes and a subsequent app-core open |
 | Parser upgrade only clears disposable data | Index schema 1→2 migration regression |
+| PDF import shows the extracted text before anything is written | `PdfImport.test.tsx`: the text is reviewable and the save callback runs only on the explicit save |
 
 Run the complete `tools/check.sh` gate and the native/Windows/Linux/Arch CI
 matrix. The MCP transport tests are real protocol clients, not a claim of a
@@ -48,9 +49,20 @@ an installed Linux acceptance run.
 | K11 | Keep an unsaved app buffer while MCP changes the file; app shows conflict and preserves both versions | ☐ | ☐ |
 | K12 | Review mode restricts writes to proposals; delete is unavailable unless explicitly granted; out-of-scope search leaks no snippet | ☐ | ☐ |
 | K13 | Rebuild index; tags, links and graph return while note bytes, IDs, drafts and append retry history survive | ☐ | ☐ |
+| K14 | Import a PDF: pick one, read the extracted text in the preview, then **cancel**. No note appears, and the PDF is still only where it was — the import is deliberately not a workspace operation until the save | ☐ | ☐ |
+| K15 | Import again and save. One Markdown note at the workspace root, holding the text you reviewed and nothing else: no copy of the PDF, no images, no folder. Then try a file over 32 MiB and one that is not a PDF — both refuse visibly rather than producing an empty note | ☐ | ☐ |
 
 Record release numbers, platform, failures and repeat results here when Samir
 performs the walk. No owner flow has been marked by an agent.
+
+**Measured on 17/09/2026, against everything that shipped after 1.0.0.** One gap
+found and closed above: PDF import arrived at `0.20.27` and appeared in no
+acceptance document in this repository — `grep -i pdf docs/ACCEPTANCE-*.md`
+returned nothing. K14 and K15 are it. Nothing else since 1.0.0 changes a K flow:
+the remote MCP work of `1.6.4`–`1.6.5` is milestone 0.7 and is walked in
+[ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md), whose **M12 is the row that protects this
+document** — it re-runs the local stdio path after `tools()` moved into the
+library, which is the only way this milestone could have been damaged by that one.
 
 ## Local observation — 2026-09-10
 

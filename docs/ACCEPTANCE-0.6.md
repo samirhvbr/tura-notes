@@ -210,6 +210,13 @@ each has a backup as its first step. Walk them once, on the throwaway workspace,
       **Reconnect existing queue** on the directory that was created. Confirm the
       queue is reusable and that initializing the same directory a second time is
       refused — that refusal is what keeps a retry from becoming a second device.
+- [ ] **S26 · Prune a damaged vault, and watch it decline.** `sync-prune` is an
+      offline operator command that removes payloads every device has confirmed.
+      Run it on a vault with a revision naming a parent the vault does not hold,
+      and on one with two revisions naming each other: since `1.3.2` both are
+      **declined**, not crashed through — and declining keeps the payload, which
+      is the safe direction. A damaged vault is exactly the state somebody runs a
+      maintenance command in, so this is the one to have seen once.
 
 ---
 

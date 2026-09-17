@@ -21,8 +21,21 @@
 The full gate remains `tools/check.sh`. On macOS its ENOSPC fixture explicitly
 skips: Linux CI supplies that platform-specific check. Bundled SQLite requires
 a MinGW C compiler for the Windows cross-target step (`brew install mingw-w64`
-on macOS). A native debug `.app` build is a development artifact, not a signed
-macOS release or Linux installation test.
+on macOS, `gcc-mingw-w64-x86-64` on Debian). **Since `1.6.18` a missing one is
+reported as `FAILED, not run` naming the package**, rather than as a shell error
+that reads like a broken test; `NOTES_NO_WINDOWS_CHECK=1` skips the step
+deliberately and is not for a commit that touches Rust. A native debug `.app`
+build is a development artifact, not a signed macOS release or Linux
+installation test.
+
+**Measured on 17/09/2026, against everything that shipped after 0.16.0.** X1–X13
+still describe the index as it is; no flow here was made stale and none was
+added. The two changes that looked like candidates are not: `1.3.0` is workspace
+**open** latency on macOS, which X1 already covers from the user's side ("editing
+remains available"), and `1.3.2`'s damaged journal is the sync vault's, reached
+by the offline `sync-prune`, not this milestone's `index.db` — that one belongs
+to [ACCEPTANCE-0.6.md](ACCEPTANCE-0.6.md) §5. Recorded here so the next pass
+measures from this date rather than from 0.16.0.
 
 ## Repeatable manual flows
 
