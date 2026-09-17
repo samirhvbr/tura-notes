@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.12 - CI checks the core for every Android ABI, not just for iOS
+
+`ACCEPTANCE-0.4.md` said the gate carries "an iOS simulator cross-check ... This
+is compilation evidence, not a running mobile app or Android proof." The sentence
+was accurate and the asymmetry it described was backwards: iOS is the half that
+needs Apple hardware, and it had the check; Android is the half that builds on
+any Linux runner, and it had none.
+
+`android-core` mirrors `ios-core` and checks all four ABIs — arm64, armv7, x86
+and x86_64 — because `notes-index` bundles SQLite, and a C cross-compile is
+precisely the thing that succeeds on one architecture and fails on the next. One
+ABI would have been evidence about one ABI.
+
+Verified locally before writing the job, on this machine's NDK 28.2: all four
+check clean, and the arm64 `sqlite3.o` reads as `ELF 64-bit LSB relocatable, ARM
+aarch64` rather than a host object that happened to be reused. The six-second
+finish looked too fast to be real, which is why it was checked rather than
+believed.
+
+**Not added to `tools/check.sh`, deliberately.** The local gate now treats a
+missing prerequisite as a hard failure, so an Android step would paint the gate
+red on every machine without an NDK — the same way the missing MinGW compiler
+already does. CI installs its toolchain deterministically and is where the iOS
+twin already lives.
+
 ## 1.6.11 - the generated Android project enters the repository
 
 First bullet of `ACCEPTANCE-0.4.md`. `tauri android init` produced

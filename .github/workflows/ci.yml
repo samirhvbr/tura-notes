@@ -317,6 +317,41 @@ jobs:
         run: npm audit --audit-level=high
         working-directory: apps/notes-app
 
+  android-core:
+    name: Android core
+    # The twin of ios-core, and it exists because ACCEPTANCE-0.4.md claimed
+    # compilation evidence for iOS and had none for Android — while Android is
+    # the half that can actually be built without Apple hardware. All four ABIs,
+    # because `notes-index` bundles SQLite and a C cross-compile is exactly the
+    # thing that breaks per-ABI rather than once.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - name: check the shared core including SQLite for every Android ABI
+        run: |
+          set -euo pipefail
+          # The runner ships an NDK; its path is exported for us, and pinning a
+          # version here would rot faster than the image does.
+          ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_HOME:?no NDK on this runner}}"
+          bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -d "$bin" || { echo "no NDK toolchain at $bin" >&2; exit 1; }
+          export PATH="$bin:$PATH"
+          # API 24 is the floor Tauri's Android template targets.
+          for target in aarch64-linux-android:aarch64-linux-android24-clang \
+                        armv7-linux-androideabi:armv7a-linux-androideabi24-clang \
+                        i686-linux-android:i686-linux-android24-clang \
+                        x86_64-linux-android:x86_64-linux-android24-clang; do
+            t="${target%%:*}"; cc="${target##*:}"
+            u="$(echo "$t" | tr 'a-z-' 'A-Z_')"; l="$(echo "$t" | tr '-' '_')"
+            export "CARGO_TARGET_${u}_LINKER=$cc" "CC_${l}=$cc" "AR_${l}=llvm-ar"
+            echo "== $t"
+            cargo check --locked --target "$t" -p notes-model -p notes-fs -p notes-markdown -p notes-index -p notes-core
+          done
+
   ios-core:
     name: iOS simulator core
     runs-on: macos-latest

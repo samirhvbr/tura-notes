@@ -8,9 +8,15 @@ PR #2 makes the trash crate a desktop-only dependency and reports
 `DeleteOutcome::Permanent`; the existing desktop trash and guarded atomic
 write behavior are retained. ADRs 040 and 042 record the integration choices.
 
-The regression gate includes an iOS simulator cross-check of notes-model,
-notes-fs, notes-markdown, notes-index and notes-core, alongside desktop tests.
-This is compilation evidence, not a running mobile app or Android proof.
+The regression gate cross-checks notes-model, notes-fs, notes-markdown,
+notes-index and notes-core for **both** mobile platforms alongside the desktop
+tests: an iOS simulator target, and — from 1.6.12 — every one of the four Android
+ABIs. Android is checked per ABI rather than once because `notes-index` bundles
+SQLite, and a C cross-compile is exactly what breaks on one architecture while
+passing on another.
+
+This is compilation evidence. It is not a running mobile app, and no acceptance
+below is inferred from it.
 
 The following implementation and owner checks remain pending:
 
