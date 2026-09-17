@@ -8,6 +8,36 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.1 - a missing tool is a failure, not a warning
+
+`tools/check.sh` had two steps that printed `WARNING, not run` and let the gate
+finish green: the Windows cross-check, when rustup or the MinGW compiler was
+absent, and `rust advisories`, when `cargo-audit` was not installed.
+
+The second one had been silently skipped on the owner's machine for its whole
+life. CI ran it and was red on it, and a real `rustls` TLS 1.3 handshake flaw —
+on the path every device sync request and every signed update download takes —
+sat inside that red for two versions (1.4.4). The local gate said "all green"
+the entire time. **The difference between a check that was skipped and a check
+that passed has to survive into the exit code**, or the two are the same thing
+to whoever reads the output.
+
+`require_tool` installs what can be installed unattended — `cargo install
+cargo-audit --locked` — and fails if it cannot. `missing` prints the step with
+`FAILED, not run` and the one command that fixes it, which is what the warning
+was useful for; what it no longer does is let the run claim to have checked
+something it skipped.
+
+**`NOTES_NO_WINDOWS_CHECK=1` is now the only way that step does not run.** An
+escape hatch somebody chose, in writing, in the environment, is a skip and
+prints as one. A tool nobody noticed was missing is a failure. The file's own
+header argued for exactly this one paragraph above the code that contradicted
+it — *a check that silently opts out is not a check* — and the header is
+corrected in the same pass.
+
+Verified by asking for a tool that does not exist and cannot be installed: the
+step prints `FAILED, not run` and `fail` is 1.
+
 ## 1.5.0 - the one-second rule is asserted where its numbers came from
 
 ADR-080, amending ADR-034. **The criterion does not move** — `workspace_open`

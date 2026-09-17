@@ -12,10 +12,14 @@
 # a check that silently opts out is not a check. The target type-checks without
 # linking. Bundled SQLite additionally needs a MinGW C compiler
 # (mingw-w64 on Homebrew / gcc-mingw-w64-x86-64 on Debian). The target install is a one-off of a
-# few seconds. `NOTES_NO_WINDOWS_CHECK=1` opts out deliberately; a machine
-# missing rustup, the target or that C compiler degrades to a warning rather
-# than a failure, because refusing to run the rest of the gate over a
-# cross-check helps nobody.
+# few seconds. `NOTES_NO_WINDOWS_CHECK=1` opts out deliberately, and that
+# variable is now the ONLY way this step does not run: a machine missing rustup
+# or that C compiler **fails**. It used to warn and let the run go green, which
+# is the same "silently opts out" this paragraph refuses one line up — the
+# difference between a check that was skipped and a check that passed has to
+# survive into the exit code, or the two become the same thing to whoever reads
+# it. An escape hatch somebody chose is a skip; a tool nobody noticed was
+# missing is a failure.
 #
 # **The compiler is checked, and before the target is installed.** Checking only
 # rustup and the target was the same mistake the paragraph above describes, one
@@ -30,6 +34,32 @@ fail=0
 step() {
   printf '\n== %s\n' "$1"; shift
   if "$@"; then echo "   ok"; else echo "   FAILED"; fail=1; fi
+}
+
+# A MISSING TOOL IS A FAILURE, NOT A WARNING.
+#
+# Both checks below used to print `WARNING, not run` and let the gate go green.
+# The reasoning was that refusing to run the rest of the gate over a missing
+# checker helps nobody, and it is wrong in the way that costs most: it makes the
+# local gate and CI disagree about what green means, and CI is the one that
+# gates. `cargo-audit` was not installed on the owner's machine, so `rust
+# advisories` had never actually run here — while CI was red on it, and a real
+# `rustls` TLS 1.3 flaw sat inside that red for two versions (1.4.4).
+#
+# So: install it if that is possible unattended, and fail if it is not. The
+# message names the one command that fixes it, which is what the warning was
+# for; what it does not do any more is let the run claim to have checked
+# something it skipped.
+require_tool() {                      # require_tool NAME INSTALL_CMD…
+  local name="$1"; shift
+  command -v "$name" >/dev/null 2>&1 && return 0
+  [ "$#" -gt 0 ] || return 1
+  printf '   %s is missing; installing it once…\n' "$name" >&2
+  "$@" >/dev/null 2>&1 || return 1
+  command -v "$name" >/dev/null 2>&1
+}
+missing() {                           # missing NAME HOW-TO-FIX
+  printf '\n== %s\n   FAILED, not run — %s\n' "$1" "$2"; fail=1
 }
 
 step "cargo fmt"            cargo fmt --all --check
@@ -48,19 +78,24 @@ if why=$(windows_target_ready); then
   step "clippy (windows)"   cargo clippy --target x86_64-pc-windows-gnu \
                               -p notes-model -p notes-fs -p notes-core -p notes-markdown -p notes-index -p notes-mcp -p notes-server -p notes-sync -p notes-sync-client \
                               --all-targets -- -D warnings
+elif [ -n "${NOTES_NO_WINDOWS_CHECK:-}" ]; then
+  # The declared escape hatch is the one way this is not a failure: somebody
+  # chose it, in writing, in the environment.
+  printf '\n== clippy (windows)\n   skipped — %s\n' "$why"
 else
-  printf '\n== clippy (windows)\n   WARNING, not run — %s\n' "${why:-unknown}"
+  # The target installs itself; a C cross-compiler does not, and that is where
+  # this stops rather than passes.
+  missing "clippy (windows)" "$why — install it, or set NOTES_NO_WINDOWS_CHECK=1 to opt out deliberately"
 fi
 step "cargo test"           cargo test --workspace
 # Dependabot opens pull requests for new versions; it does not say whether the
 # version pinned right now has a known vulnerability, and `security.md` §10 names
-# dependency maintenance as a control. Both degrade to a warning when the tool is
-# not installed — refusing to run the rest of the gate over a missing checker
-# helps nobody, and the message names the one command that fixes it.
-if command -v cargo-audit >/dev/null 2>&1; then
+# dependency maintenance as a control. `cargo-audit` is installed on demand
+# because it can be; a run that cannot get it stops rather than reporting green.
+if require_tool cargo-audit cargo install cargo-audit --locked; then
   step "rust advisories"    cargo audit --deny warnings
 else
-  printf '\n== rust advisories\n   WARNING, not run — install it once: cargo install cargo-audit --locked\n'
+  missing "rust advisories" "cargo install cargo-audit --locked failed; run it by hand and read why"
 fi
 # `--audit-level=high`, not `low`: a moderate advisory in a build-time dependency
 # of a desktop application that opens no port is a queue item, and a gate that is
