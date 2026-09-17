@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.56 - the permanent specification still called the product's name provisional
+
+`docs/SCOPE.md` opened with `# SCOPE — Notes (nome provisório)`. The name stopped
+being provisional at `1.0.0` on 11/09: `brand.md` is `ACTIVE` and decides it,
+226 Releases carry it, the application calls itself that, and the icon and logo
+are committed under it.
+
+The document calls itself *the permanent product specification*, which is the
+whole reason the line mattered. A specification that describes the product's own
+name as a placeholder invites a reader to treat everything under it as equally
+unsettled — and `docs/README.md` points at this page as *"the durable
+specification and current implementation boundary"*.
+
+It was the only occurrence anywhere: swept for *"nome provisório"*, *"provisional
+name"* and *"working title"* across every tracked document, and nothing else
+carried it.
+
+**The Portuguese body stays.** The language rule says what already exists is not
+rewritten for the rule's sake and that an edit lands in English; this header was
+already the English part of the file, and it is where the edit landed. Rewriting
+457 lines of specification to change a title is not the exchange the rule asks
+for, and the header now says so rather than leaving the mix looking accidental.
+
 ## 1.6.55 - the reqwest bump is reverted, and the gate was red for the right reason
 
 `reqwest` is pinned exactly — `=0.13.4`, by

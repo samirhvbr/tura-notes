@@ -1,9 +1,19 @@
-# SCOPE — Notes (nome provisório)
+# SCOPE — Tura Notes
 
 > **Status:** `ACTIVE` for requirements implemented through `0.20.20`; later
 > requirements remain planned. This is the permanent product specification.
 > The executable queue is [`.continue/`](../.continue/README.md); completed
 > contracts and evidence are indexed in [README.md](README.md).
+>
+> **The title said *"Notes (nome provisório)"* until `1.6.56`.** The name stopped
+> being provisional at `1.0.0` — it is decided in [brand.md](brand.md), it is on
+> every Release since, and it is what the application calls itself. A permanent
+> specification that still describes the product's own name as a placeholder
+> undercuts every requirement under it.
+>
+> **The body below stays in Portuguese**, as the language rule intends: what
+> already exists is not rewritten for the rule's sake, and an edit lands in
+> English — which is what this header is.
 
 Aplicativo de notas Markdown local-first. Documento **v2.0** — 2026-09-07.
 

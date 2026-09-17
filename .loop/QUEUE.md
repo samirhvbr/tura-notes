@@ -339,6 +339,15 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   vermelho lá é a pior das quatro combinações, porque o gate local passa a atestar
   exatamente o que o CI reprova. Agora roda pelo próprio shebang, que é o que uma
   pessoa faz ao seguir o `OWNER-ACTS.md` §1
+- [x] R5y — o `docs/SCOPE.md` ainda se chamava *"Notes (nome provisório)"* (1.6.56).
+  O nome deixou de ser provisório no 1.0.0: o `brand.md` é `ACTIVE` e decide, 226
+  Releases carregam, o aplicativo se chama assim. O documento se diz *a especificação
+  permanente do produto*, que é exatamente por que a linha importava — especificação
+  que trata o próprio nome do produto como provisório convida o leitor a tratar tudo
+  abaixo como igualmente em aberto. Era a única ocorrência em todo o repositório.
+  O corpo em português fica, como a regra de idioma manda: o que já existe não se
+  reescreve pela regra, e a edição sai em inglês — que é o cabeçalho
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
