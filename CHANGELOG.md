@@ -7,6 +7,23 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.73 - three tests for the branch that was wrong for one commit
+
+`1.6.72` made the failure hint follow the platform and shipped it with no test of
+the branch — the frontend suite went green because nothing asserted which
+sentence appears where.
+
+Three do now: macOS gets the translocation advice, Linux gets the password one
+and **must not** get the macOS one, and an unreachable `env_report` falls back to
+the neutral sentence while still showing the error. Proved non-vacuous against
+`1.6.69`'s behaviour — pinning the key to the macOS string makes two of the three
+fail, and undoing it makes all six pass.
+
+They assert the branch rather than the wording: one `waitFor` on a fragment of
+each sentence, and an explicit `queryByText(...).toBeNull()` on the *wrong*
+advice, which is the assertion that actually protects a Linux user. A test that
+only checks the right string appears passes just as happily when both do.
+
 ## 1.6.72 - the advice I shipped an hour ago is wrong on the platform this is built on
 
 `1.6.69` replaced *"check your connection"* with *"the application is probably

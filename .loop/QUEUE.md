@@ -487,6 +487,13 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   um remédio de macOS para todo mundo — errada justamente na máquina onde foi
   escrita, que é o tipo de erro que passa por revisão porque o autor nunca o vê
 
+- [x] R6m — três testes para o galho que ficou errado por um commit (1.6.73). O
+  1.6.72 fez a dica seguir a plataforma e subiu sem teste do galho — a suíte fechou
+  verde porque nada afirmava qual frase aparece onde. Agora afirmam, e o que protege
+  o usuário de Linux é o `queryByText(...).toBeNull()` na dica **errada**: teste que
+  só confere se a frase certa apareceu passa igualmente feliz quando as duas
+  aparecem. Provados não-vácuos contra o comportamento do 1.6.69
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

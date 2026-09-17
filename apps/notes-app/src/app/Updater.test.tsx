@@ -29,3 +29,33 @@ it("renders without a version rather than failing when diagnostics cannot be rea
   expect(await screen.findByRole("button",{name:"Check for updates"})).toBeInTheDocument();
   expect(screen.queryByText(/You are running/)).toBeNull();
 });
+
+/**
+ * The failure hint has to be platform-specific or it is wrong somewhere.
+ *
+ * "Move it to Applications" means nothing on Linux; "installing a package needs
+ * your password" means nothing on macOS. `1.6.69` shipped the macOS sentence to
+ * everybody, which was wrong on the platform this is developed on — the kind of
+ * wrong that survives review because the author never sees it. These three
+ * assert the branch rather than the wording.
+ */
+it("gives macOS the advice that applies on macOS when an install fails",async()=>{
+  useUpdater.setState({phase:"error",version:"1.4.0",detail:"Io Error: Invalid cross-device link (os error 18)"});
+  render(<UpdaterShell><p>app</p></UpdaterShell>);
+  await waitFor(()=>expect(screen.getByText(/move it to Applications/)).toBeInTheDocument());
+  expect(screen.getByText("Io Error: Invalid cross-device link (os error 18)")).toBeInTheDocument();
+});
+it("gives Linux the advice that applies on Linux",async()=>{
+  vi.mocked(ipc.envReport).mockResolvedValue({...env,os:"linux"});
+  useUpdater.setState({phase:"error",version:"1.4.0",detail:"PackageInstallFailed"});
+  render(<UpdaterShell><p>app</p></UpdaterShell>);
+  await waitFor(()=>expect(screen.getByText(/needs your password/)).toBeInTheDocument());
+  expect(screen.queryByText(/move it to Applications/)).toBeNull();
+});
+it("falls back to the neutral sentence when the platform cannot be read, and still shows the error",async()=>{
+  vi.mocked(ipc.envReport).mockRejectedValue(new Error("no"));
+  useUpdater.setState({phase:"error",version:"1.4.0",detail:"something specific"});
+  render(<UpdaterShell><p>app</p></UpdaterShell>);
+  expect(await screen.findByText("Nothing was installed. The error is below.")).toBeInTheDocument();
+  expect(screen.getByText("something specific")).toBeInTheDocument();
+});
