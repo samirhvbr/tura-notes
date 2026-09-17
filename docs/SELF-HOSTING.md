@@ -195,13 +195,48 @@ pairing — and the price is that a phone off the tailnet does not sync. Changin
 your mind later means pairing every device again.
 
 **You would rather not use Docker.** The Linux release carries a standalone
-`notes-server` archive and its SHA-256. It is attached to **minor** releases
-(`X.Y.0`), not to patches, so take the newest `X.Y.0` from
+`notes-server` archive, its SHA-256 and a `.minisig` signature. It is attached
+to **minor** releases (`X.Y.0`), not to patches, so take the newest `X.Y.0` from
 [Releases](https://github.com/samirhvbr/tura-notes/releases) — x86_64 only;
 another architecture builds with `cargo build --locked -p notes-server`. The
 native configuration is `NOTES_SERVER_DATA`, `NOTES_SERVER_BIND` and
 `NOTES_SERVER_TRUSTED_PROXY`, and [Local operation](SERVER-0.5.md#local-operation)
 covers it.
+
+**Check the signature, not only the checksum.** The `.sha256` beside the archive
+comes from the same URL as the archive, so it tells you the download arrived
+intact and nothing about where it came from — whoever could serve you a
+different archive could serve its digest too. The `.minisig` is signed with a
+key that CI never holds
+([ADR-081](decisions.md#adr-081--the-server-binary-is-signed-with-a-key-ci-never-holds-and-a-deploy-that-cannot-verify-changes-nothing)),
+and its public half is committed at
+[`server/cotenant/notes-server.pub`](../server/cotenant/notes-server.pub):
+
+```bash
+minisign -Vm notes-server-X.Y.0-x86_64-linux.tar.gz -p server/cotenant/notes-server.pub
+```
+
+`server/cotenant/deploy-server.sh` does this for you and refuses to install
+anything that does not verify — without stopping the server already running,
+because a signature that does not match is far more often a publishing mistake
+than an attack.
+
+### Signing a release (maintainer)
+
+Only the person holding the private half does this, and it is why the deploy can
+trust a binary at all. The key is generated once and **never** enters the
+repository or CI:
+
+```bash
+tools/sign-server-release.sh init     # once; writes the public half into the repo
+tools/sign-server-release.sh 1.5.0    # per minor release
+```
+
+`init` refuses to overwrite an existing key: regenerating over one in use
+invalidates every signature already published, and the symptom shows up in a
+deploy, on a host that is serving. The private half belongs in a backup outside
+the repository — losing it means rotating the key and re-signing, which is a
+commit of the new public half and a re-run of the second command.
 
 ---
 

@@ -7,6 +7,55 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.0 - the deploy refuses a server binary it cannot prove came from us
+
+ADR-081 implemented. `deploy-server.sh` fetches the `.minisig` beside the
+tarball and verifies it with `minisign` against a public key committed in this
+repository, **before `tar` and long before `/usr/local/bin`** — extracting an
+unverified archive is already trusting it. A missing pinned key, a host without
+`minisign`, an absent signature and a signature that does not match are four
+refusals, not four skips.
+
+**Refusing does not stop the server.** The running binary keeps running: a
+mismatch is far more often a publishing mistake than an attack, and turning one
+into an outage of every paired device's notes would be a second failure caused
+by the first. The test asserts that too — `systemctl` may not appear anywhere in
+the failure path.
+
+`tools/sign-server-release.sh` is what the owner runs: `init` generates the pair
+once and **refuses to overwrite** an existing key, because regenerating over one
+in use silently invalidates every signature already published and the symptom
+appears in a deploy, on a host that is serving. Signing downloads the release
+asset, verifies its checksum *before* signing — signing a truncated download
+publishes a valid signature over wrong bytes, which is worse than not signing,
+since it passes the deploy and installs a binary that will not execute — and
+verifies the result against the **committed public half** rather than the
+private key that just produced it, which is what catches a restored backup or
+last year's key here instead of on the host.
+
+**Two of my own assertions were decoration, and the negative control is what
+said so.** `minisign -Vm` before `install` passed a regression that moved
+verification past the extraction; checking that `[ -f "$pubkey" ]` appears
+passed `[ -f "$pubkey" ] || true`. They assert the ordering against `tar` and
+the guarded *form* now, and each was re-broken to confirm it fails. The checks
+also run before the ordering ones, so deleting a step reports what is missing
+instead of a `substring not found` traceback.
+
+**ADR-081's decision 2 is corrected in the same pass, and the correction is the
+honest part of this commit.** It said the Release asset would be *produced* by
+the same local act as the desktop bundles. Implementing it showed that act does
+not exist — neither `build-local.sh` nor `tools/build-linux.sh` builds
+`notes-server`, and what they publish goes to the owner's download service, not
+to GitHub Releases. CI keeps building and attaching; the signature is what moves
+offline. That closes asset substitution, which is what the finding was about,
+and does not close a compromised CI, which is written into the ADR rather than
+left for someone to discover.
+
+**Nothing verifies yet, and that is the intended state.** No key exists, so the
+deploy refuses — deny by default, `security.md` §3.5. The two commands that
+finish it are in the queue and in `SELF-HOSTING.md`; only the owner can run
+them, because the private half must never touch anything else.
+
 ## 1.5.7 - the connection test, against a server that is actually running
 
 Every other test of `Remote::probe` answers it from a `TcpListener` with canned

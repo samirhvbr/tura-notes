@@ -2396,8 +2396,9 @@ platform is a bug on that platform, and it is fixed there.
 
 **Status:** `ACCEPTED` · 17/09/2026 · extends
 [ADR-074](#adr-074--signed-desktop-updates-with-explicit-installation) to the
-server artifacts · **not yet implemented** — the work is queued in
-[`.continue/`](../.continue/README.md) as *Assinatura do binário do servidor*.
+server artifacts · implemented at 1.6.0, except the key itself: `minisign` is
+generated once by the owner and the deploy **refuses to install** until the
+public half is committed and a release is signed.
 
 **Context.** `server/cotenant/deploy-server.sh` downloads
 `notes-server-X.Y.0-x86_64-linux.tar.gz` and its `.sha256` from the same GitHub
@@ -2443,13 +2444,35 @@ value rather than one it downloads alongside the thing it is checking.
 packages it: the verifier on the host is a shell script, not a Rust binary that
 would itself need to be delivered and trusted first.
 
-### 2. The published artifact is signed locally; CI keeps building it unsigned
+### 2. The published artifact is signed locally; CI keeps building it
 
-CI continues to build `notes-server` on every minor bump — that is a check that
-it compiles and links, and it must not be lost. What changes is that **the
-Release asset is produced and signed by the same local act that already produces
-the desktop bundles**, so publishing a server binary is a thing a person did,
-not a thing a pipeline did.
+CI continues to build and attach `notes-server` on every minor bump. What is
+added is that the **signature** is made offline, by the owner, with the key
+above, and uploaded beside the asset — so installing a server binary requires an
+act a person performed and CI cannot forge.
+
+> **Corrected 17/09/2026, before first implementation.** This clause originally
+> read *"the Release asset is **produced** and signed by the same local act that
+> already produces the desktop bundles"*. Implementing it showed that act does
+> not exist: neither `build-local.sh` nor `tools/build-linux.sh` builds
+> `notes-server` at all, and what they publish goes to the owner's own download
+> service, not to GitHub Releases. The clause described a path that would have
+> had to be invented, and it was written from the principle without checking
+> that the local act reached Releases.
+>
+> **What the correction costs, stated rather than glossed:** a compromised CI
+> could produce a malicious tarball that the owner then signs without having
+> built it. What it still closes — and what the finding was actually about — is
+> **substitution of a published asset**, which the same-origin checksum could
+> never detect. `tools/sign-server-release.sh` verifies the checksum before
+> signing, and building from source with `cargo build --locked -p notes-server`
+> remains available to anyone who wants the stronger guarantee.
+>
+> The correction is written **inside this ADR** rather than as ADR-082, which
+> departs from the house norm of amending with a new ADR — deliberately, and
+> only because this one had never been implemented: two documents describing one
+> decision that had no implementation would cost a reader more than it tells
+> them. An implemented decision gets the new ADR.
 
 The `.sha256` stays. It is still the right tool for a truncated download, it
 fails faster and with a clearer message than a signature check, and a deploy

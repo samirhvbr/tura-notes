@@ -138,6 +138,29 @@ if [ "$installed" != "$target" ]; then
     # O checksum antes de qualquer coisa tocar em /usr/local/bin. Um tarball
     # truncado instala um binário que existe e não executa.
     ( cd "$tmp" && sha256sum -c "$name.sha256" >/dev/null ) || fail "checksum de $name não confere"
+
+    # E A ASSINATURA, QUE É O PORTÃO DE VERDADE (ADR-081).
+    #
+    # O checksum acima veio da MESMA URL que o tarball, então prova que o
+    # download chegou inteiro e nada além disso: quem consegue servir outro
+    # tarball serve o digest correspondente junto. A assinatura é minisign
+    # contra uma chave que o CI nunca teve e cuja metade pública está commitada
+    # aqui — não baixada ao lado daquilo que ela deveria conferir.
+    #
+    # Falhar aqui não para o serviço e não desinstala nada: o binário em uso
+    # continua em uso. Assinatura que não confere é muito mais provavelmente
+    # erro de publicação que ataque, e transformar isso em indisponibilidade das
+    # notas de todo dispositivo pareado seria uma segunda falha causada pela
+    # primeira.
+    pubkey="$REPO/server/cotenant/notes-server.pub"
+    [ -f "$pubkey" ] || fail "sem chave pública fixada em $pubkey — gere o par uma vez com 'tools/sign-server-release.sh init' e commite a metade pública"
+    command -v minisign >/dev/null 2>&1 || fail "minisign não está instalado neste host (apt install minisign)"
+    ( cd "$tmp" && curl -fsSLO "$base/$name.minisig" ) \
+        || fail "a release $target não traz assinatura ($name.minisig); assine com 'tools/sign-server-release.sh $target'"
+    ( cd "$tmp" && minisign -Vm "$name" -p "$pubkey" >/dev/null ) \
+        || fail "a assinatura de $name NÃO confere com a chave fixada — nada foi instalado, o serviço segue no ar"
+    log "  ✓ assinatura de $name confere com a chave fixada"
+
     ( cd "$tmp" && tar -xzf "$name" ) || fail "não consegui extrair $name"
     install -m 0755 "$tmp/notes-server" "$BINARY" || fail "não consegui instalar $BINARY"
     # Sem isto, um `mkdir` que falha pula o `printf` e não falha nada: o stamp
