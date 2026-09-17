@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.5 - eight advisories nobody can act on stop hiding the ones we can
+
+`cargo audit --deny warnings` had been failing CI on eight `unmaintained` and
+`unsound` warnings, and none of the eight is this repository's to upgrade: five
+`unic-*` crates arrive through Tauri's `urlpattern`, `glib` and
+`proc-macro-error` through GTK on Linux, and `ttf-parser` through `pdf-extract`.
+
+Leaving them red was not the safe direction. **RUSTSEC-2026-0285 — a real TLS
+1.3 handshake flaw in `rustls`, on the path every device sync request and every
+signed update download takes — sat in the middle of them for two versions and
+was found only by reading past them** (1.4.4). A permanently red check is one
+nobody reads, and this one had already cost a genuine finding.
+
+`.cargo/audit.toml` names all eight with their source and the condition that
+retires each: the `unic-*` family leaves when Tauri drops `urlpattern`, the GTK
+pair when Tauri moves to glib 0.20, and `ttf-parser` is flagged as the only one
+that is our own choice to revisit, since `pdf-extract` is a dependency this
+workspace picked. The file says in as many words what may not go in it: a
+vulnerability is fixed or the dependency goes, and 1.4.4 is the precedent.
+
+Everything not listed still fails the build — verified by deleting one ID and
+watching `cargo audit --deny warnings` go back to exit 1, then restoring it.
+
+The GTK pair is worth one more note: it is invisible on macOS and Windows, where
+GTK is not in the dependency tree at all. A gate run on a Mac cannot see those
+two, which is why they were only ever red in CI.
+
 ## 1.4.5 - the co-tenant check needs a binary, and `contracts` builds nothing
 
 `server/tests/cotenant.py` joined the `contracts` job in 1.4.2 and failed on the
