@@ -8,6 +8,41 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.5.5 - the build stops cancelling the only version that builds anything
+
+`build.yml` had `group: build` with `cancel-in-progress: true` at workflow
+level, and the comment defending it stated the hole as a virtue: *"what has to
+be installable is the newest — which is exactly the one this rule always
+builds."*
+
+**That does not hold for a minor.** Artifacts are built on `X.Y.0` and never on
+a patch (ADR-036), so when the push of 1.5.1 cancelled 1.5.0's build, the newest
+version was a patch, patches build nothing, and nothing ever rebuilt them.
+1.4.0 and 1.5.0 both carry no server tarball at all — while `deploy-server.sh`
+derives `X.Y.0` and downloads exactly that asset. The deploy is broken against
+the last two minors, today.
+
+The cancelling group moves to the jobs that cost something, where
+`needs.what.outputs.version` exists and the group can be keyed on it:
+`build-linux-1.5.0`, `build-arch-1.5.0`. A version is unique, so a minor's build
+is never cancelled by a different one; re-running the same version still cancels
+the older, which is the case where "the newest wins" meant something.
+
+**Nothing is starved, which was the original and correct worry.** A patch's run
+is the `what` job and nothing else — `build` comes back false and every
+expensive job is gated on it — so the burst of Releases a working session
+produces costs seconds, not nine minutes each. The protection was aimed at a
+problem that the `build` gate had already solved on its own.
+
+Validated with `actionlint`, which confirms `needs` is a legal context in a
+job-level `concurrency` — the thing that makes this possible at all — and
+reports no finding this change introduced: the four it does report on the file
+are byte-identical to the ones it reports against `HEAD`.
+
+The cause is fixed; the two Releases that already lost their assets are not, and
+that stays in the queue. Rebuilding them is a `workflow_dispatch` that publishes
+artifacts, which is the owner's call rather than a repair to make quietly.
+
 ## 1.5.4 - ADR-081: the server binary is signed with a key CI never holds
 
 The review of 1.5.3 left one finding unfixed on purpose, because "sign it"
