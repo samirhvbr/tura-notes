@@ -611,6 +611,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   a dizer. Valia ter feito: a alternativa era deixar um documento normativo apoiado
   numa leitura de código
 
+- [x] R6x — a variável que torna o primeiro critério do spike irrespondível não está
+  em arquivo de shell nenhum (1.6.86). O `SPIKE-0.0.md` avisava que rodar com o
+  `WEBKIT_DISABLE_DMABUF_RENDERER` já setado não prova nada, e dizia que *o shell do
+  dono* exporta. Rastreei em vez de repetir: não está em `~/.bashrc`, `~/.profile`,
+  `~/.zshrc`, `/etc/environment`, `environment.d/` nem no ambiente do systemd.
+  Subindo o `/proc/<pid>/environ` pela árvore, ela entra no **`sshvterm-sidecar`** —
+  ausente no `sshvterm` e ausente no `gnome-shell`. **Isso troca a instrução de
+  tarefa por distinção:** processo aberto de um terminal daquele app herda a
+  variável; aberto da sessão do desktop, não. As duas formas de lançar o aplicativo
+  **não são o mesmo teste**, e é também o formato de todo relato futuro de "funciona
+  pelo lançador e não pelo terminal"
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

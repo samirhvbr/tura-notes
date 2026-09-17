@@ -90,11 +90,24 @@ machine produced the failure recorded in the checklist below.
 Nothing below can be done from this machine. **Mark a box only after seeing it,
 not after reasoning that it should work.**
 
-> **Note from 08/09/2026.** The owner's shell already exports
-> `WEBKIT_DISABLE_DMABUF_RENDERER`, and `linux.rs` correctly refuses to override
-> a value the user set — it logs *"left alone — already set"*. A run in that
-> environment proves nothing about criterion 1. **Unset the variable before
-> testing**, or the first box below is unanswerable.
+> **Note from 08/09/2026, traced on 19/09/2026.** A run with
+> `WEBKIT_DISABLE_DMABUF_RENDERER` already set proves nothing about criterion 1:
+> `linux.rs` correctly refuses to override a value the user set and logs *"left
+> alone — already set"*. The note used to say the owner's **shell** exports it.
+> It does not — walking `/proc/<pid>/environ` up the tree finds it in
+> `sshvterm-sidecar` and **not** in `sshvterm` itself, nor in `gnome-shell`, nor
+> in any of `~/.bashrc`, `~/.profile`, `~/.zshrc`, `/etc/environment`,
+> `environment.d/` or the systemd user environment.
+>
+> **Which makes the instruction sharper than "unset it".** A process launched
+> from a terminal inside that application inherits the variable; one launched
+> from the desktop session does not. So the two ways of starting the application
+> are **not** the same test, and only the second answers criterion 1 without
+> help. Check before trusting either:
+>
+> ```sh
+> env | grep WEBKIT_DISABLE_DMABUF_RENDERER || echo "clean — this run is a valid test"
+> ```
 
 ### Debian 13 · X11 · NVIDIA proprietary — **closed 08/09/2026**
 

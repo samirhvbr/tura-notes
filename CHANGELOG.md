@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.86 - the variable that makes the spike's first criterion unanswerable is not in any shell file
+
+`SPIKE-0.0.md` warns that a run with `WEBKIT_DISABLE_DMABUF_RENDERER` already set
+proves nothing about criterion 1 — `linux.rs` refuses to override a value the
+user set, and logs that it did. The warning said *the owner's shell* exports it
+and told the tester to unset it.
+
+Traced rather than repeated. It is in **none** of `~/.bashrc`, `~/.profile`,
+`~/.zshrc`, `/etc/environment`, `~/.config/environment.d/` or the systemd user
+environment. Walking `/proc/<pid>/environ` up the process tree finds it entering
+at `sshvterm-sidecar`, absent in `sshvterm` itself and absent in `gnome-shell`.
+
+**That changes the instruction from a chore into a distinction.** A process
+started from a terminal inside that application inherits the variable; one
+started from the desktop session does not. The two ways of launching the
+application are therefore not the same test, and only one of them answers
+criterion 1 without intervention — which is also the shape of every "works from
+the launcher, not from the terminal" report anybody will ever file about this.
+
+The note now carries the one-line check that settles it before a run rather than
+after, and says where the variable actually comes from, so somebody who unsets it
+in their shell and sees it return knows why.
+
+No judgement about `sshvterm` exporting it: that is the owner's own application
+and may well be doing the right thing for itself. What matters here is that the
+spike's environment was being described from memory.
+
 ## 1.6.85 - the round's closing record, and what is left is three commands
 
 `.loop/STATUS.md` carries how a round ended, and rounds 5 and 6 ran long enough
