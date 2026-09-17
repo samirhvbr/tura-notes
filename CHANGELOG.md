@@ -7,6 +7,50 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.7 - the Linux build prints the step clock the macOS half already had
+
+`build-local.sh` has timed itself since it was written: each phase opens with a
+banner carrying the elapsed time, and the run ends with a table of every step
+and a total. On Linux it execs `tools/build-linux.sh` before that block is ever
+reached — so a Linux release printed no banner, no table and no total. The only
+durations it ever reported were Vite's `built in 324ms` and cargo's ``Finished
+`release` profile in 17.37s``, and both of those are one stage inside one step
+of a run that takes minutes.
+
+That leaves two ordinary questions unanswerable on the platform that actually
+ships: which phase is worth optimising, and whether this machine is slower than
+the other one. It is also the third instance of the same shape — the publish
+ordering (1.1.14) and the unstamp before the fingerprint (1.1.19) were both
+"macOS does it one way, Linux the other, and nobody noticed because only one
+side is exercised" — so it is fixed the way those were: one implementation that
+both sides call, instead of two that drift.
+
+`tools/build-clock.sh` is that implementation — `step`, `_summary` and
+`_clock_abort`, sourced by both scripts, sourcing being what starts the clock.
+The Linux pipeline now names every phase it runs: sync, publish preflight, reuse
+check, prerequisites, dependencies, signing preflight and stamp, compile and
+bundle, names and checksums, upload and ingest. A run that aborts prints one
+line — `❌ build aborted after 2m 04s (Linux, exit 42)` — rather than the table,
+because a table of steps for a build that produced nothing reads like a build
+that worked.
+
+The Linux script also took the EXIT trap shape the macOS one uses: one trap,
+installed once and after the option parsing rather than around the compile,
+restoring the committed `0.0.0` placeholder *and* reporting how long the run
+lasted. It used to install that trap inside the branch that compiles, so a
+failure before that branch — a missing library, an unreachable publish host —
+ended the run with whatever the failing check printed and nothing about the
+build around it.
+
+Measured on the packaging suite, which grew two cases: a successful run opens a
+banner for each phase it ran and ends with a table whose heading names the
+platform; a failed one prints the abort line with its exit code and no table.
+`_BUILD_OS` is set with an `if` rather than `[ … ] && …`, for the reason already
+written over the last statement of `build-local.sh`: a top-level AND-list whose
+test is false is a non-zero status under `set -e`, and written the short way the
+clock would have aborted every build that is not macOS — which is every build it
+was added for.
+
 ## 1.6.6 - the version stamp stops rewriting the copyright line
 
 `tools/stamp-version.sh` reads `tauri.conf.json`, sets one field and writes it

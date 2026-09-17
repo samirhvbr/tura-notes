@@ -113,43 +113,11 @@ if [ "$(uname -s)" = Linux ]; then
 fi
 
 # ── Clock: total wall time, and time per step ────────────────────────────────
-# The "built in Xs" printed by Vite and cargo covers one internal stage. What is
-# worth comparing between machines and between releases is the whole script, so
-# every step is timed and the table is printed even when the build aborts.
-SECONDS=0
-_PH_NAMES=(); _PH_TIMES=(); _PH_CUR=""; _PH_START=0
-
-_fmt() {  # $1 = seconds -> "1h 02m 03s" / "4m 05s" / "37s"
-  local t=$1
-  if   [ "$t" -ge 3600 ]; then printf '%dh %02dm %02ds' $((t/3600)) $(((t%3600)/60)) $((t%60))
-  elif [ "$t" -ge 60 ];   then printf '%dm %02ds' $((t/60)) $((t%60))
-  else                         printf '%ds' "$t"; fi
-}
-
-step() {  # close the previous step, open a new one, show the running clock
-  local now=$SECONDS
-  if [ -n "$_PH_CUR" ]; then
-    _PH_NAMES+=("$_PH_CUR"); _PH_TIMES+=($((now - _PH_START)))
-  elif [ "$now" -gt 0 ]; then
-    _PH_NAMES+=("preparation"); _PH_TIMES+=("$now")
-  fi
-  _PH_CUR="$1"; _PH_START=$now
-  echo "==> [$(_fmt "$now")] $1"
-}
-
-_summary() {
-  if [ -n "$_PH_CUR" ]; then
-    _PH_NAMES+=("$_PH_CUR"); _PH_TIMES+=($((SECONDS - _PH_START))); _PH_CUR=""
-  fi
-  echo ""
-  echo "⏱  time per step:"
-  local i
-  for i in "${!_PH_NAMES[@]}"; do
-    printf '     %8s  %s\n' "$(_fmt "${_PH_TIMES[$i]}")" "${_PH_NAMES[$i]}"
-  done
-  echo "     ────────"
-  printf '     %8s  TOTAL\n' "$(_fmt "$SECONDS")"
-}
+# `step`, `_summary` and `_clock_abort` live in `tools/build-clock.sh` because
+# `tools/build-linux.sh` needs the same three, and a second copy of a table is a
+# table the two platforms print differently within a release or two. Sourcing it
+# starts the clock.
+. "$ROOT/tools/build-clock.sh"
 
 usage() { awk 'NR>1{ if($0=="set -euo pipefail") exit; sub(/^# ?/,""); print }' "$0"; }
 
@@ -211,8 +179,7 @@ _on_exit() {
     CONFIG_BACKUP=""
   fi
   if [ "$code" -ne 0 ]; then
-    echo "" >&2
-    echo "❌ build aborted after $(_fmt "$SECONDS") (exit $code)" >&2
+    _clock_abort "$code"
   fi
 }
 # INT and TERM as well as EXIT: a Ctrl-C in the middle of a ten-minute

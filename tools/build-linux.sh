@@ -3,6 +3,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# The clock both halves print. Sourcing it starts it; `step` names a phase and
+# `_summary` prints the table. This side ran without one until 1.6.7, so the
+# only durations a Linux release reported were Vite's and cargo's, each of them
+# one stage inside one step of the run. See tools/build-clock.sh.
+. "$ROOT/tools/build-clock.sh"
 bundles=deb,appimage
 skip_npm=0; skip_pull=0; publish=0; force=0
 host="${TURA_PUBLISH_HOST:-b3sys@100.64.100.125}"
@@ -54,6 +59,25 @@ done
 if [ -n "${CARGO_BUILD_TARGET:-}" ]; then
   echo 'Native Linux builds require CARGO_BUILD_TARGET to be unset.' >&2; exit 2
 fi
+# One EXIT trap, set once and here rather than around the compile, doing both
+# things it has to do and reading `$?` FIRST. It restores the committed
+# placeholder — `tools/check.sh` rejects a stamped tree, so an interrupted build
+# used to break the next commit as well as itself — and it prints how long the
+# run lasted before it died. Installed after the option parsing, like the macOS
+# half: a usage error is not a build that aborted, and should not be timed as
+# one. `$backup` is empty until there is something to restore, which is what
+# makes the same trap correct before the stamp and after it.
+config=apps/notes-app/src-tauri/tauri.conf.json
+backup=""
+_on_exit() {
+  local code=$?
+  if [ -n "$backup" ] && [ -f "$backup" ]; then cp "$backup" "$config"; rm -f "$backup"; backup=""; fi
+  [ "$code" -eq 0 ] || _clock_abort "$code"
+  exit "$code"
+}
+trap _on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 # The same sync build-local.sh does, for the reason written in its header: a
 # build that refuses to run because the network is down is worse than a build
 # that tells you it used the local tree. Linux was the half that did not comply
@@ -75,9 +99,11 @@ git_sync() {
   echo 'Could not fast-forward; building the local checkout as it is.' >&2
   return 0
 }
+step "[git] sync with the remote (git pull --ff-only)"
 git_sync
 if ! command -v cargo >/dev/null && [ -x "$HOME/.cargo/bin/cargo" ]; then export PATH="$HOME/.cargo/bin:$PATH"; fi
 if [ "$publish" -eq 1 ]; then
+  step "[publish] check the download service on the server"
   command -v scp >/dev/null; command -v ssh >/dev/null
   [[ "$stage" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish staging path without spaces or shell characters' >&2; exit 2; }
   [[ "$app" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { echo 'Use an absolute publish application path without spaces or shell characters' >&2; exit 2; }
@@ -98,7 +124,10 @@ if [ "$publish" -eq 1 ]; then
     exit 2
   fi
 fi
-# Check completed packages before requiring the compilation toolchain.
+# Check completed packages before requiring the compilation toolchain. These
+# three tools are what answering the reuse question costs; the build toolchain
+# is checked below, and only if something has to be built.
+step "[reuse] is there a build of this version on disk?"
 for tool in python3 rustc sha256sum; do
   command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
 done
@@ -121,6 +150,7 @@ for target in "${targets[@]}"; do
   rm -f "$listing"
 done
 if [ "${#pending[@]}" -gt 0 ]; then
+  step "[prerequisites] check the toolchain (Node, Rust, Tauri libraries)"
   for tool in node npm cargo rustc python3 pkg-config cc file patchelf sha256sum; do
     command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool (see --help)" >&2; exit 1; }
   done
@@ -129,26 +159,29 @@ if [ "${#pending[@]}" -gt 0 ]; then
     echo 'Missing Tauri development libraries. See --help for distribution packages.' >&2; exit 1;
   }
 
-  config=apps/notes-app/src-tauri/tauri.conf.json
   backup="$(mktemp)"
   cp "$config" "$backup"
-  cleanup() { code=$?; if [ -n "$backup" ]; then cp "$backup" "$config"; rm -f "$backup"; fi; exit "$code"; }
-  trap cleanup EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
   for target in "${pending[@]}"; do
     directory="$output/release/bundle/$target"
     mkdir -p "$directory"
     rm -f "$directory/.build.json"
     find "$directory" -maxdepth 1 -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.rpm' -o -name '*.sha256' \) -delete
   done
-  if [ "$skip_npm" -eq 0 ]; then (cd apps/notes-app && npm ci); fi
+  step "[1/4] frontend dependencies (npm ci)"
+  if [ "$skip_npm" -eq 0 ]; then (cd apps/notes-app && npm ci); else echo '    (skipped: --skip-npm-ci)'; fi
+
+  step "[2/4] updater signing preflight and version stamp"
   if [ "$no_sign" -eq 0 ]; then python3 tools/updater-release.py preflight; fi
   tools/stamp-version.sh >/dev/null
+  echo "    tauri.conf.json → $version (0.0.0 restored on exit)"
+
   export APPIMAGE_EXTRACT_AND_RUN=1
   pending_bundles="$(IFS=,; echo "${pending[*]}")"
+  step "[3/4] tauri build (compile and bundle: $pending_bundles)"
   (cd apps/notes-app && npm run tauri build -- --bundles "$pending_bundles")
+
   # Same rename as the macOS side, before anything hashes or signs the name.
+  step "[4/4] canonical names, checksums and updater signatures"
   for target in "${pending[@]}"; do tools/name-bundles.sh "$output/release/bundle/$target"; done
   cp "$backup" "$config"; rm -f "$backup"; backup=""
   [ "$(python3 tools/build-cache.py fingerprint)" = "$source_hash" ] || {
@@ -176,6 +209,7 @@ else
 fi
 # Quote each remote argument for the POSIX shell used by ssh.
 quote() { python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$1"; }
+if [ "$publish" -eq 1 ]; then step "[publish] upload, verify and ingest on $host"; fi
 for artifact in "${artifacts[@]}"; do
   echo "Tura Notes $version: $artifact"
   if [ "$publish" -eq 1 ]; then
@@ -193,3 +227,4 @@ for artifact in "${artifacts[@]}"; do
   fi
 done
 if [ "$publish" -eq 1 ]; then echo "Published: $base/p/$slug"; fi
+_summary

@@ -311,6 +311,29 @@ source contents and SHA-256 checksums match, through the same
 `tools/build-cache.py`. `--force` explicitly rebuilds. `--no-sign` marks a local test build and blocks publication.
 The tracked Tauri version placeholder is restored on exit and interruption.
 
+**Both halves print the same clock (1.6.7).** Every phase opens with a banner
+carrying the elapsed time — `==> [3m 57s] [3/4] tauri build (compile and bundle:
+deb,appimage)` — and the run ends with a table of every step and the total:
+
+```
+⏱  time per step (Linux):
+           1s  [git] sync with the remote (git pull --ff-only)
+           2s  [reuse] is there a build of this version on disk?
+          11s  [1/4] frontend dependencies (npm ci)
+       3m 57s  [3/4] tauri build (compile and bundle: deb,appimage)
+     ────────
+       4m 21s  TOTAL
+```
+
+This is what answers "which phase should I optimise" and "is this machine slower
+than the other one". Vite's `built in 324ms` and cargo's `Finished` line are
+stages inside a single step and cannot answer either. A run that aborts prints
+one line instead — `❌ build aborted after 2m 04s (Linux, exit 42)` — because a
+table of steps for a build that produced nothing reads like a build that worked.
+The implementation is `tools/build-clock.sh`, sourced by both scripts: the
+Linux half had no clock at all until 1.6.7, which is the same kind of asymmetry
+as the publish ordering 1.1.14 fixed.
+
 The default SCP/SSH destination is `b3sys@100.64.100.125`, on the private
 network — the machine that serves both shvia.org and samirhv.com.br.
 `https://samirhv.com.br` is the public download URL, not the upload host. An

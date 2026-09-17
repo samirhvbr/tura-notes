@@ -16,7 +16,7 @@ class LinuxBuild(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/stamp-version.sh', 'tools/build-cache.py', 'tools/name-bundles.sh']:
+        for name in ['build-local.sh', 'deploy.sh', 'tools/build-linux.sh', 'tools/build-clock.sh', 'tools/stamp-version.sh', 'tools/build-cache.py', 'tools/name-bundles.sh']:
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / name, dest)
@@ -62,6 +62,36 @@ done
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.config.read_text(), self.original)
         self.assertEqual(len(list(self.root.glob('target/**/*.sha256'))), 2)
+
+    def test_every_step_is_timed_and_the_table_names_the_steps(self):
+        """The Linux half printed no banner and no table until 1.6.7.
+
+        What a release reported was Vite's "built in 324ms" and cargo's
+        "Finished `release` profile in 17.37s" — two stages inside one step of a
+        run that takes minutes. The table is the artefact you compare between
+        machines and between releases, so both halves of it are asserted: the
+        banner that says where a long build currently is, and the summary.
+        """
+        result = self.run_build()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for phase in ['[git] sync with the remote', '[reuse] is there a build',
+                      '[1/4] frontend dependencies', '[2/4] updater signing preflight',
+                      '[3/4] tauri build', '[4/4] canonical names']:
+            self.assertIn('==> [', result.stdout)
+            self.assertIn(phase, result.stdout, phase)
+        self.assertIn('time per step (Linux)', result.stdout)
+        self.assertIn('TOTAL', result.stdout)
+
+    def test_an_aborted_build_reports_how_long_it_ran(self):
+        # A table of steps for a build that produced nothing reads like a build
+        # that worked, so an abort gets the elapsed time and the exit code
+        # instead — the same line the macOS half prints.
+        self.env['FAIL_BUILD'] = '1'
+        result = self.run_build()
+        self.assertEqual(result.returncode, 42)
+        self.assertIn('build aborted after', result.stderr)
+        self.assertIn('exit 42', result.stderr)
+        self.assertNotIn('time per step', result.stdout)
 
     def test_failure_restores_config(self):
         self.env['FAIL_BUILD'] = '1'
