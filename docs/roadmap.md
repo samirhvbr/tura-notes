@@ -1,8 +1,16 @@
 # Roadmap — the order the product is built in
 
-> **Status:** `ACTIVE` · delivered through the implemented portions of 0.6 at `0.20.20`.
-> Milestones 0.0, 0.1d, 0.2, 0.3 and 0.5 retain owner acceptance; 0.4, the
-> remaining 0.6 work and 0.7 remain queued in [`.continue/`](../.continue/README.md).
+> **Status:** `ACTIVE` · delivered through 0.5, 0.7 and the implemented portions
+> of 0.6 at `0.20.20`.
+> **Every delivered milestone retains owner acceptance** — 0.0, 0.1d, 0.2, 0.3,
+> 0.4, 0.5, 0.6 and 0.7 — each with its own walk in `docs/ACCEPTANCE-*.md`, none
+> of them ticked. What is still *queued* is 0.4 and the acceptance itself, in
+> [`.continue/`](../.continue/README.md).
+>
+> **0.7 left the queue at `1.6.5`** and this header said otherwise until
+> `1.6.58`, while `.continue/README.md` said so plainly. Two governance pages
+> disagreeing about what is still to build is worse than either being wrong
+> alone: a reader takes whichever they opened.
 
 The stage numbers below are **product milestones, not repository versions.** The
 repository version is whatever `../version.md` says and moves per commit; a

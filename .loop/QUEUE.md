@@ -358,6 +358,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   dois passos de publicação que o 1.6.32 teve de desfazer no `updater.md`, agora no
   lugar mais público do repositório
 
+- [x] R6a — três documentos diziam que um trabalho estava na fila; a fila nunca
+  tinha ouvido falar dele (1.6.58). O `roadmap.md` dizia que o 0.7 continuava
+  enfileirado — saiu no 1.6.5, e o `.continue/README.md` diz isso num parágrafo
+  próprio. E o `SYNC-0.6.md` dizia que retenção, dois-dispositivos e casos-limite do
+  receptor estavam **"explicitly queued"** no `0.6-sync.md`, que só tem o aceite.
+  Conferi o histórico do arquivo: nada foi removido de lá indevidamente — as três
+  categorias **nunca foram escritas**. O trabalho é real (duas seções do próprio
+  contrato e o `CLAUDE.md` dizem que está aberto), então a fila passou a carregar a
+  **lacuna como lacuna**: não inventei a especificação, escrevi o que precisa ser
+  decidido e que é decisão de produto
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

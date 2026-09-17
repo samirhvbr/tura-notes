@@ -1,9 +1,18 @@
 # Synchronization domain and pairing preview
 
 > **Status:** ACTIVE · The delivered sync contract is recorded here through
-> `0.20.20`; milestone 0.6 remains open for the explicitly queued retention,
-> two-device, receiver-edge-case and owner-acceptance work in
-> [`.continue/0.6-sync.md`](../.continue/0.6-sync.md).
+> `0.20.20`. **What `.continue/0.6-sync.md` actually holds is the owner
+> acceptance, and nothing else** — this line claimed retention, two-device and
+> receiver-edge-case work was "explicitly queued" there until `1.6.58`, and it
+> was not written down anywhere.
+>
+> That work is real: §*Device-confirmed resolved-branch pruning* and
+> §*Desktop background transfer* both end by naming broader retention and device
+> acceptance as open, and `CLAUDE.md` says *"broader retention, mobile lifecycle
+> and broader device acceptance remain open"*. Naming it in three contracts and
+> specifying it in none is how work becomes folklore, so the queue now carries
+> the gap as a gap rather than the contracts implying a specification that does
+> not exist.
 
 The `notes-sync` crate defines causal revision histories and produces plans.
 `notes-core` supplies bounded inventories of real folders, and the standalone

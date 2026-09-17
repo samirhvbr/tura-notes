@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.58 - three documents said work was queued; the queue had never heard of it
+
+Two governance pages disagreed with the queue, and one of the disagreements was
+hiding unspecified work.
+
+**The roadmap said 0.7 was still queued.** It left `.continue/` at `1.6.5`, and
+`.continue/README.md` says so in a paragraph of its own. A reader takes whichever
+page they opened, which makes two pages disagreeing worse than either being wrong
+alone. The header also listed five milestones as retaining owner acceptance when
+there are eight, each with its own walk and none of them ticked.
+
+**`SYNC-0.6.md` said retention, two-device and receiver-edge-case work was
+"explicitly queued" in `.continue/0.6-sync.md`.** That file holds the owner
+acceptance and nothing else — measured, and its history is clean: the cloud
+deployment left when it was done at `1.3.8`, and nothing else was ever removed.
+So the three categories were not dropped from the queue; they were never written
+into it.
+
+The work itself is real. Two sections of that same contract end by naming broader
+retention and device acceptance as open, and `CLAUDE.md` says *"broader
+retention, mobile lifecycle and broader device acceptance remain open"*. Named in
+three contracts, specified in none — which is how work becomes folklore, and
+then becomes an argument about what was always intended.
+
+**The queue now carries it as a gap rather than a specification**, because I do
+not know what the specification is and inventing one would be worse than the
+silence it replaced. What the item does say is what has to be decided, and that
+these are product calls rather than engineering ones: how long the server keeps a
+revision every device has applied, what happens to the queue when the mobile
+application is killed by the system, and what counts as an accepted device beyond
+pairing. That is the shape of a queue item — the thing that does not exist yet,
+in the only place it can live.
+
 ## 1.6.57 - the front door understated what is built and overstated what you can download
 
 `README.md` is what someone reads first. Two claims in it had drifted in opposite
