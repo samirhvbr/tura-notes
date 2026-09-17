@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.71 - the troubleshooting section aged one commit after it was written
+
+`1.6.67` wrote *When "the update could not be completed"* around a single
+question — *did macOS ask for your password?* — because at that moment the
+application showed one generic sentence and nothing else, so the user had to
+infer the cause from behaviour.
+
+`1.6.69`, one commit later, made it print the actual error. The section did not
+say so, which left it teaching inference where reading is now available.
+
+This is the same-pass rule broken by me, again, and the third time today the
+sweep habit has had to catch my own work rather than somebody else's. Worth
+recording as a pattern: **a commit that changes what the user sees makes the page
+describing that view stale, and the page is never the file you are editing.**
+
+The section now opens with *read the printed error first*, and keeps the question
+for the case it still answers — a build older than `1.6.69`. Which, since the
+thing that is broken is the updater, is the build most people reading that page
+are stuck on.
+
 ## 1.6.70 - the updater should refuse before it fails, and that one needs MinGW
 
 `1.6.69` makes the failure legible. The step after it is not failing at all:

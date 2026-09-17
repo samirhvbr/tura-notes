@@ -151,6 +151,12 @@ feed is therefore **not** the problem — it was read, parsed and its version
 compared. What is left is download, signature check and replacing the
 application, and on each platform the plugin fails differently.
 
+**From `1.6.69` the application prints the actual error under the message**, so
+read that first: it is the updater plugin's own text, carried across the IPC and
+shown verbatim. Everything below is how to act on what it says, and what to infer
+when you are on a build older than `1.6.69` — which, since the thing that is
+broken is the updater, is the build most people reading this are on.
+
 ### macOS — the one question that splits it
 
 `tauri-plugin-updater` replaces the bundle in three steps: extract the
@@ -164,7 +170,8 @@ move the new one into place. That middle step decides everything:
   appears**. The common one is `EXDEV` — a rename across filesystems, which
   `rename(2)` cannot do.
 
-So: **did macOS ask for your password?**
+So: **did macOS ask for your password?** — the question that answers it without
+the error text, for a build that does not yet print one.
 
 **No prompt** means the application is not where it thinks it is. The two ways
 that happens are the same mistake: running it from the mounted `.dmg`, or from

@@ -466,6 +466,15 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   da frase traduzida — erro parafraseado é um segundo erro. Três testes, provados
   não-vácuos: com o comportamento antigo restaurado eles falham
 
+- [x] R6k — a seção de diagnóstico envelheceu **um commit** depois de escrita
+  (1.6.71). O 1.6.67 a montou em torno de uma pergunta — *apareceu o prompt de
+  senha?* — porque naquele momento o app mostrava uma frase genérica e nada mais. O
+  1.6.69, o commit seguinte, fez ele imprimir o erro real, e a seção não dizia isso:
+  ensinava a inferir onde agora dá para ler. Regra do mesmo passe quebrada por mim
+  **de novo**, e a terceira vez hoje que a varredura pegou trabalho meu. Vale como
+  padrão: **commit que muda o que o usuário vê deixa velha a página que descreve
+  aquela tela, e essa página nunca é o arquivo que você está editando**
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
