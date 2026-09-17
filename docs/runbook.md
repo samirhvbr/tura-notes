@@ -238,12 +238,23 @@ grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' version.md && echo ok
 # settings.json parses
 python3 -m json.tool .claude/settings.json > /dev/null && echo ok
 
+# the remote default-branch pointer exists, which the check below depends on
+git symbolic-ref --short refs/remotes/origin/HEAD || git remote set-head origin -a
+
 # every version in history has a tag and a Release (prints what is missing)
 ./tools/release.sh --backfill --dry-run
 ```
 
 If the `diff` on the twins reports anything other than the mirroring comment,
 an edit was applied to one file and not the other.
+
+**The `origin/HEAD` line is not decoration.** `release.sh` decides which history
+to read from that pointer, and a clone does not get it — without it the script
+falls through `origin/<your branch>` to the local `HEAD`, which in a worktree on
+a side branch means auditing a `version.md` that was never pushed. Run this from
+`master` in a clone where the pointer is set, or pass `--ref origin/master`
+explicitly. The reasoning is in [versioning.md](versioning.md), under
+`tools/release.sh`.
 
 ## macOS module resolution
 

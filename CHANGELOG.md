@@ -7,6 +7,23 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.38 - the conformance check told you to run the command whose default can be wrong
+
+§7 of the runbook is the four commands that answer "does this repository still
+conform", and the fourth is `./tools/release.sh --backfill --dry-run`. `1.6.36`
+established that the script's automatic choice of history is right on `master`
+with `origin/HEAD` set, and silently wrong in a worktree on a side branch without
+it — where it audits a `version.md` that was never pushed.
+
+A conformance check that can report a clean repository from the wrong history is
+worse than no check, because its output is what someone quotes. §7 now sets the
+pointer first, in a line that is a no-op when it already exists, and says why
+rather than leaving a command nobody understands in a list of four.
+
+Running the four here, after the pointer was set: the twins are identical,
+`version.md` is a bare `X.Y.Z`, `settings.json` parses, and 212 versions all have
+tags and Releases with none missing.
+
 ## 1.6.37 - the product document still listed sync as something the product does not do
 
 `CLAUDE.md` says to read `product.md` before changing product behaviour. Its §15,

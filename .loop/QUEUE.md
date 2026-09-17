@@ -170,6 +170,14 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   escrever em vez de só apagar a palavra: `user accounts` e `an official cloud
   server` não são trabalho pendente, são os dois itens da lista que o §1 não troca
 
+- [x] R5g — rodei as quatro checagens de conformidade do `runbook.md` §7 e consertei
+  a própria §7 (1.6.38). As quatro passam: gêmeos idênticos, `version.md` é `X.Y.Z`
+  puro, `settings.json` parseia, e 212 versões com tag e Release, nenhuma faltando.
+  **Mas a quarta é justamente o comando cujo default pode estar errado** (R5e).
+  Checagem de conformidade que consegue dar "limpo" a partir do histórico errado é
+  pior que checagem nenhuma, porque a saída dela é o que alguém cita. A §7 agora
+  define o ponteiro antes, numa linha que é no-op quando ele já existe
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
