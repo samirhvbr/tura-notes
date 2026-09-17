@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.9 - two builds sharing one tree stop corrupting the version placeholder
+
+Reproduced, explained and closed. Both build scripts do the same four things
+around a build: copy `tauri.conf.json` aside, stamp the version into it, build,
+copy the copy back. Each is correct alone and the pair does not compose. A second
+build starting while the first holds its stamp copies aside a file that is
+**already stamped**, and its restore writes that back permanently — so the tree
+keeps a real version where the committed `0.0.0` belongs, and the next
+`tools/check.sh` fails at `version placeholder` for a reason that has nothing to
+do with whatever it was testing. That is what happened here on 17/09.
+
+The repro is two cycles of copy-stamp-hold-restore, offset by 200 ms, with the
+stamp held for the length of a build rather than the milliseconds a stamp takes.
+An earlier attempt with no hold did not reproduce in 80 cycles, which is why the
+first pass concluded "not reproducible" — the window is the build, not the write.
+
+**The guard is before the copy, and that placement is the finding.** The first
+version put it inside `stamp-version.sh`, and the race survived: the second
+process was refused its stamp but had already copied the stamped file, and its
+restore still made it permanent. The damage is in the copy. Both build scripts
+now refuse to start against a tree whose config is not the committed placeholder,
+and `stamp-version.sh` keeps its own refusal as the backstop for anything that
+stamps without going through them.
+
+Measured: the same race, with the guard, fires seven refusals and leaves the
+config byte-identical. `test_an_already_stamped_tree_is_refused_before_the_backup`
+asserts the refusal and that nothing was written over, and fails against the
+previous script.
+
+The `.continue/` item asked to reproduce before changing anything, and is removed
+here rather than in a later tidy — it described finding the cause, and the cause
+is found.
+
 ## 1.6.8 - the publish that already ran leaves the queue
 
 `.continue/` holds work that does not exist yet, and an item leaves it when the

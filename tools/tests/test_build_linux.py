@@ -186,6 +186,27 @@ done
         self.assertEqual(result.returncode, 0)
         self.assertIn('Not a git checkout', result.stdout)
 
+    def test_an_already_stamped_tree_is_refused_before_the_backup(self):
+        """Two builds sharing one tree corrupt the committed placeholder.
+
+        Each copies the config aside, stamps, builds, copies its copy back. That
+        is correct alone and does not compose: a second build starting while the
+        first holds its stamp copies aside a file that is already stamped, and
+        its restore makes that permanent. The tree is then left carrying a real
+        version where `0.0.0` belongs, and the next `tools/check.sh` fails for a
+        reason unrelated to whatever it was testing.
+
+        Reproduced 17/09 with two cycles holding a stamp for the length of a
+        build. The guard is here, before the copy, because the damage is in the
+        copy and not in the stamp.
+        """
+        self.config.write_text('{"version": "9.9.9"}\n')
+        result = self.run_build()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('already stamped', result.stderr)
+        # And it did not "restore" the poisoned value over anything.
+        self.assertEqual(self.config.read_text(), '{"version": "9.9.9"}\n')
+
     def test_help_does_not_need_build_dependencies(self):
         self.fake('node', 'exit 99')
         result = self.run_build('--help')

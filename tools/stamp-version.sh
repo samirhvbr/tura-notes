@@ -23,6 +23,29 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONF="$ROOT/apps/notes-app/src-tauri/tauri.conf.json"
 
+# REFUSE A TREE THAT IS ALREADY STAMPED, and this is the whole of a bug that
+# cost a morning. Both build scripts do the same thing around this call: copy the
+# config aside, stamp, build, copy the copy back. That is correct alone and
+# unsafe together — a second build starting while the first holds its stamp
+# copies aside a file that is *already stamped*, and its restore writes that back
+# for good. Neither script is wrong; the pattern simply does not compose, and the
+# tree is left carrying a real version where `0.0.0` belongs, which fails the
+# next `tools/check.sh` for a reason that has nothing to do with the change
+# being tested. Reproduced on 17/09 with two cycles holding the stamp for the
+# length of a build.
+#
+# Refusing here turns a silent corruption into a loud stop at the moment it
+# would be set up, and costs nothing in the normal case, where the committed
+# `0.0.0` is what this reads.
+current="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$CONF")"
+if [ "$current" != "0.0.0" ]; then
+  echo "stamp-version.sh: $CONF already says $current, not the committed 0.0.0." >&2
+  echo "  A build is either running against this tree right now, or one ended without" >&2
+  echo "  restoring it. Stamping now would let that build's restore make it permanent." >&2
+  echo "  Fix: wait for it, or 'git checkout -- $CONF' if nothing is running." >&2
+  exit 1
+fi
+
 version="${1:-}"
 if [ -z "$version" ]; then
   # The first semver in version.md, which is the rule release.sh already applies

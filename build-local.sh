@@ -635,6 +635,11 @@ else
   # Handing the two paths to the trap that is already installed, rather than
   # installing a second one — see _on_exit.
   CONFIG_PATH="apps/notes-app/src-tauri/tauri.conf.json"
+  grep -q '"version": "0.0.0"' "$CONFIG_PATH" || {
+    echo "build-local.sh: $CONFIG_PATH is already stamped; refusing to back it up." >&2
+    echo "  Another build is running against this tree, or one ended without restoring it." >&2
+    exit 1
+  }
   CONFIG_BACKUP="$(mktemp)"
   cp "$CONFIG_PATH" "$CONFIG_BACKUP"
 

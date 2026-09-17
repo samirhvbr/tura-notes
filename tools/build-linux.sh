@@ -159,6 +159,17 @@ if [ "${#pending[@]}" -gt 0 ]; then
     echo 'Missing Tauri development libraries. See --help for distribution packages.' >&2; exit 1;
   }
 
+  # A stamped tree here means another build is mid-flight against it, or one
+  # ended without restoring. Copying it aside now would poison this backup, and
+  # the restore below would write a real version into the committed placeholder
+  # for good. Reproduced 17/09 with two cycles holding a stamp for the length of
+  # a build; the guard inside stamp-version.sh is not enough on its own, because
+  # the damage is in the copy, not in the stamp.
+  grep -q '"version": "0.0.0"' "$config" || {
+    echo "build-linux.sh: $config is already stamped; refusing to back it up." >&2
+    echo "  Another build is running against this tree, or one ended without restoring it." >&2
+    exit 1
+  }
   backup="$(mktemp)"
   cp "$config" "$backup"
   for target in "${pending[@]}"; do
