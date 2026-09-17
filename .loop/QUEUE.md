@@ -516,6 +516,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   fronteira é o projeto inteiro: `I11–I13` é referência a um subconjunto, não
   afirmação de quantas linhas existem. Provado contra o erro real, não um inventado
 
+- [x] R6p — o gate cresceu 23% num dia e nada sabia dizer o custo (1.6.76). O
+  `build-clock.sh` mede o build passo a passo; o gate não media nada. Agora mede, e
+  a primeira leitura é o motivo de ter: **38s para 35 passos, dos quais o `cargo
+  test` são 17**. Vinte e quatro passos ficam abaixo de um segundo e viram uma linha
+  somada — trinta nomes em `0s` enterram os três que importam. Os seis checadores de
+  hoje estão todos nessa soma, ou seja: **o gate não é o que otimizar**, e agora isso
+  é medição e não impressão. Não é `source build-clock.sh` de propósito: os dois
+  `step` têm contratos opostos — o do build aborta na primeira falha, este segue e
+  reporta todas. **E o `ci-parity.py` se pegou no comentário que explica isso:** lia
+  todo caminho `tools/…` do `check.sh`, inclusive dentro de comentário, e exigia
+  workflow para arquivo que o gate nunca executa. Agora descarta comentário antes —
+  conserto de correção, não de arrumação
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

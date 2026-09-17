@@ -31,6 +31,7 @@ GATE = ROOT / "tools" / "check.sh"
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 SCRIPT = re.compile(r"\b((?:tools|server)/[A-Za-z0-9._/-]+\.(?:py|sh|mjs))\b")
+COMMENT = re.compile(r"^\s*#")
 
 EXCLUDED = {
     "tools/check.sh": "the gate itself",
@@ -39,7 +40,16 @@ EXCLUDED = {
 
 
 def main() -> int:
-    gate = GATE.read_text()
+    # Comment lines are dropped first, and that is a correctness fix rather than
+    # tidiness: this checker claims to list the scripts the gate *runs*, and a
+    # comment naming another script is not one. It caught itself on exactly that
+    # — a comment in `check.sh` explaining why the gate's clock is not
+    # `tools/build-clock.sh` was read as the gate running it, and demanded a
+    # workflow for a file the gate never executes. A guard that has to be given
+    # an exemption for its own imprecision has stopped measuring what it says.
+    gate = "\n".join(
+        line for line in GATE.read_text().splitlines() if not COMMENT.match(line)
+    )
     wanted = {m for m in SCRIPT.findall(gate)} - set(EXCLUDED)
 
     workflow_text = "\n".join(

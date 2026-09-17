@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.76 - the gate grew 23% in a day and nothing could say what that cost
+
+`tools/build-clock.sh` measures the build, end to end and step by step, and its
+own header says why: *"which phase should I optimise"* and *"is this machine
+slower than the other one"* were questions only one platform could answer until
+something measured them. The gate had the same blind spot and a fresher reason —
+it went from 26 steps to 32 today, and the only honest answer to what that cost
+was a shrug.
+
+It measures itself now, and the first reading is the point of having it:
+**38 seconds for 35 steps, of which `cargo test` is 17.** Twenty-four steps come
+in under a second and are summed into one line rather than listed, because thirty
+names at `0s` bury the three that matter. The six checkers added today are all in
+that sum.
+
+So the gate is not the thing to optimise, and now that is a measurement rather
+than an impression — which matters because `CLAUDE.md` is explicit that a control
+which costs too much gets bypassed: *a push that waits four minutes becomes
+`--no-verify` the following week, and then the control is dead.*
+
+**It is not `source tools/build-clock.sh`, and that is deliberate.** The two
+`step` functions have opposite contracts: the build's aborts on the first
+failure, because a bundle built from a failed compile is worse than no bundle;
+this one keeps going and reports every failure, because the answer to *what else
+is broken* should not cost another run. A shared helper would have to serve both,
+and the difference is the whole point of each.
+
+**And the parity checker caught itself on the comment saying so.**
+`ci-parity.py` read every `tools/…` path in `check.sh`, including the one inside
+that explanation, and demanded a workflow for a file the gate never executes. It
+now drops comment lines first — a correctness fix, not tidiness: it claims to
+list the scripts the gate *runs*, and a guard that needs an exemption for its own
+imprecision has stopped measuring what it says it measures. Re-proved both ways.
+
 ## 1.6.75 - a range that claims every row now has to be able to count them
 
 `1.6.74` added one acceptance row and edited four files to say so — the queue

@@ -31,10 +31,55 @@ set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 fail=0
+
+# THE GATE MEASURES ITSELF, for the reason `tools/build-clock.sh` exists one
+# directory over: *"which phase should I optimise"* and *"is this machine slower
+# than the other one"* are questions nothing could answer about the build until
+# it was measured, and nothing could answer about the gate until now. This file
+# went from 26 steps to 32 in one day; without a clock the only honest answer to
+# "what did that cost" is a shrug.
+#
+# It is not `source tools/build-clock.sh`, and that is deliberate rather than
+# duplication. The two `step` functions have opposite contracts: the build's
+# aborts on the first failure, because a bundle built from a failed compile is
+# worse than no bundle, while this one **keeps going and reports every failure**,
+# because the answer to "what else is broken" should not cost another run. A
+# shared helper would have to serve both, and the difference is the whole point
+# of each.
+#
+# The table prints on success and on failure. A run that went red is exactly
+# when somebody wants to know which step ate the four minutes before it.
+_names=(); _times=()
 step() {
-  printf '\n== %s\n' "$1"; shift
+  printf '\n== %s\n' "$1"
+  local name="$1" start elapsed; shift
+  start=$SECONDS
   if "$@"; then echo "   ok"; else echo "   FAILED"; fail=1; fi
+  elapsed=$((SECONDS - start))
+  _names+=("$name"); _times+=("$elapsed")
+  [ "$elapsed" -ge 5 ] && printf '   %ds\n' "$elapsed"
+  return 0
 }
+
+# The slowest first: the table is read to find what to attack, not to audit the
+# order things ran in — that is what the run above already prints. Anything
+# under a second is summed into one line rather than listed, because thirty
+# names at `0s` bury the three that matter.
+_summary() {
+  local total=$((SECONDS - _gate_start)) i fast=0 fast_n=0
+  echo
+  printf 'gate: %d steps in %dm%02ds\n' "${#_names[@]}" $((total / 60)) $((total % 60))
+  for i in "${!_names[@]}"; do
+    if [ "${_times[$i]}" -lt 1 ]; then fast=$((fast + _times[i])); fast_n=$((fast_n + 1)); fi
+  done
+  for i in $(for j in "${!_times[@]}"; do printf '%s %s\n' "${_times[$j]}" "$j"; done | sort -rn | awk '{print $2}'); do
+    [ "${_times[$i]}" -lt 1 ] && continue
+    printf '  %4ds  %s\n' "${_times[$i]}" "${_names[$i]}"
+  done
+  [ "$fast_n" -gt 0 ] && printf '  %4ds  (%d steps under a second)\n' "$fast" "$fast_n"
+  return 0
+}
+_gate_start=$SECONDS
 
 # A MISSING TOOL IS A FAILURE, NOT A WARNING.
 #
@@ -177,6 +222,7 @@ else
   missing "frontend"       "no node_modules in this checkout — run: (cd apps/notes-app && npm ci)"
 fi
 
+_summary
 echo
 if [ "$fail" -ne 0 ]; then echo "FAILED"; exit 1; fi
 echo "all green"
