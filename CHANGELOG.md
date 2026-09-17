@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.85 - the round's closing record, and what is left is three commands
+
+`.loop/STATUS.md` carries how a round ended, and rounds 5 and 6 ran long enough
+that the summary is worth writing down rather than leaving in a chat nobody
+re-reads: `1.6.31` to `1.6.84`, fifty-four versions, the gate green before every
+push, 260 versions with Releases and CI green.
+
+Two method changes are the part worth keeping. **Sweeping instead of reading** —
+after correcting the same macOS claim three times, because a fact that lives in
+one document lives in three and fixing the instance in front of you leaves the
+others saying the old thing with equal authority. And **executing documented
+paths instead of reading them** — six of them, two defects found, four
+confirmations, the last of which confirmed a correction of mine rather than a
+claim of the project's, which is the case where being wrong would have cost most.
+
+What is left needs the owner, and it is three things: `gcc-mingw-w64-x86-64`,
+which has now blocked four pieces of work; SVM in the firmware, which is the
+whole of `R4g`; and three product questions about retention, mobile lifecycle and
+device acceptance, which are written into `.continue/0.6-sync.md` as a gap rather
+than guessed at.
+
 ## 1.6.84 - the permission correction, confirmed by asking the server instead of the source
 
 `1.6.80` corrected three documents — including `security.md`, the one that wins a

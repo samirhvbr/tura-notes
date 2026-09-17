@@ -67,3 +67,42 @@ Configuration ▸ SVM Mode ▸ Enabled** na UEFI da ASUSTeK TUF GAMING X570-PLUS
 Virou [`docs/OWNER-ACTS.md`](../docs/OWNER-ACTS.md) §3 no `1.6.31`, porque é um
 ato do dono como os outros dois daquela página — e porque o `.loop/` é estado de
 rodada, e não é onde um bloqueio de meses deve morar.
+
+## Rodadas 5 e 6 — 18/09, `1.6.31` a `1.6.84`
+
+Cinquenta e quatro versões, gate verde antes de cada push, 260 versões com
+Release e CI verde. A fila se reabasteceu por medição doze vezes; nenhum item
+veio de lista — cada um apareceu conferindo documento contra código, ou veio do
+que o dono reportou em uso.
+
+**O que mudou de método, duas vezes.** Primeiro: corrigi a mesma afirmação sobre
+o macOS três vezes até parar de ler e começar a **varrer o repositório inteiro
+atrás do fato** — fato que aparece num documento aparece em três, e consertar o
+que está na sua frente deixa os outros dizendo a coisa velha com a mesma
+autoridade. Depois: parei de ler os caminhos documentados e passei a **executá-los**
+— clone limpo, configuração de MCP, prévia de sync, CLI de operador, audit, e a
+filtragem de permissões pelo transporte remoto. Dois acharam defeito, quatro
+confirmaram, e o último confirmou uma **correção** minha, que é o caso onde estar
+errado sairia mais caro.
+
+**Seis classes de erro viraram passo do gate**, que foi de 26 para 32 passos e
+agora mede a si mesmo: 38s, dos quais o `cargo test` são 17. Cada guard foi
+quebrado de propósito antes de subir; um deles reprovou na própria história.
+
+**O CI estava vermelho há 47 execuções** desde o 1.6.0 e o gate local escondia.
+Duas causas empilhadas, achadas porque fui conferir se um passo *meu* passava.
+
+**O bug do dono** — *the update could not be completed* — foi diagnosticado lendo
+o plugin, consertado do lado do app em quatro commits, documentado por
+plataforma e ganhou passeio de aceite (C15). O que resolveria de vez, recusar
+antes de falhar, toca Rust e espera o MinGW.
+
+## O que continua esperando o dono
+
+- **`sudo apt install gcc-mingw-w64-x86-64`** — já segurou quatro trabalhos: o
+  bump do `reqwest`, o intermitente de Windows no CI, o `supported()` do updater
+  e qualquer conserto em Rust daqui em diante.
+- **SVM na UEFI** (Advanced ▸ CPU Configuration ▸ SVM Mode ▸ Enabled) — é o R4g
+  inteiro, e a primeira evidência de *execução* do 0.4.
+- **Três perguntas de produto** sobre retenção, ciclo de vida no celular e
+  aceitação de dispositivo, escritas como lacuna em `.continue/0.6-sync.md`.
