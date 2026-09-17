@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.61 - two pages still described an ADR with the word the ADRs stopped using
+
+The same sweep method as `1.6.60`, turned on the other facts corrected today.
+Three came back clean — the product name, the milestone count, the removed
+`packages/` directory — and one did not.
+
+`ACCEPTANCE-0.1c.md` and `DECISIONS-0.1c.md` each say *"ADR-015 is `ACTIVE`"*.
+Since `1.6.49` no ADR is `ACTIVE`: the vocabulary is `PROPOSED`, `ACCEPTED`,
+`SUPERSEDED`, `REVERSED`, and `tools/adr-status.py` fails the gate on anything
+else. The file being described was normalized; the two sentences describing it
+were not, so a reader following either link arrives at a status word that
+contradicts the page they came from.
+
+`adr-status.py` cannot catch this — it checks the decision record, and these are
+other documents talking *about* it. What caught it is the sweep, which is the
+point: a vocabulary change lands in one file and is quoted in others, and the
+quotes are the half nobody edits.
+
 ## 1.6.60 - the third place that said macOS was published, found by sweeping instead of reading
 
 `1.6.57` fixed the README's status line, `1.6.59` fixed the install instructions

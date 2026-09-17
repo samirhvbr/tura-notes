@@ -27,7 +27,7 @@ otherwise, and one of them is binding:
 - §10 says the 0.1c global search is a **scan** (`ignore` + `regex`) and that
   FTS5 takes over word search at **0.2**, with the scanner staying for literal
   and regex;
-- **[ADR-015](decisions.md#adr-015--the-registry-is-operational-state-and-moves-to-its-own-database-at-02) is `ACTIVE`** and says the registry moves to
+- **[ADR-015](decisions.md#adr-015--the-registry-is-operational-state-and-moves-to-its-own-database-at-02) is `ACCEPTED`** and says the registry moves to
   `registry.db` at 0.2.
 
 Building them here would contradict an ACTIVE ADR, which is a stop condition,

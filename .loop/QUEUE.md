@@ -387,6 +387,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   sua frente deixa as outras dizendo a coisa velha com a mesma autoridade. Gastei
   três commits aprendendo isso numa afirmação; a varredura custou um comando
 
+- [x] R6d — duas páginas ainda descreviam uma ADR com a palavra que as ADRs
+  deixaram de usar (1.6.61). Apliquei o método do 1.6.60 aos outros fatos que
+  corrigi hoje: três voltaram limpos (nome do produto, contagem de marcos, o
+  `packages/` removido) e um não. O `ACCEPTANCE-0.1c.md` e o `DECISIONS-0.1c.md`
+  dizem *"ADR-015 is `ACTIVE`"*, e desde o 1.6.49 nenhuma ADR é `ACTIVE`. O
+  `adr-status.py` não pega isto — ele checa o registro de decisões, e estes são
+  outros documentos **falando sobre** ele. Quem pegou foi a varredura, que é o
+  ponto: mudança de vocabulário cai num arquivo e é citada em outros, e as citações
+  são a metade que ninguém edita
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
