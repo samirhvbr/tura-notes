@@ -18,3 +18,4 @@ Uma linha por vez que o agente encerrou o turno.
 | 0012 | DOC | relato | encerrou: fila zerada | — | [entry](entries/0012-DOC-relato.md) |
 | 0013 | ASK | handoff | continuou | R4d — roteiro de aceite do **0.1d** (interface), no formato que o `ACC | [entry](entries/0013-ASK-r4d-roteiro-de-aceite-do-0-1d-interface-no-forma.md) |
 | 0014 | DOC | relato | continuou | R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulad | [entry](entries/0014-DOC-r4g-parqueado-bloqueado-por-ato-do-dono-nao-por.md) |
+| 0015 | DOC | relato | continuou | R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulad | [entry](entries/0015-DOC-r4g-parqueado-bloqueado-por-ato-do-dono-nao-por.md) |

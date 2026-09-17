@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.55 - the reqwest bump is reverted, and the gate was red for the right reason
+
+`reqwest` is pinned exactly — `=0.13.4`, by
+[ADR-046](docs/decisions.md#adr-046--device-transfer-uses-durable-queues-before-source-application),
+which says *"use pinned reqwest 0.13.4"* alongside the properties that matter:
+rustls with the ring provider, bounded responses, timeouts, no redirects, no
+automatic retries, no inherited proxies. Dependabot has had a pull request open
+for `0.13.5` since 14/09.
+
+Tried, measured, reverted. `cargo update -p reqwest --precise 0.13.5` does not
+move one patch version: it drags `windows-core 0.61.2 → 0.62.2`,
+`base64 0.22.1 → 0.23.1` and `getrandom 0.3.4 → 0.4.3` with it. Two of those are
+major bumps and one is crypto-adjacent, under the dependency that carries every
+device sync request.
+
+**The gate then went red for exactly the right reason.** `clippy (windows)`
+reports `FAILED, not run — no MinGW C compiler`, and the rule this round has been
+working under is that `NOTES_NO_WINDOWS_CHECK=1` is only for a commit that does
+not touch Rust. This one touches Rust *and* moves `windows-core`, which is the
+single change most likely to break the target that cannot be compiled here.
+
+CI has a native Windows job that would cover it. Reaching for that to get past a
+local rule is how the local rule stops meaning anything, so the change is parked
+with the command that unblocks it — `sudo apt install gcc-mingw-w64-x86-64` —
+rather than pushed with a justification.
+
+Nothing is left half-applied: `Cargo.toml` and `Cargo.lock` are back at `0.13.4`
+and the gate is green again. The `lucide-react` half of the same sweep did land,
+at `1.6.54`, because it touches no Rust and no pin.
+
 ## 1.6.54 - update lucide-react to 1.45.0
 
 The icon set the interface draws every control from. Two minors behind, with a

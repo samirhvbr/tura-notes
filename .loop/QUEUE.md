@@ -339,14 +339,30 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   vermelho lá é a pior das quatro combinações, porque o gate local passa a atestar
   exatamente o que o CI reprova. Agora roda pelo próprio shebang, que é o que uma
   pessoa faz ao seguir o `OWNER-ACTS.md` §1
-- [ ] R5w — traduzir para inglês as mensagens em português de `tools/`: o
-  `sign-server-release.sh` (25 linhas com acento em 78), e `byte-preservation.sh`,
-  `gen-fixtures.py` e `crash-save-loop.sh`. Não é urgente — a regra de idioma não
-  pede reescrever o que já existe — mas o `sign-server-release.sh` é chamado de um
-  runbook em inglês e o `cotenant.py` afirma sobre a string portuguesa dele, então
-  a próxima edição de qualquer um deles já sai em inglês e leva o teste junto
+## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
+
+- **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
+  com acento em 78), `byte-preservation.sh`, `gen-fixtures.py` e
+  `crash-save-loop.sh`. A regra de idioma **não** pede reescrever o que já existe,
+  então isto não é item de fila. Mas o `sign-server-release.sh` é chamado de um
+  runbook em inglês e o `cotenant.py` afirma sobre a string portuguesa dele — então
+  a próxima edição de qualquer um deles já sai em inglês e leva o teste junto.
 
 ## Parqueado — espera um ato do dono, e não segura a fila
+
+- [ ] R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o MinGW.**
+  Tentei e desfiz, com o motivo medido. O `reqwest` é pinado exato por decisão
+  (ADR-046: *"use pinned reqwest 0.13.4"*), e o `cargo update --precise` arrasta
+  junto `windows-core 0.61.2 → 0.62.2`, `base64 0.22.1 → 0.23.1` e `getrandom
+  0.3.4 → 0.4.3` — nada disso é patch, e um deles é cripto-adjacente. O gate
+  fechou **vermelho pelo motivo certo**: `clippy (windows)` = `FAILED, not run —
+  no MinGW C compiler`, e a regra desta rodada é que a escotilha
+  `NOTES_NO_WINDOWS_CHECK=1` só vale em commit que **não** toca Rust. Este toca, e
+  mexe justamente no `windows-core`. O CI tem um job Windows nativo que cobriria,
+  mas usar isso para passar por cima da regra local é esvaziar a regra. Destrava com
+  `sudo apt install gcc-mingw-w64-x86-64`. O PR do Dependabot (#19) fica aberto até
+  lá; o do `lucide-react` (#17) foi aplicado à mão em 1.6.54
+
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
 que espera outra pessoa no topo da fila é uma rodada que gasta um turno por
