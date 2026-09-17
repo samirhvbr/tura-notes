@@ -251,6 +251,18 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   também fez as três linhas fixadas errarem o alvo. Chaveado por versão, provado nos
   dois sentidos
 
+- [x] R5o — o `SELF-HOSTING.md` não tinha entrada para a falha que um terceiro
+  aparelho causa (1.6.46). A seção *When it does not work* cobria formato de
+  endereço, faixa privada, `403 https_required`, `413` e certificado que não sai —
+  e nada sobre as duas falhas que uma implantação multi-dispositivo de verdade
+  produz. **`429`, com um aparelho matando os outros:** atrás de um front que não
+  encaminha o endereço do cliente, todos os aparelhos dividem um balde de 120/min,
+  que passa a ser mais apertado que os 60/min que cada credencial já tem. E **CDN
+  em Flexible**, que é pior que header faltando: o header é enviado e é mentira, o
+  servidor manda HSTS e aceita. Escrito como coisa para ir olhar, não como coisa que
+  vai falhar — que é exatamente o que a torna perigosa. As duas já estavam no
+  `SERVER-0.5.md`; faltavam na página que alguém lê quando algo está errado
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

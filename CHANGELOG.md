@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.46 - the self-hosting guide had no entry for the failure a third device causes
+
+`SELF-HOSTING.md` §*When it does not work* is where somebody goes when their
+setup misbehaves. It covered the address format, the private-range refusal,
+`403 https_required`, `413` and a certificate that never issues — and said
+nothing about the two failures a real multi-device deployment actually produces.
+
+**`429`, and one device starving the others.** There are two budgets: 60 requests
+a minute per credential and 120 per client address. Behind a front that does not
+forward the client's address, every device shares one bucket — past three active
+devices that is tighter than the per-credential limit each already has, so a
+machine doing its first sync locks the rest out. Caddy and `mod_proxy` append
+`X-Forwarded-For` by themselves; nginx does not. With a CDN proxying the name
+there are two proxies and `NOTES_SERVER_TRUSTED_HOPS=2` says so — too high reads
+an entry the client supplied and makes the budget forgeable, too low collapses
+it back into the symptom you started with.
+
+**A CDN in Flexible mode, which nothing can detect.** The guide already explains
+the missing `X-Forwarded-Proto`; the worse case is the header being sent and
+being a lie. Under Cloudflare's Flexible, the browser's half is encrypted, the
+CDN-to-origin hop is plain HTTP, and the front asserts `https` anyway — so the
+server issues HSTS and accepts the request. It is written as something to go and
+look at rather than something that will fail, because that is exactly the
+property that makes it dangerous.
+
+Both were already in `SERVER-0.5.md`, which is the operator reference. They were
+missing from the page a person reads when something is wrong, which is the page
+that decides whether they find them.
+
 ## 1.6.45 - the changelog is checked too, and the first way of exempting it was wrong
 
 `1.6.43` skipped `CHANGELOG.md` entirely, reasoning that the file is never

@@ -262,6 +262,37 @@ check, so a health probe failing is not evidence the server is down.
 request body below the server's 16 MiB. The templates in
 [`server/cotenant/`](../server/cotenant/) set it correctly.
 
+**Sync stops with 429, and one busy device locks the others out.** There are two
+budgets in a one-minute window: 60 requests per credential, and 120 per client
+address. The second is the one that bites, because **behind a front that does
+not forward the client's address, all your devices share one bucket** — past
+three active devices that is tighter than the per-credential limit each of them
+already has, so the machine doing a first sync starves the rest.
+
+Caddy and Apache's `mod_proxy` append `X-Forwarded-For` on their own; **nginx
+does not**, and the template in [`server/cotenant/`](../server/cotenant/) carries
+the line that makes it. If a CDN proxies the name as well, there are two proxies
+in front and the server has to be told so:
+
+```sh
+NOTES_SERVER_TRUSTED_HOPS=2
+```
+
+Set it to the number of proxies that are **really** there — default 1, maximum 8.
+Too high reads an entry the client supplied, which makes the budget forgeable;
+too low collapses every device back into one bucket, which is the symptom you
+started with.
+
+**Everything works, and the connection is not as private as it looks.** If a CDN
+proxies the name, check that it is in **Full (strict)** rather than Flexible.
+Under Flexible the browser's half is encrypted, the hop from the CDN to your
+server is plain HTTP, and the front still asserts `X-Forwarded-Proto: https` — so
+the server sends HSTS and accepts the request, having been lied to by your own
+configuration. **Nothing on this machine can detect that**, which is why it is a
+thing to go and look at rather than a thing that will fail loudly. Setting the
+DNS record to DNS-only moves TLS termination back to your server, and is the
+choice to make if it matters that the CDN can read the notes in transit.
+
 **`curl https://.../healthz` never answers.** The certificate has not been
 issued — the name does not resolve to this machine yet, or 80 is closed.
 `docker compose -f server/compose.yml logs caddy` says which.
