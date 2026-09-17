@@ -62,6 +62,37 @@ around it believes the work happened.
 None of this is the walk below: it says the commands behave as documented, not
 that a deployment serves the owner's notes over TLS to their devices.
 
+### The audit keeps what it promises to keep — 19/09/2026
+
+The same run, continued: server started, a note created through the documented
+`POST` with `If-None-Match: *`, a read, a search. Three distinct markers were
+planted — one in the note's **text**, one in its **path**, one in the **search
+query** — and then the audit was grepped for all three.
+
+| Must not be there | Found |
+|---|---|
+| Note text | 0 |
+| Note path | 0 |
+| Query text | 0 |
+| The credential secret | 0 |
+| The word `Authorization` | 0 |
+
+What is there is what the page says: the credential UUID as `actor`, an
+allowlisted `operation`, the `peer`, a `request` UUID, the `result`, a short
+`target_ref` hash and the time. **And the correlation works** — the
+`X-Request-Id` handed back to the client appears in the audit, which is what
+makes a support question answerable without asking anybody what they were
+editing.
+
+Three more behaviours fell out of the same session, each a documented refusal:
+`PUT` without `If-Match` answers **428 `if_match_required`**, a request with no
+credential answers **401**, and `ss -ltn` shows the listener on
+**`127.0.0.1:8787`** and nowhere else.
+
+The walk's audit step stays: a machine confirming these markers are absent is not
+the owner reading a real session's audit and recognising that nothing in it
+describes their notes.
+
 ## Owner walk
 
 - [ ] Install the released Linux server or build its pinned container; provision

@@ -588,6 +588,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   publicar nada, e recusa que sai zero é o mesmo defeito uma camada abaixo: o script
   do operador arquivaria uma credencial que nunca foi criada
 
+- [x] R6v — o audit foi grepado atrás das três coisas que ele promete nunca guardar
+  (1.6.83). Quinto caminho documentado executado. Subi o servidor, criei nota pelo
+  `POST` documentado, li e busquei — com **três marcadores plantados em três
+  lugares**: um no texto da nota, um no caminho dela, um na query de busca. Depois
+  grepei o audit pelos três, pelo segredo da credencial e pela palavra
+  `Authorization`. **Os cinco: zero.** O que ele guarda é exatamente a lista da
+  página, e o `X-Request-Id` devolvido ao cliente aparece lá — a metade que torna
+  uma pergunta de suporte respondível sem perguntar o que a pessoa estava editando.
+  Três recusas caíram na mesma sessão: `PUT` sem `If-Match` é 428, sem credencial é
+  401, e o listener está em `127.0.0.1:8787` e em mais lugar nenhum, conferido com
+  `ss -ltn`. **O passo de audit do dono continua:** máquina confirmando que três
+  marcadores não estão lá não é uma pessoa lendo o audit de uma sessão real
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

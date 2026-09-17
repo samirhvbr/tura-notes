@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.83 - the audit was grepped for the three things it promises never to hold
+
+Fifth documented path executed. `SERVER-0.5.md` §*Audit and storage* promises the
+audit never records `Authorization`, note text, query text or plaintext tokens,
+and that a client's `X-Request-Id` correlates to it. Those are security claims,
+and nothing had checked them from outside the code.
+
+Server started, a note created through the documented `POST` with
+`If-None-Match: *`, a read, a search — with **three distinct markers planted in
+three places**: one inside the note's text, one in its path, one in the search
+query. Then the audit was grepped for all three, for the credential secret, and
+for the word `Authorization`. **All five: zero.**
+
+What the audit does hold is exactly the page's list — credential UUID, an
+allowlisted operation, peer, request UUID, result, a short target hash, time. And
+the `X-Request-Id` returned to the client appears in it, which is the half that
+makes a support question answerable without asking the user what they were
+editing.
+
+Three refusals fell out of the same session, each one a documented claim: `PUT`
+without `If-Match` is **428 `if_match_required`**, no credential is **401**, and
+the listener is on `127.0.0.1:8787` and nowhere else — `ss -ltn` rather than
+trust.
+
+Recorded in `ACCEPTANCE-0.5.md` beside the CLI check, and the owner's audit step
+**stays**: a machine confirming three markers are absent is not a person reading
+a real session's audit and recognising that nothing in it describes their notes.
+The check narrows what their walk has to be suspicious about; it does not replace
+the suspicion.
+
 ## 1.6.82 - the operator CLI does what its page says, refusals included
 
 Fourth documented path executed rather than read. `SERVER-0.5.md` §*Local
