@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.27 - the same measurement, applied to the desktop half of 0.1d
+
+`1.6.21` extended the 0.1d walk with what shipped in `1.6.14`–`1.6.17`, which is
+what the queue asked for. Running the same measurement across everything else
+since `0.13.0` found two more, and both are desktop.
+
+**I15 — Help ▸ About.** A dialog of ours rather than the platform's empty one,
+stating the version running, the engine, the data directory and the open
+workspace, with `Copy` putting the same lines on the clipboard. It is the dialog
+a bug report gets built from, which makes a wrong version in it worse than no
+dialog at all, and it had no box.
+
+**I16 — the chrome is not selectable text.** The bug behind it looked like a
+colour problem: a screenshot of the context menu with every item lit at once. It
+was a stray text selection painting the labels, because nothing in the chrome had
+`user-select` and two line-number elements were the only things in the stylesheet
+that did. The walk is dragging across the rail, the tab strip, the status bar, a
+tree row and an open menu and seeing nothing highlight — then dragging across the
+editor and seeing it highlight, because that one *is* the document.
+
+The automated table gains two rows: `About.test.tsx`, and the i18n resolver. The
+second is worth its line — the old check compared the two catalogues against each
+other, so a key missing from **both** passed, which is how a dialog came to ask
+for a name under the label `tree.newNote.prompt`. It now resolves every literal
+`t("…")` against both and replaced the parity check rather than joining it.
+
+**The page now carries the date it was measured to**, and what was deliberately
+left out: `1.1.31`'s fault was that unresolved key, which the gate catches by
+itself; `1.2.0` and `1.3.7` change what a rename and an update *do*, not what the
+interface shows, and are accepted where that behaviour lives.
+
 ## 1.6.26 - PDF import shipped in 0.20.27 and appeared in no acceptance document
 
 A pass over the two acceptance pages nothing had touched since 10 and 11/09,

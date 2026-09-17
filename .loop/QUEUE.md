@@ -61,4 +61,13 @@ ainda dá para produzir sem sudo e sem aparelho, e achou-se um buraco de verdade
   candidato e não era: é latência de abertura no macOS, que o X1 já cobre. As duas
   páginas ganharam a data da medição, para o próximo passe medir a partir daqui
 
+- [x] R4j — I15 e I16 no 0.1d (1.6.27). O **Help ▸ About** é o diálogo de onde
+  sai um relato de bug, então versão errada nele é pior que diálogo nenhum — e não
+  tinha caixa. O **I16** é a regra de que a chrome não é texto selecionável: o bug
+  parecia de cor (captura com todo item do menu aceso) e era seleção de texto
+  pintando os rótulos. A tabela automatizada ganhou o `About.test.tsx` e o
+  resolvedor de i18n — o check antigo comparava os dois catálogos **entre si**,
+  então chave faltando nos dois passava, que foi como um diálogo pediu nome sob o
+  rótulo `tree.newNote.prompt`. A página agora carrega a data até onde foi medida
+
 ## Colhidos automaticamente

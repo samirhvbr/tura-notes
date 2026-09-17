@@ -34,13 +34,14 @@ The ten interface areas, in the order the eye meets them.
 ### Interface that shipped after this document was written
 
 0.1d was delivered at `0.13.0` and this table stopped there, while interface kept
-arriving. These four are walked the same way and by the same rule — an installed
+arriving. These six are walked the same way and by the same rule — an installed
 build, then repeated on the following release.
 
-**The first three need no phone.** The drawer is decided by window width, not by
-platform, so dragging a desktop window narrower than 720px is the whole setup —
-and doing it that way is better than a device, because the boundary is what is
-being checked.
+**Only one of them wants a phone, and even that one does not need it.** The
+drawer is decided by window width, not by platform, so dragging a desktop window
+narrower than 720px is the whole setup for I11–I13 — and doing it that way is
+better than a device, because the boundary is what is being checked. I15 and I16
+are desktop chrome and want no setup at all.
 
 | # | Area | Expected | Verified |
 |---|---|---|---|
@@ -48,6 +49,16 @@ being checked.
 | I12 | **The drawer hands the screen back** | Narrow, with the drawer open, click a note in the tree: the drawer closes and the note is in front of you. **Wide, the same click must not close the sidebar** — that is the app fighting you, and it is the half of this behaviour most likely to be got wrong | ☐ |
 | I13 | **The Markdown row** | Narrow, with a note open: a row of six sits under the editor — bold, italic, heading, list, link, code. Each applies to the selection; pressing the same one again **undoes it**; link leaves the caret on `url` so typing replaces it; one press is one `Ctrl+Z`. Wide, the row is not there at all | ☐ |
 | I14 | **A backend that cannot replace a file in one step** | Not walkable on a local folder, and that is correct: `LocalFs` is atomic on every platform, so the banner stays invisible until a SAF tree or another backend answers otherwise. It is listed here so that the first person who opens such a workspace knows the banner is expected rather than a bug | ☐ n/a |
+| I15 | **Help ▸ About** | It is a dialog of *ours*, not the platform's empty one, and it states four things: the version running, the engine, the data directory and the open workspace — *none open* in words rather than a blank row. `Copy` puts the same lines on the clipboard as the ones on screen; paste them somewhere and compare. This is the dialog a bug report is built from, so a wrong version here is worse than no dialog | ☐ |
+| I16 | **The chrome is not selectable text** | Drag across the rail, the tab strip, the status bar, a tree row and an open context menu: **nothing highlights**. Then drag across the editor and the preview: they highlight, because they *are* the document. The bug this replaces looked like a colour problem — a screenshot with every context-menu item lit at once — and was a stray text selection painting the labels | ☐ |
+
+**Measured on 17/09/2026, against everything that shipped after `0.13.0`.**
+I11–I14 came from the mobile block of `1.6.14`–`1.6.17`; I15 and I16 came from
+applying the same measurement to the rest, and are desktop. Nothing else since
+`0.13.0` adds an interface flow: `1.1.31`'s fault was an unresolved i18n key,
+which the gate now catches by itself and which is in the table above rather than
+here; `1.2.0` and `1.3.7` change what a rename and an update *do*, not what the
+interface shows, and are accepted where that behaviour is.
 
 ### The test that cannot be automated
 
@@ -71,6 +82,8 @@ Automated behavioral coverage complements the owner walk; it does not replace it
 | Divider lifecycle | `Divider.test.tsx` | Keyboard bounds/reset and drag cursor cleanup on unmount |
 | The drawer's one decision | `src/stores/ui.narrow.test.ts`, 4 tests | Collapses only when narrow; leaves a wide window alone; asks `matchMedia` for the **same query string** the stylesheet opens its mobile block with; does nothing where there is no `window` to measure |
 | One drawer breakpoint | `tools/check.sh`, step `one drawer breakpoint` | Reads the query out of `stores/ui.ts` and fails unless `styles.css` opens its mobile block with that exact query. CSS cannot read a TypeScript constant, so this is what keeps the number single |
+| About states four facts | `About.test.tsx`, 4 tests | Version, engine, data directory and open workspace; *none open* rather than a blank row; `Copy` copies the same lines it shows; the engine is read from the user agent and never calls WebView2 WebKit |
+| Every `t("…")` resolves | `tools/i18n-keys.py`, in `check.sh` | The old check compared the two catalogues against **each other**, so a key missing from both passed — which is how a dialog came to ask for a name under the label `tree.newNote.prompt`. It now resolves every literal against both, and replaced the parity check rather than joining it |
 | Markdown row actions | `src/editor/markdown-actions.test.ts`, 14 tests | Wrap and unwrap from either side; a second press undoes the first from the state the first leaves; an empty selection still produces marks; a single mark is not mistaken for a pair; prefixes apply to every touched line and clear only when all of them carry it; the caret never slides behind a prefix; CRLF is left alone |
 | Search startup cancellation | `SearchPanel.test.tsx` | A late start response is cancelled after the panel closes |
 | Contrast and the palette | `tools/contrast.sh`, in `check.sh` and CI | 42 pairs: AA for every text/surface pair, AA for the focus ring and for disabled controls, an 8/255 sRGB step between the three dark levels — **and a build failure if any colour is written outside `:root`** |
