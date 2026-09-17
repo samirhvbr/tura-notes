@@ -124,7 +124,8 @@ the framework's version and returns 0. The ingest step's entire output was
 `Laravel Framework 13.12.0`, and 0 is success — so the script deleted the staged
 upload and announced a release. The option is `--file-version` now, on both call
 sites. What to check after a publish is the row in the download service and the
-project page, never the exit code; the feed half already checks itself, and the
+project page, never the exit code
+([ADR-084](decisions.md#adr-084--a-step-that-publishes-installs-or-deletes-is-verified-by-reading-back-what-it-changed)); the feed half already checks itself, and the
 ingest half is the one with nothing watching it.
 
 After download-service ingestion, the publisher stages files in a unique

@@ -2653,3 +2653,51 @@ when built were decided **here first**, as
 and the fleet adopted both later. If this one is worth generalising, the route is
 the same and it runs through repodocs, not through an edit here that would be
 erased without anybody noticing.
+
+---
+
+## ADR-084 — A step that publishes, installs or deletes is verified by reading back what it changed
+
+**Status:** ACCEPTED · 18/09/2026
+
+**Decision.** A step whose purpose is to change something outside this
+repository — publish an artifact, install a binary, delete a remote file — is
+not considered to have run until the script reads the changed thing back and
+checks it. Its own exit status is not evidence, and neither is its output. This
+extends [security.md](security.md) §8's existing `HTTP 200` rule to the case
+where the caller is a script rather than an auditor.
+
+**Context.** `tools/updater-release.py` already did this: after writing a feed it
+fetches the feed back over HTTPS, compares it byte for byte with the manifest it
+generated, downloads the payload and checks its SHA-256. The download-service
+ingestion beside it did not — it invoked
+`php artisan files:add … --version=X` and read the exit status.
+
+`--version` is a Symfony Console **global** option. `Application::doRun()` reads
+it off raw argv before it resolves any command, prints the framework's long
+version and returns 0. The step's entire output was
+`Laravel Framework 13.12.0`. Zero is success, so the publisher deleted the staged
+upload and announced a release, on both the macOS and the Linux paths, for six
+releases — while `/p/tura-notes` said *In preparation* the whole time. `1.6.28`
+renamed the option to `--file-version` on both call sites.
+
+**Why the exit code cannot be the check.** The failure was not that the command
+returned the wrong status; it returned the right status for what it actually did,
+which was print a version string. A caller that trusts an exit code is trusting
+the callee's model of what was asked, and the whole class of bug here is the
+callee having a different model. Reading the result back is the only check that
+does not share the caller's assumption.
+
+**Why `set -euo pipefail` did not save it.** `tools/build-linux.sh` runs under it,
+and the earlier reading that Linux had therefore been spared is wrong: the call
+returned zero, so there was nothing for `-e` to catch. A shell option that aborts
+on failure is not a substitute for asking whether the work happened.
+
+**What it costs.** One extra request per publishing step, and a script that is
+longer than the command it wraps. Against six releases that believed they had
+shipped, that is not a trade worth thinking about.
+
+**Consequence.** New publishing, deployment and destructive steps carry their own
+read-back. Where the read-back is expensive or impossible, that is written down
+at the call site as a known gap rather than left as a silent assumption — a step
+nobody verifies is a step nobody knows the state of.

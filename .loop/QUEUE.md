@@ -125,6 +125,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   o rótulo `tree.newNote.prompt`. A ADR-037 ficou intacta — ela diz vinte e cinco
   porque vinte e cinco foi o que se decidiu naquele dia
 
+- [x] R5c — `docs/security.md` não mencionava MCP **nenhuma vez** (1.6.34). É o
+  documento normativo, o que ganha em conflito com qualquer outro, e estava parado
+  desde o 1.3.3 — antes do MCP remoto existir. O §2 tinha linha para o agente
+  **lendo** (injeção de prompt) e nenhuma para o agente **agindo**, que é a metade
+  que tem permissão. Duas linhas novas, e a segunda importa mais pelo que diz que
+  o endpoint **não** faz: o `POST /v1/mcp` é envelope sobre o `dispatch`, não um
+  segundo caminho de autorização. O §4.9 ganhou a consequência para cá: o momento
+  perigoso é a chamada de ferramenta que o texto injetado defende, e o limite é o
+  que a credencial admite — inclusive o catálogo **omitir** o que ela não pode usar,
+  porque ferramenta que o agente enxerga é ferramenta que o agente vai defender. E
+  o §8 ganhou o irmão da melhor linha dele: se `HTTP 200` não prova nada, saída
+  zero também não — virou a **ADR-084**, com o caso medido
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item

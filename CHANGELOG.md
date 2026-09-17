@@ -7,6 +7,48 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.34 - the document that wins conflicts had never heard of this project's agent surface
+
+`docs/security.md` is normative — in a conflict with any other document it wins —
+and it was last revised at `1.3.3`, before remote MCP shipped. Measured: it
+mentioned MCP **zero times**, while this project has had an agent tool surface
+since 0.16.0 and a networked one since `1.6.5`.
+
+Its §2 threat model is otherwise detailed, down to which ADR bounds each sync
+behaviour. The nearest thing to an agent row was *"documents read by an agent →
+prompt injection"* — the agent **reading**. Nothing covered the agent **acting**,
+which is the half with permissions on it.
+
+Two rows added, and the second matters most for what it says the endpoint does
+*not* do: `POST /v1/mcp` is an envelope over `dispatch`, not a second
+authorization path. Same bearer credential, same `AgentConfig`, same catalogue
+filter, and everything enforced before `dispatch` — the trusted-proxy check, the
+refusal of any request carrying `Origin`, the two rate limits, the redacted audit
+— applies unchanged. A reader of a normative document should not have to go and
+check whether a network transport quietly grew its own way in.
+
+§4.9 gains the consequence for this project. A note is the untrusted text; an
+agent holding MCP credentials is a caller that can act on it. So the dangerous
+moment is the tool call injected text argues for, and the bound is what the
+credential admits rather than what the model decides — scope, per-tool
+permissions, a separate one for `notes_delete`, review mode, and a catalogue that
+**omits** what the credential cannot use rather than refusing it later. A tool an
+agent can see is a tool an agent will argue for.
+
+**§8 gains the sibling of its own best line.** It already said `HTTP 200` proves
+nothing. It now says a zero exit status proves nothing either, with the measured
+case: `--version` is a Symfony Console global option, so the release step printed
+`Laravel Framework 13.12.0`, returned 0, and the publisher deleted the staged
+upload and announced a release — six times, while the download page said *In
+preparation*. That became ADR-084, because it is a new requirement rather than a
+line: a step that publishes, installs or deletes is verified by reading back what
+it changed. The feed half of the same publisher already did exactly that, which
+is why it is the half that worked.
+
+The document declares itself 1.1 rather than editing 1.0 in place. None of this
+changes a rule that was being followed; all of it was true of the code and absent
+from the page that settles arguments.
+
 ## 1.6.33 - the update button is a second way into the restart that 0.1c measures
 
 Measuring `ACCEPTANCE-0.1b.md` and `ACCEPTANCE-0.1c.md` against what shipped
