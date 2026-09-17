@@ -1,6 +1,7 @@
 """Exercise packaging orchestration with fake tools, without publishing."""
 import os
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -218,6 +219,41 @@ done
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('not ingested', result.stderr)
         self.assertEqual(self.config.read_text(), self.original)
+
+
+class DebianRename(unittest.TestCase):
+    """The package was renamed at 1.0.0; the file it installs was not."""
+
+    OLD = 'notes (<< 1.0.0)'
+
+    def setUp(self):
+        with open(ROOT / 'apps/notes-app/src-tauri/tauri.conf.json') as f:
+            self.conf = json.load(f)
+
+    def test_the_deb_takes_over_the_package_it_was_renamed_from(self):
+        # The bundler names the package after productName, so `notes` became
+        # `tura-notes` — while ADR-069 deliberately kept `/usr/bin/notes`, which
+        # dpkg still sees as owned by the old package. Installing over a 0.x
+        # machine fails with `trying to overwrite '/usr/bin/notes'` until the
+        # rename is declared where Debian looks for it.
+        #
+        # Both fields, and neither alone: Conflicts by itself refuses the
+        # install, Replaces by itself leaves the file conflict standing.
+        # Together they are the one operation dpkg performs without being
+        # forced.
+        deb = self.conf['bundle']['linux']['deb']
+        self.assertEqual(deb.get('conflicts'), [self.OLD])
+        self.assertEqual(deb.get('replaces'), [self.OLD])
+
+    def test_the_takeover_still_has_a_reason_to_exist(self):
+        # The bound is `<< 1.0.0` because every release that carried the old
+        # package name was a 0.x, and the claim should reach no further:
+        # `notes` is a name the archive could hand to somebody else. What
+        # creates the conflict at all is the binary ADR-069 kept while the
+        # product was renamed; rename that too and this declaration has to be
+        # reconsidered rather than carried along.
+        self.assertEqual(self.conf['mainBinaryName'], 'notes')
+        self.assertNotEqual(self.conf['productName'], 'notes')
 
 
 if __name__ == '__main__':

@@ -7,6 +7,58 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.1 - the deb installs over the package it was renamed from
+
+```
+dpkg: error processing archive TuraNotes_1.3.6_amd64.deb (--install):
+ trying to overwrite '/usr/bin/notes', which is also in package notes (0.11.11)
+```
+
+That is what a Tura Notes package has done on a machine carrying a pre-1.0.0
+release, every version since 1.0.0. ADR-069 renamed the product and **kept** the
+`notes` binary, the identifier and the data paths on purpose, so that installed
+users kept their settings and their workspace. The name it could not keep is the
+one nobody writes: the bundler derives the **package** name from `productName`,
+so the package became `tura-notes` while every path inside it stayed where it
+was — and dpkg does not own files, packages do. The identity that was preserved
+is exactly the identity that refuses the upgrade.
+
+Nothing caught it because nothing in the build, the gate or CI ever installs a
+package over an older one. It surfaced when the owner typed `dpkg -i`.
+
+ADR-082: the rename is **declared**, not performed. The deb now carries
+`Conflicts: notes (<< 1.0.0)` and `Replaces: notes (<< 1.0.0)` — both, because
+each alone is the wrong half. `Conflicts` by itself refuses the install politely
+and permanently; `Replaces` by itself overwrites the file and leaves the old
+package installed, still claiming `/usr/bin/notes` and still shipping a
+`notes.desktop` that points at it. Together they are the one operation dpkg
+performs unforced: remove the old, install the new. `--force-overwrite` reaches
+the same screen and leaves the machine in the state `Replaces` alone produces.
+
+**The bound is `<< 1.0.0`, and the claim reaches no further.** Every release
+under the old package name was a `0.x`; `notes` is a generic enough name for the
+archive to give to somebody else, and an unbounded `Conflicts: notes` would
+remove *their* package on any machine that had it. No `Provides`: nothing
+depends on the old name. No rpm equivalent either — rpm packaging arrived at
+1.0.3, after the rename, so no rpm ever carried the old name, and the AUR
+package kept its `notes-bin` name throughout.
+
+**What it measured.** The 1.6.1 deb was built and read back: `dpkg-deb -I` shows
+both fields in the control file. Then `dpkg --dry-run --install`, against this
+machine's own database, where 0.11.11 is still the installed package:
+
+```
+dpkg: considering removing notes in favour of tura-notes ...
+dpkg: yes, will remove notes in favour of tura-notes
+```
+
+A dry run changes nothing — it could not even open `/var/log/dpkg.log` — so the
+install itself is still the owner's step, with root. The new
+`DebianRename` test asserts both fields in the committed configuration and that
+the binary name they exist for is still `notes`; it was re-broken twice to
+confirm it fails, once with the declaration removed and once with `Replaces`
+alone, which is the half-fix somebody will reach for.
+
 ## 1.6.0 - the deploy refuses a server binary it cannot prove came from us
 
 ADR-081 implemented. `deploy-server.sh` fetches the `.minisig` beside the

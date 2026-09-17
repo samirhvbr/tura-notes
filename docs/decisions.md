@@ -2511,3 +2511,88 @@ the grounds that "what has to be installable is the newest" — which does not
 hold for **minor** versions, because the newest is usually a patch and patches
 never rebuild them. Signing an artifact that is not being published is not worth
 doing first; that is queued separately.
+
+## ADR-082 — The renamed package takes over the one it was renamed from, and the binary keeps its name
+
+**Status:** `ACCEPTED` · 17/09/2026 · completes
+[ADR-069](#adr-069--tura-notes-branding-preserves-installed-identities) ·
+implemented at 1.6.1
+
+**Context.** ADR-069 renamed the product to Tura Notes and deliberately kept
+`br.com.samirhv.notes`, the `notes` binary and the existing data paths, so that
+an installed user's settings and workspace survived the rebranding. One name it
+did not consider is the one nobody writes down: **the bundler derives the Debian
+package name from `productName`**, so the package became `tura-notes` at 1.0.0
+while every path inside it stayed exactly as it was.
+
+dpkg does not own files, packages do. Installing 1.3.6 over an installed
+0.11.11, on 16/09/2026:
+
+```
+dpkg: error processing archive TuraNotes_1.3.6_amd64.deb (--install):
+ trying to overwrite '/usr/bin/notes', which is also in package notes (0.11.11)
+```
+
+and the three `notes.png` icons are the same collision, one step behind the
+binary. **So the identity ADR-069 set out to preserve is precisely the identity
+that blocks the upgrade** — and it blocks it in the one place the project never
+looks, because nothing in the build, the gate or CI ever installs a package over
+an older one. The deb has been unable to land on a pre-1.0.0 machine since 1.0.0 —
+sixty-six versions across six days — and the way it was found was the owner
+typing `dpkg -i`.
+
+The in-app updater installs the deb the same way, so the same wall stands there
+— though no 0.x machine reaches it, updates arriving only from 1.1.0 onward
+([ADR-074](#adr-074--signed-desktop-updates-with-explicit-installation)). A
+manual install is the only path onto those machines, which is why this surfaced
+there.
+
+**Decision.** **The rename is declared, not performed.** The deb states what
+happened in the fields Debian reads for exactly this:
+
+```
+Conflicts: notes (<< 1.0.0)
+Replaces: notes (<< 1.0.0)
+```
+
+**Both, because each alone is the wrong half.** `Conflicts` by itself refuses
+the installation, politely and permanently. `Replaces` by itself permits the
+file to be overwritten while the old package stays installed, still claiming
+`/usr/bin/notes` and still shipping a `notes.desktop` pointing at it. Together
+they are the one operation dpkg performs without being forced: remove the old
+package, install the new one. `--force-overwrite` reaches the same screen and
+leaves the machine in the state `Replaces` alone produces.
+
+**The bound is `<< 1.0.0` and the claim reaches no further.** Every release that
+carried the old package name was a `0.x` — 0.11.11 was the last — and `notes` is
+a generic enough name for the archive to hand to somebody else one day. An
+unbounded `Conflicts: notes` would silently remove *their* package on any
+machine that had it. There is no `Provides`: nothing depends on the old name.
+
+**Not rpm, and not the AUR.** rpm packaging arrived at 1.0.3, after the rename,
+so no rpm has ever carried the old name and an `Obsoletes` written for symmetry
+would claim a name this project never published there. The AUR package kept its
+`notes-bin` name throughout, so pacman upgrades it as it always did.
+
+**Rejected: renaming the binary too.** It dissolves the conflict by dissolving
+what ADR-069 was protecting — `notes` is the command installed users type — and
+it leaves the old package installed forever, with a stale binary, because
+nothing would then replace it.
+
+**Consequences.** Installing over a 0.x machine now removes it and its desktop
+entry as part of the unpack; user data is untouched, because no data of the
+user's has ever been inside the package. A machine that already hit the error
+keeps 0.11.11 until the next install, which is now the fix rather than a second
+failure. A future Debian package named `notes` at a version below 1.0.0 would be
+taken over by ours — accepted knowingly: the archive has no such package today,
+and the alternative claims strictly more.
+
+**What checks it.** `tools/tests/test_build_linux.py::DebianRename` asserts both
+fields in the committed configuration, and asserts the binary name they exist
+for is still `notes` — rename that, and the declaration has to be reconsidered
+rather than carried along. The gate cannot install a package, so what it
+protects is the declaration. The built 1.6.1 package was read back with
+`dpkg-deb -I`, and `dpkg --dry-run --install` was run against the database of
+the machine that still carries 0.11.11, which answered *"yes, will remove notes
+in favour of tura-notes"*. The install itself needs root and remains an owner
+step, in the queue with the other installed-release checks.

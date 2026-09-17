@@ -75,7 +75,11 @@ Arch, from the release tarball via the `notes-bin` `PKGBUILD` in
 `archlinux:latest` container on every release.
 
 The `.deb` depends on `libwebkit2gtk-4.1-0` and `libgtk-3-0`; the AppImage
-carries its own copy and is correspondingly larger.
+carries its own copy and is correspondingly larger. On a machine still carrying
+the pre-1.0.0 `notes` package, the install removes it: both ship `/usr/bin/notes`
+and the package manager performs the rename declared by
+[ADR-082](docs/decisions.md#adr-082--the-renamed-package-takes-over-the-one-it-was-renamed-from-and-the-binary-keeps-its-name).
+Nothing of yours is in either package, so nothing of yours is removed with it.
 
 ## Local desktop installers
 

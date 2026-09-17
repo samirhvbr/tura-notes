@@ -15,7 +15,7 @@ are in Portuguese.
 | Item | What remains | Who unblocks it |
 |---|---|---|
 | **Publicação de release** | Rodar `./build-local.sh --publish` uma vez. Host, caminho e chave estão confirmados (`test -f /srv/www/samirhv.com.br/samirhv/artisan` passa em `b3sys@100.64.100.125`); falta o ato — build assinado e notarizado, ingestão e feed. Enquanto não rodar, `samirhv.com.br/p/tura-notes` mostra "Em preparação", porque o link de download é dado e não código | Samir |
-| **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
+| **Atualização desktop** | Validar a atualização entre duas versões instaladas em macOS, AppImage, deb e rpm; confirmar que o `.deb` 1.6.1 remove o pacote `notes` anterior a 1.0.0 na máquina que ainda o carrega ([ADR-082](../docs/decisions.md)); provisionar a mesma chave no builder Linux e publicar os feeds (ver [contrato e aceite](../docs/updater.md)) | Samir / ambiente de publicação |
 | [0.6 — sync](0.6-sync.md) | Installed-build and physical-device owner acceptance | Samir |
 | **0.7 — remote MCP** | Expose the existing MCP capabilities through server authentication and workspace/subfolder scopes after sync is ready | Implementation |
 | **0.4 — mobile** | Turn the merged foundation into usable iOS/Android applications: entry points, generated projects, UI, folder adapters, lifecycle handling and physical-device validation | Mobile agent / Samir |
