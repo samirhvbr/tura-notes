@@ -62,9 +62,13 @@ Stack: Tauri 2 · React · TypeScript · Rust · CodeMirror 6 · SQLite/FTS5.
 
 ## Install
 
-macOS, from [samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes):
-a signed, notarised `.dmg` for Apple silicon. Check it before you open it — the
-page shows the same hash:
+**macOS has no download yet.** The `.dmg` is signed with a Developer ID and
+notarised, and it has not reached a place you can fetch it from — no Release
+carries one, there is no macOS updater feed, and
+[samirhv.com.br/p/tura-notes](https://samirhv.com.br/p/tura-notes) still says
+*In preparation*. Until that is re-run, macOS means building it yourself with
+`./build-local.sh` (see *Local desktop installers* below). When it does land,
+the page will show the hash to check the download against:
 
 ```bash
 shasum -a 256 ~/Downloads/Tura\ Notes_*.dmg

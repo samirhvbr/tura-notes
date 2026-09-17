@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.59 - the install instructions still sent macOS users to a download that is not there
+
+`1.6.57` corrected the README's *Status* section, which claimed macOS was
+published. It did not correct *Install*, four paragraphs below, which told people
+to fetch a signed `.dmg` from `/p/tura-notes` and gave them the command to check
+its hash.
+
+That is the same-pass rule broken in the commit that was applying it, and this
+one had teeth the other did not: a status line that overstates costs a wrong
+impression, an install instruction that cannot be followed costs somebody's
+evening. They go to the page, find *In preparation*, and conclude the project
+does not ship.
+
+It now says macOS has no download yet, in the first sentence, and points at
+`./build-local.sh` — which is real, documented further down the same file, and
+the way the `.dmg` is produced in the first place. The hash command stays, framed
+as what to do when the download lands rather than as a step in a flow whose first
+step does not exist.
+
+Nothing was changed about Linux: the `.deb`, the AppImage and the Arch package
+are attached to every minor Release and the instructions for them were already
+accurate.
+
 ## 1.6.58 - three documents said work was queued; the queue had never heard of it
 
 Two governance pages disagreed with the queue, and one of the disagreements was

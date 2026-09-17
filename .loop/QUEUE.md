@@ -369,6 +369,13 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   **lacuna como lacuna**: não inventei a especificação, escrevi o que precisa ser
   decidido e que é decisão de produto
 
+- [x] R6b — as instruções de instalação ainda mandavam o usuário de macOS buscar um
+  download que não existe (1.6.59). O 1.6.57 consertou a seção *Status* e deixou a
+  seção *Install* quatro parágrafos abaixo mandando pegar o `.dmg` em `/p/tura-notes`
+  — com o comando de conferir o hash. É a regra do mesmo passe quebrada no commit que
+  a estava aplicando, e esta tinha dente: linha de status exagerada custa impressão
+  errada; instrução de instalação que não dá para seguir custa a noite de alguém
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
