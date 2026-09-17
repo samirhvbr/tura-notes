@@ -52,6 +52,37 @@ pub fn run() {
                     .plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.manage(updater::Pending::default());
             }
+            // Tauri's default menu puts About in the application menu on macOS
+            // and leaves Help **empty**; on Linux and Windows it puts About in
+            // Help, where there is no application menu to hold it. So the one
+            // platform with a Help menu that opens on nothing is this one.
+            //
+            // The item is the platform's own About panel, not a window of ours:
+            // it already shows the name, the version stamped from `version.md`
+            // (ADR-035) and the copyright, and a dialog we drew would be one
+            // more thing that has to be translated, styled and kept in step
+            // with a number it does not own.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{
+                    AboutMetadataBuilder, Menu, MenuItemKind, PredefinedMenuItem, HELP_SUBMENU_ID,
+                };
+                let handle = app.handle();
+                let menu = Menu::default(handle)?;
+                // Appending rather than rebuilding, deliberately: the default
+                // carries Edit with cut, copy, paste and select-all, and a
+                // WebView whose menu lost those loses the shortcuts with them.
+                if let Some(MenuItemKind::Submenu(help)) = menu.get(HELP_SUBMENU_ID) {
+                    let info = handle.package_info();
+                    let about = AboutMetadataBuilder::new()
+                        .name(Some(info.name.clone()))
+                        .version(Some(info.version.to_string()))
+                        .copyright(handle.config().bundle.copyright.clone())
+                        .build();
+                    help.append(&PredefinedMenuItem::about(handle, None, Some(about))?)?;
+                }
+                app.set_menu(menu)?;
+            }
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
