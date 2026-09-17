@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.89 - a version existed as a heading, in no commit, and could never have a Release
+
+`1.6.87` had a `CHANGELOG.md` entry, a `version.md` bump and a green gate, and
+was never committed: the next bump overwrote it, and its work went out inside
+`1.6.88`. So the file carried a `##` heading for a version that appears in no
+commit, and `./tools/release.sh --backfill --dry-run` does not list it at all —
+it walks `version.md` across history, and `version.md` never held `1.6.87`
+anywhere.
+
+**That breaks the invariant the whole release mechanism rests on**, stated in
+`versioning.md` and in `CLAUDE.md`: the `version.md` on GitHub equals the
+Releases on GitHub, and each `##` heading *is* a commit subject. A heading whose
+commit does not exist is a version somebody will look for in `git log`, in the
+tags, and on the Releases page, and not find in any of the three.
+
+The orphaned entry is folded into `1.6.88`, under a subheading that says what
+happened, rather than deleted — the work it describes is real and shipped. And
+rather than left in place, because *"this file is never rewritten"* protects
+published history; `1.6.87` was never published, which is the entire defect.
+
+**The mistake was mine and mechanical:** bump, write, gate, and then start the
+next item without committing. The pre-push hook cannot catch it — it compares
+`version.md` against the remote and `1.6.88` was a legitimate increment from
+`1.6.86`. Nothing in the gate looks for a changelog heading with no commit
+behind it, which is now a thing worth knowing about the gate.
+
 ## 1.6.88 - a fourth copy, inside an ADR, corrected by appending rather than editing
 
 Sweeping the whole repository for the `WEBKIT_DISABLE_DMABUF_RENDERER` claim
@@ -32,7 +58,14 @@ Four copies of one claim, found across three sweeps, in a repository where the
 rule about exactly this is written down and was written down by me. The sweep is
 cheap; remembering to run it is the part that is not.
 
-## 1.6.87 - the same claim in two more places, and I had just written the rule about that
+### Folded in: what was written as `1.6.87` and never committed
+
+The two `DECISIONS-0.1b.md` corrections shipped inside this commit. They had
+their own changelog entry and their own `version.md` bump, and then the bump was
+overwritten by this one before either was committed — so `1.6.87` existed as a
+heading, in no commit, and `release.sh` could never have given it a Release.
+Folded here rather than left orphaned, because a version in this file with no
+Release breaks the one invariant the release mechanism rests on.
 
 `1.6.86` traced `WEBKIT_DISABLE_DMABUF_RENDERER` to `sshvterm-sidecar` and
 corrected `SPIKE-0.0.md`, which said the owner's **shell** exported it. Then I
