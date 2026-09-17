@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.60 - the third place that said macOS was published, found by sweeping instead of reading
+
+`1.6.57` fixed the README's status line, `1.6.59` fixed the install instructions
+four paragraphs below it, and the second fix only happened because the first one
+was wrong in the same file. So this time the claim was swept for across every
+tracked document rather than corrected where it was noticed.
+
+That found a third: `runbook.md`'s platform table, where the macOS row opened
+with **published**. The runbook is the operator's page — the one somebody reads
+to find out what this repository actually ships — so it was the worst of the
+three to be wrong, and the one nobody had looked at.
+
+Corrected to what is measurable: built, signed and notarised, and served from
+nowhere. No Release carries a `.dmg`, there is no macOS updater feed, and
+`/p/tura-notes` reads *In preparation*. The rest of the row was right and stays —
+it is produced locally because the signing certificate lives in a keychain rather
+than a repository secret, which is ADR-070 and remains the correct arrangement.
+
+**The lesson is the method, not the row.** A fact that appears in one document
+appears in three, and correcting the instance in front of you leaves the others
+saying the old thing with the same authority. Three commits were spent learning
+that on one claim; the sweep took one command.
+
 ## 1.6.59 - the install instructions still sent macOS users to a download that is not there
 
 `1.6.57` corrected the README's *Status* section, which claimed macOS was

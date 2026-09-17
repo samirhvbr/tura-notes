@@ -47,7 +47,7 @@ What ships today, and what does not:
 | | |
 |---|---|
 | Linux | `.deb`, AppImage, a tarball, and the AUR `notes-bin` package — all built in CI and attached to the Release. Local deb/AppImage/rpm builds and optional download-service publication are also available; see [local Linux installers](#local-linux-installers-103) |
-| macOS | **published, from this repository's own `build-local.sh` rather than from CI**, and served by [samirhv.com.br](https://samirhv.com.br/p/tura-notes) rather than attached to the Release. The certificate that signs it lives in a keychain, not in a repository secret, so the machine that holds it is the machine that packages (ADR-070). The `build.yml` job stays behind `if: false` |
+| macOS | **built, signed and notarised — and not yet downloadable.** It is produced by this repository's own `build-local.sh` rather than by CI, because the certificate that signs it lives in a keychain rather than in a repository secret, so the machine that holds it is the machine that packages ([ADR-070](decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)). It is meant to be served from [samirhv.com.br](https://samirhv.com.br/p/tura-notes) rather than attached to the Release, and as of `1.6.60` it is served from nowhere: no Release carries a `.dmg`, there is no macOS updater feed, and that page reads *In preparation*. The publish path was announcing success while filing nothing until `1.6.28`; what remains is re-running it. The `build.yml` job stays behind `if: false` |
 | Windows | **not published.** The job is written in `build.yml` behind `if: false` and carries the list of what is missing; it is an OV certificate rather than code (ADR-024) |
 
 ### The macOS release, from the repository root

@@ -376,6 +376,17 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   a estava aplicando, e esta tinha dente: linha de status exagerada custa impressão
   errada; instrução de instalação que não dá para seguir custa a noite de alguém
 
+- [x] R6c — o terceiro lugar que dizia que o macOS está publicado, achado varrendo
+  em vez de lendo (1.6.60). O 1.6.57 consertou o status do README, o 1.6.59 a seção
+  de instalação quatro parágrafos abaixo — e o segundo conserto só aconteceu porque
+  o primeiro estava errado no mesmo arquivo. Desta vez varri a afirmação em todos os
+  documentos rastreados: apareceu no `runbook.md`, na tabela de plataformas, com a
+  linha do macOS abrindo em **published**. É a página do operador, a que alguém lê
+  para saber o que este repositório de fato entrega. **A lição é o método:** fato
+  que aparece num documento aparece em três, e consertar a ocorrência que está na
+  sua frente deixa as outras dizendo a coisa velha com a mesma autoridade. Gastei
+  três commits aprendendo isso numa afirmação; a varredura custou um comando
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
