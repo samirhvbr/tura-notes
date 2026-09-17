@@ -14,7 +14,13 @@ This is compilation evidence, not a running mobile app or Android proof.
 
 The following implementation and owner checks remain pending:
 
-- Tauri mobile entry point and generated Apple/Android projects.
+- ~~Generated Android project~~ — **done at 1.6.11**: `tauri android init` produced
+  `apps/notes-app/src-tauri/gen/android/`, 40 files of manifest, Gradle, Kotlin and
+  resources, committed because ADR-042 calls them source. The generated
+  `.gitignore` inside it excludes `build`, `local.properties`, `key.properties`
+  and `keystore.properties`, so no build output and no signing material follows.
+  The Apple project still requires macOS.
+- Tauri mobile entry point, and the generated Apple project.
 - Full-screen editor, drawer navigation and Markdown keyboard toolbar.
 - Application-container workspace flows and background flush.
 - iOS security-scoped bookmarks and Android SAF with persisted authorization.

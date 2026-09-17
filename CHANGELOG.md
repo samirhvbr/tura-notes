@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.11 - the generated Android project enters the repository
+
+First bullet of `ACCEPTANCE-0.4.md`. `tauri android init` produced
+`apps/notes-app/src-tauri/gen/android/`: 40 files of manifest, Gradle, Kotlin,
+resources and the Gradle wrapper, 388 KB in total. They are committed because
+ADR-042 says a generated mobile project is source — its signing, entitlement and
+manifest edits are made by hand, and a project regenerated from scratch loses
+them.
+
+Nothing that should not be here follows. Tauri writes its own `.gitignore` inside
+the project excluding `build`, `.gradle`, `local.properties`, `key.properties` and
+`keystore.properties`, so neither build output nor signing material is tracked —
+checked against `git status --untracked-files=all` rather than assumed.
+
+This machine turned out to be provisioned for it already: SDK with NDK 28.2,
+build-tools 34 and 35, platforms 34 through 36, and all four Android Rust targets
+installed. Only `ANDROID_HOME` and `NDK_HOME` were unexported. **iOS remains
+impossible from here** and stays in the owner's column: the Apple project needs
+macOS, and no amount of Linux substitutes for it.
+
+The gate is unchanged and green: nothing desktop reads this directory, and
+`gen/schemas/` keeps its own narrower ignore rather than one that would have
+swallowed the new project.
+
+No new document was written for milestone 0.4 in the pass that produced this.
+`ACCEPTANCE-0.4.md` already lists what remains and is `ACTIVE`; a second page
+repeating it is the duplication `docs/repodocs.md` asks to check for before adding
+a documentation file. It is amended instead, in this same commit.
+
 ## 1.6.10 - ApplicationBlocked says which call refused, and why
 
 Twenty-nine construction sites read `.map_err(|_| Error::ApplicationBlocked)`.
