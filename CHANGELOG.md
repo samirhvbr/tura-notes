@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.68 - a second Windows intermittent, and it is the test that is wrong
+
+CI failed twice today on `rate_limit_bounds_authenticated_requests`
+(`windows-latest`), surrounded by green runs. **Both failing commits are
+documentation-only**, so it is not a code regression — and it is a different test
+from the Windows intermittent already queued.
+
+The failure is `left: 200, right: 429` on line 340 of
+`server/notes-server/tests/http.rs`: after sixty requests that must all pass, the
+sixty-first must be refused and was allowed.
+
+**The first mechanism I reached for was wrong, and checking is what caught it.**
+Forty-one tests share one test binary and all speak to `127.0.0.1`, so the
+obvious story is a shared per-IP budget — the same one that forced
+`server/tests/smoke.py` to restart the process between phases. But
+`Fixture::new` builds its own `api::Server` per test, so the buckets are
+per-fixture and nothing is shared.
+
+What is left is the limiter's **fixed one-minute window**. Sixty-one sequential
+requests are only guaranteed to exhaust a sixty-per-minute budget if all
+sixty-one land inside one window; if they straddle the boundary the counter
+resets and the last one fits again. On a runner slow enough — this binary took
+110 seconds there — that is not a rare accident, it is a coin flip the test has
+been winning.
+
+So the defect is in the test rather than in the limiter, which is worth stating
+plainly: the rate limit behaved correctly both times.
+
+Queued rather than fixed: the repair touches Rust, and the Windows cross-check
+cannot run on this machine until MinGW is installed — the same block that parked
+the `reqwest` bump at `1.6.55`.
+
 ## 1.6.67 - what "the update could not be completed" actually means, per platform
 
 Reported from use: the banner shows the newer version, *Install and restart*

@@ -19,3 +19,5 @@ Uma linha por vez que o agente encerrou o turno.
 | 0013 | ASK | handoff | continuou | R4d — roteiro de aceite do **0.1d** (interface), no formato que o `ACC | [entry](entries/0013-ASK-r4d-roteiro-de-aceite-do-0-1d-interface-no-forma.md) |
 | 0014 | DOC | relato | continuou | R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulad | [entry](entries/0014-DOC-r4g-parqueado-bloqueado-por-ato-do-dono-nao-por.md) |
 | 0015 | DOC | relato | continuou | R4g — **parqueado: bloqueado por ato do dono, não por sudo.** O emulad | [entry](entries/0015-DOC-r4g-parqueado-bloqueado-por-ato-do-dono-nao-por.md) |
+| 0016 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0016-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
+| 0017 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0017-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
