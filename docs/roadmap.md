@@ -164,6 +164,10 @@ captured, resolved and applied with separate superseded/deferred progress.
 Desktop pairing and conflict controls ship in 0.20.14, with explicit
 older-server recovery and two-device rollback regressions in 0.20.15; see [SYNC-0.6.md](SYNC-0.6.md).
 
+**What remains of the milestone is the owner walk**, and it is written out step
+by step in [ACCEPTANCE-0.6.md](ACCEPTANCE-0.6.md): two machines, two installed
+builds, one server, and nothing inferred from a command succeeding.
+
 The 0.20.10 sync increment restores remote rename/delete conflicts explicitly
 at the receiver's applied path. Version 0.20.11 adds explicit recapture
 of further saved edits, retaining prior branches. Version 0.20.12 applies explicit receiver move/delete choices and confirms

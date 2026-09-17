@@ -7,6 +7,50 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.22 - milestone 0.6 has a walk, which was the only thing it was missing
+
+Sync is the only milestone whose contract was fully written and whose acceptance
+was one sentence in the queue: *percorrer o fluxo em builds instaladas e em
+dispositivos físicos*. `docs/ACCEPTANCE-0.6.md` is that sentence turned into
+S1–S25, in the format the other acceptance documents use — a step the owner
+walks, and what to look at while walking it.
+
+**Written against the interface, not against the design.** Every control is named
+by the words on it — `Test connection`, `Apply received files`, `Pause transfer`,
+`Reconnect existing queue` — read out of the i18n catalogue rather than
+remembered, so a step cannot send the owner looking for a button that says
+something else.
+
+Three things the walk is built around:
+
+**Two machines, or nothing.** A folder synchronized with itself proves nothing,
+and every claim in the document is about what the *second* machine sees. The 0.5
+walk comes first and is not repeated here: sync inherits that boundary rather
+than re-establishing it.
+
+**The failures are walked deliberately, not waited for.** S1 runs the connection
+test four times wrong before running it right, because four different sentences
+sending the owner to four different machines is the feature — one generic failure
+would be the bug. S8 provokes the power and network pauses instead of reading
+about them, and the case that matters is *unknown*: a missing battery API must
+not read as AC power.
+
+**S20 and S21 are the two boxes the milestone rests on.** A note that crossed the
+network comes back byte-identical — CRLF, a BOM, no final newline, an emoji
+outside the BMP, and one file that is not valid UTF-8, each checked with `cmp`
+rather than by eye. And nothing ever appeared that was not asked for. Everything
+else in the document is a feature; those two are the promise, and they are the
+ones to re-tick on every release.
+
+**The mobile half is declared unwalkable rather than left open.** 0.4 has produced
+compilation evidence and no installable application, so the device rows have
+nowhere to run; that is stated in the header and tracked in `ACCEPTANCE-0.4.md`,
+instead of sitting as boxes nobody can tick for reasons nobody wrote down.
+
+`docs/README.md`, `docs/roadmap.md`, `.continue/README.md` and
+`.continue/0.6-sync.md` all point at the page. The queue item stays: the walk
+existing is not the walk happening.
+
 ## 1.6.21 - the 0.1d walk covers the interface that shipped after it was written
 
 `ACCEPTANCE-0.1d.md` stopped at I10, where 0.13.0 left it. Three pieces of
