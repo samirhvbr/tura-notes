@@ -81,5 +81,27 @@ One description of the tools, not two: `tools()` lives in
 drift between them. That is a property of the code rather than a test, which is
 the stronger of the two.
 
+### Eight tools, six permissions — measured over the transport, 19/09/2026
+
+Not a walk: two credentials were minted with one permission each and asked
+`tools/list` over `POST /v1/mcp` on a running server.
+
+| Credential | Catalogue returned |
+|---|---|
+| `read` only | `notes_list`, `notes_read` |
+| `update` only | `notes_append`, `notes_update` |
+
+So the eight tools sit behind **six** permissions, and two pairs share one.
+`MCP-0.7.md`, `roadmap.md` §0.7 and `security.md` said *"each behind its own
+permission"* until `1.6.80`; the correction was derived from reading
+`AgentService::permission`, and this is it confirmed by execution — which matters
+more than usual, because one of the three pages it corrected is the normative
+one.
+
+**What this costs an operator to know:** a credential that may read a note may
+also list the subtree, and one that may edit may also append. Neither can be
+separated, and a least-privilege design that assumed otherwise was designing
+against a sentence rather than against the server.
+
 **What none of it knows:** how a real MCP client behaves against this endpoint —
 which is all of §1.

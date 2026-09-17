@@ -601,6 +601,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   `ss -ltn`. **O passo de audit do dono continua:** máquina confirmando que três
   marcadores não estão lá não é uma pessoa lendo o audit de uma sessão real
 
+- [x] R6w — a correção das permissões, confirmada perguntando ao servidor em vez de
+  à fonte (1.6.84). O 1.6.80 corrigiu três documentos — inclusive o `security.md`,
+  que é o que ganha em conflito — a partir de **ler** o `AgentService::permission`.
+  Correção tirada de leitura é hipótese com boa evidência; esta é a mesma afirmação
+  perguntada a um servidor de pé. Duas credenciais, uma permissão cada, `tools/list`
+  no `POST /v1/mcp`: só-`read` devolve `notes_list` **e** `notes_read`; só-`update`
+  devolve `notes_append` **e** `notes_update`. Exatamente o que as páginas passaram
+  a dizer. Valia ter feito: a alternativa era deixar um documento normativo apoiado
+  numa leitura de código
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

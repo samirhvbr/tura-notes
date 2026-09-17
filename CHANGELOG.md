@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.84 - the permission correction, confirmed by asking the server instead of the source
+
+`1.6.80` corrected three documents — including `security.md`, the one that wins a
+conflict — after reading `AgentService::permission` and finding that eight tools
+map onto six permissions. A correction derived from reading is a hypothesis with
+good evidence; this is the same claim asked of a running server.
+
+Two credentials, one permission each, `tools/list` over `POST /v1/mcp`:
+
+- `read` alone returns **`notes_list` and `notes_read`**
+- `update` alone returns **`notes_append` and `notes_update`**
+
+Which is exactly what the corrected pages now say, and it is worth having done
+because the alternative was leaving a normative document standing on a source
+reading. Recorded in `ACCEPTANCE-0.7.md` beside the suite's own coverage, with
+what it costs an operator to know: a credential that may read a note may also
+list the subtree, and one that may edit may also append — neither separable, and
+a least-privilege design that assumed otherwise was designing against a sentence
+rather than against the server.
+
+Sixth documented path executed. The score is two defects found, four confirmations
+— and this one confirmed a correction rather than a claim, which is the case where
+being wrong would have been most expensive.
+
 ## 1.6.83 - the audit was grepped for the three things it promises never to hold
 
 Fifth documented path executed. `SERVER-0.5.md` §*Audit and storage* promises the
