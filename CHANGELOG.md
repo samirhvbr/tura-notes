@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.4.4 - rustls carried a TLS 1.3 handshake flaw on both transport paths
+
+`cargo audit` reports **one vulnerability**, not only the unmaintained warnings
+that were drowning it in the log: RUSTSEC-2026-0285, medium (5.3) —
+*TLS 1.3 handshake messages incorrectly accepted across encryption level
+boundaries* — against `rustls 0.23.44`, fixed in 0.23.45.
+
+It is not an incidental transitive crate. It is a direct dependency of
+`notes-sync-client`, and it backs both paths where this product speaks TLS:
+`reqwest`, which carries every device sync request to the server, and
+`tauri-plugin-updater`, which downloads the signed desktop update. ADR-074 pins
+the updater's public key and verifies the signature before installing, so a
+tampered payload is still refused — but the transport underneath it was the one
+with the advisory.
+
+`cargo update -p rustls` moves it inside its own semver range: one line of
+`Cargo.lock`, no API change, no code change. `cargo audit` then reports no
+vulnerabilities.
+
+**It had not been seen locally because the tool is not installed on this
+machine**, and `tools/check.sh` degrades that step to
+`WARNING, not run — install it once` rather than failing. That degradation is
+the right call — the same one the Windows cross-check makes — but it means the
+local gate and CI disagree about what green means, and CI is the one that had
+been red. Installing `cargo-audit` is what turned eight lines of unmaintained
+noise into a finding.
+
 ## 1.4.3 - the Linux-only watcher test still read `degraded` as a field
 
 Moving the watcher's setup onto its own thread — the fix that stopped
