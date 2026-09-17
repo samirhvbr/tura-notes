@@ -195,3 +195,27 @@ próxima vez que o dono puxasse no tree principal.
 **Como reverter.** A cópia viva inteira, como estava antes desta reconciliação,
 está em `scratchpad/loop-backup/` da sessão; e o estado commitado anterior está
 no `git log` do `.loop/`.
+
+## 18/09 — defini o `origin/HEAD` deste clone sem perguntar
+
+**Pergunta.** Medindo o `docs/versioning.md` contra o `tools/release.sh`, achei que
+o `--ref` não aparecia no documento e que a resolução automática do script tem um
+terceiro passo que devolve resposta errada com cara de certa. Conferido:
+`refs/remotes/origin/HEAD` **não estava definido** neste clone, então nos três
+worktrees (branches `tura-notes-*`) o script caía em `HEAD` local. É exatamente o
+incidente do badge que foi parar no 1.6.6. Documento só, ou conserto também?
+
+**Decisão.** Conserto também: `git remote set-head origin -a`, que aponta
+`origin/HEAD` para `origin/master`. Provado depois: `release.sh --dry-run` rodado
+de dentro do `tura-notes-mobile`, cujo HEAD está em 1.6.29, passou a ler **1.6.35**
+— ou seja, o remoto. Antes teria lido 1.6.29 e reconciliado o badge para lá.
+
+**Alternativa descartada.** Só documentar e deixar o clone como estava. Descartada
+porque a armadilha continua armada em três worktrees e dispara sozinha na próxima
+vez que alguém rodar `release.sh` de um deles — e o sintoma (badge no lugar errado)
+aparece em produção, não no terminal de quem rodou. O `CLAUDE.md` já chama esse
+comando de "the step people skip", o que é a mesma conclusão por outro caminho.
+
+**Como reverter.** `git remote set-head origin -d` apaga o ponteiro e volta ao
+estado anterior. É config local do clone, não entra em commit nenhum, e não muda
+o que o GitHub tem.

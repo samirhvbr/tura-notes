@@ -181,6 +181,36 @@ Idempotent and resumable — anything already published is skipped. In
 `--backfill`, each version's tag points at the **last** commit that carried it:
 the finished state of that version, not its first commit.
 
+#### `--ref`, and the one setting that decides whether you need it
+
+The script walks a history to learn which versions exist, and the rule above says
+which history that must be: **the remote default branch**, because that is what
+GitHub's Releases have to match. It resolves that itself, in three steps:
+`origin/HEAD`, then `origin/<the branch you are on>`, then plain `HEAD`.
+
+**The third step is a wrong answer that looks like a right one**, and the second
+is what sends you there. `origin/HEAD` is a local pointer that a fresh clone does
+*not* get — `git remote set-head origin -a` is the step people skip, and the
+branch section of `CLAUDE.md` already says so. Without it, on `master` you land
+on `origin/master` and everything is fine, which is exactly why nobody notices;
+on a **worktree checked out to a side branch**, `origin/<that branch>` does not
+exist, so the script reads the local `HEAD` — a `version.md` that was never
+pushed — and reconciles the `Latest` badge onto it.
+
+That is not hypothetical: it happened here, and the badge landed on `1.6.6` while
+`version.md` on GitHub said `1.6.7`.
+
+Two ways to not have this problem, and the first is better because it is once:
+
+```bash
+git remote set-head origin -a             # sets origin/HEAD; do it per clone
+./tools/release.sh --ref origin/master    # or say it explicitly, every time
+```
+
+`--ref origin/master` is also the right flag when the local checkout is simply
+behind and a pull is refused by work in flight — backfilling from a stale `HEAD`
+silently omits every version pushed since.
+
 ---
 
 ## The hooks

@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.36 - release.sh can read the wrong history, and this clone was set up for it
+
+`docs/versioning.md` states the rule the whole release mechanism rests on — *the
+`version.md` on GitHub equals the Releases on GitHub, the local checkout does not
+enter the calculation* — and then never mentions `--ref`, the flag that makes it
+true when the script's own guess is wrong. Measured: zero occurrences.
+
+The guess is three steps: `origin/HEAD`, else `origin/<the branch you are on>`,
+else plain `HEAD`. **The third is a wrong answer that looks like a right one, and
+the second is what sends you there.** `origin/HEAD` is a local pointer a fresh
+clone does not get; `CLAUDE.md` already calls `git remote set-head origin -a` the
+step people skip. Without it, on `master` step two lands on `origin/master` and
+everything works, which is exactly why nobody notices. In a worktree on a side
+branch, `origin/<that branch>` does not exist, so the script reads a local
+`version.md` that was never pushed and reconciles the `Latest` badge onto it.
+
+**This clone had `origin/HEAD` unset**, across all four worktrees — so the trap
+was armed, not hypothetical, and it had already fired once: the badge landed on
+`1.6.6` while GitHub's `version.md` said `1.6.7`.
+
+Documented and fixed. `git remote set-head origin -a` now points it at
+`origin/master`, and the fix is measured rather than assumed: `release.sh
+--dry-run` run from the worktree sitting at `1.6.29` reads **1.6.35**, the remote
+version. Before it, the same command would have read `1.6.29` and moved the badge
+there. The reasoning and how to undo it are in `.loop/ASSUMPTIONS.md`; it is a
+local pointer, in no commit, and changes nothing on GitHub.
+
+The section says both remedies and says which is better: setting the pointer is
+once per clone, `--ref origin/master` is every time you remember.
+
 ## 1.6.35 - the structure document was missing two crates, the server, and had a directory that does not exist
 
 `CLAUDE.md` says to read `ARCHITECTURE.md` before changing structure. Measured

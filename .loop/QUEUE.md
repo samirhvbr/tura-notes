@@ -151,6 +151,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   forma que o 0.7 defendeu. A ADR-042 ficou intacta — ela registra o que foi
   adiado naquele dia
 
+- [x] R5e — `docs/versioning.md` não citava `--ref` uma vez sequer (1.6.36), e a
+  resolução automática do `release.sh` tem um terceiro passo que dá resposta errada
+  com cara de certa: `origin/HEAD`, senão `origin/<branch atual>`, senão `HEAD`
+  local. **Conferido: `origin/HEAD` não estava definido neste clone**, então no
+  `master` cai no passo 2 e acerta — que é por que ninguém nota — e num worktree em
+  branch própria cai no passo 3 e lê um `version.md` que nunca foi empurrado. Foi
+  assim que o badge foi parar no 1.6.6. Documentei e **consertei**: `git remote
+  set-head origin -a`, com a prova medida (o `--dry-run` rodado do worktree parado
+  em 1.6.29 passou a ler 1.6.35). Registrado no `ASSUMPTIONS.md` com como reverter
+
 ## Parqueado — espera um ato do dono, e não segura a fila
 
 Ficam no fim de propósito: o hook entrega sempre o primeiro `- [ ]`, e um item
