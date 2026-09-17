@@ -402,8 +402,10 @@ listing, which nothing currently needs.
 > [ADR-033](decisions.md#adr-033--the-dmabuf-workaround-keys-on-the-nvidia-driver-not-on-the-display-server).
 >
 > The false premise is worth naming: **every run behind this entry had
-> `WEBKIT_DISABLE_DMABUF_RENDERER` already exported in the owner's shell**, so
-> the workaround never ran and its absence could not be observed. A masked
+> `WEBKIT_DISABLE_DMABUF_RENDERER` already exported** — from the terminal
+> application those runs were launched from, not from the shell, as
+> `SPIKE-0.0.md` records after tracing it at `1.6.86` — so the workaround never
+> ran and its absence could not be observed. A masked
 > symptom produced a mechanism that fitted the evidence and was not the cause.
 > The instrumentation this entry chose to add is what eventually named the event
 > — `close requested`, then `destroyed`.
@@ -477,8 +479,10 @@ picker would stop working for a user who has no symptom today.
 of further reports as evidence. That is defensible for a symptom this severe; it
 is not measurement, and this entry says which is which.
 
-**A note that invalidates a different test.** The owner's environment already
-exports `WEBKIT_DISABLE_DMABUF_RENDERER`, and `linux.rs` correctly refuses to
-override a value the user set — it logged *"left alone — already set"* on every
-run above. **Milestone 0.0's first acceptance criterion was therefore not
+**A note that invalidates a different test.** The environment those runs
+inherited already carried `WEBKIT_DISABLE_DMABUF_RENDERER` — from the terminal
+application, traced at `1.6.86`, and not from any shell file, which matters
+because it means the variable follows *how the application was launched* rather
+than *who launched it*. `linux.rs` correctly refuses to override a value the user
+set, and logged *"left alone — already set"* on every run above. **Milestone 0.0's first acceptance criterion was therefore not
 exercised by any of them**, and `docs/SPIKE-0.0.md` now says so.

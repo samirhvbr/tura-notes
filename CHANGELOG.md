@@ -7,6 +7,52 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.88 - a fourth copy, inside an ADR, corrected by appending rather than editing
+
+Sweeping the whole repository for the `WEBKIT_DISABLE_DMABUF_RENDERER` claim
+after `1.6.87` — which was itself the sweep I should have done at `1.6.86` —
+found one more, inside **ADR-033**: *"the owner's shell already exported"* it, as
+the explanation for why a misdiagnosis survived so long.
+
+Handled differently from the other three, on purpose. `SPIKE-0.0.md` and
+`DECISIONS-0.1b.md` are pages describing how things are, so they were corrected
+in place. An ADR is a record of what was decided **and believed** on a particular
+day, and one that quietly edits its own reasoning stops being a record — the same
+call as `1.6.48`, which left ADR-037 saying *twenty-five* because twenty-five was
+what was decided that day.
+
+So the sentence stays and a dated correction sits under it, carrying the part
+that changes for the next reader. The hazard ADR-033 records is untouched and the
+decision is untouched; what moves is the remedy. It is not *"clear your shell
+profile"* — nothing in any shell file sets this. It is that **a run from a
+terminal inside that application and a run from the desktop session are different
+tests**, and only the second exercises the workaround unaided.
+
+Four copies of one claim, found across three sweeps, in a repository where the
+rule about exactly this is written down and was written down by me. The sweep is
+cheap; remembering to run it is the part that is not.
+
+## 1.6.87 - the same claim in two more places, and I had just written the rule about that
+
+`1.6.86` traced `WEBKIT_DISABLE_DMABUF_RENDERER` to `sshvterm-sidecar` and
+corrected `SPIKE-0.0.md`, which said the owner's **shell** exported it. Then I
+did not sweep for the claim.
+
+`DECISIONS-0.1b.md` carried it twice — *"already exported in the owner's shell"*
+at the entry explaining a false premise, and *"the owner's environment already
+exports"* in the note that invalidates milestone 0.0's first criterion.
+
+**This is exactly the rule `1.6.60` was written to record**, four hours and
+twenty-six versions ago: *a fact that appears in one document appears in three,
+and correcting the instance in front of you leaves the others saying the old
+thing with the same authority.* Writing it down did not make me do it.
+
+Both corrected, and the correction earns its space in the second one: the
+variable follows **how the application was launched**, not who launched it, which
+is the difference between "the owner's machine is contaminated" and "runs from a
+terminal and runs from the desktop session are different tests". The first reads
+as an excuse; the second is a procedure.
+
 ## 1.6.86 - the variable that makes the spike's first criterion unanswerable is not in any shell file
 
 `SPIKE-0.0.md` warns that a run with `WEBKIT_DISABLE_DMABUF_RENDERER` already set

@@ -623,6 +623,31 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   **não são o mesmo teste**, e é também o formato de todo relato futuro de "funciona
   pelo lançador e não pelo terminal"
 
+- [x] R6y — a mesma afirmação em mais dois lugares, e eu tinha **acabado** de
+  escrever a regra sobre isso (1.6.87). O 1.6.86 rastreou a variável até o
+  `sshvterm-sidecar` e corrigiu o `SPIKE-0.0.md`; aí eu não varri. O
+  `DECISIONS-0.1b.md` carregava a mesma frase duas vezes. **É exatamente a regra que
+  o 1.6.60 existe para registrar** — fato que aparece num documento aparece em três
+  — escrita por mim quatro horas e vinte e seis versões antes. Escrever não fez eu
+  cumprir. As duas corrigidas, e a correção rende na segunda: a variável segue
+  **como o aplicativo foi lançado**, não quem lançou, que é a diferença entre "a
+  máquina do dono está contaminada" e "rodar do terminal e rodar da sessão do
+  desktop são testes diferentes" — a primeira lê como desculpa, a segunda é
+  procedimento
+
+- [x] R6z — uma quarta cópia, dentro de uma ADR, corrigida **anexando** e não
+  editando (1.6.88). A varredura completa depois do 1.6.87 — que já era a varredura
+  que eu devia ter feito no 1.6.86 — achou mais uma na **ADR-033**. Tratada
+  diferente das outras três de propósito: página que descreve como as coisas são se
+  corrige no lugar; **ADR é registro do que foi decidido *e acreditado* num dia**, e
+  ADR que edita o próprio raciocínio em silêncio deixa de ser registro — mesma
+  decisão do 1.6.48, que deixou a ADR-037 dizendo *vinte e cinco*. A frase fica e
+  uma correção datada senta embaixo, com a parte que muda para o próximo leitor: o
+  remédio não é *"limpe seu perfil de shell"*, é que rodar de um terminal daquele
+  app e rodar da sessão do desktop **são testes diferentes**. Quatro cópias de uma
+  afirmação, achadas em três varreduras, num repositório onde a regra sobre isso
+  está escrita — por mim. A varredura é barata; lembrar de rodá-la é que não
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

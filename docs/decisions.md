@@ -993,6 +993,20 @@ set"*, the workaround never ran, and no comparison was ever made. A masked
 symptom produced a plausible mechanism (a GTK chooser taking its parent down)
 built on a false premise.
 
+> **Correction, 19/09/2026 — where the variable came from.** The sentence above
+> says *the owner's shell* exported it. Traced at `1.6.86`, it is in none of
+> `~/.bashrc`, `~/.profile`, `~/.zshrc`, `/etc/environment`, `environment.d/` or
+> the systemd user environment: walking `/proc/<pid>/environ` up the tree finds
+> it entering at `sshvterm-sidecar`, and absent in both `sshvterm` itself and
+> `gnome-shell`. The hazard this ADR records is unchanged and the decision is
+> unchanged — what changes is the remedy for the next person. It is not *"clear
+> your shell profile"*; it is that **a run started from a terminal inside that
+> application and a run started from the desktop session are different tests**,
+> and only the second one exercises the workaround without help. The original
+> sentence is left standing because an ADR is a record of what was decided and
+> believed on the day, and one that edits its own reasoning silently stops being
+> one.
+
 **Decision.** On Linux, the **proprietary NVIDIA driver alone** decides. The
 display server is no longer an input to `decide` — not weighted differently,
 removed, because it never bore on the failure.
