@@ -542,6 +542,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   prefixo e de varredura literal, e erra nos dois. Seis achados em 349 chaves é
   varredura para repetir à mão, não passo de gate para confiar
 
+- [x] R6r — a seção de onboarding mandava copiar um arquivo que não existe (1.6.79).
+  O `runbook.md` §2 ainda era o esqueleto: `cp .env.example .env`, contra um arquivo
+  que nunca existiu porque este aplicativo não tem configuração para copiar — e
+  embaixo, uma nota em itálico perguntando ao **autor** qual é o caminho, deixada
+  onde está o **leitor**. Reescrita a partir de medição: clonei num diretório vazio
+  e rodei, duas vezes. **Toolchain de Rust sozinho dá 37 de 39 passos**, e as duas
+  falhas são o par de frontend falhando *pelo nome* — que é o guard do 1.6.18
+  fazendo exatamente o que foi escrito para fazer. `npm ci` é o remédio inteiro, e
+  depois dele o gate fecha **verde em 41s, 35 passos**
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.79 - the onboarding section told a contributor to copy a file that does not exist
+
+`docs/runbook.md` §2 is *From a clean machine to running*, and it was still the
+skeleton's:
+
+```
+# install, configure, run — fill this in
+cp .env.example .env
+```
+
+`.env.example` does not exist and never has — `git ls-files` matches no `.env`
+anything — because this application has no configuration to copy. Below it sat an
+italic note asking the author to say which path this is, Docker or the whole
+chain, which is a question to the writer left where the reader stands. Same shape
+as `SECURITY.md`'s supported-versions before `1.6.40`, on the page somebody opens
+when they have nothing working yet.
+
+Rewritten from a measurement rather than from memory: cloned into an empty
+directory and run, twice.
+
+**A Rust toolchain alone gets 37 of 39 steps.** The two failures are the frontend
+pair, and they fail *by name* — `FAILED, not run — no node_modules in this
+checkout` — which is `1.6.18`'s guard behaving exactly as designed, in the
+situation it was written for. `npm ci` in `apps/notes-app` is the entire remedy,
+after which the gate is **green in 41 seconds across 35 steps**, `cargo test`
+being 19 of them.
+
+Three details the old text could not have had. `cargo-audit` and the
+`x86_64-pc-windows-gnu` target install themselves on first use; **the MinGW C
+compiler deliberately does not**, because a check script should not put a C
+toolchain on somebody's machine unasked — so that step fails naming the package,
+with a declared opt-out. And there is no Docker path for the application, which
+is worth saying rather than leaving as a gap: `server/compose.yml` is the 0.5
+server, a separate process on the owner's own host.
+
 ## 1.6.78 - an acceptance row asked the owner to confirm a feature that shipped
 
 Measuring the catalogue the other way round — not *does every `t()` resolve*,

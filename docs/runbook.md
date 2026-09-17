@@ -12,18 +12,45 @@ _Fill in: runtimes and versions, system packages, accounts and access needed._
 
 ## 2. From a clean machine to running
 
+**Measured at `1.6.79`, not described:** cloned into an empty directory, run,
+and the numbers below are what came back. This section carried the skeleton's
+`cp .env.example .env` until then — against a file that does not exist and never
+has, because this application has no configuration to copy. There is nothing to
+fill in before it runs.
+
 ```bash
 git clone git@github.com:samirhvbr/tura-notes.git
 cd tura-notes
 git config core.hooksPath tools/git-hooks   # once per clone — see §5
+git remote set-head origin -a               # once per clone — see versioning.md
 
-# install, configure, run — fill this in
-cp .env.example .env
+# the whole gate, minus the two frontend steps
+./tools/check.sh
+
+cd apps/notes-app && npm ci                 # the two frontend steps
+cd ../.. && ./tools/check.sh                # all of it
+
+cd apps/notes-app && npm run tauri dev      # run it
 ```
 
-_Say which of the paths this is: running it with Docker, or developing with the
-whole chain. If there are two, say what each one requires and what to do when it
-does not come up._
+**What a Rust toolchain alone buys you: 37 of 39 steps.** The two that fail are
+`frontend tests` and `frontend`, and they fail by name —
+`FAILED, not run — no node_modules in this checkout` — which is the guard from
+`1.6.18` doing its job rather than a shell error leaking through. `npm ci` in
+`apps/notes-app` is the whole remedy, and after it the gate is **green in 41
+seconds, 35 steps**, of which `cargo test` is 19.
+
+**Two things install themselves and one does not.** `cargo-audit` is installed
+on first use by `require_tool`; the `x86_64-pc-windows-gnu` target likewise. The
+MinGW C compiler is not, because a C toolchain is not something a check script
+should put on somebody's machine unasked — so `clippy (windows)` fails on a
+machine without it, naming the package, and `NOTES_NO_WINDOWS_CHECK=1` opts out
+deliberately. Debian: `gcc-mingw-w64-x86-64`. Homebrew: `mingw-w64`.
+
+**There is no Docker path for the application**, and that is not an omission.
+`server/compose.yml` exists for the 0.5 server ([SERVER-0.5.md](SERVER-0.5.md)),
+which is a separate process an owner runs on their own host; the desktop
+application is built and run from this checkout.
 
 ## 3. Configuration
 
