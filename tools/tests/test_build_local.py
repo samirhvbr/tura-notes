@@ -133,6 +133,29 @@ class Fingerprint(unittest.TestCase):
         self.assertEqual(self.CONFIG.read_bytes(), original)
         self.assertEqual(before, self.fingerprint())
 
+    def test_stamping_changes_only_the_version_line(self):
+        """A stamp that edits anything else is a stamp nobody can read.
+
+        `json.dump` escapes non-ASCII unless told not to, so stamping used to
+        rewrite the copyright's `\u00a9` as well. Both parse to the same string
+        and nothing shipped wrong — but a stamp left behind by a build that did
+        not restore its backup then looked like two unrelated edits, which is
+        time spent looking for a second writer that was never there.
+        """
+        original = self.CONFIG.read_text(encoding='utf-8').splitlines()
+        try:
+            subprocess.run(['bash', str(ROOT / 'tools/stamp-version.sh')], cwd=ROOT,
+                           check=True, stdout=subprocess.DEVNULL)
+            stamped = self.CONFIG.read_text(encoding='utf-8').splitlines()
+        finally:
+            subprocess.run(['git', 'checkout', '--', str(self.CONFIG)], cwd=ROOT, check=True)
+        self.assertEqual(len(original), len(stamped), 'stamping changed the line count')
+        differing = [i for i, (a, b) in enumerate(zip(original, stamped)) if a != b]
+        self.assertEqual(len(differing), 1,
+                         'stamping touched more than the version: '
+                         + repr([(original[i], stamped[i]) for i in differing]))
+        self.assertIn('"version"', original[differing[0]])
+
     def test_the_rename_happens_before_anything_hashes_the_name(self):
         # The sha256 sidecar, the updater payload name and the published URL all
         # carry the filename. Renaming after any of them would publish a file

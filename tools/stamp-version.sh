@@ -32,13 +32,20 @@ fi
 [ -n "$version" ] || { echo "stamp-version.sh: no version found" >&2; exit 1; }
 
 python3 - "$CONF" "$version" <<'PY'
+# `ensure_ascii=False`, and it is not cosmetic. Without it `json.dump` rewrites
+# every non-ASCII character as an escape, so stamping turned the copyright's
+# © into an escape on top of changing the version. JSON parses both to the
+# same string, so nothing shipped wrong — but the stamp stopped being a
+# one-line diff, and a stamp left behind by a build that did not restore its
+# backup then looked like two unrelated edits. That is how one leak here cost
+# an afternoon of looking for a second writer that did not exist.
 import json, sys
 path, version = sys.argv[1], sys.argv[2]
-with open(path) as f:
+with open(path, encoding="utf-8") as f:
     conf = json.load(f)
 conf["version"] = version
-with open(path, "w") as f:
-    json.dump(conf, f, indent=2)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(conf, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PY
 

@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.6 - the version stamp stops rewriting the copyright line
+
+`tools/stamp-version.sh` reads `tauri.conf.json`, sets one field and writes it
+back with `json.dump(conf, f, indent=2)`. The default there is
+`ensure_ascii=True`, so every non-ASCII character comes back as an escape, and
+the copyright's `©` was rewritten on every stamp. Both spellings parse to the
+same string, so nothing has ever shipped wrong and no build was affected.
+
+It cost an afternoon anyway. A stamp left behind by a build that did not restore
+its backup showed up as **two** changed lines — a version and a mangled
+copyright — which reads like two writers rather than one, and sent the search for
+a concurrent process that was never there. A stamp that edits one field should
+produce a one-line diff, so that a leaked one is legible at a glance.
+
+Measured before: four differing lines. After: two, which is the version line
+changing. `test_stamping_changes_only_the_version_line` asserts exactly that and
+fails against the previous script, naming both lines it touched.
+
+What this does **not** explain is why a stamp was left behind at all. Both build
+scripts restore the committed placeholder on exit, including on failure, and
+neither the packaging suite alone nor a full gate run reproduces it. That is in
+`.continue/` as its own item, to be reproduced before anything is changed for it.
+
 ## 1.6.5 - remote MCP answers at POST /v1/mcp
 
 Milestone 0.7. One endpoint, one JSON-RPC message per request, one JSON
