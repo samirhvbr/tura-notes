@@ -256,10 +256,13 @@ Everything listed under 0.1a in [SCOPE.md](SCOPE.md) §17:
 - **The capability matrix is still a specification.** The CI matrix is green on
   Ubuntu, macOS, Windows and Arch — measured at `0.7.3` and re-measured at
   `1.6.63`, run `8fd6b0e` — which means the suite passes on ext4, APFS and NTFS.
-  **No run exists on SMB, NFS, exFAT or a FUSE mount**, so the rows of
-  `ARCHITECTURE.md` §11 for those backends are asserted rather than observed, and
-  three more green platforms do not change that: the gap is a filesystem, not an
-  operating system.
+  **No run exists on SMB, NFS, exFAT or a FUSE mount**, and three more green
+  platforms do not change that: the gap is a filesystem, not an operating system.
+  **The gap is also larger than "unobserved", measured at `1.6.93`:** `LocalFs`
+  answers one compile-time `Caps::LOCAL` keyed on the target OS, and no
+  filesystem detection exists in the repository at all — so those rows of
+  `ARCHITECTURE.md` §11 are not untested behaviour, they are behaviour nothing
+  implements. A workspace on exFAT would report `trash: true` today.
 - **The permission-denied criterion does not run as root**, and the Arch CI
   container is root — it skips there rather than passing for the wrong reason
   ([DECISIONS-0.1a.md](DECISIONS-0.1a.md) D-21). It runs on Ubuntu and macOS.

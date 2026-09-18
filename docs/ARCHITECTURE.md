@@ -757,6 +757,31 @@ the output, never substrings, because `safe-in-code.md` must render
 
 ## 11. Filesystem capability matrix
 
+> **This section is a specification, not a description, and said otherwise until
+> `1.6.93`.** The table below is what per-root detection *would* report. What the
+> code does today is answer one compile-time constant, `Caps::LOCAL` in
+> `notes-model`, keyed on the **target OS** and not on the filesystem under the
+> workspace — `trash` is off on iOS and Android, `native_id` needs unix or
+> windows, `preserve_mode` needs unix, and every other field is `true`
+> everywhere. There is no `statfs`, no `f_type`, no `pathconf` and no
+> `GetVolumeInformationW` anywhere in the repository; the paragraph that named
+> them described machinery nobody has written.
+>
+> **So no row below can fire yet.** A workspace on exFAT reports `trash: true`,
+> one on an SMB mount reports `atomic_replace: true`, and the non-atomic-backend
+> banner of `1.6.17` — which reads `info.caps.atomic_replace` — stays invisible
+> not because local filesystems are atomic but because nothing can answer
+> otherwise. `ACCEPTANCE-0.1a.md` calls the matrix *"still a specification"*, and
+> that is the stronger reading: the rows are not unobserved, they are
+> unimplemented.
+>
+> **What the SAF adapter changes.** The Android tree of [MOBILE-0.4.md](MOBILE-0.4.md)
+> is the first backend that must answer `atomic_replace: false`, and it will do
+> it by being a different `FileSystem` implementation rather than by detecting a
+> filesystem — which is the cheaper half of this table and the one that is
+> actually queued. Per-root detection for exFAT, SMB and NFS is not queued
+> anywhere, and until it is, this table is a design.
+
 The adapter reports `Caps` per root; the core adapts behaviour, the UI states
 limitations. Unknown filesystem → most conservative row.
 
@@ -771,9 +796,10 @@ limitations. Unknown filesystem → most conservative row.
 | iOS security-scoped bookmark `[0.4]` | via `NSFileCoordinator` | no | no → poll | no | no | writes coordinated; bookmark refreshed when stale |
 | Android SAF tree `[0.4]` | **no** | no | no → poll | document id | no | no rename-over; `write_atomic` = write new + verify + delete old + rename; permission may vanish when the document is moved |
 
-Detection: Linux `statfs().f_type`; macOS `pathconf` + `statfs`; Windows
-`GetVolumeInformationW`. The result is cached in `registry.db` and
-re-probed when `root_native_id` changes.
+Detection, **when it is built**: Linux `statfs().f_type`; macOS `pathconf` +
+`statfs`; Windows `GetVolumeInformationW`; the result cached in `registry.db` and
+re-probed when `root_native_id` changes. None of it exists today — see the note
+opening this section.
 
 **Reading the id.** Unix takes `dev` and `ino` straight from the `stat` already
 performed. Windows needs a **handle**, so the file is opened to ask —

@@ -670,6 +670,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   Verificado contra um clone `--depth 1` de verdade. **Pego olhando a execução, a
   terceira vez hoje:** gate verde numa máquina é uma afirmação sobre aquela máquina
 
+- [x] R7c — a matriz de capacidades descreve uma detecção que não existe (1.6.93).
+  O `ARCHITECTURE.md` §11 abre com *"o adaptador reporta `Caps` por raiz"* e fecha
+  nomeando `statfs().f_type`, `pathconf`, `GetVolumeInformationW` e cache no
+  `registry.db`. **Nenhuma dessas quatro chamadas existe no repositório.** O
+  `LocalFs` responde `Caps::LOCAL`, constante de compilação chaveada pelo **sistema
+  operacional alvo**, não pelo filesystem embaixo do workspace. Então nenhuma linha
+  da tabela pode disparar: workspace em exFAT reporta `trash: true`, em SMB reporta
+  `atomic_replace: true`, e o banner de backend não-atômico do 1.6.17 fica invisível
+  não porque filesystem local é atômico — é — mas porque **nada no sistema consegue
+  responder outra coisa**. O `ACCEPTANCE-0.1a.md` tinha a versão fraca disso e eu
+  afiei a metade errada no 1.6.64: dizia *"asserted rather than observed"*, que se lê
+  como não-testado. Não-implementado é outra afirmação, e é a verdadeira
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

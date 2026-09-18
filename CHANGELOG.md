@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.93 - the capability matrix describes detection that does not exist
+
+`ARCHITECTURE.md` §11 opens *"The adapter reports `Caps` per root; the core
+adapts behaviour"* and closes by naming the detection: `statfs().f_type` on
+Linux, `pathconf` + `statfs` on macOS, `GetVolumeInformationW` on Windows,
+cached in `registry.db`.
+
+**None of those four calls appears anywhere in the repository.** `LocalFs`
+answers `Caps::LOCAL`, a compile-time constant in `notes-model` keyed on the
+target OS: `trash` off on iOS and Android, `native_id` behind unix-or-windows,
+`preserve_mode` behind unix, everything else `true` everywhere. The filesystem
+under the workspace is never asked.
+
+So no row in that table can fire. A workspace on exFAT reports `trash: true`; one
+on an SMB mount reports `atomic_replace: true`. And the non-atomic-backend banner
+of `1.6.17`, which reads `info.caps.atomic_replace`, stays invisible not because
+local filesystems are atomic — they are — but because **nothing in the system can
+answer otherwise**.
+
+This matters because §11 reads as a description of runtime behaviour in the
+document `CLAUDE.md` names as the one to read before changing structure. The
+section now opens by saying it is a specification, and the detection paragraph
+says *when it is built*.
+
+**`ACCEPTANCE-0.1a.md` had the softer version of this** and I sharpened the wrong
+half at `1.6.64`: it said those rows are *"asserted rather than observed"*, which
+reads as untested. Unimplemented is a different claim and the one that is true.
+Corrected there too.
+
+**What is actually queued is the cheaper half**, and worth separating: the Android
+SAF tree of `MOBILE-0.4.md` must answer `atomic_replace: false`, and it will do
+that by being a different `FileSystem` implementation — not by detecting a
+filesystem. Per-root detection for exFAT, SMB and NFS is queued nowhere, and the
+section now says so rather than leaving a reader to assume it is coming.
+
 ## 1.6.92 - a third Windows-only intermittent, and the three are one finding
 
 CI went red on `an_index_that_is_still_building_is_not_restarted_by_a_change`
