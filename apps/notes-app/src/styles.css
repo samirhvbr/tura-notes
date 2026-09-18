@@ -148,6 +148,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    top status line, above the fieldset — so pressing a button in the middle of
    the form answered in a place the eye was not, and a refusal read as the
    panel having an opinion rather than as a reply. */
+/* The connection, once it exists, as a thing you read rather than a form you
+   retype. The credential is listed by name: its path is remembered, not shown. */
+.device-paired { margin: 8px 0; }
+.device-summary { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 6px 0; }
+.device-summary dt { color: var(--fg-dim); }
+.device-summary dd { margin: 0; overflow-wrap: anywhere; }
 .device-outcome { margin: 4px 0 0; }
 .device-probe { margin: .5rem 0 0; font-weight: 600; }
 .device-probe.ok { color: var(--good); }

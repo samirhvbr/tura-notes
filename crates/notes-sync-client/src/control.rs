@@ -108,6 +108,10 @@ pub struct SyncConflictRow {
 pub struct DeviceSnapshot {
     pub receive: bool,
     pub connection: Option<SyncConnection>,
+    /// What the queue says it is paired to. `None` before a pairing exists, or
+    /// when the queue cannot answer — a summary is worth having and never
+    /// worth failing the whole snapshot for.
+    pub paired: Option<SyncPairing>,
     pub phase: DevicePhase,
     pub reason: Option<String>,
     pub pending: u32,
@@ -115,6 +119,28 @@ pub struct DeviceSnapshot {
     pub history: Vec<HistoryRow>,
     pub conflicts: Vec<SyncConflictRow>,
 }
+/**
+ * What this device is paired to, read back from where the pairing put it.
+ *
+ * None of this is new state. The queue's `Store` has held the source folder,
+ * the mode and the endpoint since the pairing wrote them, and `SyncConnection`
+ * has held the queue folder and the credential path — the panel simply never
+ * read any of it back, so the one place those values existed for the *user*
+ * was a form that emptied on unmount. Reported as having to reconfigure on
+ * every launch, which was never true of the application, only of its form.
+ */
+#[derive(Clone, Serialize, TS)]
+#[ts(export)]
+pub struct SyncPairing {
+    pub source: String,
+    /// `"upload"` or `"receive"`, the same words the wire uses.
+    pub mode: String,
+    pub origin: String,
+    pub workspace: String,
+    pub scope: Option<String>,
+    pub allow_private: bool,
+}
+
 #[derive(Clone, Serialize, TS)]
 #[ts(export)]
 pub struct SyncPairPreview {
@@ -253,6 +279,7 @@ impl Controller {
         let mut result = DeviceSnapshot {
             receive: false,
             connection: c.clone(),
+            paired: None,
             phase,
             reason,
             pending: 0,
@@ -264,7 +291,23 @@ impl Controller {
             let store = Store::open(Path::new(&c.state_dir))?;
             let status = store.status()?;
             result.pending = status.pending as u32;
-            result.receive = store.source_mode()?.1 == Mode::Receive;
+            let (source, mode) = store.source_mode()?;
+            result.receive = mode == Mode::Receive;
+            // Lenient on purpose: an endpoint the queue cannot read back is a
+            // summary the panel goes without, not a status call that fails.
+            if let Ok(endpoint) = store.endpoint() {
+                result.paired = Some(SyncPairing {
+                    source: source.to_string_lossy().into_owned(),
+                    mode: match mode {
+                        Mode::Upload => "upload".into(),
+                        Mode::Receive => "receive".into(),
+                    },
+                    origin: endpoint.origin,
+                    workspace: endpoint.name,
+                    scope: endpoint.scope.map(|p| p.to_string()),
+                    allow_private: endpoint.allow_private,
+                });
+            }
             if result.receive {
                 result.unapplied = (status.received
                     - status.applied_revisions

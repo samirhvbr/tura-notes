@@ -7,7 +7,7 @@ import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
 vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn()}));
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
-const empty:ipc.DeviceSnapshot={receive:false,connection:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[]};
+const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[]};
 const old=useWorkspace.getState();
 // The pairing form now persists its draft, so a test that types into it would
 // otherwise seed the next one.
@@ -185,4 +185,38 @@ it("says which button makes a pairing when reconnect finds none",async()=>{
   // And it answers where it was asked: inside the fieldset holding the button,
   // not on the panel's top status line above it.
   expect(said.closest("fieldset")).not.toBeNull();
+});
+
+it("says what it is paired to instead of six paths to retype",async()=>{
+  // Reported as having to reconfigure on every launch. The application already
+  // remembered: the queue's store has held the source, mode and endpoint since
+  // the pairing wrote them, and the connection has held the queue folder and
+  // the credential path. Only the form forgot, because a form empties.
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({...empty,
+    connection:{state_dir:"/private/queue",token_file:"/Users/samir/Documents/Tura-MacBookPro.secret",
+      enabled:false,interval_seconds:300,allow_metered:false,allow_battery:false,
+      capture_saved:false,capture_new:false,capture_renames:false},
+    paired:{source:"/Users/samir/Documents/X",mode:"upload",origin:"https://tura.samirhv.com.br",
+      workspace:"personal",scope:null,allow_private:false}});
+  show();
+  expect(await screen.findByText(/Paired with personal at https:\/\/tura\.samirhv\.com\.br/)).toBeInTheDocument();
+  expect(screen.getByText("/Users/samir/Documents/X")).toBeInTheDocument();
+  // The credential by name, never by path: the app remembers where it is.
+  expect(screen.getByText("Tura-MacBookPro.secret")).toBeInTheDocument();
+  expect(screen.queryByText("/Users/samir/Documents/Tura-MacBookPro.secret")).toBeNull();
+  // And the six fields are not on screen until asked for.
+  expect(screen.queryByRole("textbox",{name:/Server address/})).toBeNull();
+});
+
+it("reopens the form on request, already filled from what was stored",async()=>{
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({...empty,
+    connection:{state_dir:"/private/queue",token_file:"/private/token",
+      enabled:false,interval_seconds:300,allow_metered:false,allow_battery:false,
+      capture_saved:false,capture_new:false,capture_renames:false},
+    paired:{source:"/notes",mode:"upload",origin:"https://tura.example.com",
+      workspace:"personal",scope:null,allow_private:false}});
+  show();
+  fireEvent.click(await screen.findByRole("button",{name:"Change connection…"}));
+  expect(screen.getByRole("textbox",{name:/Server address/})).toHaveValue("https://tura.example.com");
+  expect(screen.getByRole("textbox",{name:/Local notes folder/})).toHaveValue("/notes");
 });

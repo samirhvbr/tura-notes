@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
@@ -68,10 +68,39 @@ export function DeviceSync() {
   const [path,setPath]=useState("");
   const [result,setResult]=useState("");
   const [deleting,setDeleting]=useState(false);
+  /* Open the form on a connection that already exists only when asked. The
+     panel's job once paired is to say what it is paired to, not to present six
+     paths for retyping. */
+  const [editing,setEditing]=useState(false);
+  /* Seed once. The persisted pairing is the truth, and overwriting a field the
+     owner is in the middle of typing — every poll, every fifteen seconds —
+     would be a worse bug than the one this fixes. */
+  const seeded=useRef(false);
   async function refresh() {
     const next=await ipc.deviceStatus();setSnapshot(next);
     setSettings(old=>old ?? next.connection);
   }
+  /* Seeded here rather than in either fetch, because there are two: `refresh()`
+     above runs after a button, and `poll()` below runs on mount and every
+     fifteen seconds. Putting it in one of them means it happens for one of the
+     two ways a snapshot arrives — which is exactly the bug this seeding is
+     meant to end.
+
+     Read the pairing back from where the pairing put it: the queue's store has
+     held the source, mode and endpoint since it was written, and the connection
+     has held the queue folder and the credential path. The form was the only
+     place those existed for the reader, and a form empties. `mode` is
+     deliberately left alone — the store keeps the coarser upload/receive, which
+     cannot say which of the three the owner picked. */
+  useEffect(()=>{
+    const p=snapshot?.paired, c=snapshot?.connection;
+    if(!p||!c||seeded.current)return;
+    seeded.current=true;
+    setRequest(r=>({...r,source:p.source,state_dir:c.state_dir,token_file:c.token_file,
+      origin:p.origin,workspace:p.workspace,scope:p.scope,allow_private:p.allow_private}));
+  },[snapshot]);
+  /** The credential's name, never its path: the app remembers where, the panel says which. */
+  const leaf=(path:string)=>path.slice(path.lastIndexOf("/")+1);
   useEffect(()=>{
     let alive=true, running=false;
     const poll=async()=>{
@@ -176,7 +205,21 @@ export function DeviceSync() {
       {snapshot?.connection&&<button onClick={()=>void ipc.devicePause().then(async()=>{const next=await ipc.deviceStatus();setSnapshot(next);setSettings(next.connection);}).catch(e=>setMessage(errorText(ipc.asCoreError(e))))}>{t("device.pause")}</button>}
       {snapshot?.reason&&<p role="status">{["offline","network_limited_or_unknown","power_limited_or_unknown","saved_receiver_changes"].includes(snapshot.reason)?t(`device.reason.${snapshot.reason}`):snapshot.reason}</p>}
       {!!message&&<p role="status" aria-live="polite">{message}</p>}
-      <fieldset disabled={busy}><legend>{t("device.connection")}</legend>
+      {/* Paired: say what to, and keep the six paths out of the way until the
+          owner asks for them. The credential appears by name only — the app
+          remembers where it is, and the panel has no reason to keep its
+          location on screen once it has been chosen. */}
+      {snapshot?.paired&&!editing&&<div className="device-paired">
+        <p>{t("device.pairedTo",{workspace:snapshot.paired.workspace,origin:snapshot.paired.origin})}</p>
+        <dl className="device-summary">
+          <dt>{t("device.source")}</dt><dd>{snapshot.paired.source}</dd>
+          {!!snapshot.connection&&<><dt>{t("device.state_dir")}</dt><dd>{snapshot.connection.state_dir}</dd></>}
+          {!!snapshot.connection&&<><dt>{t("device.credentialName")}</dt><dd>{leaf(snapshot.connection.token_file)}</dd></>}
+          {!!snapshot.paired.scope&&<><dt>{t("device.scope")}</dt><dd>{snapshot.paired.scope}</dd></>}
+        </dl>
+        <button type="button" onClick={()=>setEditing(true)}>{t("device.change")}</button>
+      </div>}
+      {(!snapshot?.paired||editing)&&<fieldset disabled={busy}><legend>{t("device.connection")}</legend>
         <div className="device-fields">
           {(["source","state_dir","token_file"] as const).map(key=><label key={key}>{t(`device.${key}`)}<span><input value={request[key]} onChange={e=>setRequest({...request,[key]:e.target.value})}/><button type="button" onClick={()=>void pick(key)} aria-label={t("device.chooseField",{field:t(`device.${key}`)})}>{t("device.choose")}</button></span></label>)}
           <label>{t("device.server")}<input type="url" placeholder="https://notes.example.com" value={request.origin} onChange={e=>setRequest({...request,origin:e.target.value})}/></label>
@@ -196,7 +239,7 @@ export function DeviceSync() {
         </p>}
         {!!missing.length&&<p role="status" className="device-missing">{t("device.missing")} {missing.join(" · ")}</p>}
         {!!workspace&&<p>{t("device.closeFirst")}</p>}
-      </fieldset>
+      </fieldset>}
       {settings&&<fieldset disabled={busy}><legend>{t("device.schedule")}</legend>
         <p>{settings.state_dir}</p>
         <label><input type="checkbox" checked={settings.enabled} onChange={e=>setSettings({...settings,enabled:e.target.checked})}/>{t("device.enabled")}</label>

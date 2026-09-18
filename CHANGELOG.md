@@ -7,6 +7,50 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.2 - the application always remembered; only the form forgot
+
+Reported twice, sharpening each time: *"toda vez que atualizo estou precisando
+inserir os dados novamente"*, then *"estou tendo de reconfigurar toda vez que
+abro o app"*, with the design to fix it — keep the credential somewhere private
+and take it off the screen once it is set.
+
+**The first thing to say is that the diagnosis was half wrong, and the disk
+says so.** The draft this panel started keeping at `1.6.102` is there:
+`tura-pair-draft`, 558 bytes, written the same afternoon, and the owner's own
+screenshot shows the fields filled. What does not come back is not the form —
+it is the *connection*, because there has never been one. The panel still reads
+`Device sync · Disabled` and *"Still needed before pairing: close the
+workspace"*. Nothing was lost; the same unfinished setup was being repeated.
+
+**And the second thing is that the design asked for already exists, unread.**
+`SyncConnection` is persisted to `sync-control.json` in the application's data
+directory and holds the queue folder and the credential path. The queue's own
+`Store` has held the source folder, the mode and the endpoint — origin,
+workspace, scope — since the pairing wrote them; `validate_connection` has been
+reading them on every load to check them. Every field of that form was already
+on disk, in two places, put there by the application itself. The panel simply
+never read any of it back, so the one place those values existed *for the
+reader* was a form, and a form empties.
+
+`DeviceSnapshot` gains `paired`, built from what the store already answers, and
+lenient on purpose: an endpoint the queue cannot read back costs a summary, not
+a status call. Once paired the panel says **what it is paired to** — server,
+workspace, source, queue, scope — and the six inputs go away behind *Change
+connection…*. The credential is listed **by name, never by path**: the
+application remembers where it is, and the panel has no reason to keep its
+location on screen after it has been chosen. That is the "tirar da vista"
+without the app taking custody of a secret it does not need to hold.
+
+`mode` is deliberately not seeded. The store keeps the coarser upload/receive,
+which cannot say which of the three the owner picked, and guessing would be a
+worse answer than the one already in the field.
+
+**A mistake worth keeping:** the seeding first went into `refresh()`, which runs
+after a button press — while `poll()`, which runs on mount and every fifteen
+seconds, is the one that actually delivers the snapshot on launch. So it seeded
+for one of the two ways a snapshot arrives, which is the shape of the bug it
+was written to end. It is an effect on the snapshot now, where both paths land.
+
 ## 1.7.1 - the pinned public key, so the deploy has something to verify against
 
 The deploy of `tura.samirhv.com.br` refused at 16:04, and refusing was the whole

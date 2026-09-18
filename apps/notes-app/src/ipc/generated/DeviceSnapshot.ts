@@ -3,5 +3,12 @@ import type { DevicePhase } from "./DevicePhase";
 import type { HistoryRow } from "./HistoryRow";
 import type { SyncConflictRow } from "./SyncConflictRow";
 import type { SyncConnection } from "./SyncConnection";
+import type { SyncPairing } from "./SyncPairing";
 
-export type DeviceSnapshot = { receive: boolean, connection: SyncConnection | null, phase: DevicePhase, reason: string | null, pending: number, unapplied: number, history: Array<HistoryRow>, conflicts: Array<SyncConflictRow>, };
+export type DeviceSnapshot = { receive: boolean, connection: SyncConnection | null, 
+/**
+ * What the queue says it is paired to. `None` before a pairing exists, or
+ * when the queue cannot answer — a summary is worth having and never
+ * worth failing the whole snapshot for.
+ */
+paired: SyncPairing | null, phase: DevicePhase, reason: string | null, pending: number, unapplied: number, history: Array<HistoryRow>, conflicts: Array<SyncConflictRow>, };
