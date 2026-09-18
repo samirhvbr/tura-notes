@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.101 - the sidebar moved every time you saved, and it was the index saying hello
+
+Reported from use: *"quando vai salvar ele mexe na tela lateral"*, with a
+proposal — half a second of delay. The instinct is right and the placement was
+not, so this is the delay moved to where it does the work.
+
+**What actually happens.** Saving makes the index stale. `IndexControls` polls
+every 500 ms, sees `stale && !running` and starts a run. On four notes that run
+is over almost immediately — but for one poll it is `running: true`, and that
+flips two things at the bottom of the sidebar: the status sentence, and
+*Rebuild index* into *Cancel*. `.index-controls` is a wrapping flex column in a
+panel narrow enough that those sentences wrap at different line counts, so the
+block changed height and the button moved under the pointer. Every save.
+
+**A delay on saving would only have postponed it.** The run still starts, still
+reports itself, still moves the button — half a second later, and with the
+panel now lying about a state that has already changed. What the delay belongs
+on is the *decision to mention a state that is about to stop being true*: a run
+is announced only once it has lasted `ANNOUNCE_AFTER`, and the timer is cleared
+when `running` goes back to `false`. A save that reindexes four notes now
+changes nothing on screen at all; a real rebuild still says so, one beat later,
+and its progress count still runs live.
+
+Two things are fixed alongside it, because a timer that hides a symptom is not
+the same as a layout that cannot produce it: the status line **reserves the two
+lines its longest sentence takes**, and the button is sized for the wider of its
+two labels. Either change alone would have left the other visible.
+
+Three tests. **And the first version of the first one was worthless** — it
+asserted after everything had settled, where the old behaviour and the new one
+agree, so it passed with the fix reverted. It now asserts inside the window
+between the `running: true` reading and the threshold, which is the only place
+the defect was ever visible. With the hold removed, two of the three fail.
+
 ## 1.6.100 - the intermittent named its cause, which is what the queue was waiting for
 
 The gate went red once on `receiver_restores_remote_moves_and_deletions_only_at_the_applied_path`
