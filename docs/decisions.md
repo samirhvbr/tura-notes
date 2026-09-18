@@ -136,6 +136,14 @@ been broken without anyone deciding to break it.
 
 **Decision.** `.notes/` holds only auxiliary data — `workspace.json`, `index.db`,
 `cache/`. It must never contain the only copy of anything the user wrote.
+
+> **Names, 19/09/2026.** `workspace.json` never shipped under that name. What the
+> directory holds is `registry.json`, `session.json`, `settings.json`,
+> `recent.json` and `index.db`. The decision is the rule, not the list — *delete
+> the directory: does the user lose something they wrote?* — and the rule is
+> unchanged. Noted because somebody who goes looking for `workspace.json` will
+> not find it, and the original wording stays because an ADR records what was
+> decided on the day.
 Deleting it must cost a reindex and nothing else. The test for anything proposed
 for `.notes/`: delete the directory — does the user lose something they wrote? If
 yes, it does not go there.

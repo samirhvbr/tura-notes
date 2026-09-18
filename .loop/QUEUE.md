@@ -706,6 +706,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   mais à frente do código — documento de projeto que ninguém releu como descrição
   depois que a implementação chegou. Os outros foram escritos ao lado do trabalho
 
+- [x] R7f — os documentos de aceite e o registro de decisões, conferidos do mesmo
+  jeito (1.6.96). **O conjunto de aceite está limpo:** todo arquivo de teste e toda
+  função de teste que eles citam como evidência existe. É a camada em que o sistema
+  de aceite inteiro se apoia — documento citando teste que não existe é evidência
+  que não existe, e não há nenhuma. **O registro de decisões tem duas referências e
+  as duas são vocabulário de ADR:** o `file_id`/`content_hash` da ADR-005 já está
+  anotado pela ADR-020, escrita exatamente para aquela frase; e a ADR-004 cita um
+  `workspace.json` que nunca existiu — são `registry.json`, `session.json`,
+  `settings.json`, `recent.json` e `index.db`. Nota datada, frase original intacta,
+  mesmo tratamento do 1.6.48 e do 1.6.88. **Todo documento do repositório já passou
+  por essa checagem:** um tinha três ausências, um tem um nome ilustrativo, e os
+  onze restantes estão exatos
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

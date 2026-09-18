@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.96 - the acceptance documents and the decision record, checked the same way
+
+The identifier check that found three absences in `ARCHITECTURE.md`, turned on
+the two document sets that had not had it: the nine `ACCEPTANCE-*.md` pages and
+`decisions.md`.
+
+**The acceptance set is clean.** Every test file and every test function they
+cite as evidence exists — `Menu.test.tsx`, `switch.rs`, `markdown-actions.test.ts`,
+`::a_symlink_at_the_temp_path_never_receives_the_write` and the rest. That is the
+layer the whole acceptance system rests on: a document citing a test that is not
+there is evidence that is not there, and there is none of it.
+
+**The decision record has two references and both are ADR vocabulary.**
+ADR-005's `file_id` and `content_hash` are already annotated — ADR-020 amends
+exactly that wording and was written for it. ADR-004 names `workspace.json` among
+what `.notes/` holds, and no such file ever shipped: it is `registry.json`,
+`session.json`, `settings.json`, `recent.json` and `index.db`.
+
+A dated note says so, and the original sentence stays — the same treatment as
+`1.6.48` and `1.6.88`, because an ADR records what was decided on the day and one
+that edits its own words stops being a record. The decision there is the rule and
+not the list: *delete the directory — does the user lose something they wrote?*
+That rule is unchanged and is what `.notes/` is still tested against.
+
+Every document in the repository has now been checked this way. One had three
+absences, one has an illustrative name, and the remaining eleven are exact.
+
 ## 1.6.95 - the same question asked of every other contract, and they are clean
 
 `ARCHITECTURE.md` named three mechanisms that do not exist (`1.6.93`, `1.6.94`).
