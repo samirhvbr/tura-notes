@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.97 - the round stops because the methods ran out, not the willingness
+
+`.loop/STATUS.md` records why a round ended, and this one ended for a reason
+worth writing precisely: four methods were applied to exhaustion and what is left
+needs a command I cannot give.
+
+**Sweeping a document against another document** — every page measured against
+what shipped after it, and against every other page making the same claim.
+**Executing a documented path instead of reading it** — six of them; the clean
+clone, the MCP configuration, the sync preview, the operator CLI, the audit, and
+the permission filter over the remote transport. **Asking whether a named
+mechanism exists in the code** — all thirteen documents. **Watching a CI run
+because my own change might break it** — which is what surfaced forty-seven red
+runs that predated me.
+
+What remains is three owner acts, each already written down with its mechanism:
+`gcc-mingw-w64-x86-64`, which now blocks five pieces of work; SVM in the
+firmware, which is the whole of `R4g`; and three product questions about
+retention, mobile lifecycle and device acceptance, in `.continue/0.6-sync.md` as
+a gap rather than a guess.
+
+The `loop-work` skill is explicit that fabricating an item to keep a round alive
+is the worst available outcome, and it is right: a queue item invented to avoid
+stopping is indistinguishable, later, from one somebody needed. So the round
+stops with the block written instead.
+
+`1.6.31` to `1.6.97`: sixty-seven versions, the gate green before every push,
+271 versions with Releases, CI green, and a gate that went from 26 steps to 33
+and now measures itself.
+
 ## 1.6.96 - the acceptance documents and the decision record, checked the same way
 
 The identifier check that found three absences in `ARCHITECTURE.md`, turned on

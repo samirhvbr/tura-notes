@@ -1,12 +1,12 @@
 {
   "versao": 1,
-  "ativo": true,
+  "ativo": false,
   "fase": "rodando",
   "objetivo": "Rodada 4: executar o que as seis respostas autorizaram - emulador Android, ADR do .loop, runbook dos atos do dono, roteiros de aceite 0.1d/0.6/0.5, e a primeira evidencia de execucao do app Android",
   "armado_em": "2026-09-17T15:08:49-03:00",
   "session_id": "36de2a23-371b-4493-b693-f19e4485e8ba",
   "bind_session": true,
-  "iteracao": 14,
+  "iteracao": 16,
   "max_iteracoes": 25,
   "janela": null,
   "dias": null,
@@ -18,11 +18,11 @@
   "politica_ask": "continuar-exceto-irreversivel",
   "sem_progresso": 0,
   "max_sem_progresso": 3,
-  "ultima_impressao": "89a66e9bc1e15ca6f6c91d8e5ec2203094bd1793",
+  "ultima_impressao": "a03a48824c503fb82982915d28a85998c53452fc",
   "colher_itens": true,
   "notificar": true,
   "notificado": false,
-  "encerrado_por": null,
-  "encerrado_detalhe": null,
-  "encerrado_em": null
+  "encerrado_por": "parada manual",
+  "encerrado_detalhe": "pelo operador",
+  "encerrado_em": "2026-09-17T21:29:21-03:00"
 }
