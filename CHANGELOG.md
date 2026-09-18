@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.102 - the sidebar came back with every folder shut
+
+Reported from use: the application reopened on `FINANCEIRO-V1.md` — editor
+loaded, tab strip right, caret restored — and the explorer showed `BLUE3`
+collapsed and nothing selected. *"Sem foco no arquivo aberto."*
+
+The word is *foco* and the missing thing is the **location**. The row draws
+itself selected the moment it exists; it did not exist, because a directory is
+listed only when it is first expanded and `restore()` expanded nothing. So the
+one panel whose whole job is to say where a note lives was the only part of the
+window that did not know.
+
+`reveal(path)` opens each folder between the root and the note, listing a level
+before expanding the next — because the child's listing is what proves the next
+level is there. One `tree_list` per level, no content read. A folder that has
+gone missing stops the walk instead of expanding a guess.
+
+Called from `restore()`, and from `openPath` too: opening from the palette, a
+search hit or the back/forward history is the same act as opening from the
+tree, so the tree should end up in the same state either way.
+
+The import this needs makes `tabs.ts` and `workspace.ts` mutually importing.
+That is safe here and the comment says why — every use is `getState()` inside
+an async action, so both modules have finished evaluating by the time one runs.
+A top-level read would not be.
+
 ## 1.6.101 - the sidebar moved every time you saved, and it was the index saying hello
 
 Reported from use: *"quando vai salvar ele mexe na tela lateral"*, with a

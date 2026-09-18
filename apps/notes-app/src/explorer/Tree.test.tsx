@@ -100,3 +100,32 @@ it("carries its depth, which is what draws the indent guides", () => {
   expect(wraps[0].style.getPropertyValue("--depth")).toBe("0");
   expect(wraps[1].style.getPropertyValue("--depth")).toBe("1");
 });
+
+it("opens the folders on the way to a note, so the tree can show it", async () => {
+  // The session restores the editor and the tab strip. Without this the sidebar
+  // came back with every folder shut, and a note inside one was the only thing
+  // on screen with no visible home — reported as opening "sem foco no arquivo".
+  const inside = { path: "BLUE3/FINANCEIRO-V1.md", name: "FINANCEIRO-V1.md", kind: "File", size: 9, is_note: true } as const;
+  const listed: Record<string, unknown> = { "": [folder], BLUE3: [inside] };
+  useWorkspace.setState({
+    listings: { "": [folder] } as never,
+    expanded: new Set<string>(),
+    list: async (dir: string) => {
+      useWorkspace.setState(s => ({ listings: { ...s.listings, [dir]: listed[dir] } } as never));
+    },
+  } as never);
+  await useWorkspace.getState().reveal("BLUE3/FINANCEIRO-V1.md" as never);
+  expect([...useWorkspace.getState().expanded]).toEqual(["BLUE3"]);
+  show();
+  expect(screen.getByText("FINANCEIRO-V1.md")).toBeInTheDocument();
+});
+
+it("stops at a folder that is no longer there instead of guessing", async () => {
+  useWorkspace.setState({
+    listings: {} as never,
+    expanded: new Set<string>(),
+    list: async () => {},     // the folder is gone; nothing gets listed
+  } as never);
+  await useWorkspace.getState().reveal("GONE/note.md" as never);
+  expect([...useWorkspace.getState().expanded]).toEqual([]);
+});

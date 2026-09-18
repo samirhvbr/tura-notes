@@ -44,6 +44,8 @@ interface WorkspaceState {
   createIn: (parent: string) => Promise<void>;
   list: (dir: RelPath) => Promise<void>;
   toggle: (dir: RelPath) => Promise<void>;
+  /** Expand every folder on the way to `path`, so the tree can show it. */
+  reveal: (path: RelPath) => Promise<void>;
   refresh: (dir: RelPath) => Promise<void>;
   setSort: (s: SortMode) => void;
   /** Fold every expanded directory. The listings are kept — they are cheap and
@@ -178,6 +180,32 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
     expanded.add(dir);
     set({ expanded });
     if (!get().listings[dir]) await get().list(dir);
+  },
+
+  /**
+   * Open the folders between the root and `path`.
+   *
+   * A note inside a folder was invisible in the tree until somebody expanded
+   * its way there by hand — which on a restart meant the editor had the note,
+   * the tab strip had the note, and the one panel whose job is to say *where a
+   * note lives* showed a collapsed folder. Reported as opening "sem foco no
+   * arquivo aberto", and the missing part is the location rather than the
+   * focus: the row already draws itself selected once it exists.
+   *
+   * Each level is listed before the next is expanded, because a directory is
+   * only listed when it is first opened and the child's listing is what proves
+   * the next level exists. One `tree_list` per level, no content read.
+   */
+  async reveal(path) {
+    const parts = path.split("/").slice(0, -1);
+    if (!parts.length) return;
+    let dir = "" as RelPath;
+    for (const part of parts) {
+      dir = (dir ? `${dir}/${part}` : part) as RelPath;
+      if (!get().listings[dir]) await get().list(dir);
+      if (!get().listings[dir]) return; // the folder is gone; stop rather than guess
+      set((s) => ({ expanded: new Set(s.expanded).add(dir) }));
+    }
   },
 
   async refresh(dir) {

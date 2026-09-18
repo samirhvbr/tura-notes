@@ -2,6 +2,10 @@ import { create } from "zustand";
 import * as ipc from "../ipc";
 import type { NoteId, RelPath, Session, Tab } from "../ipc";
 import { useEditor } from "./editor";
+// `workspace.ts` imports this module too. The cycle is safe because every use
+// here is `getState()` inside an async action — by the time one runs, both
+// modules have finished evaluating. A top-level read would not be.
+import { useWorkspace } from "./workspace";
 import { useUi } from "./ui";
 
 /**
@@ -79,6 +83,9 @@ export const useTabs = create<TabsState>((set, get) => ({
     await useEditor.getState().open(path);
     const doc = useEditor.getState().doc;
     if (!doc) return;
+    // Opening from the palette, a search hit or the history is the same act as
+    // opening from the tree, so the tree ends up in the same state either way.
+    void useWorkspace.getState().reveal(path);
 
     set((s) => ({
       tabs: s.tabs.some((t) => t.noteId === doc.noteId)
@@ -250,6 +257,10 @@ export const useTabs = create<TabsState>((set, get) => ({
     if (tab) {
       try {
         await useEditor.getState().open(tab.path);
+        // The session restores the editor and the tab strip; without this the
+        // sidebar came back with every folder shut, so a note inside one was
+        // the only thing on screen with no visible home.
+        await useWorkspace.getState().reveal(tab.path);
       } catch {
         // The note is gone. Its tab goes with it rather than sitting there
         // failing to open every time it is clicked.
