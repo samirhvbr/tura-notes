@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.92 - a third Windows-only intermittent, and the three are one finding
+
+CI went red on `an_index_that_is_still_building_is_not_restarted_by_a_change`
+(`deep.rs:599`) and green on the next run of the same content. The assertion is
+that the index **finishes** while the workspace keeps changing; on the runner it
+was still `building: true` at 4,869 indexed after 4,361 changes.
+
+That is the third test that fails only on Windows, and the three have one shape:
+each assumes a unit of work fits inside a window that runner does not guarantee.
+`rate_limit_bounds_authenticated_requests` needs sixty-one requests inside one
+fixed minute. `received_bytes_remain_pending_until_explicit_application` counts
+peer log lines. This one needs a walk to complete while changes arrive.
+
+**So the queue now carries it as one finding rather than three rows of bad luck**,
+because the repair is the same movement in all three: stop measuring elapsed time
+and measure the event — wait for the state the test is about instead of assuming
+the window was long enough to reach it. Three separate "flaky test" items invite
+three separate loosened assertions, which removes the evidence along with the
+red.
+
+None of them can be fixed here: all three touch Rust, and `clippy (windows)`
+cannot run on this machine. That is the fifth piece of work behind the same
+missing package.
+
 ## 1.6.91 - the new checker was right locally and wrong in CI, for the reason it exists
 
 `1.6.90` added `tools/changelog-versions.py` and CI answered with **264 false
