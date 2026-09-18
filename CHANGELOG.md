@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.1 - the pinned public key, so the deploy has something to verify against
+
+The deploy of `tura.samirhv.com.br` refused at 16:04, and refusing was the whole
+point: *"sem chave pública fixada em server/cotenant/notes-server.pub"*. The
+server is running `1.6.0`, the target is `1.7.0`, and
+[ADR-081](docs/decisions.md#adr-081--the-server-binary-is-signed-with-a-key-ci-never-holds-and-a-deploy-that-cannot-verify-changes-nothing)
+says a deploy that cannot verify changes nothing.
+
+The reasoning is worth restating where somebody will read it. `deploy-server.sh`
+fetches the tarball and its `.sha256` from the same URL, and `build.yml` produces
+both in the same step on the same runner. Anyone able to serve a different
+tarball is able to serve its digest. The checksum answers *"did it arrive
+intact?"* and nothing else.
+
+The owner generated the pair — `minisign -G`, password-protected, private half
+at `~/.config/tura-notes/notes-server.key` in mode 0600 under a 0700 directory,
+**a different key from the updater's**, because one key pushing both desktop
+updates and server binaries is one compromise with two blast radii. This commit
+carries the public half, which is the only half that was ever going to be in
+here.
+
+What remains is the signature itself: `tools/sign-server-release.sh 1.7.0`,
+then a pull on the server and the deploy again. The derived target is `X.Y.0`,
+so this bump to `1.7.1` does not change which artefact gets signed.
+
 ## 1.7.0 - the lock timeout is the dominant intermittent, not the exception
 
 Two more tests fell to it while this round was in the gate, in a run with no
