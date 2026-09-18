@@ -33,6 +33,41 @@ That is safe here and the comment says why — every use is `getState()` inside
 an async action, so both modules have finished evaluating by the time one runs.
 A top-level read would not be.
 
+## 1.6.102 - the pairing form kept nothing, and answered somewhere else
+
+Two reports in one sitting, from the panel that is hardest to fill in.
+
+**It lost everything typed.** *"O app fechou e abriu e já perdi tudo que tinha
+digitado."* Every field was plain component state, so it emptied on unmount —
+and this is the one form in the application whose own instructions tell you to
+close the workspace, next to a button that restarts the process. Six paths and
+a server address, typed twice, and the second time under the impression that
+the first attempt had done something wrong.
+
+The draft is kept now, and survives a shape written by an older build: it is
+spread over the blank request, so a field added since arrives empty rather than
+`undefined`, which React reads as an uncontrolled input. **No secret is stored
+— the credential's *path* is in the form; the credential itself is read by the
+Rust side from that path and never enters the frontend.**
+
+**And it answered in the wrong place.** *Reconnect existing queue* on a folder
+that has never been paired put *"This storage does not support that."* at the
+top of the panel, above the fieldset, three hundred pixels from the button that
+caused it. A result that far from its cause does not read as a reply — it reads
+as the panel having an opinion. This is the split placement named earlier in
+the same session and left unfixed because the case that proved it had not
+happened yet. It happened.
+
+An action's result now sits beside the action, next to where the connection
+test already answers. The panel's top line keeps the pause control's own
+message, which is where that one belongs.
+
+**The sentence is different too.** The core's `unsupported` is about storage,
+and here the storage is fine: reconnect attaches to a queue that has *already*
+been paired, and a fresh folder has nothing to attach to. Blaming the disk for
+a button pressed in the wrong order, while the way out is the button
+immediately to its left, is two failures. It now names that button.
+
 ## 1.6.101 - the sidebar moved every time you saved, and it was the index saying hello
 
 Reported from use: *"quando vai salvar ele mexe na tela lateral"*, with a

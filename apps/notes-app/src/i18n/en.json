@@ -52,6 +52,7 @@
   "device.apply": "Apply received files",
   "device.applyChoice": "Apply published resolution",
   "device.attach": "Reconnect existing queue",
+  "device.attach.absent": "No pairing exists in that queue folder yet. Reconnect existing queue attaches to one that does — use Create pairing and review to make it.",
   "device.battery": "Allow battery use or unknown power status",
   "device.branch": "retained branch",
   "device.capture": "Capture saved local conflict",

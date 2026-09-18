@@ -144,6 +144,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
    ambiguity the test was built to end. Colour carries the verdict, the words
    carry the reason, and the colours are the three this palette already checks
    at AA against every surface (tools/contrast.sh). */
+/* An action's result, beside the action. It used to be written to the panel's
+   top status line, above the fieldset — so pressing a button in the middle of
+   the form answered in a place the eye was not, and a refusal read as the
+   panel having an opinion rather than as a reply. */
+.device-outcome { margin: 4px 0 0; }
 .device-probe { margin: .5rem 0 0; font-weight: 600; }
 .device-probe.ok { color: var(--good); }
 .device-probe.no { color: var(--bad); }

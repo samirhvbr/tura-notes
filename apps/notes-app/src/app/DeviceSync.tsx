@@ -22,17 +22,48 @@ export async function conditions(): Promise<ipc.SyncConditions> {
   return { online: navigator.onLine === true, metered: network?.saveData === true || network?.type === "cellular" ? true : null, charging };
 }
 const initial: ipc.SyncPairRequest = {state_dir:"",source:"",origin:"",workspace:"",scope:null,token_file:"",allow_private:false,mode:"reconcile"};
+/**
+ * Where the half-filled pairing form is kept between runs.
+ *
+ * Every field here was plain component state, so it emptied on unmount — and
+ * this is the one form in the application whose own instructions tell you to
+ * close the workspace, next to a button that restarts the process. Reported
+ * exactly that way: *"o app fechou e abriu e já perdi tudo que tinha digitado"*.
+ * Six paths and a server address, typed twice.
+ *
+ * **No secret goes in here.** The credential *file's path* does, because that
+ * is what the form holds; the credential itself is read by the Rust side from
+ * that path and never crosses into the frontend at all.
+ */
+const draftKey = "tura-pair-draft";
+function loadDraft(): ipc.SyncPairRequest {
+  try {
+    const raw = localStorage.getItem(draftKey);
+    // Spread over `initial` rather than trusting the stored shape: a draft
+    // written by an older build is missing whatever was added since, and a
+    // missing field must be empty rather than `undefined` in a value input.
+    return raw ? {...initial, ...JSON.parse(raw) as Partial<ipc.SyncPairRequest>} : initial;
+  } catch { return initial; }
+}
 const defaults = {enabled:false,interval_seconds:300,allow_metered:false,allow_battery:false,capture_saved:false,capture_new:false,capture_renames:false};
 
 export function DeviceSync() {
   const workspace = useWorkspace(s => s.info);
   const [snapshot,setSnapshot]=useState<ipc.DeviceSnapshot|null>(null);
-  const [request,setRequest]=useState(initial);
+  const [request,setRequest]=useState(loadDraft);
+  useEffect(()=>{try{localStorage.setItem(draftKey,JSON.stringify(request));}catch{/* a draft is a convenience, never a requirement */}},[request]);
   const [settings,setSettings]=useState<ipc.SyncConnection|null>(null);
   const [preview,setPreview]=useState<ipc.SyncPairPreview|null>(null);
   const [probe,setProbe]=useState<ipc.SyncProbe|null>(null);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
+  /* What the three buttons in the fieldset answered. Separate from `message`,
+     which belongs to the pause control at the top of the panel: an action's
+     result has to appear where the action is. `Reconnect existing queue` put
+     "This storage does not support that." three hundred pixels above the
+     button that caused it, which reads as the panel having an opinion rather
+     than as an answer. */
+  const [outcome,setOutcome]=useState("");
   const [chosen,setChosen]=useState<{local:string;remote:string}|null>(null);
   const [path,setPath]=useState("");
   const [result,setResult]=useState("");
@@ -57,9 +88,9 @@ export function DeviceSync() {
     return()=>{alive=false;clearInterval(timer);window.removeEventListener("online",poll);window.removeEventListener("offline",poll);};
   },[]);
   async function task(work:()=>Promise<void>) {
-    if(busy)return;setBusy(true);setMessage("");
+    if(busy)return;setBusy(true);setOutcome("");
     try {await work();await refresh();}
-    catch(e){setMessage(errorText(ipc.asCoreError(e)));try{await refresh();}catch{/* keep error */}}
+    catch(e){setOutcome(errorText(ipc.asCoreError(e)));try{await refresh();}catch{/* keep error */}}
     finally{setBusy(false);}
   }
   async function pick(key:"state_dir"|"source"|"token_file") {
@@ -68,7 +99,17 @@ export function DeviceSync() {
   }
   async function attach() {
     const c={...defaults,state_dir:request.state_dir,token_file:request.token_file};
-    await ipc.deviceConfigure(c);setSettings(c);setPreview(null);
+    try { await ipc.deviceConfigure(c); }
+    catch(e) {
+      /* Reconnect attaches to a queue that has **already** been paired, so a
+         fresh folder has nothing to attach to. The core answers `unsupported`,
+         which renders as "This storage does not support that." — a sentence
+         about the disk, for a button pressed in the wrong order, with no hint
+         that the way out is the button immediately to its left. */
+      if(ipc.asCoreError(e).code==="unsupported"){setOutcome(t("device.attach.absent"));return;}
+      throw e;
+    }
+    setSettings(c);setPreview(null);
   }
   async function pair() {
     await ipc.devicePair(request);await attach();
@@ -77,7 +118,7 @@ export function DeviceSync() {
        that worked said nothing at all — indistinguishable from a button that
        did nothing. The phase in the summary moves too, but only after the next
        poll. */
-    setMessage(t("device.paired"));
+    setOutcome(t("device.paired"));
   }
   /* The one remote call that runs with the workspace open, because "is the
      server there and does this credential work" is what people ask *before*
@@ -134,7 +175,7 @@ export function DeviceSync() {
       <p>{t("device.explain")}</p>
       {snapshot?.connection&&<button onClick={()=>void ipc.devicePause().then(async()=>{const next=await ipc.deviceStatus();setSnapshot(next);setSettings(next.connection);}).catch(e=>setMessage(errorText(ipc.asCoreError(e))))}>{t("device.pause")}</button>}
       {snapshot?.reason&&<p role="status">{["offline","network_limited_or_unknown","power_limited_or_unknown","saved_receiver_changes"].includes(snapshot.reason)?t(`device.reason.${snapshot.reason}`):snapshot.reason}</p>}
-      <p role="status" aria-live="polite">{message}</p>
+      {!!message&&<p role="status" aria-live="polite">{message}</p>}
       <fieldset disabled={busy}><legend>{t("device.connection")}</legend>
         <div className="device-fields">
           {(["source","state_dir","token_file"] as const).map(key=><label key={key}>{t(`device.${key}`)}<span><input value={request[key]} onChange={e=>setRequest({...request,[key]:e.target.value})}/><button type="button" onClick={()=>void pick(key)} aria-label={t("device.chooseField",{field:t(`device.${key}`)})}>{t("device.choose")}</button></span></label>)}
@@ -145,6 +186,7 @@ export function DeviceSync() {
         </div>
         <label><input type="checkbox" checked={request.allow_private} onChange={e=>setRequest({...request,allow_private:e.target.checked})}/>{t("device.private")}</label>
         <div className="device-actions"><button disabled={busy||!request.origin||!request.token_file} onClick={()=>void task(test)}>{busy?t("device.testing"):t("device.test")}</button><button disabled={busy||missing.length>0} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={busy||!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
+        {!!outcome&&<p role="status" aria-live="polite" className="device-outcome">{outcome}</p>}
         {probe&&<p role="status" className={`device-probe ${verdict}`}>{said[probe.outcome]}
           {probe.status!==null&&` (HTTP ${probe.status})`}
           {probe.outcome==="granted"&&` · ${t("device.probe.workspace",{name:probe.workspace??""})}`}

@@ -52,6 +52,7 @@
   "device.apply": "Aplicar arquivos recebidos",
   "device.applyChoice": "Aplicar resolução publicada",
   "device.attach": "Reconectar fila existente",
+  "device.attach.absent": "Ainda não existe pareamento nessa pasta de fila. Reconectar fila existente se liga a um que já existe — use Criar pareamento e revisar para criá-lo.",
   "device.battery": "Permitir uso de bateria ou estado de energia desconhecido",
   "device.branch": "ramo preservado",
   "device.capture": "Capturar conflito local salvo",

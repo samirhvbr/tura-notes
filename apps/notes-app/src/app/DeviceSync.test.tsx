@@ -9,7 +9,9 @@ vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>()
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
 const empty:ipc.DeviceSnapshot={receive:false,connection:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[]};
 const old=useWorkspace.getState();
-beforeEach(()=>{useWorkspace.setState({info:null});vi.mocked(ipc.deviceStatus).mockResolvedValue(empty);});
+// The pairing form now persists its draft, so a test that types into it would
+// otherwise seed the next one.
+beforeEach(()=>{localStorage.clear();useWorkspace.setState({info:null});vi.mocked(ipc.deviceStatus).mockResolvedValue(empty);});
 afterEach(()=>{cleanup();useWorkspace.setState(old);vi.clearAllMocks();});
 function show(){render(<DeviceSync/>);fireEvent.click(screen.getByText(/Device sync/));}
 it("treats unavailable network and power information as unknown",async()=>{
@@ -146,4 +148,41 @@ it("keeps new-note and rename capture independent from saved edits",async()=>{
   fireEvent.click(newNotes);fireEvent.click(renames);
   fireEvent.click(screen.getByRole("button",{name:"Save transfer settings"}));
   await waitFor(()=>expect(ipc.deviceConfigure).toHaveBeenCalledWith(expect.objectContaining({capture_saved:false,capture_new:true,capture_renames:true,enabled:false})));
+});
+
+it("keeps a half-filled pairing form across a restart",async()=>{
+  // This is the one form whose own instructions tell you to close the
+  // workspace, beside a button that restarts the process. Reported as six
+  // paths and a server address typed twice.
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Server address/}),{target:{value:"https://tura.example.com"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/private/token"}});
+  cleanup();
+  show();
+  expect(screen.getByRole("textbox",{name:/Server address/})).toHaveValue("https://tura.example.com");
+  expect(screen.getByRole("textbox",{name:/Credential file/})).toHaveValue("/private/token");
+});
+
+it("survives a draft written by a build that had fewer fields",async()=>{
+  // A stored shape is not a trusted shape: a missing key must arrive empty
+  // rather than `undefined`, which React reads as an uncontrolled input.
+  localStorage.setItem("tura-pair-draft",JSON.stringify({origin:"https://tura.example.com"}));
+  show();
+  expect(screen.getByRole("textbox",{name:/Server address/})).toHaveValue("https://tura.example.com");
+  expect(screen.getByRole("textbox",{name:/Credential file/})).toHaveValue("");
+});
+
+it("says which button makes a pairing when reconnect finds none",async()=>{
+  // "This storage does not support that." blames the disk for a button pressed
+  // in the wrong order, and names no way out.
+  vi.mocked(ipc.deviceConfigure).mockRejectedValue({code:"unsupported",cap:"pairing"});
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Private sync queue folder/}),{target:{value:"/private/queue"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/private/token"}});
+  fireEvent.click(screen.getByRole("button",{name:"Reconnect existing queue"}));
+  const said=await screen.findByText(/Create pairing and review to make it/);
+  expect(screen.queryByText("This storage does not support that.")).toBeNull();
+  // And it answers where it was asked: inside the fieldset holding the button,
+  // not on the panel's top status line above it.
+  expect(said.closest("fieldset")).not.toBeNull();
 });
