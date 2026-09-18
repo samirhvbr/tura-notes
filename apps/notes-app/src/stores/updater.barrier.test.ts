@@ -48,16 +48,17 @@ it("does not hold the barrier after the attempt", async () => {
   expect(isSyncLocked()).toBe(false);
 });
 
-it("says the application was busy rather than blaming the installation", async () => {
-  // A refused barrier is not a failed install: nothing was extracted, nothing
-  // was renamed, and "move it to Applications" is advice about a step that
-  // never ran. The one real refusal left is a call still in flight.
-  const state = openWorkspace();
-  let release!: () => void;
-  const inFlight = tracked(() => new Promise<void>(r => { release = r; }));
-  await useUpdater.getState().install();
-  expect(invoke).not.toHaveBeenCalledWith("update_install");
-  expect(useUpdater.getState().phase).toBe("busy");
-  expect(state.switchTo).toHaveBeenCalled();
-  release(); await inFlight;
+it("installs while the application keeps polling, which is the reported case", async () => {
+  // The index status is polled every 500 ms, the knowledge panel every 3 s and
+  // the device status every 15 s, and each goes through `tracked()`. Against
+  // that a synchronous "is `pending` zero right now" is a coin toss, and this
+  // is the toss the update kept losing — for weeks, through two fixes that
+  // widened the window instead of making the attempt able to wait.
+  openWorkspace();
+  const poll = setInterval(() => { void tracked(async () => "status").catch(() => {}); }, 5);
+  try {
+    await useUpdater.getState().install();
+    expect(invoke).toHaveBeenCalledWith("update_install");
+    expect(useUpdater.getState().phase).not.toBe("busy");
+  } finally { clearInterval(poll); }
 });

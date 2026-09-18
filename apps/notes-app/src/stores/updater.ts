@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { checkUpdate, installUpdate } from "../ipc/updater";
-import { beginSyncBarrier, endSyncBarrier, settleSyncBarrier } from "../ipc/barrier";
+import { acquireSyncBarrier, endSyncBarrier } from "../ipc/barrier";
 import { useWorkspace } from "./workspace";
 
 type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "error" | "busy" | "closeWorkspace" | "installing";
@@ -81,12 +81,10 @@ export const useUpdater = create<State>((set, get) => ({
     if (!["available", "closeWorkspace", "error", "busy"].includes(get().phase) || !get().version) return;
     const root = useWorkspace.getState().info?.root ?? null;
     if (root && !(await useWorkspace.getState().leave())) { set({ phase: "closeWorkspace" }); return; }
-    // The close was an IPC call and `tracked()` releases its slot a macrotask
-    // later, so asking for the barrier now means asking while `pending` still
-    // counts the close that has already finished. Reported twice as an update
-    // that could not be installed: it was never attempted.
-    await settleSyncBarrier();
-    if (beginSyncBarrier()) {
+    // Waits for the calls in flight instead of losing a coin toss against
+    // them. The close was itself one of those calls, and the index poll fires
+    // every 500 ms whatever else is happening.
+    if (await acquireSyncBarrier()) {
       set({ phase: "installing", detail: null });
       try { await installUpdate(); }
       catch (e) { set({ phase: "error", detail: describe(e) }); }
@@ -94,8 +92,9 @@ export const useUpdater = create<State>((set, get) => ({
     } else {
       // Not `error`: nothing was downloaded, nothing was extracted and nothing
       // was renamed, so the platform advice about where the application lives
-      // is advice about a step that never ran. Something else holds the editor
-      // barrier — say that, and let the same button try again.
+      // is advice about a step that never ran. Reaching this now means a call
+      // that did not finish inside the timeout, which is a real condition
+      // rather than the scheduling accident it used to be.
       set({ phase: "busy", detail: null });
     }
     // Still running, so the restart did not happen and the workspace was closed

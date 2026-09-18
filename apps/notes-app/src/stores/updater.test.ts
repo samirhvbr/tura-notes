@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("./workspace", () => ({ useWorkspace: { getState: vi.fn(() => ({ info: null })) } }));
-// `settleSyncBarrier` is stubbed to resolve immediately. The real one waits a
-// macrotask for the releases `tracked()` has scheduled, and the file that
-// exercises it against the real barrier is `updater.barrier.test.ts` — this
-// suite mocks the barrier precisely so it can test everything around it.
-vi.mock("../ipc/barrier", () => ({ beginSyncBarrier: vi.fn(() => true), endSyncBarrier: vi.fn(), settleSyncBarrier: vi.fn(async () => {}) }));
+// The barrier is mocked here precisely so this suite can test everything
+// around it; `updater.barrier.test.ts` runs the real one.
+vi.mock("../ipc/barrier", () => ({ acquireSyncBarrier: vi.fn(async () => true), endSyncBarrier: vi.fn() }));
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspace } from "./workspace";
-import { beginSyncBarrier, endSyncBarrier } from "../ipc/barrier";
+import { acquireSyncBarrier, endSyncBarrier } from "../ipc/barrier";
 import { useUpdater } from "./updater";
 const available = { supported: true, version: "9.0.0", notes: "New release" };
 /** A workspace that is open, and that answers `leave()` by actually closing —
@@ -30,7 +28,7 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storage.set(key, value),
   });
   useUpdater.setState({ phase: "idle", version: null, notes: null });
-  vi.mocked(beginSyncBarrier).mockReturnValue(true);
+  vi.mocked(acquireSyncBarrier).mockResolvedValue(true);
   vi.mocked(useWorkspace.getState).mockReturnValue({ info: null } as never);
 });
 describe("desktop updates", () => {
@@ -121,7 +119,7 @@ describe("desktop updates", () => {
     // And says *that*, rather than the platform advice for an installation
     // that never started: nothing was downloaded, extracted or renamed.
     useUpdater.setState({ phase: "available", version: "9.0.0" });
-    vi.mocked(beginSyncBarrier).mockReturnValue(false);
+    vi.mocked(acquireSyncBarrier).mockResolvedValue(false);
     await useUpdater.getState().install(); expect(invoke).not.toHaveBeenCalled();
     expect(useUpdater.getState().phase).toBe("busy");
   });

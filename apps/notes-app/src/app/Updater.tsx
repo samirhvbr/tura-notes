@@ -47,9 +47,32 @@ function useErrorKey(): string {
  * forever and moving the application to `/Applications`. Not translated because
  * it is not ours to translate, and a paraphrase of an error is a second error.
  */
+/**
+ * The refusals the Rust half answers with are **tokens**, not sentences.
+ *
+ * `updater.rs` returns `update_workspace_open`, `update_unavailable`,
+ * `update_unsupported` and `update_busy` as bare strings, and `1.6.69` printed
+ * whatever arrived verbatim — which for these four means a reader gets an
+ * identifier where a reason belongs. Verbatim is right for the *plugin's* own
+ * errors, which are not ours to paraphrase; it is not right for our own.
+ *
+ * So a token we wrote gets the sentence we meant, and the token stays
+ * underneath: it is still the string somebody pastes into a report.
+ */
+const explained: Record<string, string> = {
+  update_workspace_open: "update.detail.update_workspace_open",
+  update_unavailable: "update.detail.update_unavailable",
+  update_unsupported: "update.detail.update_unsupported",
+  update_busy: "update.detail.update_busy",
+};
+
 function Detail({ detail }: { detail: string | null }) {
   if (!detail) return null;
-  return <p className="update-detail"><code>{detail}</code></p>;
+  const key = explained[detail.trim()];
+  return <>
+    {key && <p role="status">{t(key)}</p>}
+    <p className="update-detail"><code>{detail}</code></p>
+  </>;
 }
 
 export function UpdateButton() {

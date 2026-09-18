@@ -59,3 +59,18 @@ it("falls back to the neutral sentence when the platform cannot be read, and sti
   expect(await screen.findByText("Nothing was installed. The error is below.")).toBeInTheDocument();
   expect(screen.getByText("something specific")).toBeInTheDocument();
 });
+
+it("turns our own refusal tokens into sentences, and keeps the token",async()=>{
+  // `updater.rs` answers `update_workspace_open` and three others as bare
+  // strings. Verbatim is right for the plugin's errors, which are not ours to
+  // paraphrase; an identifier we wrote ourselves is not a reason.
+  useUpdater.setState({phase:"error",version:"1.4.0",detail:"update_workspace_open"});
+  render(<UpdateButton/>);
+  await waitFor(()=>expect(screen.getByText(/A workspace was still open/)).toBeInTheDocument());
+  expect(screen.getByText("update_workspace_open")).toBeInTheDocument();
+});
+it("still shows a plugin error it has no sentence for",async()=>{
+  useUpdater.setState({phase:"error",version:"1.4.0",detail:"Invalid cross-device link (os error 18)"});
+  render(<UpdateButton/>);
+  await waitFor(()=>expect(screen.getByText("Invalid cross-device link (os error 18)")).toBeInTheDocument());
+});

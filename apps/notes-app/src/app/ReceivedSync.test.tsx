@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { ReceivedSyncShell } from "./ReceivedSync";
 import * as ipc from "../ipc";
-import { beginSyncBarrier, endSyncBarrier, isSyncLocked, setComposing, tracked } from "../ipc/barrier";
+import { acquireSyncBarrier, endSyncBarrier, isSyncLocked, setComposing, tracked } from "../ipc/barrier";
 import { useEditor } from "../stores/editor";
 import { useWorkspace } from "../stores/workspace";
 import { useSync } from "../stores/sync";
@@ -79,13 +79,50 @@ it("refuses dirty buffers without sending, saving or replacing them", async () =
   expect(ipc.syncApply).not.toHaveBeenCalled(); expect(isSyncLocked()).toBe(false);
   expect(useEditor.getState().doc?.text).toBe("my changes");
 });
-it("refuses admission while RPC continuations or IME composition are active", async () => {
+it("waits for the calls in flight instead of losing a race to them", async () => {
+  // This is the contract that changed. The old gate asked `pending === 0` and
+  // took the lock in one instant, so it could never *become* true — only
+  // happen to be, against an index poll that fires every 500 ms. Waiting is
+  // what makes it reachable.
   let resolve!: () => void;
-  const pending = tracked(() => new Promise<void>(r => { resolve = r; }));
-  expect(beginSyncBarrier()).toBe(false);
-  resolve(); await pending;
-  expect(beginSyncBarrier()).toBe(false);
+  const inFlight = tracked(() => new Promise<void>(r => { resolve = r; }));
+  const taking = acquireSyncBarrier();
+  let settled = false;
+  void taking.then(() => { settled = true; });
+  await new Promise(r => setTimeout(r, 25));
+  expect(settled).toBe(false);          // still waiting, which is the point
+  resolve(); await inFlight;
+  expect(await taking).toBe(true);
+  endSyncBarrier();
+});
+
+it("shuts the door before it waits, so pending can actually reach zero", async () => {
+  let resolve!: () => void;
+  const inFlight = tracked(() => new Promise<void>(r => { resolve = r; }));
+  const taking = acquireSyncBarrier();
+  await new Promise(r => setTimeout(r, 10));
+  // Without this refusal the next poll tops `pending` back up and the wait
+  // chases a number that never falls.
+  await expect(tracked(async () => "late")).rejects.toMatchObject({ code: "unsupported" });
+  resolve(); await inFlight;
+  expect(await taking).toBe(true);
+  endSyncBarrier();
+});
+
+it("reports rather than hangs when a call never finishes", async () => {
+  let resolve!: () => void;
+  const stuck = tracked(() => new Promise<void>(r => { resolve = r; }));
+  expect(await acquireSyncBarrier(30)).toBe(false);
+  resolve(); await stuck;
   await new Promise(r => setTimeout(r, 5));
-  setComposing(true); expect(beginSyncBarrier()).toBe(false);
-  setComposing(false); expect(beginSyncBarrier()).toBe(true);
+  expect(await acquireSyncBarrier()).toBe(true);   // and the door is open again
+  endSyncBarrier();
+});
+
+it("refuses while an IME composition is active", async () => {
+  setComposing(true);
+  expect(await acquireSyncBarrier()).toBe(false);
+  setComposing(false);
+  expect(await acquireSyncBarrier()).toBe(true);
+  endSyncBarrier();
 });

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { t } from "../i18n";
 import * as ipc from "../ipc";
-import { beginSyncBarrier, endSyncBarrier, isSyncLocked, subscribeBarrier, setComposing } from "../ipc/barrier";
+import { acquireSyncBarrier, endSyncBarrier, isSyncLocked, subscribeBarrier, setComposing } from "../ipc/barrier";
 import { acceptSyncReload, useEditor } from "../stores/editor";
 import type { OpenDoc } from "../stores/editor";
 import { useSync } from "../stores/sync";
@@ -64,7 +64,7 @@ export function ReceivedSyncControls() {
     try {
       const picked = await openDialog({ directory: true, multiple: false, title: t("received.pick") });
       if (typeof picked !== "string") return;
-      admitted = beginSyncBarrier();
+      admitted = await acquireSyncBarrier();
       if (!admitted) { setMessage(t("received.busy")); return; }
       const opened = await ipc.syncOpen(picked);
       setWorkspace(opened.id);
@@ -98,7 +98,7 @@ export function ReceivedSyncControls() {
       setMessage(t("received.dirty")); return;
     }
     useSync.getState().stop();
-    if (!beginSyncBarrier()) {
+    if (!(await acquireSyncBarrier())) {
       setMessage(t("received.busy"));
       void useSync.getState().start();
       return;

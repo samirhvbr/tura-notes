@@ -7,6 +7,57 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.0 - the barrier could never become free, only happen to be
+
+Reported for weeks, fixed twice, still broken — and the report that closed it
+was the sharpest one: *"funciona em ShvIA e SShvTerm"*. Two other Tauri
+applications updating on the same machine says the fault is not macOS, not the
+feed, not the signature. It is ours.
+
+`1.6.99` found the first half: `install()` asked for the barrier one microtask
+after an IPC call whose release runs a macrotask later. True, and not enough —
+because the screen that came back was `1.6.99`'s **own** new sentence, *"nothing
+was installed, and nothing was attempted"*. The fix had made the window wider.
+The window was never the problem.
+
+**`beginSyncBarrier()` asked `pending === 0` and set `locked = true` in a single
+instant, so it could not *become* true — it could only happen to be.** This
+application polls the index every 500 ms, the knowledge panel every 3 s and the
+device status every 15 s, and every one of those goes through `tracked()`. An
+instantaneous attempt against that drumbeat is a coin toss, and installing an
+update is the one caller that loses it in a way the user sees.
+
+`acquireSyncBarrier()` does the two things in the order that works:
+
+1. **Claim** — shut the door. `tracked()` refuses while claiming, exactly as it
+   already did while locked, so nothing new gets in.
+2. **Drain** — wait for the calls inside to leave. `pending` only falls from
+   here, because step 1 stopped it rising. That is what makes the wait
+   terminate instead of chasing a moving number.
+3. **Hold** — and the door stays shut on the way out.
+
+A timeout keeps a call that never settles reportable rather than hung on. `Y`,
+not `Z`: this reverses how a documented core mechanism is acquired, and both
+its callers change with it.
+
+**The second caller matters as much.** *Apply received files* took the barrier
+the same way, so the sync flow being set up right now carried the identical
+defect, unreported only because nobody had got that far yet.
+
+**And the refusals that remain now read as reasons.** `updater.rs` answers
+`update_workspace_open`, `update_unavailable`, `update_unsupported` and
+`update_busy` as bare tokens, and `1.6.69` printed whatever arrived verbatim.
+Verbatim is right for the plugin's own errors — not ours to paraphrase — and
+wrong for an identifier we wrote ourselves. Each gets its sentence, with the
+token kept underneath, because that is still the string somebody pastes into a
+report.
+
+Six tests, and every one fails against the old instantaneous gate: the install
+completes while a poller hammers `tracked()` on a 5 ms interval, the acquire
+waits rather than refusing, the door shuts before the wait, a stuck call is
+reported instead of hung on, composition still refuses, and the door reopens
+afterwards.
+
 ## 1.6.102 - the sidebar came back with every folder shut
 
 Reported from use: the application reopened on `FINANCEIRO-V1.md` — editor
