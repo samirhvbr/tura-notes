@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.0 - the lock timeout is the dominant intermittent, not the exception
+
+Two more tests fell to it while this round was in the gate, in a run with no
+Rust touched at all: `ordinary_receiver_capture_preserves_remote_races_for_explicit_resolution`
+and `receiver_recapture_reserves_resolution_capacity_without_discarding_history`,
+both `ApplicationBlocked { cause: "timed out waiting for the workspace write lock" }`.
+
+That makes **four** tests on the lock timeout against two on the `capture`
+guard. When `1.6.100` recorded the first one it read as a second path beside
+the known one; four to two reads as the main path, with the guard as the
+smaller case. It also showed up on a machine running builds and gates at once,
+which the queue row now says, because it is the difference between a race and
+a budget that is simply too short under load.
+
+The row's next step changes with it: measure how long the write lock is held
+during `stage_receiver_edits` before hunting for something that never releases
+it.
+
 ## 1.7.0 - the barrier could never become free, only happen to be
 
 Reported for weeks, fixed twice, still broken — and the report that closed it
