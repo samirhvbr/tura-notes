@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.95 - the same question asked of every other contract, and they are clean
+
+`ARCHITECTURE.md` named three mechanisms that do not exist (`1.6.93`, `1.6.94`).
+The obvious next question is whether that is a habit or an outlier, so every
+identifier in the other five contract documents was checked against the source
+the same way.
+
+| Document | Named | Absent |
+|---|---|---|
+| `SYNC-0.6.md` | 19 | **0** |
+| `KNOWLEDGE-0.3.md` | 14 | **0** |
+| `MCP-0.7.md` | 12 | **0** |
+| `SERVER-0.5.md` | 8 | 1 — `mod_proxy`, which is Apache's |
+| `SCOPE.md` | 24 | 3 — `LSSupportsOpeningDocumentsInPlace`, `UIFileSharingEnabled`, `ScopedFileSystem`, all iOS and all behind `[0.4]` |
+
+So it is an outlier, and the reason is legible: `ARCHITECTURE.md` is the oldest of
+them and the one written furthest ahead of the code — a design document that was
+never re-read as an implementation description after the implementation arrived.
+The others were written next to the work they describe.
+
+Recorded in that document's header, so the next reader knows §11 in particular is
+a design before they build against it, and knows the rest of the contract set was
+checked rather than assumed.
+
+A sweep that comes back clean is evidence, and five of six is the most reassuring
+result this method has produced.
+
 ## 1.6.94 - two more mechanisms the architecture names and the code does not have
 
 `1.6.93` found the capability matrix describing detection nobody wrote. The same

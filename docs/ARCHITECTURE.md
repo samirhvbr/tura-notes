@@ -1,7 +1,15 @@
 # Architecture
 
 **Status: ACTIVE** through milestones 0.1d and 0.2, implemented in 0.14.0.
-Sections tagged `[0.3]` and `[0.4]` remain `PROPOSED`. Owner verification of
+Sections tagged `[0.3]` and `[0.4]` remain `PROPOSED`.
+
+> **Read §11 before building against it.** Every identifier this document names
+> was checked against the source on 19/09/2026, and three named mechanisms do not
+> exist: the per-root filesystem detection of §11, the `FsEvent` type, and
+> `note_convert_encoding`. Each is now marked where it appears. The same check
+> across `SYNC-0.6.md`, `KNOWLEDGE-0.3.md`, `MCP-0.7.md`, `SERVER-0.5.md` and
+> `SCOPE.md` found nothing of the kind — this document was the outlier, being the
+> oldest and the one written furthest ahead of the code. Owner verification of
 installed releases is tracked separately in the acceptance documents.
 
 The decisions this document introduced are recorded as **ADR-013 … ADR-024** in

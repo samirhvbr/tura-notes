@@ -696,6 +696,16 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   também não existe** — a tabela de crates creditava o `notes-fs` com um watcher
   "normalizado para `FsEvent`"; o que o `watch.rs` expõe é `Watch` e `Degraded`
 
+- [x] R7e — a mesma pergunta feita aos outros contratos, e eles estão limpos
+  (1.6.95). O `ARCHITECTURE.md` nomeava três mecanismos inexistentes; a pergunta
+  seguinte é se isso é hábito ou exceção. Conferi todo identificador dos outros
+  cinco contratos contra o código: `SYNC-0.6.md` 19 citados e **zero** ausentes,
+  `KNOWLEDGE-0.3.md` 14 e zero, `MCP-0.7.md` 12 e zero, `SERVER-0.5.md` uma ausência
+  que é módulo do Apache, e o `SCOPE.md` três que são de iOS sob `[0.4]`. **É
+  exceção, e o motivo é legível:** o `ARCHITECTURE.md` é o mais antigo e o escrito
+  mais à frente do código — documento de projeto que ninguém releu como descrição
+  depois que a implementação chegou. Os outros foram escritos ao lado do trabalho
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas
