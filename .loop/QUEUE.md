@@ -683,6 +683,19 @@ dois separa os **dois passos** de publicação, que é por que os dois erraram.
   afiei a metade errada no 1.6.64: dizia *"asserted rather than observed"*, que se lê
   como não-testado. Não-implementado é outra afirmação, e é a verdadeira
 
+- [x] R7d — mais dois mecanismos que a arquitetura nomeia e o código não tem
+  (1.6.94). Perguntei ao documento inteiro se cada identificador citado existe:
+  81 candidatos, 17 ausências, a maioria legítima (palavras de status, chaves de
+  Actions, APIs de iOS sob `[0.4]`). Duas não. **`note_convert_encoding` não
+  existe**, e a página dizia que o editor fica travado *"até o usuário rodar
+  `note_convert_eol(…)` ou `note_convert_encoding`"* — o primeiro é real, com botão
+  na interface; o segundo, lugar nenhum. O documento prometia saída do read-only de
+  UTF-8 inválido que o produto **deliberadamente** não dá, e o produto está certo:
+  a string que ele mostra diz *"nada será convertido sem você mandar"*. Reescrever
+  bytes do usuário com base num palpite é o que a ADR-001 proíbe. **E `FsEvent`
+  também não existe** — a tabela de crates creditava o `notes-fs` com um watcher
+  "normalizado para `FsEvent`"; o que o `watch.rs` expõe é `Watch` e `Degraded`
+
 ## Notas — não são itens, são coisas a fazer quando o arquivo for tocado
 
 - **Português em quatro scripts de `tools/`:** `sign-server-release.sh` (25 linhas

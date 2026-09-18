@@ -108,7 +108,7 @@ schema change that forces a migration or reindex is a **Y** bump.
 | Crate | Owns | Must not |
 |---|---|---|
 | `notes-model` | `WorkspaceId`, `NoteId`, `RelPath`, `CompareKey`, `ContentHash`, `Stat`, `NativeId`, `BaseRev`, `TextProfile`, `Caps`, `CoreError`, event enums | do I/O, depend on anything but `serde`, `uuid`, `thiserror`, `ts-rs` |
-| `notes-fs` | `FileSystem` trait; `LocalFs`; root jail; atomic replace; case-sensitivity probe; `notify` watcher normalized to `FsEvent` | know what a note is; touch the registry |
+| `notes-fs` | `FileSystem` trait; `LocalFs`; root jail; atomic replace; case-sensitivity probe; the `notify` watcher behind `Watch`, with `Degraded` for the states where watching is not possible | know what a note is; touch the registry |
 | `notes-markdown` `[0.1b]` | `parse(&str) -> Document`; `render_html(&str, RenderOpts) -> Rendered`; link resolution; slugging; sanitization | do I/O; know about workspaces |
 | `notes-core` | `WorkspaceService` — open/close workspace, registry, text profile, write protocol, drafts, conflicts, reconciliation, identity correlation, session, settings, search-by-scan, cross-process lock | render UI strings; depend on `tauri` |
 | `notes-index` `[0.2]` | separate SQLite stores, incremental cache, FTS5, parsed document facts; graph/tags at 0.3 | be required for opening or editing a note |
@@ -378,9 +378,18 @@ suspended, edits keep going to the draft (every debounce), never to the note.
 
 On `note_open`, the core detects `TextProfile`. `encoding: Unknown` (invalid
 UTF-8) or `eol: Mixed` returns `read_only: true` with a reason; the editor is
-disabled until the user runs `note_convert_eol(note_id, Lf | CrLf)` or
-`note_convert_encoding` explicitly — those are the user asking, so they are
-allowed to change bytes. BOM is stripped before the text reaches the frontend
+disabled until the user runs `note_convert_eol(note_id, Lf | CrLf)` — that is the
+user asking, so it is allowed to change bytes.
+
+**There is no `note_convert_encoding`, and this page claimed one until
+`1.6.94`.** Mixed line endings have a way out and invalid UTF-8 does not: the
+file stays read-only, and the string the application shows says exactly that —
+*"nothing will be converted without your say-so"*. Which is the right behaviour
+and the opposite of what a promised command implies. Re-encoding somebody's file
+is a guess about what those bytes were, and a guess that rewrites the user's
+bytes is the one thing
+[ADR-001](decisions.md#adr-001--markdown-files-on-the-filesystem-are-the-source-of-truth)
+does not permit. If it is ever added it needs an ADR, not a function. BOM is stripped before the text reaches the frontend
 and re-added by `profile.bom` on save. CodeMirror is configured with
 `lineSeparator: "\n"`; the profile, not the editor, decides what hits the disk.
 
@@ -511,7 +520,7 @@ refresh; poll timer every 5 s in foreground when `!caps.watch`; full scan on
 return from background `[0.4]`.
 
 ```
-raw watcher events ─▶ notify-debouncer (200 ms) ─▶ normalize to FsEvent { Created | Modified | Removed | Renamed { from, to } }
+raw watcher events ─▶ notify-debouncer (200 ms) ─▶ normalize  [the normalized shape below is the design; the code exposes `Watch` and `Degraded`, and no `FsEvent` type exists]
   ─▶ drop ignored entries (§16 IGNORE_DEFAULT) and our own temp files (.*.tmp-*)
   ─▶ self-write filter: (path, hash) matches an armed expectation, not expired → consume expectation, drop event
   ─▶ per path: stat; if (size, mtime) ≠ registry → hash; if hash ≠ registry → real change

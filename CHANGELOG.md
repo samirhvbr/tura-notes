@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.94 - two more mechanisms the architecture names and the code does not have
+
+`1.6.93` found the capability matrix describing detection nobody wrote. The same
+question asked of the whole document — does each named identifier exist? —
+returns eighty-one candidates and seventeen absences, most of them fine: status
+words, GitHub Actions keys, iOS APIs behind `[0.4]`, and the `statfs` family just
+corrected. Two are not fine.
+
+**`note_convert_encoding` does not exist**, and the page said the editor stays
+disabled *"until the user runs `note_convert_eol(…)` or `note_convert_encoding`
+explicitly"*. The first command is real, in `commands.rs`, `lib.rs` and
+`ipc/index.ts`, with `Convert to LF` and `Convert to CRLF` in the interface. The
+second is nowhere.
+
+So the document promised a way out of the invalid-UTF-8 read-only state that the
+product deliberately withholds — and **the product is right**. The string it
+shows reads *"nothing will be converted without your say-so"*, which is honest
+about there being no conversion. Re-encoding a file is a guess about what those
+bytes were, and a guess that rewrites the user's bytes is what
+[ADR-001](docs/decisions.md#adr-001--markdown-files-on-the-filesystem-are-the-source-of-truth)
+forbids. The page now says that, and that adding one would need an ADR rather
+than a function.
+
+**`FsEvent` does not exist either.** The crate table credited `notes-fs` with a
+*"`notify` watcher normalized to `FsEvent`"* and the pipeline diagram named its
+variants. What `watch.rs` exposes is `Watch` and `Degraded`. The table now names
+those, and the diagram says the normalized shape below it is the design.
+
+Neither is a bug in the code. Both are the same defect as §11: a specification
+written in the present tense, in the document `CLAUDE.md` sends people to before
+they change structure — where the cost is somebody building against a type that
+is not there.
+
 ## 1.6.93 - the capability matrix describes detection that does not exist
 
 `ARCHITECTURE.md` §11 opens *"The adapter reports `Caps` per root; the core
