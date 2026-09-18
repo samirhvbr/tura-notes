@@ -7,6 +7,49 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.99 - the update was refused by its own completed work
+
+Reported twice, from two different versions, and the second report carried the
+thing that identified it: *"Nothing was installed. If nothing asked for your
+password, the application is running from somewhere it cannot replace itself."*
+The application was in `/Applications`, owned by the user, with no quarantine
+attribute, and `$TMPDIR` on the same volume — every condition that sentence
+describes was false. And **the verbatim error `1.6.69` exists to print was not
+there**, which is the whole tell: the plugin was never reached, so it had no
+error to give.
+
+The owner asked the question that closes it — *why does this work in two other
+applications on the same machine and not here?* Because it was never macOS. It
+was this:
+
+`install()` closes the workspace first (ADR-074), the close is an IPC call, and
+every IPC call goes through `tracked()`. `tracked()` gives its slot back inside
+`setTimeout(…, 0)`, deliberately, so that the caller's own response continuation
+is covered and not just the transport promise. But `await` resumes in a
+**microtask** and that release runs in a **macrotask** — so `beginSyncBarrier()`
+was called while `pending` still counted the close that had already finished. It
+returned `false` every time a workspace was open. Nothing was downloaded,
+nothing was extracted, nothing was renamed.
+
+`settleSyncBarrier()` waits for the releases already scheduled. One
+`setTimeout(…, 0)` is enough and is not a guess: timers with an equal delay fire
+in the order they were queued. A call still genuinely in flight has scheduled
+nothing yet and still holds the barrier shut, which is the refusal that means
+something.
+
+**And that refusal now says so.** It was setting `phase: "error"` with
+`detail: null`, which rendered the platform advice for an installation that had
+not started — the sentence above, about a `/Applications` the application was
+already in. A `busy` phase carries its own: *nothing was installed, and nothing
+was attempted*. The same button retries.
+
+**The mock was why this was invisible.** `updater.test.ts` stubs
+`beginSyncBarrier` to `() => true` and gives `leave()` a plain `async` body;
+both are reasonable in isolation, and together they remove exactly the ordering
+that breaks. The regression lives in `updater.barrier.test.ts`, where the
+barrier is real and `leave()` goes through `tracked()` like the real one — three
+tests, and deleting the fix fails the first.
+
 ## 1.6.98 - a note inside a folder read as a third sibling of the folder
 
 Reported from use, and the report is the measurement: with `BLUE3` expanded over

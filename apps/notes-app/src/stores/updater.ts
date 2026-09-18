@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { checkUpdate, installUpdate } from "../ipc/updater";
-import { beginSyncBarrier, endSyncBarrier } from "../ipc/barrier";
+import { beginSyncBarrier, endSyncBarrier, settleSyncBarrier } from "../ipc/barrier";
 import { useWorkspace } from "./workspace";
 
-type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "error" | "closeWorkspace" | "installing";
+type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "error" | "busy" | "closeWorkspace" | "installing";
 interface State {
   phase: Phase;
   version: string | null;
@@ -78,16 +78,25 @@ export const useUpdater = create<State>((set, get) => ({
    * `restore_last_workspace` opens the same workspace on the way back.
    */
   install: async () => {
-    if (!["available", "closeWorkspace", "error"].includes(get().phase) || !get().version) return;
+    if (!["available", "closeWorkspace", "error", "busy"].includes(get().phase) || !get().version) return;
     const root = useWorkspace.getState().info?.root ?? null;
     if (root && !(await useWorkspace.getState().leave())) { set({ phase: "closeWorkspace" }); return; }
+    // The close was an IPC call and `tracked()` releases its slot a macrotask
+    // later, so asking for the barrier now means asking while `pending` still
+    // counts the close that has already finished. Reported twice as an update
+    // that could not be installed: it was never attempted.
+    await settleSyncBarrier();
     if (beginSyncBarrier()) {
       set({ phase: "installing", detail: null });
       try { await installUpdate(); }
       catch (e) { set({ phase: "error", detail: describe(e) }); }
       finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
     } else {
-      set({ phase: "error", detail: null });
+      // Not `error`: nothing was downloaded, nothing was extracted and nothing
+      // was renamed, so the platform advice about where the application lives
+      // is advice about a step that never ran. Something else holds the editor
+      // barrier — say that, and let the same button try again.
+      set({ phase: "busy", detail: null });
     }
     // Still running, so the restart did not happen and the workspace was closed
     // for an installation that did not take place. Put it back: `update_install`

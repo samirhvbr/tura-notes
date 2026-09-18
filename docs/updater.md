@@ -157,6 +157,18 @@ shown verbatim. Everything below is how to act on what it says, and what to infe
 when you are on a build older than `1.6.69` — which, since the thing that is
 broken is the updater, is the build most people reading this are on.
 
+**If there is no error printed under the message, the plugin was never reached**,
+and nothing below applies. Up to `1.6.98` that was this application's own defect
+rather than anything about your machine: the install closes the workspace first,
+the close is an IPC call, and the barrier that call releases a macrotask later
+was being asked for a microtask too early — so the update was refused by its own
+completed work, and reported with the macOS advice for a step that never ran. It
+was reported twice from use, on two different versions, and the sign was always
+the same: an empty space where the verbatim error should be. Fixed in `1.6.99`,
+which also gives that refusal its own sentence — *"nothing was attempted"* —
+instead of the platform hint. A `1.6.99` or later build saying that is telling
+you something else holds the editor barrier; the same button retries.
+
 ### macOS — the one question that splits it
 
 `tauri-plugin-updater` replaces the bundle in three steps: extract the

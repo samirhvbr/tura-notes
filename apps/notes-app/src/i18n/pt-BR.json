@@ -309,6 +309,7 @@
   "tree.newNoteHere": "Nova nota em {folder}",
   "tree.rename": "Renomear…",
   "tree.rename.prompt": "Novo nome",
+  "update.busy": "Nada foi instalado, e nada foi tentado: o aplicativo ainda estava terminando alguma coisa. Tente de novo em instantes.",
   "update.check": "Verificar atualizações",
   "update.checking": "Verificando atualizações…",
   "update.closeWorkspace": "Nada foi instalado: sua pasta de trabalho continua aberta.",

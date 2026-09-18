@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("./workspace", () => ({ useWorkspace: { getState: vi.fn(() => ({ info: null })) } }));
-vi.mock("../ipc/barrier", () => ({ beginSyncBarrier: vi.fn(() => true), endSyncBarrier: vi.fn() }));
+// `settleSyncBarrier` is stubbed to resolve immediately. The real one waits a
+// macrotask for the releases `tracked()` has scheduled, and the file that
+// exercises it against the real barrier is `updater.barrier.test.ts` — this
+// suite mocks the barrier precisely so it can test everything around it.
+vi.mock("../ipc/barrier", () => ({ beginSyncBarrier: vi.fn(() => true), endSyncBarrier: vi.fn(), settleSyncBarrier: vi.fn(async () => {}) }));
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspace } from "./workspace";
 import { beginSyncBarrier, endSyncBarrier } from "../ipc/barrier";
@@ -114,9 +118,12 @@ describe("desktop updates", () => {
     expect(useUpdater.getState().detail).toBe('{"code":7}');
   });
   it("does not install across pending edits or another exclusive operation", async () => {
+    // And says *that*, rather than the platform advice for an installation
+    // that never started: nothing was downloaded, extracted or renamed.
     useUpdater.setState({ phase: "available", version: "9.0.0" });
     vi.mocked(beginSyncBarrier).mockReturnValue(false);
     await useUpdater.getState().install(); expect(invoke).not.toHaveBeenCalled();
+    expect(useUpdater.getState().phase).toBe("busy");
   });
   it("releases the input barrier after installation fails", async () => {
     useUpdater.setState({ phase: "available", version: "9.0.0" });
