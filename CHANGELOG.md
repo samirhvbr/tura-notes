@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.100 - the intermittent named its cause, which is what the queue was waiting for
+
+The gate went red once on `receiver_restores_remote_moves_and_deletions_only_at_the_applied_path`
+while this round was in it. No Rust was touched in either commit — the delivery
+is TypeScript, JSON and Markdown — and it passed three times alone and on the
+next full run, which is the familiar shape.
+
+What is not familiar is that it **said why**. `1.6.10` made `ApplicationBlocked`
+carry the cause it used to throw away, and the queue row closed on that with a
+deliberate instruction: *the next step is not to investigate, it is to wait — at
+the next occurrence the output names which call refused and why.* This is that
+occurrence, and the output reads
+`ApplicationBlocked { cause: "timed out waiting for the workspace write lock" }`.
+
+**It names the lock**, which the same row says it is not. That claim was drawn
+from the other two tests, whose `ApplicationBlocked` comes from
+`notes_core::sync::capture` refusing on a re-read hash. Both are true and the
+conclusion simply did not generalise: the variant has at least two paths and
+they had been read as one. Two details worth keeping beside it — this is a third
+test, not either of the two on the record, and the red run had no other session
+compiling on the machine, unlike the earlier ones.
+
+So the row stops saying there is nothing to chase. The next step is to split the
+two paths by cause string, and then to find what holds the workspace write lock
+long enough to time out in a tempdir with no external writer.
+
 ## 1.6.100 - two keys a text editor has, that this one did not
 
 Both reported from use, in one sentence each, and both are the same shape: a key
