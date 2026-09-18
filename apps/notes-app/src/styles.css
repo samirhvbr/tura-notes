@@ -288,11 +288,29 @@ code { font-family: var(--font-mono); }
 
 .tree { list-style: none; margin: 0; padding: 0; }
 .row-wrap { display: flex; align-items: center; position: relative; border-radius: 4px; }
-.row-wrap:hover { background: var(--hover-soft); }
+/* Indent guides: one hairline per ancestor, so a row three levels down can be
+   traced back to the folder holding it instead of being measured against the
+   row above. Indentation alone does not answer *inside what* — a child sitting
+   14px in, directly above a sibling of its parent, reads as a third sibling.
+   Drawn on the row rather than as a border on the nested list, because the
+   hover and selection washes have to keep spanning the whole sidebar: an
+   inset highlight is how a deep row stops looking like it can be clicked.
+   The lines land on each ancestor's chevron centre — 15px, then every 14px,
+   which is the indent step — and `--depth` periods draw exactly `--depth`
+   of them, so the root draws none. */
+.row-wrap {
+  background-image: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 14px);
+  background-repeat: no-repeat;
+  background-position: 15px 0;
+  background-size: calc(var(--depth, 0) * 14px) 100%;
+}
+/* `background-color`, not the `background` shorthand: the shorthand resets
+   `background-image` and takes the guides with it. */
+.row-wrap:hover { background-color: var(--hover-soft); }
 /* `--selected`, not the accent wash: `color-mix()` resolves against whatever it
    lands on, so its result is not a token `tools/contrast.sh` can read — and a
    selected row is the surface most likely to carry dim text. */
-.row-wrap.on { background: var(--selected); box-shadow: inset 2px 0 0 var(--accent); }
+.row-wrap.on { background-color: var(--selected); box-shadow: inset 2px 0 0 var(--accent); }
 .row-wrap .menu { top: calc(100% + 2px); right: 4px; }
 .row-more {
   display: inline-flex; align-items: center; justify-content: center;
@@ -316,6 +334,13 @@ code { font-family: var(--font-mono); }
 /* 12px held a single character; an icon is 14 and needs to sit on the text
    baseline rather than above it, which a bare inline svg does not do. */
 .tree .glyph { display: inline-flex; align-items: center; width: 14px; flex: 0 0 auto; color: var(--fg-dim); }
+/* The disclosure chevron, and the same box left empty on a file so that every
+   name in the tree starts in one column. Quieter than the folder icon beside
+   it: it reports a state, it is not the thing you are looking for. */
+.tree .twist {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; flex: 0 0 auto; color: var(--fg-dim); opacity: .7;
+}
 /* A file the core does not consider a note: present, and not offered. */
 .tree .glyph .faint { opacity: .45; }
 .tree .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

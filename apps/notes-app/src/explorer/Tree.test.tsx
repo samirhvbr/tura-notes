@@ -71,3 +71,32 @@ it("draws a folder as a folder and a note as a file", () => {
   expect(icon(rows[1])).toMatch(/file/i);
   expect(icon(rows[0])).not.toEqual(icon(rows[1]));
 });
+
+it("a folder announces that it opens, and a file leaves the column empty", () => {
+  // The collapsed folder's only signal used to be the folder icon, and the
+  // open/closed state was carried by that icon swapping — which you can only
+  // read *after* clicking. The chevron says it before.
+  show();
+  const rows = document.querySelectorAll(".row");
+  const twist = (row: Element) => row.querySelector(".twist svg")?.getAttribute("class") ?? "";
+  expect(twist(rows[0])).toMatch(/chevron-right/i);
+  expect(twist(rows[1])).toBe("");
+  // The empty box is still there, so the two names start in one column.
+  expect(rows[1].querySelector(".twist")).toBeInTheDocument();
+});
+
+it("carries its depth, which is what draws the indent guides", () => {
+  // Reported from use: a note inside a folder read as a third sibling of the
+  // folder, because 14px of indent is the whole of what said "inside".
+  useWorkspace.setState({
+    listings: { "": [folder] as never, BLUE3: [{ ...note, path: "BLUE3/ShvIA.md" }] as never },
+    expanded: new Set<string>(["BLUE3"]),
+  } as never);
+  show();
+  // A static NodeList, so there is nothing to wait for: the second row exists
+  // or the child was never rendered, and both are answers.
+  const wraps = document.querySelectorAll<HTMLElement>(".row-wrap");
+  expect(wraps).toHaveLength(2);
+  expect(wraps[0].style.getPropertyValue("--depth")).toBe("0");
+  expect(wraps[1].style.getPropertyValue("--depth")).toBe("1");
+});

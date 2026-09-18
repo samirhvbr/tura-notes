@@ -1,6 +1,6 @@
 import { reviewedMove } from "../app/ReferenceReview";
-import { FileText, Folder, FolderOpen, MoreVertical } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, MoreVertical } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useWorkspace } from "../stores/workspace";
 import { useEditor } from "../stores/editor";
 import { useTabs } from "../stores/tabs";
@@ -92,6 +92,9 @@ function Row({
 
   return (
     <div
+      /* `--depth` feeds the indent guides in CSS. A number, not a colour, so it
+         is not the kind of inline value `tools/check.sh` refuses. */
+      style={{ "--depth": depth } as CSSProperties}
       className={selected ? "row-wrap on" : "row-wrap"}
       onContextMenu={(ev) => {
         ev.preventDefault();
@@ -107,6 +110,15 @@ function Row({
         disabled={!isDir && !entry.is_note}
         title={entry.path}
       >
+        {/* A closed folder used to announce nothing: the folder icon says what
+            the row *is*, and `FolderOpen` says what state it is in — but only
+            after you have already clicked it. So the one thing a collapsed
+            folder never said is the one thing you want before clicking, which
+            is that there is something in there. The chevron says it, and a
+            file gets the same box empty so the names stay in one column. */}
+        <span className="twist" aria-hidden="true">
+          {isDir && (isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+        </span>
         {/* A folder looks like a folder. It was `▸` against `•` for a note and
             `·` for anything else — three characters a few pixels apart, which
             asked the reader to learn a legend before they could tell a folder

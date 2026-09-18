@@ -7,6 +7,45 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.98 - a note inside a folder read as a third sibling of the folder
+
+Reported from use, and the report is the measurement: with `BLUE3` expanded over
+`FINANCEIRO-V1.md`, the owner said *"I thought the file was below, in the BLUE3
+folder"* — while looking at a screen where it already was. The tree had nested
+it correctly and failed to say so.
+
+**Indentation alone does not answer *inside what*.** A child sat 14px in, and
+directly beneath it came a sibling of its parent at 0px. Three rows, three
+different meanings, and the only thing separating them was an offset roughly the
+width of one character — which the eye reads as alignment noise, not as
+containment. Depth was in the DOM and nowhere a reader could see it.
+
+Two additions, both of them things the tree had the information for and never
+drew:
+
+- **One indent guide per ancestor**, landing on each one's chevron column, so a
+  row four levels down can be traced back to the folder holding it instead of
+  being measured against the row above. Drawn on the row rather than as a border
+  on the nested list, because the hover and selection washes have to keep
+  spanning the whole sidebar — an inset highlight is how a deep row stops
+  looking like it can be clicked. That forced `background` to become
+  `background-color` in both wash rules: the shorthand resets `background-image`
+  and takes the guides with it.
+- **A disclosure chevron.** `Folder` against `FolderOpen` reports the state you
+  are already in; it never says a collapsed folder has anything in it, which is
+  the one thing you want before clicking. A file gets the same box left empty,
+  so every name still starts in one column.
+
+The depth reaches CSS as `--depth`, a number rather than a colour, so it is not
+the kind of inline value `tools/check.sh` refuses.
+
+Two tests, proved non-vacuous: removing the chevron and removing `--depth` makes
+exactly those two fail and leaves the three older ones green.
+
+**What this is not.** The reference was FrankMD's explorer, which also drops the
+`.md` from every row. That one is a product decision with a sketch in
+`product.md` to match, and it is not smuggled in here.
+
 ## 1.6.97 - the round stops because the methods ran out, not the willingness
 
 `.loop/STATUS.md` records why a round ended, and this one ended for a reason
