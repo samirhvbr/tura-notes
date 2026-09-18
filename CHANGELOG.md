@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.6.100 - two keys a text editor has, that this one did not
+
+Both reported from use, in one sentence each, and both are the same shape: a key
+pressed out of habit that did nothing, or did something alarming.
+
+**`Tab` moved focus out of the editor.** `defaultKeymap` binds nothing to it, so
+the browser's own behaviour stood and the key jumped to the next control — which
+is what *"quando clico em tab ele pula de tela"* describes. And the question
+underneath it deserves a straight answer: yes, indentation is meaningful in
+Markdown. It is what nests a list item and what opens an indented code block. A
+Markdown editor that cannot indent is missing a syntax, not a convenience.
+
+CodeMirror leaves `Tab` unbound for a reason rather than by oversight: a `Tab`
+that indents is a `Tab` that cannot leave, and an editor a keyboard user can
+enter and not exit is a trap. So the cost is paid rather than ignored —
+**`Escape` arms the next `Tab` to move focus instead**, the pattern CodeMirror's
+own documentation recommends. The latch is per view and is spent by the `Tab`
+that reads it, so the key goes straight back to indenting. `Escape` returns
+`false`, so everything else bound to it still runs — the search panel closes as
+it did.
+
+**`Ctrl-Home` and `Ctrl-End` did nothing on macOS.** `standardKeymap` binds
+`Mod-Home`, and `Mod` is `Cmd` there — so the document ends have always been
+reachable by `Cmd-Home`, and the `Ctrl-Home` that every Windows and Linux user
+has in their hands was unbound on the platform this is developed on. Both are
+bound now, everywhere, shifted variants included: the cost of honouring a second
+habit is one entry in a list, and the cost of refusing it is a key that silently
+does nothing.
+
+Six tests in `editor/keys.test.ts`, against a real `EditorView`. Proved
+non-vacuous: collapsing the latch to `() => false` and dropping the `Ctrl-Home`
+entry fails exactly the two that assert them.
+
 ## 1.6.99 - the update was refused by its own completed work
 
 Reported twice, from two different versions, and the second report carried the

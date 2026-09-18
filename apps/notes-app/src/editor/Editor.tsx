@@ -12,6 +12,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { useEditor } from "../stores/editor";
 import { Toolbar } from "./Toolbar";
+import { writingKeymap } from "./keys";
 import { pendingCursor, useTabs } from "../stores/tabs";
 import { useSettings } from "../stores/settings";
 import { t } from "../i18n";
@@ -73,8 +74,11 @@ export function Editor() {
         search({ top: true }),
         highlightSelectionMatches(),
         // `searchKeymap` first: `Ctrl+F` and `Ctrl+H` must reach the panel
-        // rather than whatever `defaultKeymap` would do with them.
-        keymap.of([...searchKeymap, ...defaultKeymap, ...historyKeymap]),
+        // rather than whatever `defaultKeymap` would do with them — and its
+        // `Escape` closes that panel before `writingKeymap`'s ever sees the key.
+        // `writingKeymap` then precedes `defaultKeymap`, which binds neither
+        // `Tab` nor `Ctrl-Home`, so nothing here is being overridden.
+        keymap.of([...searchKeymap, ...writingKeymap(), ...defaultKeymap, ...historyKeymap]),
         markdown({ codeLanguages: languages }),
         ...(wrapOn ? [EditorView.lineWrapping] : []),
         EditorView.domEventHandlers({paste(event,editor){
