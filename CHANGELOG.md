@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.3 - the payload was half AppleDouble, and no macOS tool would say so
+
+The update failed again, and this time **it failed forward**. The barrier let go
+at `1.7.0`, the plugin was reached, the download ran, and the install died where
+it should have died months ago — with the error printed underneath, verbatim:
+
+```
+failed to unpack `._Tura Notes.app` into `/var/folders/…/tauri_updated_appc202P6/`
+```
+
+`build-local.sh` built the payload with `tar -czf`, and macOS `tar` writes a
+`._name` AppleDouble sidecar for every entry carrying extended attributes. Of
+the twenty entries in the published tarball, **ten were `._*`**, and the first
+one in the archive is the one the updater named.
+
+**It hid because no macOS tool will show it to you.** `tar tzf` reads those
+sidecars back, merges them into xattrs and lists only the real files — which is
+exactly what this session did to verify the `1.6.97` payload, and it reported a
+clean archive. `python3 -m tarfile`, which does no merging, reports ten.
+
+**And it hid for a second reason, which is the better lesson.** A manual install
+uses macOS `tar`, so it merges and works. The in-app updater uses the Rust `tar`
+crate, which does not merge and treats `._Tura Notes.app` as a file to create.
+Every hand install in this session succeeded and every in-app update failed, on
+the same bytes — two paths disagreeing about what was in the archive, with the
+one people used to check being the one that could not see the problem.
+
+`COPYFILE_DISABLE=1` on the build, and `prepare()` refuses an archive carrying
+AppleDouble entries before it signs anything — the check reads the archive with
+`tarfile` rather than asking the platform, because asking the platform is how
+this shipped.
+
+**Two of my own mistakes, both the same shape.** The first version of the build
+assertion passed with the fix reverted: I had appended the new test class
+*below* `unittest.main()`, so it was defined after the runner had already
+collected, and four tests never ran while the output said `OK`. The second was
+testing that `reject_apple_double` works rather than that `prepare` calls it —
+the function existing is not the net. Both are now proved by reverting: moving
+the class back makes the count drop, and removing the call fails.
+
 ## 1.7.2 - the application always remembered; only the form forgot
 
 Reported twice, sharpening each time: *"toda vez que atualizo estou precisando

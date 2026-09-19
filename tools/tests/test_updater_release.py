@@ -122,5 +122,59 @@ class UpdaterReleaseTests(unittest.TestCase):
         self.assertIn('rm -rf -- /tmp/tura-update.unique', self.calls[-1][-1])
 
 
+class AppleDoubleTests(unittest.TestCase):
+    """The payload that looked clean to every macOS tool for months."""
+
+    def archive(self, names):
+        import tarfile as tf
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__('shutil').rmtree(root, ignore_errors=True))
+        path = root / 'TuraNotes.app.tar.gz'
+        with tf.open(path, 'w:gz') as out:
+            for name in names:
+                info = tf.TarInfo(name)
+                info.size = 0
+                out.addfile(info, io.BytesIO(b''))
+        return path
+
+    def test_refuses_an_archive_with_appledouble_entries(self):
+        # `tar tzf` merges these into xattrs and lists only the real files, so
+        # the archive reads clean on macOS while the updater's Rust `tar`,
+        # which does not merge, dies on the first one.
+        path = self.archive(['._Tura Notes.app', 'Tura Notes.app',
+                             'Tura Notes.app/Contents/._Info.plist'])
+        with self.assertRaises(ValueError) as caught:
+            updater.reject_apple_double(path)
+        self.assertIn('COPYFILE_DISABLE=1', str(caught.exception))
+
+    def test_accepts_an_archive_built_without_the_sidecars(self):
+        path = self.archive(['Tura Notes.app', 'Tura Notes.app/Contents/Info.plist'])
+        updater.reject_apple_double(path)
+
+    def test_ignores_an_artifact_that_is_not_a_tarball(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__('shutil').rmtree(root, ignore_errors=True))
+        deb = root / 'notes.deb'
+        deb.write_bytes(b'installer bytes')
+        updater.reject_apple_double(deb)
+
+    def test_prepare_refuses_before_it_signs(self):
+        # The function existing is not the net. `prepare` is the one step every
+        # published payload goes through, so that is where the refusal has to
+        # be — and removing the call has to fail something.
+        path = self.archive(['._Tura Notes.app', 'Tura Notes.app'])
+        with patch.object(updater, 'sign') as signed:
+            with self.assertRaises(ValueError):
+                updater.prepare(path, '1.7.3', 'darwin-aarch64-app')
+        signed.assert_not_called()
+
+    def test_the_build_script_disables_the_sidecars(self):
+        # The refusal above is the net; this is the thing that stops the ball.
+        script = (Path(__file__).parents[2] / 'build-local.sh').read_text()
+        line = [l for l in script.splitlines() if "tar -czf \"$payload\"" in l]
+        self.assertEqual(len(line), 1, 'expected exactly one payload tar invocation')
+        self.assertIn('COPYFILE_DISABLE=1', line[0])
+
+
 if __name__ == '__main__':
     unittest.main()

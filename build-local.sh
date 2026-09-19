@@ -698,7 +698,16 @@ else
   verify_macos_signature "$dmg"
   if [ "$NO_SIGN" -eq 0 ]; then
     payload="$ROOT/target/release/bundle/macos/TuraNotes.app.tar.gz"
-    tar -czf "$payload" -C "$ROOT/target/release/bundle/macos" 'Tura Notes.app'
+    # COPYFILE_DISABLE, and it is not decoration. macOS `tar` writes a `._name`
+    # AppleDouble sidecar for every entry carrying extended attributes, and no
+    # macOS tool shows them back: `tar tzf` merges them into xattrs and lists
+    # only the real files. So the payload looked clean for months while half of
+    # its twenty entries were `._*`, and the desktop updater — whose Rust `tar`
+    # does not merge — died on the first one with `failed to unpack
+    # '._Tura Notes.app'`. Hand installs kept working, because they use macOS
+    # `tar`, which is how the two paths disagreed without anyone noticing.
+    # `updater-release.py prepare` refuses the archive if this ever regresses.
+    COPYFILE_DISABLE=1 tar -czf "$payload" -C "$ROOT/target/release/bundle/macos" 'Tura Notes.app'
     case "$(uname -m)" in arm64) updater_arch=aarch64;; *) updater_arch="$(uname -m)";; esac
     python3 tools/updater-release.py prepare --artifact "$payload" --version "$version" --platform "darwin-$updater_arch-app"
   fi

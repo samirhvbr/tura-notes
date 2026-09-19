@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import tarfile
 from pathlib import Path
 import shlex
 import subprocess
@@ -63,7 +64,34 @@ def verify(artifact, version):
     return data
 
 
+def reject_apple_double(artifact):
+    """Refuse a macOS tarball carrying AppleDouble entries.
+
+    `tar -czf` on macOS writes a `._name` sidecar for every entry with extended
+    attributes, and **no macOS tool shows them back to you**: `tar tzf` merges
+    them into xattrs and lists only the real files, which is why this shipped in
+    every payload for months while looking clean. The desktop updater does not
+    merge — the Rust `tar` crate treats `._Tura Notes.app` as a file to create,
+    and the install dies with `failed to unpack '._Tura Notes.app'`.
+
+    It went unseen for a second reason worth writing down: a manual install
+    uses macOS `tar`, so every hand install worked and only the in-app update
+    failed. The two paths disagreed about what was in the archive.
+
+    Checked with `tarfile`, which reports what is actually there.
+    """
+    if not str(artifact).endswith(('.tar.gz', '.tgz')):
+        return
+    with tarfile.open(artifact) as archive:
+        bad = [n for n in archive.getnames() if n.rsplit('/', 1)[-1].startswith('._')]
+    if bad:
+        raise ValueError(
+            'AppleDouble entries in ' + artifact.name + ' (' + str(len(bad)) + ', e.g. '
+            + bad[0] + '). Build the tarball with COPYFILE_DISABLE=1.')
+
+
 def prepare(artifact, version, platform):
+    reject_apple_double(artifact)
     try:
         data = verify(artifact, version)
         if data['platform'] == platform:
