@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.4 - a fifth test on the lock timeout, and the ratio is now five to two
+
+`a_second_receiver_move_before_confirmation_preserves_the_whole_history`
+(`recovery.rs:2323`) failed once in this round with
+`ApplicationBlocked { cause: "timed out waiting for the workspace write lock" }`,
+and passed on the next full run. No Rust was touched, again.
+
+That is five tests on the lock timeout against two on the `capture` guard.
+`1.6.100` recorded the first as a second path beside the known one and `1.7.0`
+called it the dominant one at four to two; five to two is not a new conclusion,
+it is the same one getting harder to read as a coincidence. Recorded because a
+count that keeps climbing in one column is the measurement, and the row is the
+only place it accumulates.
+
 ## 1.7.4 - the server binary is verified on the host, and the queue item goes
 
 `ADR-081` shipped its code at `1.6.0` and then waited five weeks for the one
