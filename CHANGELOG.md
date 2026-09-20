@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.4 - the server binary is verified on the host, and the queue item goes
+
+`ADR-081` shipped its code at `1.6.0` and then waited five weeks for the one
+thing code cannot do for itself. It is done, and the whole chain ran:
+
+| Step | Result |
+|---|---|
+| `sign-server-release.sh init` | pair generated, private half password-protected at 0600 under a 0700 directory, and **a different key from the updater's** |
+| public half | committed at `1.7.1` as `server/cotenant/notes-server.pub` |
+| `sign-server-release.sh 1.7.0` | `.minisig` attached to the release |
+| verified from outside | checksum `OK`, `Signature and comment signature verified`, trusted comment naming `tura-notes 1.7.0 notes-server x86_64-linux` |
+| deploy on the host | `✓ assinatura confere com a chave fixada` · binary installed · service restarted · `/healthz` answers |
+
+**Both refusals on the way were the design working.** The first deploy stopped
+at *"sem chave pública fixada"*, which is the ADR's whole sentence — a deploy
+that cannot verify changes nothing. The second stopped at *"minisign não está
+instalado neste host"*, which is the same rule one layer down: a host with no
+verifier does not get to skip verifying.
+
+The queue row leaves with this commit, which is the only way a row is allowed
+to leave. What it described — a server binary installed only after proving it
+came from us — now exists and has been watched happening.
+
 ## 1.7.3 - the payload was half AppleDouble, and no macOS tool would say so
 
 The update failed again, and this time **it failed forward**. The barrier let go
