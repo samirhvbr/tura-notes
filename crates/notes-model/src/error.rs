@@ -116,6 +116,34 @@ pub enum UnavailableReason {
     NotADirectory,
 }
 
+/// Why a workspace opened read-only.
+///
+/// Both cases mean the same thing to the code — *do not write state* — and
+/// completely different things to the person. `SchemaAhead` is a newer build's
+/// file and resolves itself by running that build again; `IdentityLost` is
+/// damage, and writing through it is what would cause the loss.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "reason", rename_all = "snake_case")]
+#[ts(export)]
+pub enum WorkspaceReadOnly {
+    /// State written by a build newer than this one. Nothing is overwritten;
+    /// `found` is carried so a message can say how far ahead it is.
+    SchemaAhead { found: u32 },
+    /// This root has been opened before — the workspaces index still lists it —
+    /// and its identity registry is not there any more.
+    ///
+    /// Opening normally would write a fresh, empty registry, and the next
+    /// reconciliation would mint a new `NoteId` for every note in the tree.
+    /// Every `drafts/<old-id>.draft` would become unreachable, permanently:
+    /// a draft is the only copy of something the user typed. The sync history
+    /// would detach from the server at the same moment, which
+    /// [ADR-005] exists to prevent. None of that announces itself, which is
+    /// why it is refused here rather than reported afterwards.
+    ///
+    /// [ADR-005]: ../../docs/decisions.md
+    IdentityLost,
+}
+
 /// Every command returns `Result<T, CoreError>`.
 ///
 /// `code` is the contract; the frontend maps it to an i18n key and never

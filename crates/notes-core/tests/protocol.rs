@@ -62,7 +62,7 @@ fn opening_a_folder_creates_nothing_inside_it() {
         before, after,
         "the workspace folder was modified by opening it"
     );
-    assert!(!info.read_only);
+    assert!(info.read_only.is_none());
     // The case probe is part of open, and it must not have written either.
     assert!(!work.path().join(".notes").exists());
 }
@@ -545,14 +545,10 @@ fn state_written_by_a_newer_build_is_never_overwritten() {
 
     let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
     let info = svc.open_workspace(work.path()).unwrap();
-    assert!(
-        info.read_only,
-        "a workspace with future state opens read-only"
-    );
     assert_eq!(
-        info.state_schema_ahead,
-        Some(999),
-        "the message can say how far ahead"
+        info.read_only,
+        Some(notes_model::WorkspaceReadOnly::SchemaAhead { found: 999 }),
+        "a workspace with future state opens read-only, and says how far ahead"
     );
     assert_eq!(svc.workspace_id(), Some(ws_id));
     assert_eq!(
@@ -664,5 +660,89 @@ fn a_name_in_nfd_is_compared_against_its_nfc_form() {
     assert!(
         matches!(result, Err(CoreError::AlreadyExists { .. })),
         "NFC and NFD are the same name to compare against, got {result:?}"
+    );
+}
+
+/// Losing the identity registry used to be indistinguishable from never having
+/// had one, and the difference is every `NoteId` in the workspace.
+///
+/// `Loaded::Fresh` took one branch for both, so a workspace whose registry had
+/// gone opened normally, wrote an empty registry over the absence, and let the
+/// next reconciliation mint new identities for every note. Each
+/// `drafts/<old-id>.draft` became unreachable at that moment — and a draft is
+/// the only copy of something the user typed.
+#[test]
+fn a_registry_that_was_here_and_is_gone_opens_read_only_instead_of_renumbering() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let (ws_id, first_id) = {
+        let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+        let info = svc.open_workspace(work.path()).unwrap();
+        let note = svc.open_note(&RelPath::parse("n.md").unwrap()).unwrap();
+        (info.id, note.note_id)
+    };
+
+    // Exactly what ADR-004 invites: the state directory is rebuildable, so it
+    // gets deleted to force a reindex.
+    let dir = notes_core::paths::workspace_dir(data.path(), ws_id);
+    std::fs::remove_file(notes_core::paths::registry_file(&dir).with_extension("db")).ok();
+    std::fs::remove_file(notes_core::paths::registry_file(&dir)).ok();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let info = svc.open_workspace(work.path()).unwrap();
+    assert_eq!(
+        info.read_only,
+        Some(notes_model::WorkspaceReadOnly::IdentityLost),
+        "a root the index still lists, with no registry, is damage rather than a new workspace"
+    );
+
+    // And the refusal has to be the thing that protects identity: opening
+    // read-only is only worth anything if nothing was written over the gap.
+    drop(svc);
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    assert_eq!(
+        svc.open_workspace(work.path()).unwrap().read_only,
+        Some(notes_model::WorkspaceReadOnly::IdentityLost),
+        "the second open sees the same absence, because the first wrote nothing"
+    );
+    let _ = first_id;
+}
+
+/// A genuinely new workspace is not damage, and must not be read-only.
+#[test]
+fn a_root_the_index_has_never_seen_opens_writable() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    assert_eq!(svc.open_workspace(work.path()).unwrap().read_only, None);
+}
+
+/// The pre-SQLite JSON is read once, to migrate, and then retired.
+///
+/// While it stayed on disk it was a copy nothing wrote and `load` still
+/// trusted: a restore bringing the old JSON without the database would revive
+/// pre-migration identities and drop everything minted since, with no signal.
+#[test]
+fn the_pre_sqlite_registry_json_does_not_outlive_the_migration() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let ws_id = svc.open_workspace(work.path()).unwrap().id;
+    let dir = notes_core::paths::workspace_dir(data.path(), ws_id);
+    let json = notes_core::paths::registry_file(&dir);
+
+    assert!(
+        json.with_extension("db").exists(),
+        "the database is where the registry lives"
+    );
+    assert!(
+        !json.exists(),
+        "and the JSON the loader falls back to is not left beside it"
     );
 }

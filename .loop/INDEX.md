@@ -32,3 +32,4 @@ Uma linha por vez que o agente encerrou o turno.
 | 0026 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0026-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
 | 0027 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0027-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
 | 0028 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0028-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
+| 0029 | DOC | relato | continuou | R6-02 — **save() desiste em silêncio enquanto há outro save em voo, e  | [entry](entries/0029-DOC-r6-02-save-desiste-em-silencio-enquanto-ha-outro.md) |

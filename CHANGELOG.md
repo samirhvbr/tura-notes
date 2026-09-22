@@ -7,6 +7,45 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.11 - losing the identity registry was indistinguishable from never having had one
+
+`state::load` answers `Loaded::Fresh` for a state file that is not there, and
+`open_workspace` turned that into an empty `Registry` -- the same branch a brand
+new workspace takes. No warning, not read-only, and the line below wrote that
+emptiness over the absence.
+
+**What that costs is every `NoteId` in the workspace.** The next reconciliation
+mints a new identity for every note, so each `drafts/<old-id>.draft` becomes
+unreachable at that moment, permanently: `open_note` looks up the current id,
+and a draft is the only copy of something the user typed -- `drafts.rs` says so
+itself, and says nothing ever prunes it. The sync history detaches from the
+server in the same instant, which is what ADR-005 exists to prevent. The
+invitation is in our own documentation: ADR-004 says `.notes` holds only what
+can be rebuilt and must be deletable, so deleting it to force a reindex is a
+reasonable thing for someone to do after seeing a 108 MB `index.db`.
+
+`TooNew` was always handled carefully -- read-only, and the schema number
+carried so a message can say how far ahead. Disappearance was not handled at
+all. The workspaces index already knows the difference and was not asked: a root
+it still lists, with no registry, is damage, not a new workspace. It now opens
+read-only with `WorkspaceReadOnly::IdentityLost`.
+
+**`WorkspaceInfo.read_only` is one field again.** It was a `bool` beside an
+`Option<u32>` that had to agree with it -- the shape `LockWait` was introduced
+to remove one version earlier -- and the second reason had nowhere to go in that
+pair. It is now `Option<WorkspaceReadOnly>`, which cannot disagree with itself.
+
+**The pre-SQLite `registry.json` is retired once the database holds the
+truth.** Since the migration, `store` writes only `registry.db`, while `load`
+still falls back to the JSON when the database is missing. That fallback is the
+migration and is correct exactly once; leaving the file afterwards leaves a copy
+nothing writes and the loader still trusts. A restore that brought that JSON
+without the database would revive pre-migration identities and drop everything
+minted since, silently. `.json.bak-1` is still written first and is the copy
+meant to survive.
+
+Four tests, and `clippy (windows)` did not run -- no MinGW, which is `sudo`.
+
 ## 1.7.10 - one sentence for four different waits, and an open investigation counting it
 
 `CoreError::LockTimeout` carried the message *"timed out waiting for the

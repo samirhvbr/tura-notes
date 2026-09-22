@@ -135,6 +135,19 @@ pub fn store<T: Schemad>(path: &Path, value: &T) -> Result<(), CoreError> {
         notes_index::RegistryStore::open(&path.with_extension("db"))?
             .write_merged(value.baseline().as_deref(), &bytes)?;
         value.remember(&bytes);
+        // The JSON is the pre-SQLite format, and `load` still falls back to it
+        // when the database is missing — which is how the migration works, and
+        // is correct exactly once. Leaving the file in place after the database
+        // holds the truth leaves a copy that is never written again and can
+        // still be read: restore a backup that brings the old JSON without the
+        // database, and identities minted after the migration disappear while
+        // pre-migration ones come back, silently. A frozen mirror the loader
+        // still trusts is worse than no mirror. `.json.bak-1`, written just
+        // above, is the copy that is meant to survive.
+        if path.exists() {
+            std::fs::remove_file(path)
+                .map_err(|e| CoreError::io("retire_registry_json", path.display(), &e))?;
+        }
         Ok(())
     } else {
         write_atomic(path, &bytes)

@@ -32,7 +32,7 @@ use std::path::{Path, PathBuf};
 use notes_fs::{FileSystem, LocalFs, WriteOutcome};
 use notes_model::{
     BaseRev, Caps, CoreError, Entry, NoteId, ReadOnlyReason, RelPath, TextProfile,
-    UnavailableReason, WorkspaceId,
+    UnavailableReason, WorkspaceId, WorkspaceReadOnly,
 };
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -75,12 +75,13 @@ pub struct WorkspaceInfo {
     pub display_name: String,
     pub caps: Caps,
     pub case_insensitive: bool,
-    /// True when this workspace's state was written by a newer build. Nothing
-    /// is overwritten in that case; the user is told rather than losing it.
-    pub read_only: bool,
-    /// The schema that newer build wrote, when there is one. Carried so the
-    /// message can say *how far* ahead the state is instead of only that it is.
-    pub state_schema_ahead: Option<u32>,
+    /// Set when this workspace opened read-only, and why.
+    ///
+    /// This was a `bool` beside an `Option<u32>` that had to agree with it --
+    /// the same shape `LockWait` was introduced to remove one version earlier.
+    /// One field cannot disagree with itself, and a second reason
+    /// (`IdentityLost`) had nowhere to go in the old pair.
+    pub read_only: Option<WorkspaceReadOnly>,
     pub restored: bool,
 }
 
@@ -434,7 +435,14 @@ impl WorkspaceService {
         let case_insensitive =
             notes_fs::probe_case_insensitive(fs.root(), &entries).unwrap_or(true);
 
-        let (registry, ahead) = match state::load::<Registry>(&paths::registry_file(&dir))? {
+        // Whether this root has been opened before, asked before anything is
+        // written. `Fresh` on a root the index already lists is not a new
+        // workspace: it is a registry that was here and is gone, and the two
+        // used to take the same branch.
+        let registered_before = index.by_root(&canonical).is_some();
+
+        let (registry, why_read_only) = match state::load::<Registry>(&paths::registry_file(&dir))?
+        {
             Loaded::Ok(mut r) => {
                 // The probe is authoritative and corrects in both directions.
                 r.case_insensitive = case_insensitive;
@@ -448,14 +456,14 @@ impl WorkspaceService {
                     case_insensitive,
                     fs.stat(&RelPath::root()).ok().and_then(|s| s.native_id),
                 ),
-                None,
+                registered_before.then_some(WorkspaceReadOnly::IdentityLost),
             ),
             Loaded::TooNew { found } => (
                 Registry::new(id, &canonical, case_insensitive, None),
-                Some(found),
+                Some(WorkspaceReadOnly::SchemaAhead { found }),
             ),
         };
-        let read_only = ahead.is_some();
+        let read_only = why_read_only.is_some();
 
         let previous = index.last_workspace;
         index.touch(id, &canonical, &display_name);
@@ -499,8 +507,7 @@ impl WorkspaceService {
             display_name,
             caps,
             case_insensitive,
-            read_only,
-            state_schema_ahead: ahead,
+            read_only: why_read_only,
             restored,
         })
     }
