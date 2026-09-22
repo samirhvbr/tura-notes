@@ -276,6 +276,13 @@ pub fn watch(root: &Path) -> Watch {
                 return walk_counters.fail(classify(&e));
             }
             walk_counters.dirs.store(1, Ordering::Relaxed);
+            // Which directories already carry a watch. A directory event says
+            // "something happened in here", not "this is new", so without this
+            // every event would re-descend the subtree below it — which is what
+            // the first attempt at this fix did, re-walking the whole workspace
+            // on any change at the root.
+            let mut known_dirs: BTreeSet<PathBuf> = BTreeSet::new();
+            known_dirs.insert(root_buf.clone());
 
             if PER_DIRECTORY {
                 // Cancellable, and it has to be: dropping a `Watch` — closing a
@@ -283,7 +290,13 @@ pub fn watch(root: &Path) -> Watch {
                 // a folder nobody is going to ask about. The stop channel is
                 // the same one the event loop below reads, so a `Watch` dropped
                 // three directories into a large walk stops there.
-                add_watches_below(&mut watcher, &root_buf, &walk_counters, &stopped);
+                add_watches_below(
+                    &mut watcher,
+                    &root_buf,
+                    &walk_counters,
+                    &stopped,
+                    &mut known_dirs,
+                );
             }
             walk_counters.walking.store(false, Ordering::Relaxed);
 
@@ -298,9 +311,45 @@ pub fn watch(root: &Path) -> Watch {
                             // A directory that appears after the walk needs its
                             // own watch, or nothing inside it is ever seen. A
                             // subtree watch already covers it.
-                            if PER_DIRECTORY && p.is_dir() && !skip_dir(&p) {
-                                let _ = watcher.watch(&p, RecursiveMode::NonRecursive);
-                                walk_counters.dirs.fetch_add(1, Ordering::Relaxed);
+                            //
+                            // Two things this used to get wrong, both of them
+                            // the initial walk getting right forty lines down.
+                            //
+                            // `p.is_dir()` **follows symlinks**, so a symlinked
+                            // directory dropped into the workspace was watched
+                            // — ADR-019 says symlinks and junctions are not
+                            // traversed, and the walk uses `symlink_metadata`
+                            // for exactly that reason.
+                            //
+                            // And it watched that one directory without
+                            // descending. Moving an existing tree into the
+                            // workspace is one event for its top directory:
+                            // every folder nested inside it stayed unwatched,
+                            // silently, until a full scan happened to notice.
+                            // `add_watches_below` is the routine that already
+                            // handles descent, the watch-table limit and the
+                            // per-directory error accounting; it is cancellable
+                            // through the same `stopped` channel, so a large
+                            // moved-in tree does not pin the event loop past
+                            // the workspace being closed.
+                            let real_dir = std::fs::symlink_metadata(&p)
+                                .map(|m| m.is_dir())
+                                .unwrap_or(false);
+                            if PER_DIRECTORY
+                                && real_dir
+                                && !skip_dir(&p)
+                                && known_dirs.insert(p.clone())
+                            {
+                                if watcher.watch(&p, RecursiveMode::NonRecursive).is_ok() {
+                                    walk_counters.dirs.fetch_add(1, Ordering::Relaxed);
+                                }
+                                add_watches_below(
+                                    &mut watcher,
+                                    &p,
+                                    &walk_counters,
+                                    &stopped,
+                                    &mut known_dirs,
+                                );
                             }
                             if let Some(rel) = relativise(&root_buf, &p) {
                                 pending.insert(rel);
@@ -353,6 +402,7 @@ fn add_watches_below(
     root: &Path,
     counters: &Arc<WatchCounters>,
     stopped: &Receiver<()>,
+    known: &mut BTreeSet<PathBuf>,
 ) {
     let mut stack: Vec<PathBuf> = vec![root.to_path_buf()];
     let mut table_full = false;
@@ -387,6 +437,7 @@ fn add_watches_below(
             match watcher.watch(&path, RecursiveMode::NonRecursive) {
                 Ok(()) => {
                     counters.dirs.fetch_add(1, Ordering::Relaxed);
+                    known.insert(path.clone());
                     stack.push(path);
                 }
                 Err(e) if is_watch_limit(&e) => {

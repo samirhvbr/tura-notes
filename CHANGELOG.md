@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.16 - the watcher's event loop followed symlinks and never descended
+
+Two asymmetries against the initial walk, both inside one `if`, and the walk
+forty lines below gets both right.
+
+**`p.is_dir()` follows symlinks.** A symlinked directory dropped into the
+workspace was given a watch. ADR-019 says symlinks and junctions are not
+traversed, and the walk calls `symlink_metadata` with a comment saying exactly
+why.
+
+**And it watched that one directory without descending.** Moving an existing
+tree into the workspace is **one event**, for its top directory. Every folder
+nested inside it stayed unwatched -- silently, with no degraded flag and no
+counter moving -- until something else triggered a full scan. For a workspace a
+sync client writes into, that is the common shape, not the exotic one.
+
+The event loop now calls `add_watches_below`, the routine that already handles
+descent, the watch-table limit, per-directory error accounting, and
+cancellation through the same `stopped` channel -- so a large moved-in tree does
+not pin the event loop past the workspace being closed.
+
+**The first version of this fix was wrong, and the new tests caught it.** A
+directory event means "something happened in here", not "this is new", so
+descending on every one of them re-walked the whole workspace on any change at
+the root. The loop now keeps a set of directories that already carry a watch,
+seeded by the walk, and descends only into one it has not seen.
+
+Two tests in `watch_walk.rs`, both red against the previous event loop.
+
+`clippy (windows)` did not run: no MinGW, which is `sudo`.
+
 ## 1.7.15 - running out of the hash budget and finding no match gave the same answer
 
 Rule 2 of identity correlation hashes same-size candidates to recognise a note

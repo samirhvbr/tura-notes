@@ -94,3 +94,88 @@ fn dropping_the_watch_stops_the_walk_where_it_is() {
         "the walk stopped where it was rather than finishing: {dirs} directories"
     );
 }
+
+/// A tree moved into the workspace after the walk gets watched all the way
+/// down, not just at its top directory.
+///
+/// The event loop used to install one non-recursive watch on the directory the
+/// event named and stop there. Moving an existing folder in is **one event**
+/// for its top directory, so everything nested inside stayed unwatched —
+/// silently, until something else triggered a full scan. The initial walk
+/// already descends; only the path that runs afterwards did not.
+#[test]
+fn a_tree_moved_in_after_the_walk_is_watched_all_the_way_down() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir(d.path().join("workspace")).unwrap();
+    let root = d.path().join("workspace");
+
+    // Built outside the workspace, so the walk never sees it.
+    let outside = d.path().join("elsewhere");
+    std::fs::create_dir_all(outside.join("a/b/c")).unwrap();
+    std::fs::write(outside.join("a/b/c/deep.md"), b"# deep\n").unwrap();
+
+    let fs = LocalFs::open(&root).unwrap();
+    let watch = fs.watch();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let mut p = watch.progress();
+    while p.walking && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+        p = watch.progress();
+    }
+    if let Some(reason) = p.degraded {
+        eprintln!("skipped: this machine cannot watch ({reason:?})");
+        return;
+    }
+
+    std::fs::rename(&outside, root.join("moved")).unwrap();
+    // Let the move's own event be processed and the watches be installed.
+    let _ = watch.wait(Duration::from_secs(5));
+    let _ = watch.drain();
+
+    // Now touch a file three levels inside the moved tree. Nothing but a watch
+    // on `moved/a/b/c` can report this.
+    std::thread::sleep(Duration::from_millis(50));
+    std::fs::write(root.join("moved/a/b/c/deep.md"), b"# changed\n").unwrap();
+
+    let seen = watch.wait(Duration::from_secs(5));
+    assert!(
+        seen.iter().any(|p| p.as_str().contains("deep.md")),
+        "a change three levels inside a moved-in tree must be reported: {seen:?}"
+    );
+}
+
+/// ADR-019: symlinks and junctions are not traversed. The walk uses
+/// `symlink_metadata` for that; the event loop used `is_dir()`, which follows.
+#[test]
+fn a_symlinked_directory_that_appears_later_is_not_watched() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir(d.path().join("workspace")).unwrap();
+    let root = d.path().join("workspace");
+
+    let outside = d.path().join("outside");
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(outside.join("n.md"), b"# n\n").unwrap();
+
+    let fs = LocalFs::open(&root).unwrap();
+    let watch = fs.watch();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let mut p = watch.progress();
+    while p.walking && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+        p = watch.progress();
+    }
+    if let Some(reason) = p.degraded {
+        eprintln!("skipped: this machine cannot watch ({reason:?})");
+        return;
+    }
+    let before = watch.progress().dirs;
+
+    std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
+    let _ = watch.wait(Duration::from_secs(3));
+
+    assert_eq!(
+        watch.progress().dirs,
+        before,
+        "a symlinked directory is not descended into and takes no watch"
+    );
+}
