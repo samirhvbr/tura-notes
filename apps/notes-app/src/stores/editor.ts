@@ -85,6 +85,27 @@ function fromOpened(o: OpenedNote): OpenDoc {
   };
 }
 
+/**
+ * The core answered with a whole new buffer for the note already on screen.
+ *
+ * `fromOpened` starts every field from that answer, `externalRev` included —
+ * and a counter that goes back to `0` is a counter that did not change, which
+ * is exactly what `EditorBody` tests before it dispatches into CodeMirror. The
+ * view keeps the old text, the store holds the new one, and the next keystroke
+ * saves the text on screen over the text the user asked for.
+ *
+ * Carrying the counter forward is what makes the replacement visible. Two call
+ * sites already did it by hand (`reloadFromDisk`, `acceptSyncReload`) and three
+ * did not; this is the same rule for all five, in one place, because the half
+ * that was missing is the half nobody noticed was missing.
+ *
+ * The view is only rebuilt when `noteId` changes, so replacing the buffer of
+ * the note already open has no second path that would cover for this one.
+ */
+function replacing(prev: OpenDoc, o: OpenedNote): OpenDoc {
+  return { ...fromOpened(o), externalRev: prev.externalRev + 1 };
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   doc: null,
   autosaveMs: 750,
@@ -177,7 +198,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const doc = get().doc;
     if (!doc) return;
     const opened = await ipc.draftResolve(doc.noteId, restore ? "restore" : "discard");
-    set({ doc: { ...fromOpened(opened), bufferVersion: restore ? 1 : 0 } });
+    set({ doc: { ...replacing(doc, opened), bufferVersion: restore ? 1 : 0 } });
   },
 
   async resolveConflict(choice) {
@@ -186,7 +207,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (debounce) clearTimeout(debounce);
     try {
       const opened = await ipc.conflictResolve(doc.noteId, doc.text, doc.baseRev, choice);
-      set({ doc: fromOpened(opened) });
+      set({ doc: replacing(doc, opened) });
     } catch (e) {
       // `use_disk` on a note that was deleted externally is the user accepting
       // the deletion: the core has kept the buffer in `conflicts/` and there is
@@ -203,7 +224,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     const doc = get().doc;
     if (!doc) return;
     if (debounce) clearTimeout(debounce);
-    set({ doc: fromOpened(await ipc.noteConvertEol(doc.noteId, eol)) });
+    set({ doc: replacing(doc, await ipc.noteConvertEol(doc.noteId, eol)) });
   },
 
   async reloadFromDisk() {
@@ -216,13 +237,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       const fresh = await ipc.noteReload(doc.noteId);
       // A reload must not replace typing or navigation that happened during IPC.
       if (get().doc !== doc) return;
-      set({
-        doc: {
-          ...fromOpened(fresh),
-          externalRev: doc.externalRev + 1,
-          draft: doc.draft,
-        },
-      });
+      set({ doc: { ...replacing(doc, fresh), draft: doc.draft } });
     } catch (e) {
       set((s) => ({ doc: s.doc && { ...s.doc, lastError: ipc.asCoreError(e) } }));
     }
@@ -264,6 +279,6 @@ export function acceptSyncReload(before: OpenDoc | null, fresh: OpenedNote[]): b
   if (!before) return true;
   const note = fresh.find(n => n.note_id === before.noteId);
   if (!note || before.bufferVersion !== before.savedVersion) return false;
-  useEditor.setState({ doc: { ...fromOpened(note), externalRev: before.externalRev + 1 } });
+  useEditor.setState({ doc: replacing(before, note) });
   return true;
 }

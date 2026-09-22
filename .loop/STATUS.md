@@ -1,9 +1,8 @@
 # Status do loop
 
-- **Encerrado em:** 2026-09-17T21:29:21-03:00
-- **Motivo:** métodos esgotados; os dois itens restantes são atos do dono
-- **Iterações:** 16 de 25
-- **Fila:** 67 feito(s), 2 pendente(s)
-- **Objetivo:** Rodada 4: executar o que as seis respostas autorizaram - emulador Android, ADR do .loop, runbook dos atos do dono, roteiros de aceite 0.1d/0.6/0.5, e a primeira evidencia de execucao do app Android
+- **Em execução desde:** 2026-09-22T15:04:21-03:00
+- **Iterações:** 0 de 200
+- **Fila:** 67 feito(s), 34 pendente(s)
+- **Objetivo:** Rodada 6: os 10 primeiros itens da revisao de 21/09 em .loop/QUEUE.md (R6-01 a R6-10), na ordem em que estao, mantendo o quadro vivo do artefato em dia
 
-Retomar: `/loop-work retomar`
+> Rodada **em andamento** — o motivo do encerramento entra aqui quando ela terminar.

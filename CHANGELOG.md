@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.7 - the store held the restored draft and the screen kept the text from disk
+
+`resolveDraft` is the button that says "Restore". It reached the core, got the
+recovered text back, put it in the store -- and the screen did not change. The
+banner did not go away either, because the core only clears `opened.draft` on
+the `Discard` branch. So the user clicked Restore, saw nothing happen, typed one
+character, and the autosave wrote the text **from disk** over the note while
+`drafts::discard` deleted the recovery. The work was destroyed there, with no
+error and no copy in `conflicts/`.
+
+**The mechanism is one line of `fromOpened`.** It builds every field from the
+core's answer, `externalRev` included, so the counter went back to `0` -- and
+`EditorBody` dispatches into CodeMirror only when that counter *changed*. Zero
+to zero is not a change. The view kept its document, the store held another, and
+every existing test passed because every existing test asserts on the store.
+
+**Three call sites had it, not one.** `docs/` said the other two escaped by
+accident -- one changes `readOnly`, the other is reachable only with the editor
+unmounted. With the editor mounted and `readOnly` unchanged, `resolveConflict`
+and `convertEol` fail exactly the same way; the new test fails on all three
+before this commit. Two further call sites, `reloadFromDisk` and
+`acceptSyncReload`, carried the counter forward by hand and were right. That is
+the shape: a rule implemented on two paths out of five. All five now go through
+one `replacing` helper, so the sixth cannot be written without it.
+
+**`Editor.test.tsx` is new, and it is the first test here that reads
+`view.state.doc`.** Asserting on the store is what let this ship: the store was
+correct the whole time. Five cases, all red before the change and green after.
+
 ## 1.7.6 - the review of 21/09 enters the queue whole, and the board it reports to is alive again
 
 A twelve-dimension review of this repository ran on 21/09 against `1.7.4`: 62
