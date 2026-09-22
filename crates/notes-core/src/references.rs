@@ -85,13 +85,18 @@ impl WorkspaceService {
             .into_iter()
             .filter(RelPath::is_note)
             .collect::<Vec<_>>();
+        // Built once for the whole review. It used to be rebuilt inside the
+        // link loop below, which walked every note in the workspace again for
+        // every wiki link in every document — invisible against a three-note
+        // fixture and quadratic against the 10,000 the project says it supports.
+        let wiki = crate::knowledge::WikiLookup::new(&paths);
         for (path, doc) in index.documents()? {
             let path = RelPath::parse(&path)?;
             let base = path.parent().unwrap_or_else(RelPath::root);
             let candidate = rewrite::repath(&path, from, to) != path
                 || doc.links.iter().any(|l| {
                     if l.kind == notes_markdown::LinkKind::Wiki {
-                        let candidates = crate::knowledge::candidates(&paths, &l.target);
+                        let candidates = wiki.candidates(&l.target);
                         return candidates
                             .iter()
                             .any(|p| rewrite::repath(p, from, to) != *p);
@@ -121,7 +126,7 @@ impl WorkspaceService {
                 .into_iter()
                 .filter(|l| l.kind == notes_markdown::LinkKind::Wiki && !l.in_code)
             {
-                let targets = crate::knowledge::candidates(&paths, &link.target);
+                let targets = wiki.candidates(&link.target);
                 if targets.len() != 1 {
                     skipped += 1;
                     continue;

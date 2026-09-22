@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.14 - a link review rebuilt the workspace's wiki index once per link
+
+`knowledge::candidates(&paths, target)` builds a whole `WikiLookup` -- two
+`BTreeMap`s over every note in the workspace -- and answers one question with
+it. `references.rs` called it from inside the loop over every wiki link of every
+indexed document, at two separate call sites. The work was notes x documents x
+links.
+
+**It is invisible in the tests because every unit fixture here has one to three
+notes**, and it is exactly the size the project claims to support that it
+explodes at: `fixtures/large` generates 10,000. The correct shape already
+existed three files away -- `knowledge.rs` builds one `WikiLookup` and keeps it
+for the whole graph pass.
+
+The lookup is now built once per review. `candidates` stays for the caller that
+genuinely asks once, `wiki_candidates`, and says so.
+
+**The test counts constructions, not milliseconds.** A wall-clock ceiling is the
+shape that has produced three separate Windows flakes in this repository, and
+the number of passes over the workspace is what actually changed. With 12
+documents of 8 wiki links each, the counter goes from **109 to 1**.
+`knowledge::wiki_lookups_built()` stays as the regression guard.
+
+`clippy (windows)` did not run: no MinGW, which is `sudo`.
+
 ## 1.7.13 - the case probe gave up on the first entry it could not flip
 
 `probe_case_insensitive` walks the root looking for an entry whose case can be

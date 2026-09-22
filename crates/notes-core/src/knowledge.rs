@@ -44,12 +44,35 @@ fn key(value: &str) -> Option<String> {
     let folded = CompareKey::new(&path, true);
     Some(stem(folded.as_str()).to_owned())
 }
-struct WikiLookup {
+/// How many wiki lookups this process has built.
+///
+/// Counted because the cost of this type is *how often it is constructed*, and
+/// that is an event a test can assert on. The alternative — asserting that a
+/// link review finishes inside some number of milliseconds — is the wall-clock
+/// shape that has produced three separate Windows flakes in this repository;
+/// the number of passes over the workspace is the thing that actually changed,
+/// so it is the thing measured.
+static BUILDS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Reads the counter above. For tests: a review of any number of links must
+/// build exactly one.
+pub fn wiki_lookups_built() -> u64 {
+    BUILDS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// A wiki-name index over the workspace's notes.
+///
+/// Building it walks every path and fills two maps, so it is a **workspace-wide
+/// cost** and belongs outside any loop over notes or links. `references.rs`
+/// built one per link through the `candidates` helper below, which is the
+/// difference between one pass and one pass per link.
+pub(crate) struct WikiLookup {
     full: BTreeMap<String, Vec<RelPath>>,
     names: BTreeMap<String, Vec<RelPath>>,
 }
 impl WikiLookup {
-    fn new(paths: &[RelPath]) -> Self {
+    pub(crate) fn new(paths: &[RelPath]) -> Self {
+        BUILDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let mut lookup = Self {
             full: BTreeMap::new(),
             names: BTreeMap::new(),
@@ -64,7 +87,7 @@ impl WikiLookup {
         }
         lookup
     }
-    fn candidates(&self, target: &str) -> Vec<RelPath> {
+    pub(crate) fn candidates(&self, target: &str) -> Vec<RelPath> {
         let target = target.split('#').next().unwrap_or("").trim();
         let Some(k) = key(target.strip_prefix("./").unwrap_or(target)) else {
             return vec![];
@@ -77,6 +100,9 @@ impl WikiLookup {
         map.get(&k).cloned().unwrap_or_default()
     }
 }
+/// One lookup, one question. Correct only where the question is asked once —
+/// `wiki_candidates` below is that caller. Anything asking per link builds the
+/// lookup itself and keeps it.
 pub(crate) fn candidates(paths: &[RelPath], target: &str) -> Vec<RelPath> {
     WikiLookup::new(paths).candidates(target)
 }
