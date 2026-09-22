@@ -746,3 +746,98 @@ fn the_pre_sqlite_registry_json_does_not_outlive_the_migration() {
         "and the JSON the loader falls back to is not left beside it"
     );
 }
+
+/// A draft that cannot be read is not a draft that is not there, and the
+/// difference is whether the next save deletes it.
+///
+/// `drafts::read` answered `Ok(None)` for a corrupt header. The caller then
+/// opened the note as though nothing had been recovered, the user typed, the
+/// confirmed save called `drafts::discard`, and `discard` removed the file by
+/// path without ever having read it. A draft is the only copy of something the
+/// user typed, and nothing at any point said a word.
+#[test]
+fn a_draft_that_cannot_be_read_is_refused_and_never_silently_deleted() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let ws = svc.open_workspace(work.path()).unwrap();
+    let note = svc.open_note(&RelPath::parse("n.md").unwrap()).unwrap();
+
+    let dir = notes_core::paths::drafts_dir(&notes_core::paths::workspace_dir(data.path(), ws.id));
+    std::fs::create_dir_all(&dir).unwrap();
+    let draft = dir.join(format!("{}.draft", note.note_id));
+    // A header that is not JSON, followed by text the user typed.
+    std::fs::write(&draft, b"{not json at all\nthe sentence the user wrote\n").unwrap();
+
+    let Err(err) = notes_core::drafts::read(&dir, note.note_id) else {
+        panic!("a draft that is present and unreadable is not absent")
+    };
+    assert_eq!(err.code(), "state_unreadable");
+
+    // And the call that does the destroying sets it aside rather than removing
+    // it, because the cost of being wrong here is asymmetric.
+    notes_core::drafts::discard(&dir, note.note_id).unwrap();
+    assert!(
+        !draft.exists(),
+        "the unreadable draft is moved out of the way"
+    );
+    let aside = draft.with_extension("draft.unreadable");
+    assert!(
+        aside.exists(),
+        "and it still exists under a name that says why"
+    );
+    assert!(
+        String::from_utf8_lossy(&std::fs::read(&aside).unwrap())
+            .contains("the sentence the user wrote"),
+        "with the bytes intact"
+    );
+}
+
+/// A draft from a newer build is reported as ahead, not as damaged.
+#[test]
+fn a_draft_written_by_a_newer_build_says_so() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let ws = svc.open_workspace(work.path()).unwrap();
+    let note = svc.open_note(&RelPath::parse("n.md").unwrap()).unwrap();
+
+    let dir = notes_core::paths::drafts_dir(&notes_core::paths::workspace_dir(data.path(), ws.id));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join(format!("{}.draft", note.note_id)),
+        b"{\"schema\":999}\ntext\n",
+    )
+    .unwrap();
+
+    let Err(err) = notes_core::drafts::read(&dir, note.note_id) else {
+        panic!("a draft from a newer build is refused")
+    };
+    assert_eq!(err.code(), "schema_ahead");
+}
+
+/// A conflict sidecar that does not parse used to make its snapshot invisible
+/// while the bytes it points at stayed on disk, unlisted and uncounted.
+#[test]
+fn an_unreadable_conflict_sidecar_is_counted_rather_than_skipped() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    std::fs::write(work.path().join("n.md"), b"# n\n").unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let ws = svc.open_workspace(work.path()).unwrap();
+    let note = svc.open_note(&RelPath::parse("n.md").unwrap()).unwrap();
+
+    let dir = notes_core::paths::workspace_dir(data.path(), ws.id);
+    let note_dir = notes_core::paths::conflicts_dir(&dir).join(note.note_id.to_string());
+    std::fs::create_dir_all(&note_dir).unwrap();
+    std::fs::write(note_dir.join("broken.json"), b"{ not json").unwrap();
+
+    let found = notes_core::conflicts::list(&dir);
+    assert_eq!(found.unreadable, 1, "the sidecar is reported, not skipped");
+    assert!(found.snapshots.is_empty());
+}

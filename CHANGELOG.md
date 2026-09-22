@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.12 - the two stores holding the only copy of what the user typed called unreadable "absent"
+
+`drafts::read` answered `Ok(None)` for a header that did not parse, and
+`conflicts::list` skipped a sidecar that did not parse with a bare `continue`.
+Every other state file in the crate goes through `state::load`, which checks the
+schema before the body, refuses what is ahead and copies aside what is behind.
+These two do not -- and they are the two that hold text no one can reproduce.
+
+**For a draft, "absent" is the answer that deletes it.** The caller opens the
+note as though nothing had been recovered, the user types, the confirmed save
+calls `drafts::discard`, and `discard` removes the file by path without ever
+having read it. `drafts.rs` says, three lines above that function, that a draft
+is the only copy of something the user typed and that no cleanup touches it.
+
+`read` now returns `StateUnreadable` for a present-but-unparseable draft and
+`SchemaAhead` for one a newer build wrote -- using the `SCHEMA` constant that
+replaces the literal `1` no code ever read. **And `discard` no longer destroys
+what it could not read**: it renames it to `.draft.unreadable` and returns. The
+guard in `read` should mean that never happens, but `discard` is the call that
+does the destroying and the cost of being wrong there is asymmetric. It is the
+same choice `conflicts` already makes at its 200 MB mark, where the application
+says so and deletes nothing.
+
+**A conflict sidecar that does not parse used to make its snapshot invisible**
+while the bytes it points at stayed on disk -- unlisted, uncounted against the
+budget, unreachable from the UI. `Conflicts` now carries `unreadable`, so a
+count can be shown instead of a snapshot silently not existing.
+
+Three tests. `clippy (windows)` did not run: no MinGW, which is `sudo`.
+
+**Noted, not fixed: nothing in `apps/notes-app/src` reads
+`WorkspaceInfo.read_only`.** Its only consumers are two assertions in
+`protocol.rs`. A workspace that opened read-only behaves like a normal one until
+the first write fails, and that is now true of two different reasons. It is in
+the queue as R6-42.
+
 ## 1.7.11 - losing the identity registry was indistinguishable from never having had one
 
 `state::load` answers `Loaded::Fresh` for a state file that is not there, and

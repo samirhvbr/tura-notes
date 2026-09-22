@@ -191,6 +191,15 @@ pub enum CoreError {
         path: String,
         kind: IoKind,
     },
+    /// The file is there and could not be read.
+    ///
+    /// Distinct from `NotFound` on purpose: for a draft or a conflict snapshot
+    /// the difference is whether the only copy of something the user typed is
+    /// gone or merely unreadable, and both stores used to answer *absent* for
+    /// both. Absent is the answer that lets the next confirmed save delete the
+    /// file.
+    #[error("{store} at {path} exists but could not be read")]
+    StateUnreadable { store: String, path: String },
     #[error("{store} schema {found} is newer than supported schema {supported}")]
     SchemaAhead {
         store: String,
@@ -226,6 +235,7 @@ impl CoreError {
             CoreError::NotSettled { .. } => "not_settled",
             CoreError::Unsupported { .. } => "unsupported",
             CoreError::Io { .. } => "io",
+            CoreError::StateUnreadable { .. } => "state_unreadable",
             CoreError::SchemaAhead { .. } => "schema_ahead",
             CoreError::Internal { .. } => "internal",
         }

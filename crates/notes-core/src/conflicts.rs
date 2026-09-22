@@ -45,6 +45,10 @@ pub enum Side {
     Disk,
 }
 
+/// The schema a conflict sidecar is written with, and the highest one this
+/// build will read. It was the literal `1` at the construction site.
+pub const SCHEMA: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct ConflictSnapshot {
@@ -68,6 +72,10 @@ pub struct ConflictSnapshot {
 #[ts(export)]
 pub struct Conflicts {
     pub snapshots: Vec<ConflictSnapshot>,
+    /// Sidecars in this workspace that could not be read, or that a newer build
+    /// wrote. Their bytes are still on disk and are **not** in `bytes`: a count
+    /// the UI can show beats a snapshot that silently does not exist.
+    pub unreadable: u32,
     #[ts(type = "number")]
     pub bytes: u64,
     /// True past the 200 MB-per-workspace mark of `ARCHITECTURE.md` §4.3. The
@@ -109,7 +117,7 @@ pub fn snapshot(
     crate::state::write_atomic(&file, bytes)?;
 
     let info = ConflictSnapshot {
-        schema: 1,
+        schema: SCHEMA,
         note_id,
         path: path.clone(),
         side,
@@ -132,6 +140,7 @@ pub fn list(dir: &Path) -> Conflicts {
     let root = crate::paths::conflicts_dir(dir);
     let mut snapshots = Vec::new();
     let mut bytes = 0u64;
+    let mut unreadable = 0u32;
 
     if let Ok(per_note) = std::fs::read_dir(&root) {
         for note in per_note.flatten() {
@@ -143,10 +152,24 @@ pub fn list(dir: &Path) -> Conflicts {
                 if p.extension().and_then(|e| e.to_str()) != Some("json") {
                     continue;
                 }
-                let Ok(raw) = std::fs::read(&p) else { continue };
-                let Ok(info) = serde_json::from_slice::<ConflictSnapshot>(&raw) else {
+                let Ok(raw) = std::fs::read(&p) else {
+                    unreadable += 1;
                     continue;
                 };
+                // A sidecar that does not parse used to `continue`, which made
+                // the snapshot it describes invisible — while the bytes it
+                // points at stay on disk, unlisted, uncounted against the
+                // budget, and impossible to reach from the UI. Silence is the
+                // wrong answer for the directory that holds the only copy of
+                // something the user wrote, so it is counted and reported.
+                let Ok(info) = serde_json::from_slice::<ConflictSnapshot>(&raw) else {
+                    unreadable += 1;
+                    continue;
+                };
+                if info.schema > SCHEMA {
+                    unreadable += 1;
+                    continue;
+                }
                 bytes += info.size + raw.len() as u64;
                 snapshots.push(info);
             }
@@ -155,6 +178,7 @@ pub fn list(dir: &Path) -> Conflicts {
     snapshots.sort_by(|a, b| b.written_at.cmp(&a.written_at));
     Conflicts {
         snapshots,
+        unreadable,
         bytes,
         over_budget: bytes > BUDGET_BYTES,
     }

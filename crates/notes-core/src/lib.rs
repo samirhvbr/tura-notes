@@ -829,7 +829,7 @@ impl WorkspaceService {
         dir: &Path,
     ) -> Result<DraftInfo> {
         let info = DraftInfo {
-            schema: 1,
+            schema: drafts::SCHEMA,
             note_id,
             path: path.clone(),
             buffer_version,

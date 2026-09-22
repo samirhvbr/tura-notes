@@ -4,7 +4,13 @@ import type { ConflictSnapshot } from "./ConflictSnapshot";
 /**
  * The whole of `conflicts/` for one workspace, and what it costs.
  */
-export type Conflicts = { snapshots: Array<ConflictSnapshot>, bytes: number, 
+export type Conflicts = { snapshots: Array<ConflictSnapshot>, 
+/**
+ * Sidecars in this workspace that could not be read, or that a newer build
+ * wrote. Their bytes are still on disk and are **not** in `bytes`: a count
+ * the UI can show beats a snapshot that silently does not exist.
+ */
+unreadable: number, bytes: number, 
 /**
  * True past the 200 MB-per-workspace mark of `ARCHITECTURE.md` §4.3. The
  * application **says so and deletes nothing**: making room by throwing away
