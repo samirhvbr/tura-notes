@@ -17,7 +17,18 @@ pub fn probe_case_insensitive(root: &Path, entries: &[Entry]) -> Option<bool> {
         if e.kind == EntryKind::Symlink {
             continue;
         }
-        let flipped = flip_case(&e.name)?;
+        // `?` here returned from the WHOLE function, not from this iteration:
+        // the first entry with no cased character ended the probe as
+        // inconclusive, and the caller resolves inconclusive to *insensitive*.
+        // A workspace whose first entry is `2026-09-22.md`, `.gitignore`, or a
+        // note named in a script with no case is an ordinary one, and on ext4
+        // it was being treated as case-folding — which refuses `Nota.md` beside
+        // `nota.md` for no reason. The doc comment above already described the
+        // intended behaviour ("one where *no* entry has a cased letter"); only
+        // the code stopped early.
+        let Some(flipped) = flip_case(&e.name) else {
+            continue;
+        };
         if flipped == e.name {
             continue;
         }
@@ -93,5 +104,55 @@ mod tests {
     fn no_cased_character_is_inconclusive() {
         assert_eq!(flip_case("123"), None);
         assert_eq!(flip_case(""), None);
+    }
+
+    fn entry(name: &str, kind: EntryKind) -> Entry {
+        Entry {
+            path: notes_model::RelPath::parse(name).unwrap(),
+            name: name.into(),
+            kind,
+            size: None,
+            is_note: name.ends_with(".md"),
+        }
+    }
+
+    /// The probe used to give up on the first entry it could not flip, and the
+    /// caller reads inconclusive as *insensitive*.
+    ///
+    /// A note is a poor example, because `.md` is itself cased — which is
+    /// exactly why this was easy to miss. The real case is a **directory**: a
+    /// folder named for a year, or one named in a script with no case at all.
+    /// One of those at the head of the listing was enough to make an ordinary
+    /// ext4 workspace behave like a case-folding one, which then refuses
+    /// `Nota.md` beside `nota.md` for no reason.
+    #[test]
+    fn an_entry_with_no_cased_character_does_not_end_the_probe() {
+        for uncased in ["2026", "文档"] {
+            let d = tempfile::tempdir().unwrap();
+            std::fs::create_dir(d.path().join(uncased)).unwrap();
+            std::fs::write(d.path().join("nota.md"), b"").unwrap();
+            // Ordered so the uncased entry comes first: that is the whole case.
+            let entries = [
+                entry(uncased, EntryKind::Dir),
+                entry("nota.md", EntryKind::File),
+            ];
+
+            assert_eq!(
+                probe_case_insensitive(d.path(), &entries),
+                Some(false),
+                "{uncased} cannot be flipped, but `nota.md` after it can, and a tempdir here is case-sensitive"
+            );
+        }
+    }
+
+    /// And a root where genuinely nothing is cased is still inconclusive — the
+    /// fix must not turn "no evidence" into an answer.
+    #[test]
+    fn a_root_with_nothing_cased_anywhere_stays_inconclusive() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::create_dir(d.path().join("2026")).unwrap();
+        std::fs::create_dir(d.path().join("2027")).unwrap();
+        let entries = [entry("2026", EntryKind::Dir), entry("2027", EntryKind::Dir)];
+        assert_eq!(probe_case_insensitive(d.path(), &entries), None);
     }
 }

@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.13 - the case probe gave up on the first entry it could not flip
+
+`probe_case_insensitive` walks the root looking for an entry whose case can be
+flipped, and asks the filesystem whether the flipped name resolves to the same
+file. Inside that loop stood `let flipped = flip_case(&e.name)?;` -- and `?` on
+an `Option` returns from the **function**, not from the iteration. The first
+entry with no cased character ended the whole probe as inconclusive, and the
+caller resolves inconclusive to *insensitive*.
+
+An ordinary ext4 workspace was therefore treated as case-folding, which makes
+`create` refuse `Nota.md` beside `nota.md` against a filesystem that is perfectly
+happy to hold both. The direction is the safe one -- D-01 chose it deliberately,
+because the opposite lets a create pass its collision check and overwrite a note
+-- so this is a refusal, not a loss. It is still wrong, and on a common shape.
+
+**The doc comment above the function already described the intended
+behaviour**: *"an empty root, or one where **no** entry has a cased letter"*.
+Only the code stopped early. It is now a `let ... else { continue }`.
+
+**Worth recording, because it is why this survived review:** a note cannot
+trigger it. `.md` is itself cased, so `flip_case("2026-09-22.md")` answers
+`Some("2026-09-22.Md")`. The first test written for this passed with and without
+the fix for exactly that reason. The real shape is a **directory** -- a folder
+named for a year, or named in a script with no case -- and the test now uses
+`2026/` and a CJK name, red before the change and green after.
+
+`clippy (windows)` did not run: no MinGW, which is `sudo`.
+
 ## 1.7.12 - the two stores holding the only copy of what the user typed called unreadable "absent"
 
 `drafts::read` answered `Ok(None)` for a header that did not parse, and
