@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.15 - running out of the hash budget and finding no match gave the same answer
+
+Rule 2 of identity correlation hashes same-size candidates to recognise a note
+that moved. Its loop `break`s when the budget is spent, which leaves `matches`
+empty -- and empty falls through to *"Rule 3, by omission"*, which **removes the
+record** and emits `Removed`. Undecided and absent were the same value.
+
+**The damage is identity, not bytes.** A move the filesystem performed as
+copy+delete rather than `rename(2)` -- a cloud client, a cross-volume move, a
+backup restore, an editor that writes-new-then-deletes, or Windows answering
+`native_id: None` on a volume with no file index -- comes back as a brand new
+note with a brand new `NoteId`. Its revision chain detaches from the server's
+history, the old record sits `missing` waiting for a deletion the user never
+asked for, and `stage_receiver_changes` can no longer recognise the move
+because it matches on `previous.local.note_id`. ADR-005 exists to prevent this.
+
+**It does not need a large workspace.** The budget is spent per same-size
+candidate *per vanished note*, so it can run out inside a single `correlate`
+call: reorganising a few dozen notes at once is enough, with nothing modified
+beforehand.
+
+`ran_out` now separates the two. Undecided keeps the record and calls
+`Recon::queue`, so `reconcile` reports a non-zero `queued` and the next pass
+finishes the correlation with a fresh budget. **That is also what makes the
+drain loop in `sync::inventory_using` mean what its comment claims** -- it was
+written to wait for exactly this, and has been watching a queue correlation
+never wrote to.
+
+The test moves 30 same-size notes by copy+delete and drains the way
+`inventory_using` does. Before this commit it fails on the third note with a new
+`NoteId`.
+
+`clippy (windows)` did not run: no MinGW, which is `sudo`.
+
 ## 1.7.14 - a link review rebuilt the workspace's wiki index once per link
 
 `knowledge::candidates(&paths, target)` builds a whole `WikiLookup` -- two

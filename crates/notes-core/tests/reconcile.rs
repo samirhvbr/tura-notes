@@ -500,3 +500,77 @@ fn the_watcher_never_reports_our_own_temporary_files() {
         "{paths:?}"
     );
 }
+
+/// Running out of the hash budget is not the same answer as finding no match,
+/// and it used to produce the same one.
+///
+/// Rule 2 `break`s when the budget is spent, leaving `matches` empty; empty
+/// falls through to "Rule 3, by omission", which **removes the record**. A move
+/// the filesystem performed as copy+delete — a cloud client, a cross-volume
+/// move, a backup restore, or Windows answering `native_id: None` on a volume
+/// with no file index — then arrives as a brand new note with a brand new
+/// `NoteId`, its revision chain detached from the server's history, while the
+/// old record waits for a deletion nobody asked for. ADR-005 exists to prevent
+/// exactly that.
+///
+/// The budget is spent per same-size candidate **per vanished note**, so
+/// reorganising a few dozen notes at once exhausts it with nothing modified.
+#[test]
+fn a_move_that_exhausts_the_hash_budget_keeps_its_identity_and_asks_for_another_pass() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+
+    // Same size, distinct content: every one is a hash candidate for every
+    // other, so the budget is spent on candidates rather than on matches.
+    const N: usize = 30;
+    for i in 0..N {
+        std::fs::write(
+            work.path().join(format!("n{i:02}.md")),
+            format!("# {i:03}\n"),
+        )
+        .unwrap();
+    }
+    std::fs::create_dir(work.path().join("sub")).unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    svc.open_workspace(work.path()).unwrap();
+
+    // Give every note an identity, then record them.
+    let mut ids = Vec::new();
+    for i in 0..N {
+        let path = rel(&format!("n{i:02}.md"));
+        ids.push((path.clone(), svc.open_note(&path).unwrap().note_id));
+    }
+
+    // Move them all at once, as a copy+delete rather than a rename: the shape
+    // a sync client or a cross-volume move produces.
+    for (path, _) in &ids {
+        let from = work.path().join(path.as_str());
+        let to = work.path().join("sub").join(path.as_str());
+        std::fs::write(&to, std::fs::read(&from).unwrap()).unwrap();
+        std::fs::remove_file(&from).unwrap();
+    }
+
+    // Drain, exactly as `sync::inventory_using` does. The loop was written to
+    // wait for a queue correlation never wrote to.
+    let mut passes = 0;
+    loop {
+        let r = svc.reconcile(&BTreeSet::new(), &[]).unwrap();
+        passes += 1;
+        assert!(passes < 50, "correlation must converge, not spin");
+        if r.queued == 0 {
+            break;
+        }
+    }
+
+    // Identity survived the move for every note: the id the note had before is
+    // the id the moved file has now.
+    for (path, id) in &ids {
+        let moved = rel(&format!("sub/{}", path.as_str()));
+        assert_eq!(
+            svc.open_note(&moved).unwrap().note_id,
+            *id,
+            "{path:?} kept its identity across a copy+delete move"
+        );
+    }
+}

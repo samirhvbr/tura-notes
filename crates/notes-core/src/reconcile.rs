@@ -415,8 +415,23 @@ impl super::WorkspaceService {
                     .cloned()
                     .collect();
                 let mut matches = Vec::new();
+                // Running out of budget is NOT the same answer as finding no
+                // match, and it used to produce the same one: `break` left
+                // `matches` empty, empty fell through to Rule 3, and Rule 3
+                // deletes the record. A move the filesystem performed as
+                // copy+delete — a cloud client, a cross-volume move, a backup
+                // restore — then arrives as a brand new note with a brand new
+                // `NoteId`, its revision chain detached from the server's
+                // history, while the old record waits for a deletion the user
+                // never asked for. That is what ADR-005 exists to prevent.
+                //
+                // The budget is spent per same-size candidate per vanished
+                // note, so it can run out *inside this call*: reorganising a
+                // few dozen notes at once is enough, with nothing modified.
+                let mut ran_out = false;
                 for p in same_size {
                     if *budget == 0 {
+                        ran_out = true;
                         break;
                     }
                     *budget -= 1;
@@ -428,6 +443,14 @@ impl super::WorkspaceService {
                 }
                 if matches.len() == 1 {
                     hit = Some(matches.remove(0));
+                } else if ran_out && matches.is_empty() {
+                    // Undecided, not absent. Keep the record and ask for
+                    // another pass: `reconcile` reports a non-zero `queued`,
+                    // which is exactly what the drain loop in
+                    // `sync::inventory_using` was written to wait for — it has
+                    // been watching a queue that correlation never wrote to.
+                    self.open()?.queue(from);
+                    continue;
                 }
             }
 
