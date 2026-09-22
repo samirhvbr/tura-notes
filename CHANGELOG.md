@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.6 - the review of 21/09 enters the queue whole, and the board it reports to is alive again
+
+A twelve-dimension review of this repository ran on 21/09 against `1.7.4`: 62
+raw findings, each handed to an adversarial verifier instructed to refute it,
+46 surviving, 16 dead. After merging duplicates, 41 findings are loaded into
+`.loop/QUEUE.md` as round 6 -- 34 as `- [ ]`, 7 as `- 🔒` because fixing them
+needs a product call only the owner can make.
+
+**They are ordered by impact x likelihood x cheapness of the fix, and the
+numbering is the order of attack** rather than the order they were found. Six
+cross-cutting themes are written at the head of the round, because nearly every
+item is an instance of one and fixing an instance without seeing the pattern
+leaves its twin in place: what the user typed is less protected in the frontend
+than in the core; a quadratic shape hidden behind a loop, invisible in a
+three-note fixture; one signal for many causes, so the next incident instruments
+the wrong path; a rule that holds on one path and not its twin; a green control
+that fails in the direction it exists to catch; and the publication chain.
+
+**The board `.loop/SCOPE.md` points at had stopped existing.** Read from
+outside, `7PjQHdRBS4t2wSJZWA8ZLR` answers that there is no such artifact,
+collection or document -- so every blocked item this round would have filed
+against it would have gone nowhere, silently, which is the same failure the
+review found in five other places. The scope now names the live board, whose
+`tasks` collection carries one row per item of this round, and states that
+keeping it current is part of the item rather than a step after it: `fazendo`
+when picked up, `feito` with the version that carried it, `bloqueado` with what
+was measured. A committed item the board still shows pending is the defect, not
+the bookkeeping.
+
+No code was changed by this commit; the review itself changed nothing.
+
 ## 1.7.5 - the round has no clock, and an item only the owner can decide leaves the queue
 
 `.loop/loop.sh` tracked two changes in `loop-ctl` that had been sitting

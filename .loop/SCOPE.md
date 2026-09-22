@@ -15,8 +15,18 @@
 ## Para e registra no artefato, não pergunta no chat
 
 Estas não são perguntas para o chat: viram linha na coleção `tasks` do artefato
-https://claude.ai/artifact/7PjQHdRBS4t2wSJZWA8ZLR com `state: "bloqueado"`,
+https://claude.ai/artifact/Vr8WJEfiinAfji3H7Et4Md com `state: "bloqueado"`,
 `who: "samir"` e a evidência medida — e o trabalho segue no próximo item.
+
+**O quadro mudou em 21/09.** O anterior (`7PjQHdRBS4t2wSJZWA8ZLR`) não existe
+mais — lido de fora, responde que não há tal artefato, coleção ou documento. O
+de agora é o da revisão completa, e carrega as duas coisas ao mesmo tempo: a
+seção **Decisões**, onde o dono responde, e a coleção `tasks`, uma linha por
+item da rodada 6. **Manter o quadro atualizado é parte do item, não depois
+dele:** ao pegar um item, `state: "fazendo"`; ao commitar, `state: "feito"` com
+a versão que o carregou; ao travar, `state: "bloqueado"` com o que foi medido.
+Um item commitado que o quadro ainda mostra pendente é a mesma falha que esta
+rodada achou em cinco lugares — o registro que relata sucesso sem observar.
 
 - Qualquer coisa que precise de `sudo` ou instale pacote no sistema.
 - A chave privada de assinatura do servidor (`sign-server-release.sh init`) e
