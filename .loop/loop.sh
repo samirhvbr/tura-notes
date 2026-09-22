@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# .loop/loop.sh — start a timed round in this repository, then watch it.
+# .loop/loop.sh — start a round in this repository, then watch it.
 #
-#   ./.loop/loop.sh <session-id>       arm for 6h and open the panel
-#   ./.loop/loop.sh <session-id> 10h   same, with a 10h clock  (6h | 90m | 2h30)
+#   ./.loop/loop.sh <session-id>       arm with no time target, open the panel
+#   ./.loop/loop.sh <session-id> 10h   same, with 10h as a TARGET (6h | 90m | 2h30)
+#
+# The duration is a production target that gets measured, never a ceiling: since
+# ADR-017 nothing ends a round on the clock. Omit it and the panel just counts up.
 #   LOOP_SESSAO=<id> ./.loop/loop.sh   the id may come from the environment
 #
 # The two arguments are recognised by SHAPE, not by position, so the order does
@@ -12,9 +15,10 @@
 # yours. Add --objetivo, --janela, --dias, --itens below and they survive every
 # future `armar`. Delete the file and the next `armar` writes a fresh one.
 #
-# Under a clock an empty queue does not end the round — it becomes a refill
-# turn (ADR-015). Declare the boundary in .loop/SCOPE.md; it goes verbatim into
-# the refill prompt.
+# An empty queue does not end the round — it becomes a refill turn (ADR-015).
+# Declare the boundary in .loop/SCOPE.md; it goes verbatim into the refill
+# prompt. An item only you can decide goes as `- 🔒` and leaves the queue
+# (ADR-018).
 set -euo pipefail
 
 # The root is derived, never written down: move the repo, clone it, rename it —
@@ -108,34 +112,30 @@ RECUSA
         exit 1
     fi
 done
-DURACAO="${DURACAO:-6h}"
+# No default: omitting the duration means no target at all. It used to default
+# to 6h because that 6h was a ceiling; with nothing ending a round on time,
+# inventing a number only puts a figure on the panel nobody asked for.
 
-if [ -z "$SESSAO" ]; then
-    cat >&2 <<RECUSA
-✗ loop.sh: refusing to arm without a session binding.
-
-  Pass the id of the session that will drive the round:
-      ./.loop/loop.sh <session-id> [duration]
-      LOOP_SESSAO=<session-id> ./.loop/loop.sh [duration]
-
-  Why a refusal and not a guess: without \`--sessao\` the round adopts the FIRST
-  session that ends a turn in this tree — any open chat will do. On 2026-09-01
-  that adopted the session the owner was using to triage PRs: 18 journal
-  entries filed under unrelated items, 4 spurious queue items, two sessions on
-  one tree, four \`version.md\` collisions and two red \`master\`. On 2026-09-10 it
-  fired three times inside one round, erasing a binding that was correct.
-
-  Not re-arming is an inconvenience; re-arming on the wrong process is the bug.
-
-$(listar_sessoes)
-
-  Deliberately adopting the first stop is still reachable, and now has to be
-  said out loud:
-      loop-ctl armar --raiz . --duracao 6h --qualquer-sessao
-RECUSA
-    exit 1
-fi
-
+# ── the session binding ─────────────────────────────────────────────────────
+#
+# With an id: `--sessao <id>`. Without one: `--escolher-sessao`, which lists the
+# sessions of this repository and asks which drives the round — a digit instead
+# of a UUID, and it prints the CONFIG PROFILE of each (`.claude-blue3`,
+# `.claude-pessoal`, …), which is how personal work is told from company work on
+# one machine.
+#
+# ⛔ It still never guesses. With no terminal to ask (cron, CI, a pipe) it
+# refuses, because the decision stays human — what changed is the cost of saying
+# it, not who says it. The blind adoption that `--adotar-primeira-parada` did is
+# gone since 0.3.15: on 2026-09-01 it bound the round to the chat the owner had
+# open to triage PRs (18 journal entries filed under unrelated items, 4 spurious
+# queue items, four `version.md` collisions, two red `master`), and on 2026-09-10
+# it fired three times in one round, erasing a binding that was correct.
+#
+# Deliberately adopting any session is still reachable, and has to be said out
+# loud:  loop-ctl armar --raiz . --qualquer-sessao
+VINCULO=(--escolher-sessao)
+[ -n "$SESSAO" ] && VINCULO=(--sessao "$SESSAO")
 # Your flags. Uncomment what you want; they survive every future `armar`,
 # because this file is never overwritten.
 EXTRA=(
@@ -144,10 +144,13 @@ EXTRA=(
     # --itens 10
 )
 
+ALVO=()
+[ -n "$DURACAO" ] && ALVO=(--duracao "$DURACAO")
+
 "${CTL[@]}" armar \
     --raiz "$RAIZ" \
-    --duracao "$DURACAO" \
-    --sessao "$SESSAO" \
+    ${ALVO[@]+"${ALVO[@]}"} \
+    "${VINCULO[@]}" \
     ${EXTRA[@]+"${EXTRA[@]}"}
 
 # No --ate-encerrar on purpose: a turn that dies without emitting `Stop` leaves

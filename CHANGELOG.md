@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.5 - the round has no clock, and an item only the owner can decide leaves the queue
+
+`.loop/loop.sh` tracked two changes in `loop-ctl` that had been sitting
+uncommitted in the tree: a round no longer takes a duration as a ceiling, and a
+queue item that waits on the owner is written `- 🔒` instead of `- [ ]`.
+
+**The duration stopped being a ceiling, so the default stopped making sense.**
+Nothing ends a round on the clock any more; the number that used to be enforced
+is now a production target that gets measured. The old `DURACAO="${DURACAO:-6h}"`
+therefore invented a figure nobody asked for and put it on the panel as if it
+meant something. Omitting it now means no target at all, and the panel counts up.
+
+**The session binding stopped being a refusal and became a question.** It still
+never guesses -- the blind adoption that bound a round to the chat the owner had
+open to triage PRs is gone for good -- but `--escolher-sessao` lists this
+repository's sessions and asks which one drives the round, printing each one's
+config profile so personal work is told from company work on one machine. With
+no terminal to ask (cron, CI, a pipe) it still refuses. What changed is the cost
+of saying it, not who says it.
+
+**`- 🔒` is the third state the queue was missing.** The hook hands out the
+first `- [ ]`, so an item blocked on an owner act sitting at the top of the queue
+spends a turn per stop reporting that nothing happened. `- [x]` was wrong for it
+too: the work is not done. The two parked items -- the `reqwest` bump waiting on
+MinGW and the Android emulator waiting on a UEFI setting -- now carry it.
+
 ## 1.7.4 - a fifth test on the lock timeout, and the ratio is now five to two
 
 `a_second_receiver_move_before_confirmation_preserves_the_whole_history`
