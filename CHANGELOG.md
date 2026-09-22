@@ -7,6 +7,44 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.17 - Ctrl+P reported a complete list of notes while a note was missing from it
+
+Both cache invalidations in `reconcile` sat behind `if !events.is_empty()`. That
+guard is not what either ADR says, and it is not equivalent to them, because
+**`Created` is suppressed on a full scan by design** -- and
+`apps/notes-app/src/stores/sync.ts` polls `reconcileAll` every five seconds with
+`full = true`.
+
+So on a workspace with no watch -- a network mount, an exhausted inotify table,
+the SAF backend of 0.4 -- a note written by another program produced no event
+and dropped nothing. `Ctrl+P` kept answering from the list captured when the
+workspace was opened. The part that makes it a defect rather than a delay is
+that `QuickOpen.building` was `false`: the palette reported a **complete** list
+that was missing notes, so there was nothing to tell the user to wait. The
+failing test says it exactly -- `indexed: 2, building: false`, with three notes
+on disk.
+
+The content index escaped only because `IndexControls.tsx` runs `indexStart`
+every ten seconds. That is a UI timer, not a guarantee of the core, and any
+other reader of `index_status().stale` -- the `partial` flag of `word_hits`, for
+one -- was told a result was complete when it was not.
+
+**ADR-032 is ACTIVE** and says the cache drops on *"any reconciliation tick"*,
+accepting the coarseness in as many words. **ADR-034 amends it with exactly one
+qualification**, that a walk still running is not restarted. `!events.is_empty()`
+was a second one, introduced in the same commit that wrote ADR-034 and recorded
+nowhere.
+
+Restoring ADR-032 literally would put the background walk on a five-second
+treadmill over a folder that has not changed -- a cost that ADR accepted when
+ticks came from a watcher and nothing polled. The tie-breaker is the number the
+full walk already has: a tree with a different number of paths is a tree the
+cache does not describe, and vanishing still arrives as an event. **ADR-085**
+records that, because replacing one unrecorded qualification with another would
+be the same mistake.
+
+`clippy (windows)` did not run: no MinGW, which is `sudo`.
+
 ## 1.7.16 - the watcher's event loop followed symlinks and never descended
 
 Two asymmetries against the initial walk, both inside one `if`, and the walk

@@ -82,6 +82,19 @@ impl PathIndex {
         index
     }
 
+    /// How many paths the list holds, and whether it is still filling —
+    /// without cloning the list.
+    ///
+    /// `snapshot()` copies the whole `Vec`, which is the wrong price to pay
+    /// every five seconds just to ask whether the tree is the same shape as the
+    /// cache thinks.
+    pub fn size(&self) -> (usize, bool) {
+        (
+            self.paths.lock().map(|p| p.len()).unwrap_or(0),
+            self.building.load(Ordering::Acquire),
+        )
+    }
+
     pub fn snapshot(&self) -> Snapshot {
         Snapshot {
             paths: self.paths.lock().unwrap().clone(),

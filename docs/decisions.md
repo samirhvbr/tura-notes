@@ -2739,3 +2739,51 @@ shipped, that is not a trade worth thinking about.
 read-back. Where the read-back is expensive or impossible, that is written down
 at the call site as a known gap rather than left as a silent assumption — a step
 nobody verifies is a step nobody knows the state of.
+
+---
+
+## ADR-085 — The quick-open cache drops when the tree has a different number of paths, not when a tick produced an event
+
+**Status:** `ACCEPTED` · 22/09/2026 · amends
+[ADR-032](#adr-032--quick-open-matches-a-cached-path-list-and-the-tree-invalidates-it)
+and [ADR-034](#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work)
+
+**Decision.** A reconciliation tick drops the cached path list when it produced
+a user-visible event **or** when the full walk it just performed saw a different
+number of paths than the cache holds. A hinted tick, which does not walk, drops
+the cache only on an event. A list that is still filling is never restarted.
+
+**Context.** ADR-032 says the cache drops on *"any reconciliation tick"* and
+accepts the coarseness in as many words. ADR-034 amends that with exactly one
+qualification — a walk still running is not restarted. The code carried a
+second: both invalidations sat behind `if !events.is_empty()`, introduced in the
+same commit that wrote ADR-034 and recorded in no ADR.
+
+That guard is not equivalent to either ADR, because **`Created` is suppressed on
+a full scan by design**, and `apps/notes-app/src/stores/sync.ts` polls
+`reconcileAll` every five seconds with `full = true`. On a workspace with no
+watch — a network mount, an exhausted inotify table, the SAF backend of 0.4 — a
+note created by another program produced no event, so nothing was invalidated.
+`Ctrl+P` answered from the list captured when the workspace was opened, and
+`QuickOpen.building` was `false`, so the palette reported a **complete** list
+that was not.
+
+**Why not restore ADR-032 literally.** Invalidating on every tick puts the
+background walk on a five-second treadmill over a folder that has not changed,
+which is a cost ADR-032 accepted when ticks came from a watcher and the frontend
+did not poll. It does now.
+
+**Why the count.** A full scan walks the tree already, so its path count is
+free, and a tree with a different number of paths is a tree the cache does not
+describe. Appearing is what the count catches; vanishing already arrives as an
+event, because a record that lost its file is a `Removed` or a correlation. The
+two together cover the cases ADR-032 names, at the price of one `usize`
+comparison per full tick.
+
+**Consequences.** A create-and-delete inside one tick leaves the count
+unchanged, and the deletion half produces an event, so the tick still
+invalidates. A tick on an unchanged tree does not. The measurement that would
+overturn this is a workspace where the count is stable while the shape is not
+and no event is emitted; none is known, and if one appears the answer is to
+compare a cheap digest of the walk rather than to return to invalidating on
+every tick.

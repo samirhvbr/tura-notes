@@ -574,3 +574,59 @@ fn a_move_that_exhausts_the_hash_budget_keeps_its_identity_and_asks_for_another_
         );
     }
 }
+
+/// A note created outside the application reaches `Ctrl+P` without anyone
+/// having typed in the app first.
+///
+/// `Created` is suppressed on a full scan by design, and both invalidations sat
+/// behind `if !events.is_empty()` — so on a workspace with no watch (a network
+/// mount, an exhausted inotify table, the SAF backend of 0.4) the quick-open
+/// list kept answering from the walk taken when the workspace was opened. Worse
+/// than missing the note: `building` was false, so the palette reported a
+/// complete list.
+///
+/// ADR-032 is ACTIVE and requires the drop on "any reconciliation tick";
+/// ADR-034 amends it with one qualification, that a walk still running is not
+/// restarted. The `!events.is_empty()` guard was a second one no ADR records.
+#[test]
+fn a_note_created_outside_the_app_is_findable_after_a_full_scan() {
+    let mut f = setup();
+
+    // Build the quick-open list, as the first Ctrl+P does. It is built in the
+    // background (ADR-034), so the first call answers from a partial one.
+    let settled = |f: &mut Fixture, q: &str| {
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        loop {
+            let r = f.svc.quick_open(q, 20).unwrap();
+            if !r.building || std::time::Instant::now() > deadline {
+                return r;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    };
+    let before = settled(&mut f, "nota");
+    assert!(
+        before.matches.iter().any(|h| h.path.as_str() == "nota.md"),
+        "the fixture note is there to begin with: {before:?}"
+    );
+
+    // Another program writes a note. No hint reaches us: nothing is watching.
+    std::fs::write(f.work.path().join("de-fora.md"), b"# de fora\n").unwrap();
+
+    // The five-second poll the frontend runs: a full scan, no hints.
+    let r = f.svc.reconcile(&BTreeSet::new(), &[]).unwrap();
+    assert!(
+        r.events.is_empty(),
+        "a full scan deliberately does not announce Created: {:?}",
+        r.events
+    );
+
+    let after = settled(&mut f, "de-fora");
+    assert!(
+        after
+            .matches
+            .iter()
+            .any(|h| h.path.as_str() == "de-fora.md"),
+        "the cache must have been dropped even though nothing was announced: {after:?}"
+    );
+}

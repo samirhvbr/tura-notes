@@ -192,8 +192,15 @@ impl super::WorkspaceService {
         // hints, or the whole tree.
         let mut candidates: BTreeSet<RelPath> =
             std::mem::take(&mut *self.open_mut()?.recon.lock().expect("recon")).queued;
+        // On a full scan the walk happens anyway, so the number of paths it
+        // just saw is free — and it is the only cheap evidence that the
+        // quick-open cache no longer describes the tree. See the invalidation
+        // at the end of this function.
+        let mut walked = None;
         if full {
-            candidates.extend(self.walk()?);
+            let tree = self.walk()?;
+            walked = Some(tree.len());
+            candidates.extend(tree);
             candidates.extend(self.open()?.registry.notes.values().map(|r| r.path.clone()));
         } else {
             candidates.extend(hints.iter().cloned());
@@ -306,13 +313,40 @@ impl super::WorkspaceService {
         // The quick-open list is marked stale only when something actually
         // moved. Marking it on every tick would put its walk on a five-second
         // treadmill over a folder that had not changed.
-        if !events.is_empty() {
+        //
+        // **But "no event" is not "nothing moved".** `Created` is suppressed on
+        // a full scan by design — and `stores/sync.ts` polls `reconcileAll`
+        // every five seconds with `full = true`, so on a workspace without a
+        // watch (a network mount, an exhausted inotify table, the SAF backend)
+        // every externally created note produced no event and no invalidation.
+        // `Ctrl+P` then answered from the list captured when the workspace was
+        // opened, and `building` was false, so the palette did not even say the
+        // list was incomplete.
+        //
+        // ADR-032 is ACTIVE and says the cache drops on *"any reconciliation
+        // tick"*, accepting the coarseness in as many words; ADR-034 amends it
+        // with exactly one qualification, that a walk still running is not
+        // restarted. `if !events.is_empty()` was a second qualification that no
+        // ADR records. Restoring the ADR literally would bring back the
+        // treadmill the paragraph above avoids, so the tie-breaker is the count
+        // the full walk already has: a tree with a different number of paths is
+        // a tree the cache does not describe. A deletion still arrives as an
+        // event, so the two together cover appearing and vanishing.
+        let shape_changed = match walked {
+            Some(count) => {
+                let open = self.open()?;
+                let state = open.paths.lock().expect("paths");
+                match state.index.as_ref().map(|ix| ix.size()) {
+                    // A list still filling is not restarted — ADR-034's one
+                    // qualification, and the read side enforces it too.
+                    Some((_, true)) | None => false,
+                    Some((cached, false)) => cached != count,
+                }
+            }
+            None => false,
+        };
+        if !events.is_empty() || shape_changed {
             self.invalidate_paths();
-        }
-        if !events.is_empty() {
-            self.open()?
-                .content_dirty
-                .store(true, std::sync::atomic::Ordering::Relaxed);
         }
         Ok(Reconciled { events, queued })
     }
