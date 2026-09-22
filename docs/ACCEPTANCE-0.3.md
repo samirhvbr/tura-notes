@@ -51,6 +51,7 @@ an installed Linux acceptance run.
 | K13 | Rebuild index; tags, links and graph return while note bytes, IDs, drafts and append retry history survive | ☐ | ☐ |
 | K14 | Import a PDF: pick one, read the extracted text in the preview, then **cancel**. No note appears, and the PDF is still only where it was — the import is deliberately not a workspace operation until the save | ☐ | ☐ |
 | K15 | Import again and save. One Markdown note at the workspace root, holding the text you reviewed and nothing else: no copy of the PDF, no images, no folder. Then try a file over 32 MiB and one that is not a PDF — both refuse visibly rather than producing an empty note | ☐ | ☐ |
+| K16 | Import `fixtures/pdf/standard-encoding.pdf`. It refuses, visibly, **and the application is still running** — every other tab still open, nothing lost. The parser panics on that file rather than returning an error, so before `1.7.9` this row killed the process; it is the one PDF case a unit test cannot fully stand in for, because what is being checked is that the window survived | ☐ | ☐ |
 
 Record release numbers, platform, failures and repeat results here when Samir
 performs the walk. No owner flow has been marked by an agent.
@@ -58,7 +59,7 @@ performs the walk. No owner flow has been marked by an agent.
 **Measured on 17/09/2026, against everything that shipped after 1.0.0.** One gap
 found and closed above: PDF import arrived at `0.20.27` and appeared in no
 acceptance document in this repository — `grep -i pdf docs/ACCEPTANCE-*.md`
-returned nothing. K14 and K15 are it. Nothing else since 1.0.0 changes a K flow:
+returned nothing. K14 and K15 are it; K16 was added on 22/09/2026 with the panic it names. Nothing else since 1.0.0 changes a K flow:
 the remote MCP work of `1.6.4`–`1.6.5` is milestone 0.7 and is walked in
 [ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md), whose **M12 is the row that protects this
 document** — it re-runs the local stdio path after `tools()` moved into the

@@ -5,7 +5,7 @@
 //! capabilities are per command, and permitting `dispatch` would permit
 //! everything — which is exactly what the security posture forbids.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use notes_core::search::{QuickOpen, SearchId, SearchOpts, SearchProgress};
@@ -174,7 +174,28 @@ pub fn note_create(app: State<'_, App>, dir: RelPath, name: String) -> R<Entry> 
 
 /// Extract plain text from an operator-selected PDF. It is deliberately not a
 /// workspace operation: cancelling the import must leave no source file behind.
-#[tauri::command]
+///
+/// **`async` is load-bearing, and so is `catch_unwind`.** ADR-068 says to refuse
+/// a malformed or unsupported PDF without guessing — and `Err` was the only
+/// refusal handled, while `pdf_extract` does not return `Err` for what it does
+/// not model. `encoding_to_unicode_table` matches exactly `MacRomanEncoding`,
+/// `MacExpertEncoding` and `WinAnsiEncoding` and calls `panic!` on anything
+/// else, `/StandardEncoding` included; `to_unicode` panics on a predefined
+/// non-Identity CMap, which is most CJK documents. `pdf-extract 0.12.0` carries
+/// 31 `panic!`, a `todo!` and 42 `unwrap()` in that one file.
+///
+/// As a plain `#[tauri::command]` this ran inline on the webview thread, inside
+/// WebKitGTK's `extern "C"` scheme callback. The workspace does not set
+/// `panic = "abort"`, so the unwind crossed that FFI frame — undefined
+/// behaviour, and in practice the process died. Everything typed since the last
+/// 750 ms debounce went with it, in every open tab, and the `beforeunload`
+/// handler that writes the exit draft never ran. Refusing an unreadable PDF is
+/// not supposed to cost the user their other notes.
+///
+/// `command(async)` moves the work off that thread, which also keeps a 32 MiB
+/// parse from freezing the window; `catch_unwind` turns the panic into the
+/// refusal ADR-068 already specified.
+#[tauri::command(async)]
 pub fn pdf_extract(path: String) -> R<String> {
     let path = PathBuf::from(path);
     let metadata =
@@ -184,9 +205,23 @@ pub fn pdf_extract(path: String) -> R<String> {
             cap: "PDF text extraction".into(),
         });
     }
-    pdf_extract::extract_text(&path).map_err(|_| CoreError::Unsupported {
+    extract_or_refuse(&path)
+}
+
+/// `pdf_extract::extract_text`, with a panic reported as the refusal it means.
+///
+/// Separate from the command so a test can reach it: `#[tauri::command]`
+/// rewrites the item, and the panics this exists to contain are in the parser,
+/// not in the IPC.
+fn extract_or_refuse(path: &Path) -> R<String> {
+    let unsupported = || CoreError::Unsupported {
         cap: "PDF text extraction".into(),
-    })
+    };
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text(path)
+    }))
+    .map_err(|_| unsupported())?
+    .map_err(|_| unsupported())
 }
 
 /// Persist text that the user reviewed in the PDF import preview as a Markdown
@@ -716,4 +751,43 @@ pub async fn sync_control_pause(app: State<'_, App>) -> R<()> {
     tauri::async_runtime::spawn_blocking(move || controller.pause().map_err(sync_error))
         .await
         .map_err(sync_error)?
+}
+
+#[cfg(test)]
+mod pdf_tests {
+    use super::*;
+
+    fn fixture(name: &str) -> PathBuf {
+        // `CARGO_MANIFEST_DIR` is `apps/notes-app/src-tauri`.
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../fixtures/pdf")
+            .join(name)
+    }
+
+    /// The whole point of `extract_or_refuse`: this input does not return `Err`
+    /// from the parser, it panics inside it. Before the `catch_unwind` the
+    /// unwind crossed the webview's `extern "C"` frame and took the process —
+    /// and with it every unsaved buffer in every open tab.
+    #[test]
+    fn a_font_encoding_the_parser_does_not_model_is_refused_not_fatal() {
+        let err = extract_or_refuse(&fixture("standard-encoding.pdf"))
+            .expect_err("a PDF the parser cannot model must be refused");
+        assert!(
+            matches!(&err, CoreError::Unsupported { cap } if cap == "PDF text extraction"),
+            "expected the ADR-068 refusal, got {err:?}",
+        );
+    }
+
+    /// The refusal a missing file gets is still the I/O one, so the panic guard
+    /// did not flatten every failure into `Unsupported`.
+    #[test]
+    fn a_file_that_is_not_a_pdf_is_refused_as_unsupported() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("not.pdf");
+        std::fs::write(&path, b"this is not a PDF at all").expect("write");
+        assert!(matches!(
+            extract_or_refuse(&path),
+            Err(CoreError::Unsupported { .. })
+        ));
+    }
 }

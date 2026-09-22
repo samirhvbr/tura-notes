@@ -7,6 +7,44 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.9 - a PDF the parser cannot model took the whole application with it
+
+ADR-068 says to refuse a malformed or unsupported PDF without guessing.
+`pdf_extract` handled `Err` and nothing else -- and `pdf-extract 0.12.0` does not
+return `Err` for what it does not model. It panics.
+
+**Measured, and wider than reported.** `encoding_to_unicode_table` matches
+exactly `MacRomanEncoding`, `MacExpertEncoding` and `WinAnsiEncoding` and calls
+`panic!` on everything else, so `/StandardEncoding` -- an ordinary Type1 font
+declaration -- is enough. A probe run against a 608-byte fixture and then
+removed: `panicked at pdf-extract-0.12.0/src/lib.rs:359: unexpected encoding
+"StandardEncoding"`. A predefined non-Identity CMap, which is most CJK
+documents, panics a few hundred lines further down, and that one file carries 31
+`panic!`, a `todo!` and 42 `unwrap()`.
+
+**Where it panicked is what made it fatal.** As a plain `#[tauri::command]` this
+ran inline on the webview thread, inside WebKitGTK's `extern "C"` scheme
+callback. The workspace does not set `panic = "abort"`, so the unwind crossed
+that FFI frame and the process died -- taking everything typed since the last
+750 ms debounce in **every** open tab, with the `beforeunload` handler that
+writes the exit draft never running. Refusing an unreadable PDF should not cost
+the user their other notes.
+
+`command(async)` moves the parse off that thread, which also stops a 32 MiB file
+freezing the window, and `catch_unwind` in a small `extract_or_refuse` turns the
+panic into the `Unsupported` refusal ADR-068 already specified. Two tests, and
+`fixtures/pdf/standard-encoding.pdf` with a README saying why a PDF that exists
+to be refused is worth keeping.
+
+**`ACCEPTANCE-0.3.md` gets K16.** What that row checks is that the window is
+still there afterwards, and no unit test stands in for that.
+
+**One gate step did not run: `clippy (windows)`.** There is no MinGW C compiler
+on this machine and installing one is `sudo`. The other 35 steps are green.
+Nothing in this change is platform-specific, but round 4's rule is that
+`NOTES_NO_WINDOWS_CHECK=1` only covers a commit that does not touch Rust, and
+this one does -- so it is recorded here rather than worked around quietly.
+
 ## 1.7.8 - the frontend dropped the save the core would have queued
 
 `editor.ts` held a module-level `inFlight` boolean and returned early while it
