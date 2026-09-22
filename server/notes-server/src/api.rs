@@ -153,7 +153,12 @@ impl From<CoreError> for ApiError {
             CoreError::Unsupported { .. } | CoreError::InvalidPath { .. } => {
                 err(S::BAD_REQUEST, "invalid_request")
             }
-            CoreError::LockTimeout => err(S::SERVICE_UNAVAILABLE, "busy"),
+            // Both are "come back in a moment", and both keep the 503 they
+            // had when they were one variant. Which wait it was belongs in the
+            // log, not in the status line.
+            CoreError::LockTimeout { .. } | CoreError::NotSettled { .. } => {
+                err(S::SERVICE_UNAVAILABLE, "busy")
+            }
             _ => internal(),
         }
     }

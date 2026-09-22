@@ -56,7 +56,13 @@ fn an_exclusive_open_session_applies_and_reloads_clean_notes() {
     let mut peer = WorkspaceService::with_data_dir(data.path()).unwrap();
     assert!(matches!(
         peer.open_workspace(root.path()),
-        Err(CoreError::LockTimeout)
+        // Shared: an ordinary open asks for the lease shared, and the exclusive
+        // holder refuses it. Typing the wait is what made this legible — the
+        // assertion used to name the workspace write lock, which is a different
+        // file taken in a different place.
+        Err(CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityShared
+        })
     ));
     service.close_workspace(&[]).unwrap();
     peer.open_workspace(root.path()).unwrap();
@@ -118,7 +124,10 @@ fn shared_sessions_cannot_apply_or_upgrade_away_their_lease() {
     let mut peer = WorkspaceService::with_data_dir(data.path()).unwrap();
     assert!(matches!(
         peer.open_sync_workspace(root.path()),
-        Err(CoreError::LockTimeout)
+        // Exclusive: a second offline-apply session asks for the same lease.
+        Err(CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityExclusive
+        })
     ));
     assert!(service.workspace_id().is_some());
     service.close_workspace(&[]).unwrap();
@@ -135,7 +144,9 @@ fn drafts_and_failed_intents_survive_an_open_session() {
     let ws = service.open_sync_workspace(root.path()).unwrap();
     assert!(
         apply_in_workspace(&mut service, &path(), b"new", None, false, &[], || Err(
-            CoreError::LockTimeout
+            CoreError::LockTimeout {
+                what: notes_model::LockWait::WorkspaceWrite
+            }
         ))
         .is_err()
     );

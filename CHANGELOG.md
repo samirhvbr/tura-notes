@@ -7,6 +7,43 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.10 - one sentence for four different waits, and an open investigation counting it
+
+`CoreError::LockTimeout` carried the message *"timed out waiting for the
+workspace write lock"* and was produced from four places. **One of them is that
+lock.** `activity.rs` raises it from `try_lock` and `try_lock_shared` on the
+activity state file -- a different file, in a different module, and a `try`, so
+nothing was waited for at all. `sync.rs` raises it when reconciliation has not
+settled after 201 passes, which is not a lock in any sense.
+
+**This is not tidiness.** `.continue/README.md` carries an open investigation
+into an intermittent test failure, and its evidence is that exact string:
+*"cinco testes com `timed out waiting for the workspace write lock` contra dois
+com o guard do capture"*, concluding that the lock variant is the dominant one
+and that the next step is to measure how long the write lock is held. A count
+over a message that several unrelated waits share measures the message, not the
+wait. Those five occurrences were never established to be the same thing.
+
+`LockWait` now names the three lock waits and `NotSettled { passes, queued }`
+takes the fourth out of the variant entirely. Both still map to 503 `busy` at
+the server and to `Error::Busy` in the sync client, so nothing downstream
+changes shape -- what changes is that the log can tell them apart.
+
+**The type immediately found two tests asserting on the wrong lock.**
+`an_exclusive_open_session_applies_and_reloads_clean_notes` and
+`shared_sessions_cannot_apply_or_upgrade_away_their_lease` read as though they
+covered the workspace write lock; they exercise the activity lease, shared and
+exclusive respectively. While one fieldless variant covered both, there was
+nothing in the assertion that could have said so.
+
+**And `lock.rs` had a contention test that never contended.** It called
+`acquire` twice and asserted nothing -- and `acquire` takes no lock, as the doc
+comment three lines above it says: the lock is taken inside `with`. It could not
+have failed. It now enters both critical sections.
+
+**`clippy (windows)` did not run** -- no MinGW C compiler, and installing one is
+`sudo`. The other 35 steps are green.
+
 ## 1.7.9 - a PDF the parser cannot model took the whole application with it
 
 ADR-068 says to refuse a malformed or unsupported PDF without guessing.

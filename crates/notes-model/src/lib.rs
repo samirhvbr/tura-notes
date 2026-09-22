@@ -10,7 +10,7 @@ mod ids;
 mod path;
 mod text;
 
-pub use error::{CoreError, IoKind, ReadOnlyReason, UnavailableReason};
+pub use error::{CoreError, IoKind, LockWait, ReadOnlyReason, UnavailableReason};
 pub use ids::{ContentHash, NoteId, WorkspaceId};
 pub use path::{portable_name, CompareKey, NameRule, PathError, RelPath};
 pub use text::{Encoding, Eol, TextProfile};

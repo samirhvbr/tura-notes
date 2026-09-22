@@ -96,7 +96,9 @@ fn failed_intent_persistence_creates_no_source_entry() {
         b"new",
         None,
         false,
-        || Err(CoreError::LockTimeout)
+        || Err(CoreError::LockTimeout {
+            what: notes_model::LockWait::WorkspaceWrite
+        })
     )
     .is_err());
     assert!(!root.path().join("nested").exists());
@@ -178,7 +180,7 @@ fn another_process_with_an_open_workspace_blocks_writes() {
     );
     fs::write(data.path().join("stop"), b"").unwrap();
     assert!(child.wait().unwrap().success());
-    assert!(matches!(result, Err(CoreError::LockTimeout)));
+    assert!(matches!(result, Err(CoreError::LockTimeout { .. })));
     apply_received(
         root.path(),
         data.path(),

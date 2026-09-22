@@ -116,15 +116,26 @@ fn inventory_using(root: &Path, data: &Path, exclusive: bool) -> Result<Vec<File
     correlate_inventory_cycles(&mut service, &paths)?;
     // Drain the core's bounded correlation queue before opening renamed notes.
     // Otherwise a rename beyond the first hash budget could receive a new ID.
+    // Not a lock, and it used to report itself as one. `LockTimeout` said
+    // "timed out waiting for the workspace write lock" from here, which is the
+    // sentence an open intermittent investigation is counting — so a
+    // reconciliation that ran out of passes arrived in that count as a lock
+    // that never timed out.
+    const PASSES: u32 = 201;
+    let mut queued = 0;
     let mut settled = false;
-    for _ in 0..=200 {
-        if service.reconcile_all(&[])?.queued == 0 {
+    for _ in 0..PASSES {
+        queued = service.reconcile_all(&[])?.queued as u32;
+        if queued == 0 {
             settled = true;
             break;
         }
     }
     if !settled {
-        return Err(CoreError::LockTimeout);
+        return Err(CoreError::NotSettled {
+            passes: PASSES,
+            queued,
+        });
     }
     paths
         .into_iter()

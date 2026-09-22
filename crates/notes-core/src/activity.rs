@@ -37,9 +37,13 @@ pub fn acquire(data: &Path, root: &str, exclusive: bool) -> Result<File, CoreErr
         .open(&path)
         .map_err(|e| CoreError::io("activity", "state", &e))?;
     if exclusive {
-        file.try_lock().map_err(|_| CoreError::LockTimeout)?;
+        file.try_lock().map_err(|_| CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityExclusive,
+        })?;
     } else {
-        file.try_lock_shared().map_err(|_| CoreError::LockTimeout)?;
+        file.try_lock_shared().map_err(|_| CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityShared,
+        })?;
     }
     Ok(file)
 }

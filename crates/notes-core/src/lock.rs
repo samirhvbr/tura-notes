@@ -57,7 +57,11 @@ impl WriteLock {
             match self.file.try_write() {
                 Ok(_guard) => return Ok(f()),
                 Err(_) if Instant::now() < deadline => std::thread::sleep(RETRY),
-                Err(_) => return Err(CoreError::LockTimeout),
+                Err(_) => {
+                    return Err(CoreError::LockTimeout {
+                        what: notes_model::LockWait::WorkspaceWrite,
+                    })
+                }
             }
         }
     }
@@ -82,9 +86,48 @@ mod tests {
         // Advisory locks are per-file-descriptor: two handles in one process do
         // not deadlock, and the real contention case is two processes, which is
         // covered by tools/crash-save-loop from 0.3.
+        //
+        // This used to end here, with two `acquire` calls and no assertion —
+        // and `acquire` takes no lock at all (the doc comment above says so:
+        // the lock is taken inside `with`). It was a contention test that never
+        // contended, and it could not have failed. Entering both critical
+        // sections is the part that was missing.
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("write.lock");
-        let _a = acquire(&p).unwrap();
-        let _b = acquire(&p).unwrap();
+        let mut a = acquire(&p).unwrap();
+        let mut b = acquire(&p).unwrap();
+        assert_eq!(a.with(|| "first").unwrap(), "first");
+        assert_eq!(b.with(|| "second").unwrap(), "second");
+    }
+
+    /// The whole point of typing the wait: this variant is produced from three
+    /// places and only one of them is this lock, so a count over the *message*
+    /// counts unrelated failures together. An investigation that does that
+    /// instruments whichever path it guessed.
+    #[test]
+    fn the_workspace_write_lock_names_itself_and_nothing_else() {
+        let e = CoreError::LockTimeout {
+            what: notes_model::LockWait::WorkspaceWrite,
+        };
+        assert_eq!(
+            e.to_string(),
+            "timed out waiting for the workspace write lock"
+        );
+
+        // The activity state file is a `try_lock`: nothing was waited for, and
+        // it used to report itself in the sentence above.
+        let activity = CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityExclusive,
+        };
+        assert_ne!(activity.to_string(), e.to_string());
+        assert!(activity.to_string().contains("activity state file"));
+
+        // And reconciliation running out of passes is not a lock at all.
+        let settle = CoreError::NotSettled {
+            passes: 201,
+            queued: 7,
+        };
+        assert_eq!(settle.code(), "not_settled");
+        assert!(!settle.to_string().contains("lock"));
     }
 }

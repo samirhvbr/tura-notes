@@ -1462,7 +1462,8 @@ impl Store {
                 .map(Some)
             }
             .map_err(|e| match e {
-                notes_model::CoreError::LockTimeout => Error::Busy,
+                notes_model::CoreError::LockTimeout { .. }
+                | notes_model::CoreError::NotSettled { .. } => Error::Busy,
                 other => Error::ApplicationBlocked {
                     cause: other.to_string(),
                 },

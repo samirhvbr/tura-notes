@@ -2,6 +2,44 @@ use crate::{BaseRev, NoteId};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// What a [`CoreError::LockTimeout`] was waiting for.
+///
+/// The variant used to carry one sentence — *"timed out waiting for the
+/// workspace write lock"* — emitted from three places, and **two of them are
+/// not that lock**. The cost is not cosmetic. `.continue/README.md` carries an
+/// open investigation into an intermittent failure whose evidence is precisely
+/// that string, counted five times against two; a count over a message that
+/// several unrelated waits share measures the message, not the wait, and the
+/// next step it recommends is to instrument whichever one happened to be
+/// guessed. A typed cause is what makes that count mean something.
+///
+/// `NotSettled` came out of the same variant for the same reason and is not a
+/// lock at all, which is why it is a variant rather than a member here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum LockWait {
+    /// The per-workspace write lock in `notes-core::lock`, held for the
+    /// stat → compare → replace sequence. Five seconds with a 20 ms retry, so
+    /// this one genuinely waited. It is the only wait the old message named.
+    WorkspaceWrite,
+    /// The activity state file, taken exclusively. `try_lock`, so nothing was
+    /// waited for: another process holds it right now.
+    ActivityExclusive,
+    /// The activity state file, taken shared. `try_lock_shared`, same.
+    ActivityShared,
+}
+
+impl std::fmt::Display for LockWait {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            LockWait::WorkspaceWrite => "the workspace write lock",
+            LockWait::ActivityExclusive => "the activity state file (exclusive)",
+            LockWait::ActivityShared => "the activity state file (shared)",
+        })
+    }
+}
+
 /// The kind of an I/O failure, as a **typed code**.
 ///
 /// Scope §17 requires "disco cheio / permissão negada → erro visível", and the
@@ -113,8 +151,10 @@ pub enum CoreError {
     },
     #[error("no workspace is open")]
     NoWorkspace,
-    #[error("timed out waiting for the workspace write lock")]
-    LockTimeout,
+    #[error("timed out waiting for {what}")]
+    LockTimeout { what: LockWait },
+    #[error("reconciliation did not settle after {passes} passes, {queued} still queued")]
+    NotSettled { passes: u32, queued: u32 },
     #[error("this storage does not support {cap}")]
     Unsupported { cap: String },
     #[error("{op} failed on {path}")]
@@ -154,7 +194,8 @@ impl CoreError {
             CoreError::ReadOnly { .. } => "read_only",
             CoreError::Unavailable { .. } => "unavailable",
             CoreError::NoWorkspace => "no_workspace",
-            CoreError::LockTimeout => "lock_timeout",
+            CoreError::LockTimeout { .. } => "lock_timeout",
+            CoreError::NotSettled { .. } => "not_settled",
             CoreError::Unsupported { .. } => "unsupported",
             CoreError::Io { .. } => "io",
             CoreError::SchemaAhead { .. } => "schema_ahead",
@@ -214,7 +255,9 @@ mod tests {
 
     #[test]
     fn the_serde_tag_matches_the_code_accessor() {
-        let e = CoreError::LockTimeout;
+        let e = CoreError::LockTimeout {
+            what: LockWait::WorkspaceWrite,
+        };
         let v: serde_json::Value =
             serde_json::from_str(&serde_json::to_string(&e).unwrap()).unwrap();
         assert_eq!(v["code"], e.code());
