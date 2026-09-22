@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.8 - the frontend dropped the save the core would have queued
+
+`editor.ts` held a module-level `inFlight` boolean and returned early while it
+was set. Its comment cited `ARCHITECTURE.md` §5 -- which says *"saves are queued
+per document inside the core; at most one save per document is in flight"*. The
+core **queues**. The boolean **dropped**, and it dropped globally rather than per
+document, so the comment named the section the code contradicted.
+
+**Two ways that lost text.** `leaveCurrent()` awaited `save(true)`, the flush
+returned immediately because an autosave was running, and the caller replaced
+the document on the strength of that return. The autosave then landed, saw a
+different `noteId`, and did nothing -- so everything typed after it left existed
+only in the object that had just been replaced: no draft, no error, no banner.
+Separately, the autosave debounce is one-shot; a timer that fired mid-save
+returned and nothing re-armed it, so the buffer stayed `pending` until the next
+keystroke, and with no next keystroke, forever. That second one needs no race at
+all, only `note_save` taking longer than 750 ms.
+
+**The flag is now a chain.** A queued save runs after the one ahead of it and
+re-reads the buffer when its turn comes, so it sends the text as it is then
+rather than as it was when the call was made. The `noteId` travels with the
+call: a save overtaken by a tab switch refuses instead of writing the previous
+note's text into the current one. A save that threw still lets the next one run.
+
+**`leaveCurrent()` now treats the draft as the floor.** The flush returning is
+not the buffer being on disk -- it refuses under the sync barrier, it fails on
+I/O, and it lands stale when the user typed during it -- and the tab is replaced
+either way. It re-reads the document after the await and writes an exit draft if
+anything is still dirty, which is the guard `reviewedMove` already applied
+before acting on a buffer it had not flushed itself.
+
+Seven tests across `stores/editor.save.test.ts` (new) and `stores/tabs.test.ts`.
+Four are red before this commit; the other three are regression guards that
+would have passed for the wrong reason.
+
 ## 1.7.7 - the store held the restored draft and the screen kept the text from disk
 
 `resolveDraft` is the button that says "Restore". It reached the core, got the

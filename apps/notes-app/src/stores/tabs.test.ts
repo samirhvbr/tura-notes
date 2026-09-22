@@ -77,7 +77,55 @@ beforeEach(() => {
   // Two tests replace `open` deliberately; without restoring it here the
   // replacement leaks into every test that runs after them.
   editor.open = vi.fn(defaultOpen);
+  // Same reason as `open` above: a test that replaces `save` must not leak it.
+  editor.save = vi.fn(async () => {
+    if (editor.doc) editor.doc.savedVersion = editor.doc.bufferVersion;
+  });
   useTabs.getState().reset();
+});
+
+describe("leaving a buffer the flush did not clean", () => {
+  /**
+   * The flush returning is not the buffer being on disk. It refuses under the
+   * sync barrier, it fails on I/O, and it lands stale when the user typed
+   * during it — and the tab is replaced either way. Whatever the reason, a
+   * dirty buffer that is about to be dropped gets a draft, which is the floor.
+   */
+  function saveThatDoesNotClean() {
+    editor.save = vi.fn(async () => {});
+  }
+
+  it("writes an exit draft when the buffer is still dirty after the flush", async () => {
+    await useTabs.getState().openPath(p("um.md"));
+    await useTabs.getState().openPath(p("dois.md"));
+    editor.doc = { noteId: idFor("dois.md"), path: p("dois.md"), bufferVersion: 6, savedVersion: 5, conflict: null };
+    saveThatDoesNotClean();
+
+    await useTabs.getState().activate(idFor("um.md"));
+
+    expect(editor.save).toHaveBeenCalledWith(true);
+    expect(editor.keepDraft).toHaveBeenCalledWith("exit");
+  });
+
+  it("writes no draft when the flush did clean the buffer", async () => {
+    await useTabs.getState().openPath(p("um.md"));
+    await useTabs.getState().openPath(p("dois.md"));
+    editor.doc = { noteId: idFor("dois.md"), path: p("dois.md"), bufferVersion: 6, savedVersion: 5, conflict: null };
+
+    await useTabs.getState().activate(idFor("um.md"));
+
+    expect(editor.keepDraft).not.toHaveBeenCalled();
+  });
+
+  it("closing the active tab gets the same floor — Ctrl+W is the likely case", async () => {
+    await useTabs.getState().openPath(p("um.md"));
+    editor.doc = { noteId: idFor("um.md"), path: p("um.md"), bufferVersion: 2, savedVersion: 1, conflict: null };
+    saveThatDoesNotClean();
+
+    await useTabs.getState().close(idFor("um.md"));
+
+    expect(editor.keepDraft).toHaveBeenCalledWith("exit");
+  });
 });
 
 describe("opening", () => {

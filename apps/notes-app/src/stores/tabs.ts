@@ -297,13 +297,25 @@ function visited(path: RelPath) {
 async function leaveCurrent(): Promise<void> {
   const doc = useEditor.getState().doc;
   if (!doc) return;
-  const dirty = doc.bufferVersion !== doc.savedVersion;
-  if (!dirty) return;
-  if (doc.conflict) {
-    // Suspended: the buffer goes to the draft, never to the note.
-    await useEditor.getState().keepDraft("conflict");
-  } else {
-    await useEditor.getState().save(true);
+  if (doc.bufferVersion !== doc.savedVersion) {
+    if (doc.conflict) {
+      // Suspended: the buffer goes to the draft, never to the note.
+      await useEditor.getState().keepDraft("conflict");
+    } else {
+      await useEditor.getState().save(true);
+    }
+  }
+
+  // The flush having returned is not the same as the buffer being on disk. It
+  // refuses under the sync barrier, it fails on I/O, and it lands stale when
+  // the user types during it — and the caller replaces the document either way.
+  // Re-reading is the whole point: the buffer this checks is the one that
+  // exists now, not the one captured before the await. A draft costs nothing
+  // and is the floor, which is the guard `reviewedMove` already applies before
+  // it acts on a document it did not flush itself.
+  const after = useEditor.getState().doc;
+  if (after && after.noteId === doc.noteId && after.bufferVersion !== after.savedVersion) {
+    await useEditor.getState().keepDraft("exit");
   }
 }
 

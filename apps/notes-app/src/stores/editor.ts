@@ -65,8 +65,37 @@ interface EditorState {
 }
 
 let debounce: ReturnType<typeof setTimeout> | null = null;
-/** At most one save per document is in flight (ARCHITECTURE.md §5). */
-let inFlight = false;
+
+/**
+ * Saves run one at a time, in the order they were asked for.
+ *
+ * This used to be a module-level `inFlight` boolean whose comment claimed
+ * ARCHITECTURE.md §5 — but §5 says *"saves are queued per document inside the
+ * core; at most one save per document is in flight"*. The core **queues**; the
+ * boolean **dropped**, which is the opposite, and it dropped globally rather
+ * than per document. Two ways that lost text:
+ *
+ * - `leaveCurrent()` awaited `save(true)`, the flush returned immediately
+ *   because an autosave was in flight, and `open()` then replaced the document.
+ *   The autosave landed, saw a different `noteId`, and did nothing. Whatever was
+ *   typed after that autosave left existed only in the object just replaced.
+ * - the autosave debounce is one-shot: a timer that fired mid-save returned and
+ *   nothing re-armed it, so the buffer stayed `pending` until the next
+ *   keystroke — with no keystroke, forever.
+ *
+ * A chain fixes both without a flag: a queued save runs after the one ahead of
+ * it, re-reads the buffer when its turn comes, and therefore sends the latest
+ * text rather than the text captured when it was asked for.
+ */
+let queue: Promise<void> = Promise.resolve();
+
+function enqueue(job: () => Promise<void>): Promise<void> {
+  // `then(job, job)` and not `then(job)`: a save that failed still has to let
+  // the next one run, and `runSave` already turns its own failures into state.
+  const next = queue.then(job, job);
+  queue = next.catch(() => {});
+  return next;
+}
 
 function fromOpened(o: OpenedNote): OpenDoc {
   return {
@@ -106,6 +135,61 @@ function replacing(prev: OpenDoc, o: OpenedNote): OpenDoc {
   return { ...fromOpened(o), externalRev: prev.externalRev + 1 };
 }
 
+/**
+ * One save, at the moment the queue reaches it.
+ *
+ * The buffer is re-read here rather than captured when `save` was called: by
+ * the time a queued call runs, the user has usually typed more, and sending the
+ * older text would be a save that immediately needs another one. `noteId` is
+ * the one exception — it travels with the call, so a save that was queued
+ * behind another and then overtaken by a tab switch refuses rather than writing
+ * the previous note's text into the current one.
+ */
+async function runSave(
+  set: (p: Partial<EditorState> | ((s: EditorState) => Partial<EditorState>)) => void,
+  get: () => EditorState,
+  flush: boolean,
+  noteId: NoteId,
+): Promise<void> {
+  const doc = get().doc;
+  if (isSyncLocked() || !doc || doc.noteId !== noteId || doc.readOnly || doc.conflict) return;
+  if (doc.bufferVersion === doc.savedVersion && !flush) return;
+
+  const sending = doc.bufferVersion;
+  set({ doc: { ...doc, status: "writing" } });
+  try {
+      const call = flush ? ipc.noteFlush : ipc.noteSave;
+      const r = await call(doc.noteId, doc.text, sending, doc.baseRev);
+      set((s) => {
+        const d = s.doc;
+        if (!d || d.noteId !== doc.noteId) return s;
+        if (r.result === "saved") {
+          // Clean only when the version that came back is still the current
+          // one; otherwise the user has typed since and the tab stays dirty.
+          const current = r.buffer_version === d.bufferVersion;
+          return {
+            doc: {
+              ...d,
+              baseRev: r.base_rev,
+              savedVersion: r.buffer_version,
+              status: current ? "saved" : "pending",
+              lastError: null,
+            },
+          };
+        }
+        if (r.result === "conflict") {
+          return { doc: { ...d, conflict: r.disk_rev, status: "conflict" } };
+        }
+        return {
+          doc: { ...d, status: "error", lastError: { code: "io", op: "write", path: d.path, kind: r.kind } },
+        };
+      });
+    } catch (e) {
+      set((s) => ({ doc: s.doc && { ...s.doc, status: "error", lastError: ipc.asCoreError(e) } }));
+    }
+}
+
+
 export const useEditor = create<EditorState>((set, get) => ({
   doc: null,
   autosaveMs: 750,
@@ -143,44 +227,12 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   async save(flush = false) {
     const doc = get().doc;
-    if (isSyncLocked() || !doc || doc.readOnly || doc.conflict || inFlight) return;
+    if (isSyncLocked() || !doc || doc.readOnly || doc.conflict) return;
     if (doc.bufferVersion === doc.savedVersion && !flush) return;
-
-    const sending = doc.bufferVersion;
-    inFlight = true;
-    set({ doc: { ...doc, status: "writing" } });
-    try {
-      const call = flush ? ipc.noteFlush : ipc.noteSave;
-      const r = await call(doc.noteId, doc.text, sending, doc.baseRev);
-      set((s) => {
-        const d = s.doc;
-        if (!d || d.noteId !== doc.noteId) return s;
-        if (r.result === "saved") {
-          // Clean only when the version that came back is still the current
-          // one; otherwise the user has typed since and the tab stays dirty.
-          const current = r.buffer_version === d.bufferVersion;
-          return {
-            doc: {
-              ...d,
-              baseRev: r.base_rev,
-              savedVersion: r.buffer_version,
-              status: current ? "saved" : "pending",
-              lastError: null,
-            },
-          };
-        }
-        if (r.result === "conflict") {
-          return { doc: { ...d, conflict: r.disk_rev, status: "conflict" } };
-        }
-        return {
-          doc: { ...d, status: "error", lastError: { code: "io", op: "write", path: d.path, kind: r.kind } },
-        };
-      });
-    } catch (e) {
-      set((s) => ({ doc: s.doc && { ...s.doc, status: "error", lastError: ipc.asCoreError(e) } }));
-    } finally {
-      inFlight = false;
-    }
+    // Queued, never dropped: the note it was asked for travels with it, so a
+    // call held across a tab switch refuses instead of writing this note's text
+    // into the next one.
+    await enqueue(() => runSave(set, get, flush, doc.noteId));
   },
 
   async keepDraft(reason) {
