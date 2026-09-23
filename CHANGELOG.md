@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.39 - a workspace opened read-only says so, and why
+
+`WorkspaceInfo.read_only` has carried a reason since the `TooNew` case was
+handled (`schema_ahead`, with the format found), and a second one since R6-05
+(`identity_lost`). No file in `src/` read it. A workspace opened read-only
+looked writable until the first save was refused.
+
+**A banner now says so, and why**: state written by a newer version, with the
+format, and to open it with that version; or the identity record missing, with
+restoring from a backup or forgetting the workspace from the start screen as the
+ways out. The two are worded apart because one resolves itself and the other is
+damage. `ReadOnlyBanner` is its own component with three tests.
+
 ## 1.8.38 - the governance pages name SPIKE-0.0.md as milestone 0.0's acceptance walk
 
 `docs/roadmap.md`, `CLAUDE.md` and `AGENTS.md` said every delivered milestone,

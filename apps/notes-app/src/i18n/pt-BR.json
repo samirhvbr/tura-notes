@@ -351,6 +351,8 @@
   "watch.degraded": "Mudanças feitas por outros programas aparecem a cada poucos segundos, não na hora: {reason}",
   "watch.overLimit": "{count} pastas não estão sob observação: o limite de watches deste sistema está cheio, então mudanças nelas aparecem em alguns segundos, não na hora. Aumente com sysctl fs.inotify.max_user_watches.",
   "watch.unreadable": "{count} pastas não puderam ser lidas e foram puladas",
+  "workspace.readOnly.schemaAhead": "Este workspace está aberto somente leitura: o estado dele foi gravado por uma versão mais nova do Tura Notes (formato {found}). Abra-o com essa versão para editar.",
+  "workspace.readOnly.identityLost": "Este workspace está aberto somente leitura: o registro que liga as notas às identidades delas sumiu, e gravar agora poderia perdê-las. Restaure-o de um backup, ou esqueça este workspace na tela inicial para começar de novo.",
   "watch.walking": "indexando pastas… {dirs} sob observação",
   "welcome.create": "Criar workspace…",
   "welcome.forget": "Esquecer",

@@ -6,6 +6,7 @@ import { IndexControls } from "./app/IndexControls";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Editor } from "./editor/Editor";
 import { StatusBar, errorText } from "./app/StatusBar";
+import { ReadOnlyBanner } from "./app/ReadOnlyBanner";
 import { Welcome } from "./app/Welcome";
 import { Dialog } from "./app/DialogHost";
 import { Tabs } from "./app/Tabs";
@@ -308,6 +309,10 @@ export default function App() {
               <span>{t("watch.unreadable", { count: watch.unreadable })}</span>
             </div>
           )}
+          {/* A workspace opened read-only says so, and why, before the first
+              save fails (R6-42). The core has carried the reason since the
+              `TooNew` case was handled; nothing here read it. */}
+          <ReadOnlyBanner readOnly={info?.read_only ?? null} />
           {wsError && <div className="banner warn">{errorText(wsError)}</div>}
           {/* Something went right and the user has to be told which of two
               things it was — a delete that can be undone is not the same event

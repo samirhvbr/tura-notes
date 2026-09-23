@@ -351,6 +351,8 @@
   "watch.degraded": "Changes made by other programs are picked up every few seconds rather than instantly: {reason}",
   "watch.overLimit": "{count} folders are not being watched: this system's watch limit is full, so changes in them appear within a few seconds instead of instantly. Raise it with sysctl fs.inotify.max_user_watches.",
   "watch.unreadable": "{count} folders could not be read and were skipped",
+  "workspace.readOnly.schemaAhead": "This workspace is open read-only: its state was written by a newer version of Tura Notes (format {found}). Open it with that version to edit.",
+  "workspace.readOnly.identityLost": "This workspace is open read-only: the record that ties its notes to their identities is missing, and saving now could lose them. Restore it from a backup, or forget this workspace from the start screen to begin again.",
   "watch.walking": "indexing folders… {dirs} watched",
   "welcome.create": "Create Workspace…",
   "welcome.forget": "Forget",
