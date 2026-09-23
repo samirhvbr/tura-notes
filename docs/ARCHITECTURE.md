@@ -965,7 +965,7 @@ version/notes/status only; it cannot choose an update URL or verification key.
 | `notes-fs` | root jail (`..`, absolute, symlink, NFD collision); atomic replace under kill; property test `read(write_atomic(x)) == x` for arbitrary bytes | all four CI OS |
 | `notes-core` | write protocol state machine with a fake `FileSystem` (conflict, convergence, stale save, lock timeout); identity correlation cases; draft lifecycle; reconciliation with synthetic events | Linux (fast) + all OS for the real-fs subset |
 | `notes-markdown` | golden HTML for `fixtures/basic`; every file in `fixtures/xss` produces no `<script>`, no `javascript:`, no remote fetch, no `file:` | Linux |
-| crash | `tools/crash-save-loop`: spawns a writer against `fixtures/large`, `SIGKILL`s at random points 1000×, asserts no truncated or empty note | all four CI OS, nightly and on release |
+| crash | `tools/crash-save-loop`: spawns a writer against `fixtures/large`, `SIGKILL`s at random points 1000×, asserts no truncated or empty note, that every round ended by that `SIGKILL` (status 137, not the writer giving up), and that at least one write landed (since 1.8.23; `tools/tests/test_crash_loop.py` proves both refusals with stub writers) | all four CI OS, nightly and on release |
 | byte-preservation | open → save-unchanged for every file in `fixtures/basic` + `edge-cases`; `git status --porcelain` must be empty | all four CI OS |
 | frontend | `vitest` for stores and `ipc/` mapping; a CI check that regenerated `ipc/types.ts` matches the committed file; WebDriver e2e after 0.1c | Linux |
 

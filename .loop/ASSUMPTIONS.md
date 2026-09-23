@@ -289,3 +289,17 @@ para o dono por causa de uma ordem de fila que era escolha minha.
 
 **Como reverter.** Se o R6-26 travar, o R6-43 sai sozinho como `1.8.0`: o commit
 local é independente, e a ordem na fila volta ao que estava.
+
+## 23/09 — um lote de commits, um gate inteiro antes do primeiro push do lote
+
+Dezoito itens (1.8.23–1.8.40) foram preparados num worktree separado enquanto os
+builds de publicação do dono ocupavam o checkout principal. Aplicados em ordem,
+cada commit passa pelos testes dos crates e scripts que toca (fmt, clippy,
+`cargo test -p …`, vitest, os `tools/*.py` afetados), e o **gate inteiro roda uma
+vez sobre o estado final, antes do primeiro push do lote**. O SCOPE pede gate
+verde antes de cada push, e é isso que acontece: nenhum commit do lote sobe
+antes do gate do lote. O CI dos quatro SOs continua testando cada commit
+sozinho, um push por vez.
+
+**Como reverter.** Se o gate do lote falhar, o commit culpado é corrigido com um
+commit novo por cima (nada foi publicado ainda), e o gate roda de novo.

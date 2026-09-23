@@ -208,6 +208,7 @@ step "i18n keys resolve"   python3 tools/i18n-keys.py
 step "Linux packaging orchestration" python3 tools/tests/test_build_linux.py
 step "updater publication" python3 tools/tests/test_updater_release.py
 step "macOS build script" python3 tools/tests/test_build_local.py
+step "crash loop refuses a writer that never wrote" python3 tools/tests/test_crash_loop.py
 step "self-hosting guide"  python3 tools/tests/test_selfhosting_doc.py
 step "hand-written IPC shape" python3 tools/tests/test_env_report.py
 step "development version" node --test tools/tauri.test.mjs

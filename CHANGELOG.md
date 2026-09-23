@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.23 - the crash-save loop fails when its writer never wrote
+
+The flagship 0.1a check -- a thousand kills mid-save never leave a truncated
+note -- could pass without one atomic write happening. `crash-save-loop.sh`
+started the writer, killed it, and ran `wait` with the status thrown away; the
+check then validated whatever was on disk against its own header, and the seed
+the loop writes first (`LEN=1`) is a valid payload. A writer that exited by
+itself -- `write_atomic` failing on a full or read-only TMPDIR (exit 2), a panic
+(101), a stale binary -- left the seed in place, and every round was green.
+Reproduced with a stub that exits 101: 5/5 green.
+
+**Every round must now end by the `SIGKILL` the loop sent (status 137), and at
+least one round must find something other than the seed on disk** (the writer's
+first payload is `LEN=100`). `CRASH_WRITER` lets another binary stand in, and
+`tools/tests/test_crash_loop.py`, in the gate and the CI contracts job, runs
+three stubs: one that exits 101 and one that never writes both fail the run with
+the reason named, and one that writes and is killed passes. The real loop, 60
+rounds locally, still passes.
+
 ## 1.8.22 - the Welcome screen can forget a workspace or remove all of Tura's data
 
 ADR-091 (owner answer `q_dados`): what Tura keeps about the user's notes can be
