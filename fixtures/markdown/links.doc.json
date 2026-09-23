@@ -78,8 +78,26 @@
       "target": "outra.md",
       "kind": "relative_path",
       "span": {
-        "start": 314,
-        "end": 327
+        "start": 315,
+        "end": 328
+      },
+      "in_code": true
+    },
+    {
+      "target": "€.md",
+      "kind": "relative_path",
+      "span": {
+        "start": 355,
+        "end": 366
+      },
+      "in_code": true
+    },
+    {
+      "target": "€.md",
+      "kind": "relative_path",
+      "span": {
+        "start": 372,
+        "end": 383
       },
       "in_code": true
     }

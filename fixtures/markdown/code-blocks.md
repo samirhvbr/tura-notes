@@ -18,3 +18,9 @@ Bloco indentado:
     outra linha
 
 Inline: `a < b && c > d`.
+
+Bloco com link:
+
+```
+[dentro](outra.md)
+```

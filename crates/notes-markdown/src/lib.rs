@@ -307,7 +307,19 @@ fn analyse(src: &str) -> (Document, Vec<Spanned<'_>>) {
                 if let Some((_, _, acc)) = heading.as_mut() {
                     acc.push_str(t);
                 }
-                collect_links_in_code(t, range.start, &base, &mut doc.links);
+                // The span's own source bytes, between its backtick runs, not
+                // the parsed content (R6-38). `range` starts at the opening
+                // backticks and `t` has them stripped -- and a newline inside
+                // collapsed to a space -- so offsets into `t` added to
+                // `range.start` fell short by the run, and a multibyte target
+                // could land a span inside a character. CommonMark closes a
+                // code span with a run of the same length it opened with.
+                let raw = &src[range.clone()];
+                let ticks = raw.len() - raw.trim_start_matches('`').len();
+                if raw.len() >= 2 * ticks {
+                    let inner = &raw[ticks..raw.len() - ticks];
+                    collect_links_in_code(inner, range.start + ticks, &base, &mut doc.links);
+                }
             }
             _ => {}
         }

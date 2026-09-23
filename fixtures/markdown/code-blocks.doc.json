@@ -1,7 +1,17 @@
 {
   "front_matter": null,
   "headings": [],
-  "links": [],
+  "links": [
+    {
+      "target": "outra.md",
+      "kind": "relative_path",
+      "span": {
+        "start": 244,
+        "end": 262
+      },
+      "in_code": true
+    }
+  ],
   "tasks": [],
   "tags": []
 }

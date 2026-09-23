@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.37 - link spans inside inline code point at the link, and the golden that had blessed the wrong value is corrected
+
+Links found inside inline code are reported with `in_code: true` so the rename
+tool can say what it did not touch, and their spans were wrong. The span of the
+whole code span starts at its opening backticks, while the scanner walked the
+content with them stripped (and newlines collapsed), so every offset fell short
+by the backtick run: `fixtures/markdown/links.doc.json` had blessed `314..327`,
+which slices to `` `[x](outra.md ``. A target with a multibyte character could
+put a span boundary inside that character. Latent, because every consumer
+filters `in_code` out before slicing; the contract crossing the IPC was wrong.
+
+**The scanner now reads the span's own source bytes between its backtick
+runs**, which CommonMark makes equal in length, so offsets are source offsets.
+The golden was re-blessed by reading the diff: every span was checked by slicing
+the source. The corpus gains `` `[e](€.md)` `` in single and double backticks
+and a link inside a fenced block, where `code-blocks.doc.json` previously fixed
+no in-code span at all.
+
 ## 1.8.36 - notes-mcp announces the first version in version.md, not the whole file
 
 `initialize` answered `serverInfo.version` with the whole of `version.md`,

@@ -15,3 +15,5 @@
 [não-markdown relativo](leia-me.txt)
 
 Link em código: `[x](outra.md)`.
+
+Multibyte em código: `[e](€.md)` e ``[e](€.md)``.
