@@ -7,6 +7,28 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.18 - three parked items release the half that never needed the owner
+
+Round 6 parked seven items as `- 🔒` because fixing them needed a product
+call. Three of those were only **half** a product call. The sanitizer fix in
+R6-23 is the same whether remote images stay or go; the `0700`/`0600` modes in
+R6-27 do not depend on how a user removes the data; and the three-line exit-code
+check in R6-30 does not depend on whether CI grows to four platforms. Holding the
+mechanical halves behind a question that does not touch them is how a queue
+stops moving without anyone having decided anything.
+
+They are now `R6-23a`, `R6-27a` and `R6-30a`, pending. The parked originals keep
+only the part that is genuinely the owner's.
+
+**R6-35 also gains a measured case.** `1.7.5` and `1.7.6` went out in one push,
+`release.yml` calls `release.sh --current`, which publishes only the version at
+the top, and `1.7.5` was left with no tag and no Release -- the same mechanism
+behind the `1.6.99` gap, reproduced without any carelessness beyond pushing two
+bumps together. It was published by hand on 23/09 with `--current` at its own
+commit, then `--current` at `origin/master` to put the `Latest` badge back;
+`--backfill` would also have published `1.6.99`, which is still the owner's
+decision.
+
 ## 1.7.18 - two tests from round 6 measured the disk they were written on, and CI was red for five pushes
 
 **`master` was red in CI from `1.7.13` to `1.7.17`, and nobody looked.** The
