@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.20 - a test of a process-wide counter ran beside tests that move the counter
+
+`1.7.18` put CI back to green on Ubuntu, macOS and Arch. Windows stayed red, on
+the construction-count test that `1.7.14` added: it expected one `WikiLookup`
+build and saw **two**.
+
+The counter is a process-global `AtomicU64`, and the test read it before and
+after one `reference_preview`. Cargo runs the tests of one binary on parallel
+threads, and `knowledge.rs` holds other tests that build lookups of their own --
+on the Windows runner one of them landed between the two reads. Linux had simply
+never interleaved them. It is the flake shape `1.7.14`'s own entry said it was
+avoiding by counting events instead of milliseconds: an event count is only
+deterministic if nothing else can produce the event while it is being counted.
+
+The test now lives alone in `tests/wiki_lookup_builds.rs`. An integration-test
+file is its own process, so nothing else can move the counter. The production
+code is unchanged.
+
 ## 1.7.19 - the owner-acts page said the server key did not exist, five days after it did
 
 `docs/OWNER-ACTS.md` §1 said *"Confirmed today: `server/cotenant/notes-server.pub`
