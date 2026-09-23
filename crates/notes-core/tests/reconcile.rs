@@ -544,11 +544,21 @@ fn a_move_that_exhausts_the_hash_budget_keeps_its_identity_and_asks_for_another_
 
     // Move them all at once, as a copy+delete rather than a rename: the shape
     // a sync client or a cross-volume move produces.
+    //
+    // **Every copy before any delete.** Interleaving them — copy one, delete
+    // one — lets ext4 hand the next copy the inode the last delete just freed,
+    // and Rule 1 matches on the inode alone. That is a real defect of its own
+    // (R6-43: identities swap between notes), and it is what failed this test
+    // on the CI's ext4 runners while it passed on btrfs here, where inode
+    // numbers are not recycled. Keeping the two apart is what lets this test
+    // measure the budget and nothing else.
     for (path, _) in &ids {
         let from = work.path().join(path.as_str());
         let to = work.path().join("sub").join(path.as_str());
         std::fs::write(&to, std::fs::read(&from).unwrap()).unwrap();
-        std::fs::remove_file(&from).unwrap();
+    }
+    for (path, _) in &ids {
+        std::fs::remove_file(work.path().join(path.as_str())).unwrap();
     }
 
     // Drain, exactly as `sync::inventory_using` does. The loop was written to

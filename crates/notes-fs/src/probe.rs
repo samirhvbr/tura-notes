@@ -137,10 +137,16 @@ mod tests {
                 entry("nota.md", EntryKind::File),
             ];
 
+            // What *this* filesystem does, asked directly. The first version of
+            // this test assumed a case-sensitive tempdir — true on the btrfs it
+            // was written on, false on APFS and NTFS, where the CI failed it on
+            // macOS and Windows while the probe was answering correctly. The
+            // defect being fixed is an answer of `None`, not a particular value.
+            let folds = std::fs::metadata(d.path().join("Nota.md")).is_ok();
             assert_eq!(
                 probe_case_insensitive(d.path(), &entries),
-                Some(false),
-                "{uncased} cannot be flipped, but `nota.md` after it can, and a tempdir here is case-sensitive"
+                Some(folds),
+                "{uncased} cannot be flipped, but `nota.md` after it can: the probe must reach it"
             );
         }
     }

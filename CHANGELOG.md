@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.18 - two tests from round 6 measured the disk they were written on, and CI was red for five pushes
+
+**`master` was red in CI from `1.7.13` to `1.7.17`, and nobody looked.** The
+local gate was green each time; the CI's four platform jobs were not, and
+checking them after pushing was not part of the loop. Both failures were tests
+written in round 6, both assumed something true of this machine's disk, and in
+both the code under test was right.
+
+**The case-probe test assumed a case-sensitive tempdir.** True on the btrfs it
+was written on, false on APFS and NTFS -- so on macOS and Windows the probe
+answered `Some(true)`, correctly, and the test demanded `Some(false)`. The defect
+`1.7.13` fixed is the probe answering `None`; the test now asks the filesystem
+whether `Nota.md` resolves and requires the probe to agree, whatever the answer.
+
+**The hash-budget test interleaved copies and deletes, and ext4 recycles
+inodes immediately.** Copy `n00`, delete `n00` -- freeing inode X -- copy `n01`,
+which is handed X. Correlation's Rule 1 matches on the native id alone, so it
+gave `n00`'s identity to `sub/n01.md`, and so on down the chain. btrfs does not
+recycle inode numbers, which is why it passed here. The test now copies
+everything before deleting anything, so it measures the budget and nothing
+else.
+
+**That second failure is a real defect, and an older one than this round.** A
+cloud client or a cross-volume move that goes file by file on ext4 produces
+exactly that sequence, and Rule 1 then **swaps** identities between notes --
+worse than losing one, because each note inherits the revision chain of a
+different note's content and nothing signals it. It is in the queue as R6-43,
+with the CI log as its reproduction.
+
 ## 1.7.17 - Ctrl+P reported a complete list of notes while a note was missing from it
 
 Both cache invalidations in `reconcile` sat behind `if !events.is_empty()`. That
