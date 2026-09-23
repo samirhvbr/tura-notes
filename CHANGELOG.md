@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.35 - creating a note leaves at most one temporary per path, and stale ones are swept
+
+`tmp_path` explains at length why a random temporary name is wrong: every crash
+leaves a new one, so they accumulate in the user's folder for good.
+`create_new`, ten lines below, used `tempfile` with a random suffix. `Drop`
+cleans up, but nothing does after a `SIGKILL` or a power cut, which is the only
+case the rule is about. Repeating a create of one path (a sync `apply` rerun
+after being killed, the same note name made again) left one more hidden file
+each time, invisible from inside Tura.
+
+**The temporary name is now deterministic per target**
+(`.notes-create-<name>.tmp`), removed and recreated with `O_EXCL` exactly as
+`write_atomic` does, so it cannot be followed as a planted link, and published
+with the exclusive rename (a hard link where the volume has none), so a create
+still never replaces an existing note. **The path walk that already visits every
+directory at open removes `.notes-create-*.tmp` files older than ten minutes**,
+which also covers the one-off attachment targets no naming can bound, and the
+random leftovers of earlier versions, which share the prefix. `tempfile` moves
+to `notes-fs`'s dev-dependencies.
+
+Tests: a leftover from a killed create is taken over and nothing remains after a
+successful or a refused create (red on the previous code, which left it); a
+planted link at the temporary name is not followed; a stale leftover is swept and
+a fresh one is left, and neither is listed.
+
 ## 1.8.34 - a path index whose thread could not start stops saying it is still building
 
 `PathIndex::start` spawned the walk with `.spawn(...).ok()`. When the thread

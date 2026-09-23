@@ -152,7 +152,27 @@ impl LocalFs {
         tmp.push(".tmp");
         Ok(dir.join(tmp))
     }
+
+    /// `create_new`'s temporary name: deterministic per target, like
+    /// [`Self::tmp_path`], and carrying [`CREATE_TMP_PREFIX`] so a leftover
+    /// can be recognised and swept.
+    fn create_tmp_path(target: &Path) -> Result<PathBuf> {
+        let dir = target.parent().ok_or_else(|| CoreError::Internal {
+            message: "target has no parent directory".into(),
+        })?;
+        let name = target.file_name().ok_or_else(|| CoreError::Internal {
+            message: "target has no file name".into(),
+        })?;
+        let mut tmp = std::ffi::OsString::from(CREATE_TMP_PREFIX);
+        tmp.push(name);
+        tmp.push(".tmp");
+        Ok(dir.join(tmp))
+    }
 }
+
+/// What every temporary file `create_new` makes starts with. Also the prefix
+/// the random names before 1.8.35 used, so one sweep covers both.
+pub const CREATE_TMP_PREFIX: &str = ".notes-create-";
 
 impl FileSystem for LocalFs {
     fn caps(&self) -> Caps {
@@ -304,24 +324,50 @@ impl FileSystem for LocalFs {
     fn create_new(&self, path: &RelPath, bytes: &[u8]) -> Result<Stat> {
         let abs = self.resolve(path)?;
         // Publish complete bytes without replacing a concurrently created note.
-        let mut temp = tempfile::Builder::new()
-            .prefix(".notes-create-")
-            .suffix(".tmp")
-            .tempfile_in(abs.parent().expect("jailed file has a parent"))
+        //
+        // **The temporary name is deterministic** (R6-36), for the reason
+        // `tmp_path` gives: this used a random suffix, so every create killed
+        // between write and publish left a *new* file in the user's folder,
+        // where nothing in Tura shows it. Repeating a create of one path -- a
+        // sync `apply` rerun after a kill, the same note name made again --
+        // now leaves at most one. The prefix is kept so that the leftovers no
+        // name can bound (an attachment's one-off target) are recognisable:
+        // the path walk removes `.notes-create-*.tmp` files that have sat for
+        // ten minutes (`notes_core::index`).
+        //
+        // `remove_file` then `create_new` for the same reason as in
+        // `write_atomic`: a predictable name must not be followable as a link.
+        let tmp = Self::create_tmp_path(&abs)?;
+        let _ = fs::remove_file(&tmp);
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
             .map_err(|e| CoreError::io("create_temp", path, &e))?;
-        temp.write_all(bytes)
-            .map_err(|e| CoreError::io("write", path, &e))?;
-        temp.as_file()
-            .sync_all()
-            .map_err(|e| CoreError::io("fsync", path, &e))?;
+        let written = (|| -> std::io::Result<()> {
+            f.write_all(bytes)?;
+            f.sync_all()
+        })();
+        drop(f);
+        if let Err(e) = written {
+            let _ = fs::remove_file(&tmp);
+            return Err(CoreError::io("write", path, &e));
+        }
         let abs = self.resolve(path)?;
-        temp.persist_noclobber(&abs).map_err(|e| {
-            if e.error.kind() == std::io::ErrorKind::AlreadyExists {
+        let published = match rename_noreplace(&tmp, &abs) {
+            Some(r) => r,
+            // No exclusive rename on this volume: a hard link refuses an
+            // existing name just the same, then the temporary name goes.
+            None => fs::hard_link(&tmp, &abs),
+        };
+        let _ = fs::remove_file(&tmp);
+        published.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
                 CoreError::AlreadyExists {
                     path: path.to_string(),
                 }
             } else {
-                CoreError::io("create_new", path, &e.error)
+                CoreError::io("create_new", path, &e)
             }
         })?;
         sync_dir(&abs);

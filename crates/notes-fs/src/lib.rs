@@ -15,7 +15,7 @@ pub mod osname;
 mod probe;
 pub mod watch;
 
-pub use local::LocalFs;
+pub use local::{LocalFs, CREATE_TMP_PREFIX};
 pub use probe::probe_case_insensitive;
 pub use watch::{Degraded, Watch};
 

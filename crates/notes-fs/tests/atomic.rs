@@ -155,6 +155,47 @@ fn create_new_never_overwrites() {
     assert_eq!(fs.read(&p).unwrap(), b"first");
 }
 
+/// R6-36: a create leaves no temporary behind when it succeeds or is refused,
+/// and a leftover from a killed create is taken over by the next one for the
+/// same path rather than joined by another.
+#[test]
+fn create_new_collapses_its_temporary_to_one_name_per_path() {
+    let (d, fs) = ws();
+    let p = RelPath::parse("n.md").unwrap();
+    let temps = || {
+        std::fs::read_dir(d.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with(notes_fs::CREATE_TMP_PREFIX))
+            .collect::<Vec<_>>()
+    };
+    // What a create killed between write and publish leaves.
+    std::fs::write(d.path().join(".notes-create-n.md.tmp"), b"half").unwrap();
+    fs.create_new(&p, b"first").unwrap();
+    assert_eq!(temps(), Vec::<String>::new());
+    assert_eq!(fs.read(&p).unwrap(), b"first");
+    assert!(fs.create_new(&p, b"second").is_err());
+    assert_eq!(
+        temps(),
+        Vec::<String>::new(),
+        "a refused create cleans up too"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_create_temporary_planted_as_a_link_is_not_followed() {
+    let (d, fs) = ws();
+    let outside = tempfile::tempdir().unwrap();
+    let target = outside.path().join("victim");
+    std::fs::write(&target, b"untouched").unwrap();
+    std::os::unix::fs::symlink(&target, d.path().join(".notes-create-n.md.tmp")).unwrap();
+    fs.create_new(&RelPath::parse("n.md").unwrap(), b"note")
+        .unwrap();
+    assert_eq!(std::fs::read(&target).unwrap(), b"untouched");
+}
+
 #[test]
 fn rename_refuses_to_clobber_an_existing_name() {
     let (_d, fs) = ws();

@@ -130,6 +130,23 @@ impl Drop for PathIndex {
     }
 }
 
+/// Remove a temporary file `create_new` left behind, once it is old enough
+/// that no create can still be writing it (R6-36). Such a file is only ever
+/// left by a process killed between write and publish; it is hidden from the
+/// tree, the watcher and the index, so the user would never see it otherwise.
+/// Ten minutes is far beyond any single write this application makes.
+fn sweep(path: &Path) {
+    const STALE: std::time::Duration = std::time::Duration::from_secs(600);
+    let old = std::fs::symlink_metadata(path).is_ok_and(|m| {
+        m.is_file()
+            && m.modified()
+                .is_ok_and(|t| t.elapsed().is_ok_and(|age| age > STALE))
+    });
+    if old {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 fn walk(
     root: &Path,
     extra_ignore: &[String],
@@ -155,6 +172,10 @@ fn walk(
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with(notes_fs::CREATE_TMP_PREFIX) && name.ends_with(".tmp") {
+                sweep(&path);
+                continue;
+            }
             if hidden(&name, show_hidden, extra_ignore) {
                 continue;
             }
@@ -221,6 +242,32 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+
+    #[test]
+    fn a_stale_create_temporary_is_swept_and_a_fresh_one_is_left() {
+        let d = tempfile::tempdir().unwrap();
+        let stale = d.path().join(".notes-create-a.md.tmp");
+        let fresh = d.path().join(".notes-create-b.md.tmp");
+        std::fs::write(&stale, b"half").unwrap();
+        std::fs::write(&fresh, b"being written").unwrap();
+        let hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        std::fs::File::options()
+            .write(true)
+            .open(&stale)
+            .unwrap()
+            .set_modified(hour_ago)
+            .unwrap();
+        let ix = PathIndex::start(d.path(), vec![], false);
+        while ix.size().1 {
+            std::thread::yield_now();
+        }
+        assert!(
+            !stale.exists(),
+            "a leftover older than ten minutes is removed"
+        );
+        assert!(fresh.exists(), "one that may still be written is not");
+        assert_eq!(ix.size().0, 0, "neither is ever listed");
     }
 
     #[test]

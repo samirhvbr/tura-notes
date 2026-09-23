@@ -11,7 +11,6 @@ repository.workspace = true
 notes-model = { workspace = true }
 blake3 = { workspace = true }
 notify = { workspace = true }
-tempfile = { workspace = true }
 
 # Desktop only, and not by preference \[0.4\]: `trash` implements the
 # Freedesktop bin, the Recycle Bin and the Finder trash, and has no iOS or
@@ -26,3 +25,6 @@ libc = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
