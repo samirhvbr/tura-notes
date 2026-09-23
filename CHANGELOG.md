@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.23 - the gate runs whole again, and round 6's Rust gets its first Windows check
+
+The MinGW C compiler was installed on 23/09, so `tools/check.sh` ran without
+`NOTES_NO_WINDOWS_CHECK` for the first time since round 6 began: 36 steps green,
+`clippy (windows)` in 16 seconds. Eleven commits between `1.7.9` and `1.7.20`
+touched Rust with that step recorded as not run; this is the check they did not
+have, and it found nothing.
+
+The `.continue/README.md` row asking for MinGW leaves the index, because the act
+it asked for happened -- the queue rule is that an item leaves when the thing
+exists. The three rows that said they were waiting for it now point at the round
+7 items that will do the work: R7-06 for the updater refusal, R7-07 for the
+wall-clock assertions.
+
 ## 1.7.22 - the owner's thirteen answers become round 7, and the queue runs until it is empty
 
 All thirteen questions on the board were answered on 23/09, and the answer about
