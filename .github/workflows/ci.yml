@@ -130,6 +130,7 @@ jobs:
           run "third-party licenses are allowed and their notices current" python3 tools/third-party.py --check
           run "third-party actions with write access are pinned" python3 tools/action-pins.py
           run "every document declares one of the five statuses" tools/doc-status.sh
+          run "an edited queue index is restamped" tools/queue-stamp.sh
           run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py
           run "updater publication"                     python3 tools/tests/test_updater_release.py
           run "release.sh exit status says what happened" python3 tools/tests/test_release_exit.py

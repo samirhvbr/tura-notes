@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.33 - the updater's state is re-measured from outside, and the queue index cannot keep an old stamp
+
+Two ACTIVE pages told a new session the desktop updater was blocked when it
+was not. `docs/updater.md` and the "Atualização desktop" row of
+`.continue/README.md` said the Linux feeds were at `1.6.3`, `/p/tura-notes` still
+said *In preparation*, a publish still had to run, and the updater key was
+missing (they named the notarisation files, not `~/.config/tura-notes/updater.key`).
+`updater.md` also said there was no macOS feed. The index sat under a stamp
+saying every row had been checked at `1.6.62`.
+
+**Measured from outside on 23/09:** `linux-x86_64-deb.json` and
+`linux-x86_64-appimage.json` at `1.8.21`; `darwin-aarch64-app.json` at `1.7.21`;
+`darwin-aarch64.json` and `darwin-x86_64-app.json` answer 404; `/p/tura-notes`
+lists releases up to `1.8.21`. What remains is the acceptance, an installed
+upgrade on each format and the ADR-082 `.deb` takeover. The new fact is that
+the feeds are not in step: macOS clients are offered `1.7.21` while Linux
+clients get `1.8.21`, because each platform publishes from its own build run.
+The 18/09 measurement stays below as a dated record.
+
+**`tools/queue-stamp.sh`, in the gate and CI, fails when `.continue/README.md`
+changes and its status line still names an older version**, so the stamp can no
+longer certify rows it did not see. The index is restamped at this version after
+reading every row. R7-09 (the Windows-only recovery intermittent) is parked with
+a question for the owner: the diagnosis needs one Windows run, and the only
+in-scope route would be a side branch or PR, which the loop's scope does not
+cover.
+
 ## 1.8.32 - every package carries the licenses of what it links, and the gate refuses a license it does not allow
 
 Every package said *MIT © Samir Hanna Verza* and nothing else, while the

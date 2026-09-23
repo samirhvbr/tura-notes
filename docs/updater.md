@@ -282,33 +282,38 @@ previous version of this paragraph recorded, in good faith, as a path to
 confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
 against it.
 
-### What is published, measured from outside — 18/09/2026
+### What is published, measured from outside — 23/09/2026
 
-Read back over HTTPS from `https://samirhv.com.br`, not inferred from a script's
-output:
+Read back over HTTPS from `https://samirhv.com.br` on 23/09/2026:
 
 | Feed | State |
 |---|---|
-| `linux-x86_64-deb.json` | `1.6.3`, 416-byte signature, and its payload answers `200` at 7,210,292 bytes |
-| `linux-x86_64-appimage.json` | `1.6.3`, 420-byte signature |
-| `darwin-aarch64*.json` | `404` — there is no macOS feed, and there will not be one until a signed build exists on a Mac |
+| `linux-x86_64-deb.json` | `1.8.21`, 416-byte signature |
+| `linux-x86_64-appimage.json` | `1.8.21`, 424-byte signature |
+| `darwin-aarch64-app.json` | `1.7.21`, 408-byte signature: the macOS feed exists and is behind Linux |
+| `darwin-aarch64.json`, `darwin-x86_64-app.json` | `404`: only Apple Silicon `.app` is published |
 
-So the live updater transport **has** run once for Linux and the feed **has**
-been read back, which is what the previous paragraph said would end the claim.
+`/p/tura-notes` lists releases up to `1.8.21`; it no longer says *In
+preparation*. The updater key the publish needs is `~/.config/tura-notes/updater.key`
+(`tools/updater-release.py`), not the notarisation files the 18/09 text named.
 
-**What remains is three separate things, and they are separate on purpose:**
+**What remains is the acceptance**, which no script infers: an installed upgrade
+between two versions on macOS, AppImage, deb and rpm, and confirming that the
+`1.6.1` `.deb` removes the pre-`1.0.0` `notes` package on the machine that still
+carries it
+([ADR-082](decisions.md#adr-082--the-renamed-package-takes-over-the-one-it-was-renamed-from-and-the-binary-keeps-its-name)).
+The feeds are not in step with each other: macOS clients are offered `1.7.21`
+while Linux clients are offered `1.8.21`, because each platform is published by
+its own build run.
 
-1. **The download-service row**, so `/p/tura-notes` stops saying *In preparation*
-   — measured again on 18/09 and it still does. This needs `--publish` to run
-   again with the `--file-version` fix of `1.6.28`, which needs the signing
-   environment: neither `./signing.env` nor `~/.config/tura-notes/build.env`
-   exists on the build machine today, so a publish would die at the updater
-   signature rather than reach the ingest.
-2. **The macOS feeds**, which need a signed, notarised build on a Mac.
-3. **The acceptance**, which no script infers: an installed upgrade between two
-   versions on macOS, AppImage, deb and rpm, and confirming the `1.6.1` `.deb`
-   removes the pre-`1.0.0` `notes` package on the machine that still carries it
-   ([ADR-082](decisions.md#adr-082--the-renamed-package-takes-over-the-one-it-was-renamed-from-and-the-binary-keeps-its-name)).
+### The 18/09/2026 measurement, kept as the record it is
+
+On 18/09 the Linux feeds were at `1.6.3` and `darwin-aarch64*.json` answered
+`404`, and this section listed three things remaining: the download-service
+row, the macOS feeds, and the acceptance. The first two have since happened
+(the macOS feed was being debugged by `1.7.3`), and this page and the queue
+index went on saying they had not, under a stamp that said every row had been
+checked. That is what the re-measurement above corrects (R6-34).
 
 A feed that is published and a client that upgrades are not the same claim, and
 this page has now been wrong in both directions about that — first claiming

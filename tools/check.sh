@@ -178,6 +178,7 @@ step "version placeholder"  bash -c '
 step "contrast"            tools/contrast.sh
 step "no blocking dialogs" tools/no-blocking-dialogs.sh
 step "document status"     tools/doc-status.sh
+step "queue index restamped" tools/queue-stamp.sh
 step "documentation links" python3 tools/doc-links.py
 step "ADR status words"    python3 tools/adr-status.py
 step "documentation index" python3 tools/doc-index.py
