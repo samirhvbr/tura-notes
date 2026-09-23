@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.12 - the activity lease says whether another holder refused it or the operating system did
+
+The recovery-test intermittent came back in the 1.8.5 CI run on macOS, and for
+the first time with the cause 1.7.10 made it carry:
+`timed out waiting for the activity state file (shared)`. So it was not the
+workspace write lock, as the string-matched count had suggested. It was the
+activity lease's `try_lock_shared`, which does not wait for anything.
+
+Nothing plausible was holding the lease. The fixture's data directory is its
+own, none of the background threads (`notes-index`, `notes-content-index`,
+search) captures it, and nothing in the test binary forks. That leaves the
+other thing the old `map_err(|_| LockTimeout)` swallowed: an operating-system
+error reported as a wait.
+
+**Only `WouldBlock` is a lock wait now.** An interrupted call is retried, as any
+interrupted syscall is, and any other error comes back as an I/O error with its
+kind. That makes no claim to have fixed the intermittent. It makes the next
+occurrence say which of the two it was, and the row that tracks it in
+`.continue/README.md` says so.
+
 ## 1.8.11 - a sync pass decodes each received payload once, not once per checkpoint
 
 The sync client validates its whole state before every checkpoint, and a pass
