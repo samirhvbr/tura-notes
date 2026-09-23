@@ -12,6 +12,15 @@
 - Criar e apagar worktree próprio sob `~/x/`.
 - Ler qualquer coisa do repositório e rodar o gate quantas vezes for preciso.
 
+- **Depois de cada push, o CI dos quatro SOs antes do próximo item** (desde
+  23/09). A rodada 6 empurrou cinco commits com `master` vermelho no CI porque só
+  o gate local era olhado; dois testes supunham o disco desta máquina (btrfs,
+  sensível a caixa). Vermelho no CI é o próximo item, antes de qualquer outro.
+  Uma re-execução de diagnóstico é permitida **uma vez**, e só com a medição que
+  mostra que o código medido não mudou — nunca para repetir até dar verde.
+- **O gate roda inteiro, sem `NOTES_NO_WINDOWS_CHECK`** (desde 23/09, com o
+  MinGW instalado).
+
 ## Para e registra no artefato, não pergunta no chat
 
 Estas não são perguntas para o chat: viram linha na coleção `tasks` do artefato

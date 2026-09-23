@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.22 - the owner's thirteen answers become round 7, and the queue runs until it is empty
+
+All thirteen questions on the board were answered on 23/09, and the answer about
+the round itself was *until the queue is empty*. Round 7 is that queue, in one
+order: the 29 items round 6 left pending, the seven it had parked -- each now
+carrying the decision that unparked it -- and seven new items the answers
+created. 45 in all.
+
+**What the answers decided, in the order the queue acts on them.** The MinGW
+compiler is installed, so the gate runs whole again and the `reqwest` bump that
+waited for it (PR #19) comes back. The decisions themselves become ADRs first,
+before anything is built on a decision that exists only in an artifact.
+`1.6.99` stays without a Release, recorded rather than backfilled. Acceptance
+walks repeat on the next minor. The 0.4 moves off this machine's firmware to
+the MacBook, where the Android emulator runs natively on Apple Silicon and the
+iOS Simulator lives. The receive barrier keeps its lock and offers a restart
+that writes the buffer as an exit draft. Remote images get `https:` in
+`img-src`, but only after raw HTML is made to obey the same opt-in -- otherwise
+opening the policy turns raw HTML into a beacon. Non-UTF-8 names get carried as
+raw `OsString`, which changes the `FileSystemAdapter` surface and is last in the
+queue for that reason. Data removal becomes a product action. The crash loop
+grows to macOS, Windows and Arch plus a nightly run. Retention never purges on
+its own; limits go up and the client warns before the 507. A device is accepted
+by its credential, and a screen that lists and revokes devices one at a time is
+built -- the server already lists and retires sync devices and revokes by
+credential, but only from its command line.
+
+**One item is parked by environment, not by decision:** the background mobile
+queue can only be seen running on the MacBook or a device.
+
+**`.loop/SCOPE.md` gains the rule round 6 taught.** After each push, CI on all
+four platforms is checked before the next item, and red is the next item. One
+diagnostic re-run is allowed, and only with the measurement showing the
+measured code did not change.
+
 ## 1.7.21 - the loop's state files record that round 6 was stopped at its ceiling
 
 `.loop/STATE.json` and `.loop/STATUS.md` were rewritten by `loop-ctl parar`
