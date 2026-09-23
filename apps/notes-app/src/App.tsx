@@ -327,7 +327,7 @@ export default function App() {
           {comparing && doc?.conflict ? (
             <Compare />
           ) : (
-            <div className={`panes pane-${view}`} ref={panes}>
+            <div className={`panes pane-${view}`} ref={panes} id="note-panel" role="tabpanel">
               {/* With no note open there is nothing to preview, so the editor's
                   own empty state is what the pane shows — a blank Preview pane
                   would say less than "open a note from the sidebar". */}

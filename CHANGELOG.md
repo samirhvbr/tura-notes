@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.40 - the tab bar implements the tabs pattern it announces
+
+The tab strip declared `role="tablist"` and implemented none of the pattern. Each
+`role="tab"` sat inside a plain `<div>`, so no tab belonged to the list and a
+screen reader heard a lone "tab, selected" rather than "tab 2 of 4"; every tab
+and every close button was its own Tab stop (seven presses to reach the fourth
+note); the arrows did nothing; and nothing linked a tab to the panel it shows.
+
+**Now:** the wrappers are `role="presentation"`, and the New-note button moves
+out of the list; one tab (the active one) is in the Tab order; Left and Right
+wrap, Home and End jump, each opening the tab it lands on; Delete closes the
+focused tab; close buttons leave the Tab order and stay one click away; every
+tab has `aria-controls="note-panel"`, and the editor area is `role="tabpanel"`.
+`Tabs.test.tsx` checks the ownership, the single stop, the keys and the close.
+
 ## 1.8.39 - a workspace opened read-only says so, and why
 
 `WorkspaceInfo.read_only` has carried a reason since the `TooNew` case was
