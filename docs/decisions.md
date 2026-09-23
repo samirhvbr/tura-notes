@@ -2787,3 +2787,200 @@ overturn this is a workspace where the count is stable while the shape is not
 and no event is emitted; none is known, and if one appears the answer is to
 compare a cheap digest of the walk rather than to return to invalidating on
 every tick.
+
+---
+
+## ADR-086 — A device is accepted by its credential, one credential per device
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_dispositivo`
+
+**Decision.** Holding a valid, unrevoked credential is the whole of device
+acceptance. There is no separate per-device approval on the server. The model
+that makes this workable is **one credential per device**: issued with a label
+naming the device, so that revoking a credential revokes exactly one device.
+
+**Context.** `.continue/0.6-sync.md` carried this as one of three product
+questions the 0.6 gap turned on. Measured on 23/09: the server already keeps a
+list of sync devices per workspace and can retire one (`notes-server
+sync-device-list`, `sync-retire-device`), and revokes access per credential
+(`notes-server token revoke`) — all from the command line on the host, none
+from the application.
+
+**Consequences.** The owner also asked for a screen listing connected devices
+with revocation one at a time, "now if it can be done". It is round 7 item
+R7-04, and it is bounded by `docs/security.md` §4.10: an administrative service
+binds to loopback or a private interface, never to the public one. The sync
+server is public. So R7-04 is not "add an admin endpoint"; it has to be either
+a user-level action a credential may take over its own workspace's devices, or
+an administrative surface that stays off the public interface. R7-04 writes its
+own ADR choosing between those before any code, and if neither satisfies §4.10
+it becomes a question for the owner rather than an exception.
+
+---
+
+## ADR-087 — Retention never purges on its own; the limits go up and the client warns before the 507
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_retencao`
+
+**Decision.** The server never deletes a revision automatically, including one
+every known device has confirmed. Purging stays the explicit, offline operator
+act it already is. What changes is that the storage limits rise, with the
+reason written beside the number, and the client warns ahead of the ceiling so
+that nobody learns about it from a `507`.
+
+**Context.** The second of the three 0.6 product questions. Automatic purging
+after confirmation was the alternative, and it is the one that can delete the
+only surviving copy of a branch when "every known device" turns out not to
+include one that was offline for a month.
+
+**Consequences.** Round 7 item R7-05 specifies the warning threshold and the new
+limits in `SYNC-0.6.md` before touching code, because that document still names
+retention as open.
+
+---
+
+## ADR-088 — The mobile transfer queue runs as background work
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_ciclo_movel`
+
+**Decision.** When the operating system suspends or kills the mobile app mid
+transfer, the queue resumes as scheduled background work — `WorkManager` on
+Android, `BGTaskScheduler` on iOS — rather than waiting for the user to reopen
+the app, and rather than leaving the phone without sync in the first usable
+version.
+
+**Context.** The third of the three 0.6 product questions. The durable outbox and
+resumable passes from 0.20.x are what make resuming safe; this decides who
+resumes them.
+
+**Consequences.** Implementation is round 7 item R7-08, parked by environment:
+it can only be seen running on the MacBook or on a device (ADR-092), and writing
+mobile code nobody has executed is the problem `docs/ACCEPTANCE-0.4.md` already
+records. With this ADR, all three questions in `.continue/0.6-sync.md` are
+answered, and what remains there is specification to write, not a decision to
+wait for.
+
+---
+
+## ADR-089 — Remote images load over https, and raw HTML obeys the same opt-in first
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_imagens` · not yet built
+
+**Decision.** The "allow remote images" opt-in stays, and works: `https:` is
+added to the preview's `img-src`. **That change is the last of three and may not
+ship before the other two.** A raw-HTML `<img>` must first go through the same
+URL policy as a Markdown image (R6-23a), and must obey `remote_images` and be
+reported in `Rendered.blocked_remote` (R6-23). Only then does the policy open
+(R6-24).
+
+**Context.** Today `img-src 'self' notes-asset: data:` (`ARCHITECTURE.md` §10)
+blocks every remote image, so the opt-in can never show one: the user clicks
+Allow, the blocked URL turns into a broken-image icon, and the banner goes away.
+Removing the opt-in and fetching images in Rust were the other two answers.
+
+**Consequences.** Opening `img-src` before raw HTML obeys the opt-in would turn
+any `<img src="https://…">` in a note into a request the user never allowed —
+a tracking beacon. The order in the queue is the safety of this decision.
+`ARCHITECTURE.md` §10 changes in the same commit as R6-24, not before: a page
+describing a policy that is not in force is the failure this repository's
+documentation rules exist to prevent.
+
+---
+
+## ADR-090 — A file name that is not valid UTF-8 is carried as it is, and works
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_utf8` · not yet built
+
+**Decision.** The filesystem adapter carries the raw `OsString` beside the
+`RelPath` for every entry, so a file whose name is not valid UTF-8 can be
+listed, opened, edited and renamed like any other note. Omitting such files and
+listing them marked unreadable were the alternatives.
+
+**Context.** Today such a file is listed under a lossy name, looks like a note,
+and never opens; duplicating a folder that contains one stops halfway.
+
+**Consequences.** This changes the `FileSystemAdapter` surface, which
+`docs/versioning.md` makes a **Y** bump. It is last in round 7's queue for that
+reason: a surface change should land on a quiet base, after the smaller items
+that touch the same code.
+
+---
+
+## ADR-091 — The application's own data can be removed from inside the application
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_dados` · not yet built
+
+**Decision.** The product gets two actions: *forget this workspace*, and *remove
+Tura's data*. Both refuse while a draft holds unsaved work, and say which. This
+is chosen over documenting the directory, and over a package `postrm` purge.
+
+**Context.** `~/.local/share/notes/` holds the full text of every note ever
+opened (in the search index), drafts that by design never expire, conflict
+snapshots, and the list of every folder ever opened. Nothing in the app, the
+packages or the documentation names that directory, and uninstalling leaves it.
+`docs/security.md` §9 requires that a request for deletion "has an owner and a
+path"; an action in the product is the path that does not depend on reading
+anything.
+
+**Consequences.** It is a new destructive command, which is why the refusal is
+part of the decision rather than an implementation detail: a draft is the only
+copy of something the user typed. Round 7 builds it as R6-27, after R6-27a
+gives the same directory `0700`/`0600` permissions.
+
+---
+
+## ADR-092 — Milestone 0.4 is exercised on the MacBook and on a physical Android device
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_04`
+
+**Decision.** The mobile milestone stops depending on this Linux machine's
+firmware. It runs on the MacBook — the Android emulator natively on Apple
+Silicon, and the iOS Simulator — and on a physical Android device over USB.
+Mobile work concentrates on the MacBook, which is also the iOS target.
+
+**Context.** The emulator here needs KVM, and `kvm_amd` is refused because SVM
+is disabled in the firmware (`docs/OWNER-ACTS.md` §3). On Apple Silicon the
+Android emulator runs `arm64-v8a` system images through Hypervisor.framework and
+needs no KVM at all.
+
+**Consequences.** The UEFI step stops being the way forward, and queue item R4g
+is closed by this decision rather than by being done. Round 7 item R7-03 writes
+the MacBook runbook; running it is the owner's, because no agent on this machine
+reaches the Mac.
+
+---
+
+## ADR-093 — An acceptance walk repeats on the next minor release
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_aceite`
+
+**Decision.** Where an acceptance page says a walk is *repeated on the release
+immediately after*, it means the next `X.Y.0`, not the next patch.
+
+**Context.** With round 6 shipping a patch every few minutes, "the next release"
+read literally would require a walk on each of them; read loosely it meant
+nothing measurable.
+
+**Consequences.** Round 7 item R7-02 changes the wording in every
+`docs/ACCEPTANCE-*.md` and in `.continue/README.md`. No box is ticked by an
+agent.
+
+---
+
+## ADR-094 — A receive barrier that cannot verify its reload keeps the lock and offers a restart
+
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_barreira` · not yet built
+
+**Decision.** When the verified reload after applying received revisions cannot
+succeed, the barrier stays in place and the window offers *restart the
+application*, writing the buffer as an exit draft on the way. Releasing the
+barrier and degrading the note to a conflict was the alternative; leaving the
+window inert with no way out, as today, is not an option.
+
+**Context.** Finding 7 of the review: `apply()` reads the document before
+acquiring the barrier, so a keystroke during the drain makes the identity check
+fail for good, and "Retry safe reload" can never succeed.
+
+**Consequences.** Round 7 item R6-07 builds both halves: re-reading the document
+after the barrier is acquired, which needed no decision, and the restart that
+this one chose.

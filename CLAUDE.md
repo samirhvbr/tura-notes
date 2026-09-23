@@ -101,8 +101,10 @@ one-line version of both:
   and matching receiver compaction. Version 0.20.20 adds explicit revoked-device
   retirement and scoped receiver recovery. Broader retention, mobile lifecycle and
   broader device acceptance remain open — **named here and in two sections of
-  `SYNC-0.6.md`, and specified nowhere**, which is why `.continue/0.6-sync.md`
-  carries the gap and the three product questions it turns on. Owner verification
+  `SYNC-0.6.md`, and specified nowhere** — the three product questions it turned
+  on were answered on 23/09 (ADR-086, ADR-087, ADR-088), so what
+  `.continue/0.6-sync.md` carries now is specification to write, not a decision
+  to wait for. Owner verification
   on installed releases remains open for **every** delivered milestone — 0.0,
   0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`, none
   of them ticked.

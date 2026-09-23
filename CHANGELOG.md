@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.24 - the owner's answers are written down as nine decisions before anything is built on them
+
+Nine ADRs, 086 to 094, one per decision of direction from the answers of 23/09:
+a device is accepted by its credential, one credential per device; retention
+never purges on its own and the client warns before the 507; the mobile queue
+runs as background work; remote images load over `https`, but only after raw
+HTML obeys the same opt-in; non-UTF-8 names are carried as raw `OsString`; the
+application's own data can be removed from inside it; milestone 0.4 moves to
+the MacBook and a physical Android device; an acceptance walk repeats on the
+next minor; a receive barrier that cannot verify its reload keeps the lock and
+offers a restart. The operational answers -- install MinGW, run until the queue
+is empty, accept the `1.6.99` gap -- are not decisions of direction and are not
+ADRs.
+
+**None reverses an earlier ADR**, checked by searching `decisions.md` for
+`img-src`, UTF-8, retention and acceptance wording before writing, so this is a
+Z bump. Four of them are marked *not yet built* in their status line: an ADR
+describes a decision, and the queue is where the building is.
+
+**Writing ADR-086 found a constraint the queue item did not have.**
+`docs/security.md` §4.10 says an administrative service binds to loopback or a
+private interface, and the sync server is public. The device screen the owner
+asked for cannot be "an admin endpoint"; it has to be a user action over the
+workspace's own devices, or a surface kept off the public interface, and if
+neither works it becomes a question rather than an exception. R7-04 now carries
+that.
+
+**The three product questions of 0.6 stop being described as open** in
+`.continue/0.6-sync.md`, in the 0.6 row of the queue index, and in `CLAUDE.md`
+and `AGENTS.md`, which said the gap was "specified nowhere". What remains there
+is specification to write, which round 7 does as R7-04, R7-05 and R7-08.
+
 ## 1.7.23 - the gate runs whole again, and round 6's Rust gets its first Windows check
 
 The MinGW C compiler was installed on 23/09, so `tools/check.sh` ran without
