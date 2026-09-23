@@ -7,6 +7,23 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.19 - the owner-acts page said the server key did not exist, five days after it did
+
+`docs/OWNER-ACTS.md` §1 said *"Confirmed today: `server/cotenant/notes-server.pub`
+does not exist yet."* The key was committed in `1.7.1` on 18/09, and `1.7.0`
+carries a `.minisig`. That page is the one an agent reads to decide what is
+still the owner's to do, so a stale "not done" there puts a finished act back on
+the owner's desk.
+
+The section now carries a dated note saying the once-ever half is done and that
+what recurs is signing each minor -- the next is `1.8.0` -- and the sentence
+naming `1.6.0` as the version to sign says it was true then. Both original
+sentences stay, as the other dated corrections in this repository do.
+
+Found while listing the owner's open acts for the board, not by any check. The
+class is R6-34's: an `ACTIVE` page asserting a state the repository has moved
+past.
+
 ## 1.7.18 - the intermittent row in the queue index stops trusting a count over a shared message
 
 `.continue/README.md` carries an open investigation into an intermittent

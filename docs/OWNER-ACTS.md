@@ -22,6 +22,13 @@ verify, so until this is done the deploy changes nothing —
 [ADR-081](decisions.md#adr-081--the-server-binary-is-signed-with-a-key-ci-never-holds-and-a-deploy-that-cannot-verify-changes-nothing).
 Confirmed today: `server/cotenant/notes-server.pub` does not exist yet.
 
+> **23/09/2026 — the once-ever half is done.** The public key was committed in
+> `1.7.1` on 18/09, and `1.7.0` carries `notes-server-1.7.0-x86_64-linux.tar.gz.minisig`
+> — checked on the Release, not assumed. The sentence above was true when it was
+> written and stayed on this page for five days after it stopped being true, on the
+> page an agent reads to decide what is the owner's. **What recurs is the
+> per-release step below, once per minor: the next one to sign is `1.8.0`.**
+
 ### Once, ever: generate the pair
 
 ```bash
@@ -59,7 +66,7 @@ tools/sign-server-release.sh 1.6.0
 **Only `X.Y.0` is accepted, and this is where the queue was wrong.** It said
 "sign the current version"; the script refuses anything that is not a minor,
 because attachments are built on minor releases only (ADR-036) and a patch
-Release carries none. At the time of writing the version to sign is **1.6.0**,
+Release carries none. At the time of writing the version to sign was **1.6.0** (23/09: `1.7.0` is signed; the next is `1.8.0`),
 whose `notes-server-1.6.0-x86_64-linux.tar.gz` and its `.sha256` are both
 attached — checked, not assumed.
 
