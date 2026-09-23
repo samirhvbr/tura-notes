@@ -211,6 +211,8 @@
   "pdf.title": "Importar texto do PDF",
   "preview.blocked": "{count} imagem(ns) remota(s) não foram carregadas. Bloqueá-las impede que esta nota avise alguém de que foi aberta.",
   "preview.blocked.allow": "Permitir imagens remotas neste workspace",
+  "preview.remote": "{count} imagem(ns) remota(s) carregada(s) da internet. Os servidores delas sabem que esta nota foi aberta.",
+  "preview.remote.block": "Bloquear imagens remotas neste workspace",
   "preview.failed": "Não foi possível renderizar a visualização. A nota em si está intacta.",
   "rail.files": "Arquivos",
   "rail.graph": "Grafo",

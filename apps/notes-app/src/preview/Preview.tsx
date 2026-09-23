@@ -26,6 +26,7 @@ export function Preview() {
   const host = useRef<HTMLDivElement | null>(null);
   const [html, setHtml] = useState("");
   const [blocked, setBlocked] = useState<string[]>([]);
+  const [shown, setShown] = useState<string[]>([]);
   const [failed, setFailed] = useState(false);
 
   const visible = view !== "source";
@@ -42,6 +43,7 @@ export function Preview() {
           if (!live) return;
           setHtml(r.html);
           setBlocked(r.blocked_remote);
+          setShown(r.shown_remote);
           setFailed(false);
         })
         .catch(() => live && setFailed(true));
@@ -90,18 +92,26 @@ export function Preview() {
     [open, fail],
   );
 
-  const allowRemote = useCallback(async () => {
-    try {
-      await ipc.markdownTrustSet(null, true);
-      if (path) {
-        const r = await ipc.markdownRender(path, text);
-        setHtml(r.html);
-        setBlocked(r.blocked_remote);
+  // Both directions are offered where the images are, because that is the
+  // only place the choice means anything: turning remote images on is what
+  // lets a note tell its author it was opened (ADR-089), and a switch that can
+  // only be flipped one way is a promise the interface does not keep.
+  const setRemote = useCallback(
+    async (allow: boolean) => {
+      try {
+        await ipc.markdownRemoteImagesSet(allow);
+        if (path) {
+          const r = await ipc.markdownRender(path, text);
+          setHtml(r.html);
+          setBlocked(r.blocked_remote);
+          setShown(r.shown_remote);
+        }
+      } catch (e) {
+        fail(e);
       }
-    } catch (e) {
-      fail(e);
-    }
-  }, [path, text, fail]);
+    },
+    [path, text, fail],
+  );
 
   if (!doc) return null;
 
@@ -110,7 +120,17 @@ export function Preview() {
       {blocked.length > 0 && (
         <div className="banner">
           <span>{t("preview.blocked", { count: blocked.length })}</span>
-          <button onClick={allowRemote}>{t("preview.blocked.allow")}</button>
+          <button onClick={() => void setRemote(true)}>
+            {t("preview.blocked.allow")}
+          </button>
+        </div>
+      )}
+      {shown.length > 0 && (
+        <div className="banner">
+          <span>{t("preview.remote", { count: shown.length })}</span>
+          <button onClick={() => void setRemote(false)}>
+            {t("preview.remote.block")}
+          </button>
         </div>
       )}
       {failed && <div className="banner warn">{t("preview.failed")}</div>}

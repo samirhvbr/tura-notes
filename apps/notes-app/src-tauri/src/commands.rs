@@ -345,14 +345,11 @@ pub fn markdown_outline(app: State<'_, App>, text: String) -> R<Document> {
     svc(&app)?.outline(&text)
 }
 
-/// Turn raw HTML or remote images on for **this** workspace.
+/// Turn remote images on or off for **this** workspace, and nothing else.
+/// Raw HTML has no command: nothing in the interface turns it on.
 #[tauri::command]
-pub fn markdown_trust_set(
-    app: State<'_, App>,
-    raw_html: Option<bool>,
-    remote_images: Option<bool>,
-) -> R<()> {
-    svc(&app)?.set_markdown_trust(raw_html, remote_images)
+pub fn markdown_remote_images_set(app: State<'_, App>, allow: Option<bool>) -> R<()> {
+    svc(&app)?.set_remote_images(allow)
 }
 
 // ---- reconciliation ----------------------------------------------------

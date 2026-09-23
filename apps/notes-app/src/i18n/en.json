@@ -211,6 +211,8 @@
   "pdf.title": "Import PDF text",
   "preview.blocked": "{count} remote image(s) were not loaded. Blocking them keeps this note from telling anyone it was opened.",
   "preview.blocked.allow": "Allow remote images in this workspace",
+  "preview.remote": "{count} remote image(s) loaded from the internet. Their servers can tell this note was opened.",
+  "preview.remote.block": "Block remote images in this workspace",
   "preview.failed": "The preview could not be rendered. The note itself is untouched.",
   "rail.files": "Files",
   "rail.graph": "Graph",

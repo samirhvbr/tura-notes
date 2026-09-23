@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.10 - remote images can be blocked again from the preview, and allowing them no longer clears the raw-HTML setting
+
+The *Allow remote images* button was the only caller of the trust command in the
+whole interface, so once a workspace allowed them there was no way back short
+of editing application data. The opt-in is the one thing between a note and a
+request to whoever wrote it (ADR-089); a switch that only turns one way is not
+a choice the user holds.
+
+**While remote images are on, the preview says so where they are and offers to
+block them.** The renderer now returns `Rendered.shown_remote` beside
+`blocked_remote`: every remote `<img>` reaches the sanitizer's attribute
+filter -- a Markdown image as the element the rewrite pass wrote, a raw-HTML one
+as the author wrote it -- so the per-thread collector 1.8.7 added for refused
+URLs now records all of them, and the opt-in decides which list they land in.
+
+**`set_markdown_trust(raw_html, remote_images)` is two setters now**,
+`set_raw_html` and `set_remote_images`, and the command is
+`markdown_remote_images_set(allow)`. The single one assigned both fields every
+time, so *Allow*, which meant images, passed `null` for raw HTML and cleared
+that workspace's override as a side effect. Raw HTML keeps its core setter and
+has no command, since nothing in the interface turns it on.
+
+Tests: a renderer case with a Markdown and a raw-HTML remote image, listed as
+shown with the opt-in and as blocked without; a core case that flips images on
+and off and finds raw HTML where it was; and the first `Preview` component test,
+which clicks *Allow* and then *Block* and checks each call moves only that switch.
+
 ## 1.8.9 - a build-script test no longer throws away an uncommitted edit to the Tauri config
 
 `test_stamping_changes_only_the_version_line` stamps `tauri.conf.json`, compares

@@ -904,8 +904,11 @@ workspace opted in; what keeps a note from phoning home is that no remote URL
 reaches the page unless that workspace allowed remote images. A Markdown image
 becomes a `blocked-image` placeholder and a raw-HTML `<img>` loses its `src`
 (1.8.7), and both are listed in `Rendered.blocked_remote` for the banner that
-offers the opt-in. Plain `http:` and `*` stay out: a widening beyond `https:`
-is a new decision, and `tools/csp.py` refuses it until an ADR makes it.
+offers the opt-in. While it is on, the images that loaded are listed in
+`Rendered.shown_remote` and the same place offers to block them again (1.8.10);
+the command behind both, `markdown_remote_images_set`, moves only that switch.
+Plain `http:` and `*` stay out: a widening beyond `https:` is a new decision,
+and `tools/csp.py` refuses it until an ADR makes it.
 
 One window, one workspace, no tray. Since 1.1.0, desktop updates use native
 HTTPS and pinned signatures, with explicit installation after closing the

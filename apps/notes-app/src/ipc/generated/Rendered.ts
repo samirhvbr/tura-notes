@@ -12,4 +12,11 @@ html: string, outline: Array<Heading>,
  * to turn them on for this workspace rather than leaving the user to guess
  * why a picture is missing.
  */
-blocked_remote: Array<string>, };
+blocked_remote: Array<string>, 
+/**
+ * Remote images that were let through because this workspace allows them,
+ * in document order. The opt-in is the only thing standing between a note
+ * and a request to its author's server (ADR-089), so the UI shows that it
+ * is on, and offers to turn it off, wherever it is in effect.
+ */
+shown_remote: Array<string>, };

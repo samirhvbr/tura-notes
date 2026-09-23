@@ -143,6 +143,11 @@ pub struct Rendered {
     /// to turn them on for this workspace rather than leaving the user to guess
     /// why a picture is missing.
     pub blocked_remote: Vec<String>,
+    /// Remote images that were let through because this workspace allows them,
+    /// in document order. The opt-in is the only thing standing between a note
+    /// and a request to its author's server (ADR-089), so the UI shows that it
+    /// is on, and offers to turn it off, wherever it is in effect.
+    pub shown_remote: Vec<String>,
 }
 
 fn options(src: &str) -> Options {
@@ -189,12 +194,21 @@ pub fn render_html(src: &str, opts: &RenderOpts) -> Rendered {
     let mut raw = String::with_capacity(src.len() * 2);
     pulldown_cmark::html::push_html(&mut raw, rewritten.into_iter());
 
-    let (html, blocked_raw) = sanitize(&raw, opts.remote_images);
-    blocked_remote.extend(blocked_raw);
+    // Every remote `<img>` reaches the sanitizer's filter -- a Markdown one as
+    // the element `rewrite` wrote when the opt-in is on, a raw-HTML one either
+    // way -- so what it saw is the whole list, shown or refused by the opt-in.
+    let (html, remote_raw) = sanitize(&raw, opts.remote_images);
+    let mut shown_remote = Vec::new();
+    if opts.remote_images {
+        shown_remote = remote_raw;
+    } else {
+        blocked_remote.extend(remote_raw);
+    }
     Rendered {
         html,
         outline: doc.headings,
         blocked_remote,
+        shown_remote,
     }
 }
 
@@ -768,12 +782,13 @@ const TABLE_ALIGNMENTS: &[&str] = &[
 ];
 
 thread_local! {
-    /// Remote images the attribute filter refused during one `clean()`, so the
-    /// banner can offer them (R6-23). Per thread because `clean()` runs the
+    /// Remote images the attribute filter saw during one `clean()` -- refused
+    /// ones so the banner can offer them (R6-23), allowed ones so it can offer
+    /// to take that back. Per thread because `clean()` runs the
     /// filter synchronously on the thread that renders, and the filter is a
     /// `'static` closure inside a shared builder that cannot hold per-render
     /// state of its own.
-    static BLOCKED_RAW: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+    static REMOTE_RAW: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
 /// The allowlist is built **once**.
@@ -799,23 +814,19 @@ fn builder(remote_images: bool) -> &'static ammonia::Builder<'static> {
     }
 }
 
-/// Sanitised HTML, and the remote images raw HTML asked for and was refused.
+/// Sanitised HTML, and every remote image URL the filter saw -- kept when the
+/// opt-in is on, refused when it is off.
 fn sanitize(raw: &str, remote_images: bool) -> (String, Vec<String>) {
-    BLOCKED_RAW.with(|b| b.borrow_mut().clear());
+    REMOTE_RAW.with(|b| b.borrow_mut().clear());
     let html = builder(remote_images).clean(raw).to_string();
-    let blocked = BLOCKED_RAW.with(|b| std::mem::take(&mut *b.borrow_mut()));
-    (html, blocked)
+    let remote = REMOTE_RAW.with(|b| std::mem::take(&mut *b.borrow_mut()));
+    (html, remote)
 }
 
-/// A remote image URL, kept when the opt-in is on and recorded as blocked when
-/// it is off.
+/// A remote image URL, recorded either way, and kept only when the opt-in is on.
 fn remote(url: String, remote_images: bool) -> Option<std::borrow::Cow<'static, str>> {
-    if remote_images {
-        Some(url.into())
-    } else {
-        BLOCKED_RAW.with(|b| b.borrow_mut().push(url));
-        None
-    }
+    REMOTE_RAW.with(|b| b.borrow_mut().push(url.clone()));
+    remote_images.then(|| url.into())
 }
 
 fn build(remote_images: bool) -> ammonia::Builder<'static> {
@@ -1083,6 +1094,34 @@ mod tests {
         assert_eq!(doc.links[0].target, "outra.md");
         let r = render_html("`[x](outra.md)`", &opts());
         assert!(!r.html.contains("<a "), "{}", r.html);
+    }
+
+    #[test]
+    fn an_allowed_remote_image_is_listed_as_shown_from_either_path() {
+        let src =
+            "![a](https://example.invalid/m.png)\n\n<img src=\"https://example.invalid/r.png\">";
+        let on = RenderOpts {
+            raw_html: true,
+            remote_images: true,
+            ..opts()
+        };
+        let r = render_html(src, &on);
+        assert_eq!(
+            r.shown_remote,
+            vec![
+                "https://example.invalid/m.png",
+                "https://example.invalid/r.png"
+            ]
+        );
+        assert!(r.blocked_remote.is_empty(), "{:?}", r.blocked_remote);
+
+        let off = RenderOpts {
+            raw_html: true,
+            ..opts()
+        };
+        let r = render_html(src, &off);
+        assert!(r.shown_remote.is_empty(), "{:?}", r.shown_remote);
+        assert_eq!(r.blocked_remote.len(), 2, "{:?}", r.blocked_remote);
     }
 
     #[test]

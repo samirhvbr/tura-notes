@@ -86,17 +86,30 @@ impl super::WorkspaceService {
         Ok(notes_markdown::parse(text))
     }
 
-    /// Turn raw HTML or remote images on or off **for this workspace**.
+    /// Turn raw HTML on or off **for this workspace**.
     ///
     /// Per workspace rather than globally because trusting the notes in one
     /// folder says nothing about another: a workspace synced from elsewhere and
     /// one the user has written by hand are the same application and different
     /// threat models (scope §8.4). `None` clears the override and falls back to
     /// the global setting, which is off.
-    pub fn set_markdown_trust(
+    pub fn set_raw_html(&mut self, allow: Option<bool>) -> super::Result<()> {
+        self.set_trust(|s| s.raw_html = allow)
+    }
+
+    /// Turn remote images on or off **for this workspace**, with the same
+    /// reasoning and the same `None` as [`Self::set_raw_html`].
+    ///
+    /// Two setters rather than one taking both: the single one assigned both
+    /// fields every time, so the preview's *Allow*, which only meant images,
+    /// passed `None` for raw HTML and cleared that override as a side effect.
+    pub fn set_remote_images(&mut self, allow: Option<bool>) -> super::Result<()> {
+        self.set_trust(|s| s.remote_images = allow)
+    }
+
+    fn set_trust(
         &mut self,
-        raw_html: Option<bool>,
-        remote_images: Option<bool>,
+        change: impl FnOnce(&mut crate::registry::WorkspaceSettings),
     ) -> super::Result<()> {
         let dir = self.open()?.dir.clone();
         let open = self.open_mut()?;
@@ -106,8 +119,7 @@ impl super::WorkspaceService {
                 reason: notes_model::UnavailableReason::PermissionRevoked,
             });
         }
-        open.registry.settings.raw_html = raw_html;
-        open.registry.settings.remote_images = remote_images;
+        change(&mut open.registry.settings);
         let registry = open.registry.clone();
         crate::store_registry(&dir, &registry)
     }

@@ -160,7 +160,7 @@ pub fn run() {
             commands::workspace_open,
             commands::markdown_render,
             commands::markdown_outline,
-            commands::markdown_trust_set,
+            commands::markdown_remote_images_set,
             commands::workspace_create,
             commands::workspace_restore_last,
             commands::workspace_recent,

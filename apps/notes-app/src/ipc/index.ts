@@ -194,11 +194,12 @@ export const markdownRender = (path: RelPath, text: string) =>
 export const markdownOutline = (text: string) =>
   invoke<Document>("markdown_outline", { text });
 
-/** Turn raw HTML or remote images on for *this* workspace. */
-export const markdownTrustSet = (
-  rawHtml: boolean | null,
-  remoteImages: boolean | null,
-) => invoke<void>("markdown_trust_set", { rawHtml, remoteImages });
+/**
+ * Turn remote images on or off for *this* workspace. `null` falls back to the
+ * global setting. Raw HTML is untouched: it is a separate switch.
+ */
+export const markdownRemoteImagesSet = (allow: boolean | null) =>
+  invoke<void>("markdown_remote_images_set", { allow });
 
 /**
  * Start watching the workspace. `null` means the platform is watching; a string

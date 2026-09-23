@@ -158,7 +158,7 @@ fn remote_images_are_blocked_until_this_workspace_says_otherwise() {
     assert_eq!(blocked.blocked_remote.len(), 1);
     assert!(!blocked.html.contains("<img"), "{}", blocked.html);
 
-    f.svc.set_markdown_trust(None, Some(true)).unwrap();
+    f.svc.set_remote_images(Some(true)).unwrap();
     let allowed = f.svc.render_markdown(&rel("nota.md"), src).unwrap();
     assert!(allowed.blocked_remote.is_empty());
     assert!(allowed.html.contains("<img"), "{}", allowed.html);
@@ -172,10 +172,31 @@ fn raw_html_is_off_until_this_workspace_says_otherwise_and_is_still_sanitized() 
     let escaped = f.svc.render_markdown(&rel("nota.md"), src).unwrap();
     assert!(escaped.html.contains("&lt;b&gt;"), "{}", escaped.html);
 
-    f.svc.set_markdown_trust(Some(true), None).unwrap();
+    f.svc.set_raw_html(Some(true)).unwrap();
     let raw = f.svc.render_markdown(&rel("nota.md"), src).unwrap();
     assert!(raw.html.contains("<b>negrito</b>"), "{}", raw.html);
     assert!(!raw.html.contains("script"), "{}", raw.html);
+}
+
+/// Each switch moves only itself. The single setter this replaced assigned
+/// both fields, so allowing images from the preview banner cleared a raw-HTML
+/// override nobody had touched.
+#[test]
+fn turning_remote_images_on_and_off_leaves_raw_html_where_it_was() {
+    let mut f = setup();
+    let src = "<b>b</b> ![t](https://example.invalid/t.png)";
+    f.svc.set_raw_html(Some(true)).unwrap();
+
+    f.svc.set_remote_images(Some(true)).unwrap();
+    let on = f.svc.render_markdown(&rel("nota.md"), src).unwrap();
+    assert!(on.html.contains("<b>b</b>"), "{}", on.html);
+    assert_eq!(on.shown_remote, vec!["https://example.invalid/t.png"]);
+
+    f.svc.set_remote_images(Some(false)).unwrap();
+    let off = f.svc.render_markdown(&rel("nota.md"), src).unwrap();
+    assert!(off.html.contains("<b>b</b>"), "{}", off.html);
+    assert!(off.shown_remote.is_empty());
+    assert_eq!(off.blocked_remote, vec!["https://example.invalid/t.png"]);
 }
 
 /// The trust settings are per workspace and survive a restart, which is the
@@ -187,7 +208,7 @@ fn trust_is_remembered_for_this_workspace_and_not_for_another() {
     std::fs::write(other.path().join("nota.md"), b"# n\n").unwrap();
 
     let mut svc = f.svc;
-    svc.set_markdown_trust(None, Some(true)).unwrap();
+    svc.set_remote_images(Some(true)).unwrap();
     let root = f.work.path().to_path_buf();
     let data = svc.data_dir().to_path_buf();
     drop(svc);
