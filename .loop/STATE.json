@@ -1,6 +1,6 @@
 {
   "versao": 1,
-  "ativo": true,
+  "ativo": false,
   "fase": "rodando",
   "objetivo": "Rodada 6: os 10 primeiros itens da revisao de 21/09 em .loop/QUEUE.md (R6-01 a R6-10), na ordem em que estao, mantendo o quadro vivo do artefato em dia",
   "armado_em": "2026-09-22T15:04:21-03:00",
@@ -22,7 +22,7 @@
   "colher_itens": true,
   "notificar": true,
   "notificado": false,
-  "encerrado_por": null,
-  "encerrado_detalhe": null,
-  "encerrado_em": null
+  "encerrado_por": "parada manual",
+  "encerrado_detalhe": "pelo operador",
+  "encerrado_em": "2026-09-22T15:57:06-03:00"
 }

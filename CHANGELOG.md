@@ -7,6 +7,14 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.21 - the loop's state files record that round 6 was stopped at its ceiling
+
+`.loop/STATE.json` and `.loop/STATUS.md` were rewritten by `loop-ctl parar`
+when round 6 reached the ten items it was armed for, and the change sat
+uncommitted. ADR-083 makes `.loop/` versioned memory, so a round that ended and
+a state file that still says it is running are the same kind of disagreement as
+a stale document. Nothing else changes.
+
 ## 1.7.21 - the one-second ceiling ADR-080 kept on Linux failed on Linux, on unchanged code
 
 ADR-080 took the wall-clock assertion in
