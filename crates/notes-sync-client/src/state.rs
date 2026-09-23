@@ -65,7 +65,7 @@ impl State {
         }
         vec![]
     }
-    fn validate(&self) -> Result<()> {
+    fn validate(&self, measured: &mut notes_sync::transfer::Measured) -> Result<()> {
         if self.schema != 1
             || !self.source.is_absolute()
             || self.pending.len() + self.received.len() > 10_000
@@ -85,17 +85,25 @@ impl State {
             }
         }
         let mut incoming = Journal::new(self.local.workspace);
-        // Each received payload is decoded once, here, and its size kept: the
-        // byte total below used to decode every one of them again (R6-15).
+        // A received payload is decoded and hashed the first time this process
+        // sees it, and its size kept: the byte total below used to decode every
+        // one again (R6-15), and every checkpoint of a pass used to decode all
+        // of them from scratch (R7-10). Every structural rule still runs on
+        // every call; only the payload check is remembered, and only for a
+        // publication equal to the one that passed it.
         let mut received_sizes = Vec::with_capacity(self.received.len());
         for p in &self.received {
             if p.workspace != self.local.workspace {
                 return Err(Error::Invalid);
             }
             received_sizes.push(
-                notes_sync::transfer::append_sized(&mut incoming, p).map_err(|_| Error::Invalid)?,
+                measured
+                    .append(&mut incoming, p)
+                    .map_err(|_| Error::Invalid)?,
             );
         }
+        let held: BTreeSet<Uuid> = self.received.iter().map(|p| p.revision.id).collect();
+        measured.retain(|id| held.contains(id));
         incoming.validate().map_err(|_| Error::Invalid)?;
         if incoming.revisions.len() + self.local.revisions.len() > 20_000 {
             return Err(Error::Limit);
@@ -163,6 +171,10 @@ pub struct ClientPruneReport {
 }
 pub struct Store {
     dir: PathBuf,
+    /// Received payloads this process has already decoded and hashed, so a
+    /// checkpoint re-checks only what is new (R7-10). Equality-keyed; see
+    /// [`notes_sync::transfer::Measured`] for why that is the whole safety.
+    measured: std::sync::Mutex<notes_sync::transfer::Measured>,
 }
 impl Store {
     pub fn open(dir: &Path) -> Result<Self> {
@@ -175,6 +187,7 @@ impl Store {
         }
         Ok(Self {
             dir: dir.to_path_buf(),
+            measured: Default::default(),
         })
     }
     fn lock(&self) -> Result<fd_lock::RwLock<File>> {
@@ -213,13 +226,18 @@ impl Store {
             return Err(Error::Limit);
         }
         let state: State = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
-        state.validate()?;
+        state.validate(&mut self.measured())?;
         notes_core::sync::validate_state_location(&[&state.source], &self.dir)
             .map_err(|_| Error::Invalid)?;
         Ok(state)
     }
+    fn measured(&self) -> std::sync::MutexGuard<'_, notes_sync::transfer::Measured> {
+        // A panic while holding it cannot leave a wrong answer behind: entries
+        // are inserted only after their check passed.
+        self.measured.lock().unwrap_or_else(|e| e.into_inner())
+    }
     fn save(&self, state: &State, initial: bool) -> Result<()> {
-        state.validate()?;
+        state.validate(&mut self.measured())?;
         let bytes = serde_json::to_vec(state).map_err(|_| Error::Storage)?;
         if bytes.len() > MAX_STATE {
             return Err(Error::Limit);
@@ -768,7 +786,7 @@ impl Store {
             }
         }
         if reconciled > 0 {
-            Self::validate_application(&state, app.clone())?;
+            self.validate_application(&state, app.clone())?;
             self.save_application(&app)?;
         }
         Ok(reconciled)
@@ -823,16 +841,19 @@ impl Store {
             if p.workspace != state.local.workspace || p.revision != *revision {
                 return Err(Error::Protocol);
             }
-            notes_sync::transfer::payload_size(&p).map_err(|_| Error::Protocol)?;
+            self.measured().size(&p).map_err(|_| Error::Protocol)?;
             state.received.push(p);
         }
         state.cursor = page.next_cursor;
         self.save(state, false)
     }
-    fn incoming(state: &State) -> Result<Journal> {
+    fn incoming(&self, state: &State) -> Result<Journal> {
         let mut journal = Journal::new(state.local.workspace);
+        let mut measured = self.measured();
         for p in &state.received {
-            notes_sync::transfer::append(&mut journal, p).map_err(|_| Error::Invalid)?;
+            measured
+                .append(&mut journal, p)
+                .map_err(|_| Error::Invalid)?;
         }
         journal.validate().map_err(|_| Error::Invalid)?;
         Ok(journal)
@@ -841,7 +862,7 @@ impl Store {
         let lock = self.lock()?;
         let _guard = lock.try_read().map_err(|_| Error::Busy)?;
         let state = self.load()?;
-        Ok(notes_sync::plan(&state.local, &Self::incoming(&state)?)
+        Ok(notes_sync::plan(&state.local, &self.incoming(&state)?)
             .map_err(|_| Error::Conflict)?
             .into_iter()
             .filter(|a| {
@@ -889,7 +910,7 @@ impl Store {
         let mut lock = self.lock()?;
         let _guard = lock.try_write().map_err(|_| Error::Busy)?;
         let mut state = self.load()?;
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         let a = state
             .local
             .revisions
@@ -1142,7 +1163,7 @@ impl Store {
             Ok(meta) => meta,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 return match &state.pairing {
-                    Some(p) => Self::validate_application(state, p.application.clone()),
+                    Some(p) => self.validate_application(state, p.application.clone()),
                     None => Ok(None),
                 };
             }
@@ -1161,9 +1182,9 @@ impl Store {
             return Err(Error::Limit);
         }
         let app: Application = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
-        Self::validate_application(state, app)
+        self.validate_application(state, app)
     }
-    fn validate_application(state: &State, app: Application) -> Result<Option<Application>> {
+    fn validate_application(&self, state: &State, app: Application) -> Result<Option<Application>> {
         if app.assets.len() > 10_000
             || app.asset_intent.as_ref().is_some_and(|(id, path)| {
                 !state
@@ -1211,7 +1232,7 @@ impl Store {
             return Err(Error::Invalid);
         }
         if !app.superseded.is_empty() {
-            let incoming = Self::incoming(state)?;
+            let incoming = self.incoming(state)?;
             for i in &app.superseded {
                 let r = &state.received[*i].revision;
                 if app
@@ -1365,7 +1386,7 @@ impl Store {
             return Err(Error::Invalid);
         }
         if let Some(c) = &state.capture {
-            let incoming = Self::incoming(&state)?;
+            let incoming = self.incoming(&state)?;
             if app
                 .notes
                 .get(&c.note)
@@ -1382,7 +1403,7 @@ impl Store {
             .chain(app.next..state.received.len())
             .take(20)
             .collect();
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         for index in pending {
             let p = &state.received[index];
             // A server-retained cursor slot with no payload is causal metadata.
@@ -1682,7 +1703,7 @@ impl Store {
         {
             return Err(Error::Invalid);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         if let Some(c) = &state.capture {
             if app
                 .notes
@@ -1798,7 +1819,7 @@ impl Store {
         {
             return Err(Error::Conflict);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         if state.pending.is_empty() && !incoming.revisions.contains_key(&capture.branch) {
             return Err(Error::Conflict);
         }
@@ -1888,7 +1909,7 @@ impl Store {
         {
             return Err(Error::Invalid);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         let index = state
             .received
             .iter()
@@ -1987,7 +2008,7 @@ impl Store {
                 cause: e.to_string(),
             }
         })?;
-        let incoming = Self::incoming(state)?;
+        let incoming = self.incoming(state)?;
         let remote: Vec<_> = incoming
             .heads
             .keys()
@@ -2092,7 +2113,7 @@ impl Store {
         {
             return Err(Error::Conflict);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         let mut observed = std::collections::BTreeMap::new();
         for (f, bytes) in &snapshot {
             let expected = notes_core::sync::Applied {
@@ -2215,7 +2236,7 @@ impl Store {
                 }
             }
         }
-        Self::validate_application(&state, app.clone())?;
+        self.validate_application(&state, app.clone())?;
         state.pairing = Some(Pairing {
             application: app,
             created,
@@ -2251,7 +2272,7 @@ impl Store {
         if !state.pending.is_empty() {
             return Ok(0);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         if let Some(c) = &state.capture {
             let completed = app
                 .notes
@@ -2407,7 +2428,7 @@ impl Store {
             return Ok(0);
         };
         let mut app = self.application(&state)?.ok_or(Error::Invalid)?;
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         let previous = app.notes.get(&c.note);
         if previous.is_some_and(|n| incoming.is_ancestor(c.branch, n.revision)) {
             return Ok(0);
@@ -2483,7 +2504,7 @@ impl Store {
                 local,
             },
         );
-        Self::validate_application(&state, app.clone())?;
+        self.validate_application(&state, app.clone())?;
         self.save_application(&app)?;
         Ok(1)
     }
@@ -2538,7 +2559,7 @@ impl Store {
         {
             return Err(Error::Conflict);
         }
-        let incoming = Self::incoming(&state)?;
+        let incoming = self.incoming(&state)?;
         if state.capture.as_ref().is_some_and(|c| {
             app.notes
                 .get(&c.note)

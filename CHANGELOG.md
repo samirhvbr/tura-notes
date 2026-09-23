@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.11 - a sync pass decodes each received payload once, not once per checkpoint
+
+The sync client validates its whole state before every checkpoint, and a pass
+writes up to twenty. 1.8.5 made each validation decode every received payload
+once instead of twice; it still decoded all of them every time -- base64 both
+ways and a BLAKE3 over the bytes -- although a received publication never
+changes once accepted. Receiving 45 notes in three pages cost 255 decodes.
+It now costs 45.
+
+**`notes_sync::transfer::Measured` remembers a payload check, keyed on the whole
+publication rather than its id.** Equal publications carry the same encoded
+bytes and the same declared hash, so a check that passed for one passes for the
+other; a payload swapped under the same revision id is a different value, misses,
+and is decoded and refused. Every structural rule still runs on every call --
+only the payload check is remembered. `fetch_into` measures on arrival;
+`validate` and `incoming` reuse it.
+
+**The cache lives in the `Store`, one per process, not in the saved state.** The
+queue item suggested keeping a verified summary per publication in `client.json`,
+but a summary read back from disk would be trusted on load, and the file on disk
+is exactly what validation exists to distrust. A new process starts cold and
+decodes everything once. The price is a copy of each received publication in
+memory, pruned to what the state still holds on every validation.
+
+Tests: in `notes-sync`, a measured publication is decoded once across twenty
+calls, and a payload changed under the same id is decoded again and refused. In
+`recovery.rs`, 45 received notes decode 45 times across three checkpoints (255
+on the previous code), a reload of the same state decodes nothing, a fresh
+process decodes 45, and a payload replaced on disk is refused by the process
+that had already verified the original.
+
 ## 1.8.10 - remote images can be blocked again from the preview, and allowing them no longer clears the raw-HTML setting
 
 The *Allow remote images* button was the only caller of the trust command in the

@@ -2754,29 +2754,77 @@ fn restored_client_checkpoints_nothing_when_transport_fails_mid_audit() {
     );
 }
 
-/// R6-15: a checkpoint decodes each received payload once, not twice.
+/// R6-15 and R7-10: a received payload is decoded once per process, not once
+/// per checkpoint.
 ///
-/// `validate` runs on every load and every save — up to twenty saves a pass —
-/// and it rebuilt the incoming graph with `append`, which measures each payload
-/// and threw the size away, then decoded every payload again to add the sizes
-/// up. Counted per thread, so the tests running beside this one do not move it.
+/// `validate` runs on every load and every save -- up to twenty saves a pass --
+/// and it decoded every received payload each time, twice before 1.8.5. The
+/// payload check is now remembered for publications equal to the ones that
+/// passed it. Counted per thread, so the tests running beside this one do not
+/// move it.
 #[test]
-fn validating_the_state_decodes_each_received_payload_once() {
+fn a_received_payload_is_decoded_once_per_process_not_once_per_checkpoint() {
     let (dir, root, sender, mut peer) = fixture();
-    const N: usize = 12;
+    const N: usize = 45; // three pages of at most twenty, three checkpoints
     for i in 0..N {
         fs::write(root.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
     }
     sender.stage().unwrap();
+    for _ in 0..3 {
+        sender.transfer(&mut peer).unwrap();
+    }
+    assert_eq!(peer.log.len(), N);
+
+    let decodes = || notes_sync::transfer::decodes_on_this_thread();
+    let before = decodes();
+    let (_, receiver) = receiver(dir.path(), &mut peer);
+    for _ in 0..2 {
+        receiver.transfer(&mut peer).unwrap();
+    }
+    assert_eq!(receiver.status().unwrap().cursor, N);
+    assert_eq!(
+        (decodes() - before) as usize,
+        N,
+        "each payload decoded when it arrived, and not again by the checkpoints"
+    );
+
+    let before = decodes();
+    receiver.status().unwrap();
+    assert_eq!(
+        decodes() - before,
+        0,
+        "a reload of unchanged state decodes nothing"
+    );
+
+    // Another process knows nothing yet, and trusts nothing it read from disk.
+    let before = decodes();
+    Store::open(&dir.path().join("receiver"))
+        .unwrap()
+        .status()
+        .unwrap();
+    assert_eq!((decodes() - before) as usize, N);
+}
+
+/// The other half of R7-10: remembering a check must not become skipping it.
+/// A payload replaced on disk under the same revision id is refused by the
+/// process that has already verified the original.
+#[test]
+fn a_payload_changed_on_disk_is_refused_by_a_process_that_verified_the_original() {
+    let (dir, root, sender, mut peer) = fixture();
+    for i in 0..3 {
+        fs::write(root.join(format!("n{i}.md")), format!("note {i}")).unwrap();
+    }
+    sender.stage().unwrap();
     sender.transfer(&mut peer).unwrap();
     let (_, receiver) = receiver(dir.path(), &mut peer);
-    assert_eq!(receiver.status().unwrap().cursor, N);
+    receiver.status().unwrap();
 
-    let before = notes_sync::transfer::decodes_on_this_thread();
-    receiver.status().unwrap(); // load -> validate
-    let decodes = notes_sync::transfer::decodes_on_this_thread() - before;
-    assert_eq!(
-        decodes as usize, N,
-        "one decode per received payload per validation"
-    );
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let file = dir.path().join("receiver/client.json");
+    let mut state: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    state["received"][1]["content_base64"] =
+        STANDARD.encode(b"not the bytes the hash names").into();
+    fs::write(&file, serde_json::to_vec(&state).unwrap()).unwrap();
+
+    assert!(matches!(receiver.status(), Err(Error::Invalid)));
 }

@@ -243,6 +243,65 @@ pub fn append(graph: &mut crate::Journal, p: &Publication) -> Result<()> {
 /// up to twenty (R6-15). Returning it lets the caller reuse it.
 pub fn append_sized(graph: &mut crate::Journal, p: &Publication) -> Result<usize> {
     let size = payload_size(p)?;
+    append_graph(graph, p)?;
+    Ok(size)
+}
+
+/// Payload sizes already computed for **these exact publications**, so a
+/// payload that has been decoded and hashed once is not decoded again (R7-10).
+///
+/// The sync client validates its whole state before every checkpoint, and a
+/// pass writes up to twenty of them; each validation decoded every received
+/// payload -- base64 both ways and a BLAKE3 over the bytes -- although a received
+/// publication does not change once accepted. This remembers the answer.
+///
+/// **A hit requires the publication to be equal, field for field, to the one
+/// that was measured**, and that is the whole of its soundness: equal
+/// publications carry the same encoded bytes and the same declared hash, so the
+/// check that passed for one passes for the other. A payload edited in memory or
+/// on disk is a different value, misses, and is decoded and checked again. The
+/// price is a copy of each measured publication, which the owner bounds with
+/// [`Self::retain`]; comparing two strings is a `memcmp`, much cheaper than the
+/// decode it replaces.
+#[derive(Debug, Default)]
+pub struct Measured(std::collections::HashMap<Uuid, (Publication, usize)>);
+
+impl Measured {
+    /// [`payload_size`], from memory when this exact publication was measured.
+    pub fn size(&mut self, p: &Publication) -> Result<usize> {
+        if let Some((seen, size)) = self.0.get(&p.revision.id) {
+            if seen == p {
+                return Ok(*size);
+            }
+        }
+        let size = payload_size(p)?;
+        self.0.insert(p.revision.id, (p.clone(), size));
+        Ok(size)
+    }
+
+    /// [`append_sized`], measuring through [`Self::size`].
+    pub fn append(&mut self, graph: &mut crate::Journal, p: &Publication) -> Result<usize> {
+        let size = self.size(p)?;
+        append_graph(graph, p)?;
+        Ok(size)
+    }
+
+    /// Forget every publication whose revision `keep` rejects.
+    pub fn retain(&mut self, keep: impl Fn(&Uuid) -> bool) {
+        self.0.retain(|id, _| keep(id));
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// The graph half of [`append_sized`]: every structural rule, no payload.
+fn append_graph(graph: &mut crate::Journal, p: &Publication) -> Result<()> {
     let r = &p.revision;
     if p.workspace != graph.workspace || graph.heads.get(&r.note).copied() != p.expected {
         return Err(Error::Stale);
@@ -288,7 +347,7 @@ pub fn append_sized(graph: &mut crate::Journal, p: &Publication) -> Result<usize
     }
     insert(graph, r)?;
     graph.heads.insert(r.note, r.id);
-    Ok(size)
+    Ok(())
 }
 fn insert(graph: &mut crate::Journal, r: &Revision) -> Result<()> {
     if !r.path.is_note()
@@ -338,5 +397,67 @@ mod tests {
         append(&mut journal, &publication).unwrap();
         journal.validate().unwrap();
         assert!(content(&publication).is_err());
+    }
+
+    fn one_note(bytes: &[u8]) -> Publication {
+        Publication {
+            attachments: vec![],
+            workspace: Uuid::new_v4(),
+            expected: None,
+            revision: Revision::new(
+                NoteId::default(),
+                Default::default(),
+                Uuid::new_v4(),
+                RelPath::parse("note.md").unwrap(),
+                Some(ContentHash::from_bytes(*blake3::hash(bytes).as_bytes())),
+            ),
+            content_base64: Some(STANDARD.encode(bytes)),
+            branches: vec![],
+            history: vec![],
+            payload_pruned: false,
+        }
+    }
+
+    #[test]
+    fn a_measured_publication_is_not_decoded_again() {
+        let p = one_note(b"measured once");
+        let mut measured = Measured::default();
+        let before = decodes_on_this_thread();
+        let first = measured.size(&p).unwrap();
+        for _ in 0..20 {
+            assert_eq!(measured.size(&p.clone()).unwrap(), first);
+        }
+        assert_eq!(decodes_on_this_thread() - before, 1);
+    }
+
+    /// The cache is keyed on the whole value, not on the revision id: a payload
+    /// changed under the same id is a different publication and is checked again.
+    #[test]
+    fn a_payload_changed_under_the_same_id_is_decoded_and_refused() {
+        let p = one_note(b"the bytes the hash names");
+        let mut measured = Measured::default();
+        measured.size(&p).unwrap();
+
+        let mut swapped = p.clone();
+        swapped.content_base64 = Some(STANDARD.encode(b"other bytes, same id"));
+        let before = decodes_on_this_thread();
+        assert!(measured.size(&swapped).is_err());
+        assert_eq!(decodes_on_this_thread() - before, 1);
+
+        let mut journal = crate::Journal::new(p.workspace);
+        assert!(measured.append(&mut journal, &swapped).is_err());
+        assert!(journal.revisions.is_empty());
+        // The refusal did not replace what was measured.
+        assert!(measured.size(&p).is_ok());
+    }
+
+    #[test]
+    fn retain_forgets_what_the_owner_no_longer_holds() {
+        let (a, b) = (one_note(b"a"), one_note(b"b"));
+        let mut measured = Measured::default();
+        measured.size(&a).unwrap();
+        measured.size(&b).unwrap();
+        measured.retain(|id| *id == a.revision.id);
+        assert_eq!(measured.len(), 1);
     }
 }
