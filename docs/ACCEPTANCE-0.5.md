@@ -9,7 +9,7 @@ The executable, versioned REST contract, credential administration, conditional
 writes, scoped search, container/HTTPS setup and offline backup/restore exist.
 See [SERVER-0.5.md](SERVER-0.5.md) for the operator procedure and limits.
 Automated tests do not substitute for the owner's installed-release walk and
-repeat on the following release.
+repeat on the next minor release (`X.Y.0`).
 
 ## Automated coverage
 
@@ -109,7 +109,7 @@ describes their notes.
       fails; inspect the bounded audit without revealing secrets or note text.
 - [ ] Stop writers, back up, restore into a new directory/volume, and verify
       source bytes and identities before switching the active data mount.
-- [ ] Repeat the installed-release walk on the following release.
+- [ ] Repeat the installed-release walk on the next minor release (`X.Y.0`).
 
 No pairing UI, desktop synchronization or E2EE is claimed by this milestone.
 Mobile completion remains in ACCEPTANCE-0.4.md; remote MCP is 0.7 and is
@@ -250,4 +250,4 @@ Only if that deployment shape is in use.
       **Never ask an older server to overwrite future state** — that is the move
       with no recovery, and the walk exists so the first time it is considered is
       not the night it is needed.
-- [ ] **Repeat the whole of this page on the following release.**
+- [ ] **Repeat the whole of this page on the next minor release (`X.Y.0`).**

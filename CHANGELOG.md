@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.26 - an acceptance walk repeats on the next minor, and every page says so
+
+ADR-093 settled what *"repeated on the following release"* means: the next
+`X.Y.0`. Read literally, the old wording asked for a walk on every patch, and
+round 6 shipped patches minutes apart; read loosely it meant nothing that could
+be checked. Seventeen occurrences across eight files now say the next minor: the
+acceptance pages' prose and their `Following release` columns, the two walk
+scripts in `.continue/` written in Portuguese, and the four index rows. One
+occurrence was wrapped across two quoted lines in `ACCEPTANCE-0.7.md` and
+survived the first pass. No box was ticked.
+
 ## 1.7.25 - 1.6.99 keeps its gap on purpose, and the page says one version per push
 
 The owner decided on 23/09 not to backfill `1.6.99`: a Release dated five days

@@ -2,7 +2,7 @@
 
 > **Status:** `ACTIVE` · Implementation in 0.16.0, YAML correction in 0.16.1; owner acceptance pending.
 > As required for 0.1d and every later milestone, Samir walks the installed
-> Linux release and repeats the flows on the following release. Automated or
+> Linux release and repeats the flows on the next minor release (`X.Y.0`). Automated or
 > local debug checks never tick the owner columns.
 
 The implemented contract and limits are in [KNOWLEDGE-0.3.md](KNOWLEDGE-0.3.md).
@@ -34,7 +34,7 @@ an installed Linux acceptance run.
 
 ## Owner flows
 
-| # | Flow and expected result | Installed release | Following release |
+| # | Flow and expected result | Installed release | Next minor (`X.Y.0`) |
 |---|---|---|---|
 | K1 | Open YAML with scalar/structured properties, malformed YAML and CRLF; properties appear or warn; untouched bytes stay identical | ☐ | ☐ |
 | K2 | Mix YAML tags, inline tags, code, links and escaped hashes; Tags shows only semantic tags and filters notes | ☐ | ☐ |

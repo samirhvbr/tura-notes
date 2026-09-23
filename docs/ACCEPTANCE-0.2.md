@@ -2,7 +2,7 @@
 
 > **Status:** `ACTIVE` · Implemented in repository version 0.14.0. Automated
 > evidence is separate from owner acceptance. As in 0.1d, the owner walks the
-> installed Linux package and repeats the flows on the following release before
+> installed Linux package and repeats the flows on the next minor release (`X.Y.0`) before
 > any manual box is marked. The request to build 0.2 authorized implementation
 > alongside the remaining 0.1d verification; it did not supply those observations.
 
@@ -39,7 +39,7 @@ measures from this date rather than from 0.16.0.
 
 ## Repeatable manual flows
 
-| # | Flow and expected result | Installed release | Following release |
+| # | Flow and expected result | Installed release | Next minor (`X.Y.0`) |
 |---|---|---|---|
 | X1 | Open a workspace; index progress finishes while editing remains available | ☐ | ☐ |
 | X2 | Reopen unchanged files; the index reports unchanged files without reprocessing their content | ☐ | ☐ |

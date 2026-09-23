@@ -9,7 +9,7 @@
 > **Nothing here is ticked, and a box is not ticked by whoever built it.** The
 > rule the owner set for this milestone and every one after: a flow becomes
 > `verified` when they have walked it **in an installed build** and then
-> **repeated it on the following release**. A flow that worked once on a machine
+> **repeated it on the next minor release (`X.Y.0`)**. A flow that worked once on a machine
 > that had just compiled it is a smoke test with a good mood.
 
 ---
@@ -35,7 +35,7 @@ The ten interface areas, in the order the eye meets them.
 
 0.1d was delivered at `0.13.0` and this table stopped there, while interface kept
 arriving. These six are walked the same way and by the same rule — an installed
-build, then repeated on the following release.
+build, then repeated on the next minor release (`X.Y.0`).
 
 **Only one of them wants a phone, and even that one does not need it.** The
 drawer is decided by window width, not by platform, so dragging a desktop window

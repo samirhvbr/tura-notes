@@ -8,7 +8,7 @@
 >
 > **Nothing here is ticked, and a box is not ticked by whoever built it.** A step
 > becomes `verified` when the owner has walked it **in installed builds on two
-> machines** and then **repeated it on the following release**. The cloud
+> machines** and then **repeated it on the next minor release (`X.Y.0`)**. The cloud
 > deployment answering `healthz` is not acceptance — that was settled when the
 > item left the queue on 16/09/2026, and it is why this page exists at all: no
 > acceptance in this repository is inferred from a command succeeding.

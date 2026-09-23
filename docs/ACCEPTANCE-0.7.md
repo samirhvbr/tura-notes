@@ -6,7 +6,7 @@
 > **Nothing here is ticked, and a box is not ticked by whoever built it.** A row
 > becomes `verified` when the owner has walked it against **the deployed server**
 > from **a real MCP client they actually use**, and then repeated it on the
-> following release.
+> next minor release (`X.Y.0`).
 
 This is the shortest acceptance document in the repository, and that is the
 point of the milestone. Remote MCP added no behaviour over the notes: it is a
