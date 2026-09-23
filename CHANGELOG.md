@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.4 - a run of closing parentheses after a URL cost quadratic time, and URLs in code blocks counted as links
+
+**The quadratic.** The autolinker trims trailing punctuation from a bare URL,
+and trims a closing parenthesis only when it is unbalanced, so a Wikipedia URL
+ending in `(disambiguation)` survives. To decide, it recounted every `(` and `)`
+in the whole candidate for each `)` it removed: n of them cost n². `https://a`
+followed by 40 000 `)` took 2.9 s, and the indexer runs this inside its write
+transaction, on anything that arrives by sync, import or paste. The parentheses
+are now counted once, and the count follows the characters as they are trimmed.
+
+It is tested for liveness rather than timed (ADR-095): a million `)` finishes in
+milliseconds and would need hours the old way, so a regression shows up as a CI
+timeout and never as a tight ceiling that flakes.
+
+**The correctness defect, found reading the same function.** `analyse()` -- the
+pass behind the index, the knowledge graph and the link review -- did not know
+when it was inside a fenced code block, so a URL in one was recorded as a real
+link with `in_code: false`. `rewrite()`, the renderer, always knew and never
+linkified it; the document and the preview disagreed about the same text. Such
+URLs are now recorded and marked `in_code`, as links inside inline code already
+were, and consumers that follow only real links skip them. The empty
+`CodeBlock` arm the new one made unreachable is gone.
+
 ## 1.8.3 - the sync inventory rewrote the whole identity registry once per note
 
 `sync::inventory` built its list by calling `open_note` for every note, and

@@ -220,8 +220,16 @@ fn analyse(src: &str) -> (Document, Vec<Spanned<'_>>) {
     let mut heading: Option<(u8, std::ops::Range<usize>, String)> = None;
     let base = RelPath::root();
 
+    // Inside a code block a bare URL is code, not a link. `rewrite()` has
+    // always known that and does not linkify it; this pass did not, so the
+    // index, the knowledge graph and the link review all counted URLs in code
+    // blocks as real links, with `in_code: false` — the renderer and the
+    // document disagreed about the same text (R6-14).
+    let mut code_block = 0usize;
     for (event, range) in &events {
         match event {
+            Event::Start(Tag::CodeBlock(_)) => code_block += 1,
+            Event::End(TagEnd::CodeBlock) => code_block = code_block.saturating_sub(1),
             // Belt and braces beside `options()`: front matter is the block at
             // the top of the file and nothing else.
             Event::Start(Tag::MetadataBlock(_)) if range.start == 0 => {
@@ -275,7 +283,7 @@ fn analyse(src: &str) -> (Document, Vec<Spanned<'_>>) {
                             start: range.start + r.start,
                             end: range.start + r.end,
                         },
-                        in_code: false,
+                        in_code: code_block > 0,
                     });
                 }
             }
@@ -285,7 +293,6 @@ fn analyse(src: &str) -> (Document, Vec<Spanned<'_>>) {
                 }
                 collect_links_in_code(t, range.start, &base, &mut doc.links);
             }
-            Event::Start(Tag::CodeBlock(_)) => {}
             _ => {}
         }
     }
@@ -626,17 +633,30 @@ fn autolinks(text: &str) -> Vec<std::ops::Range<usize>> {
         // Trailing punctuation belongs to the sentence, not to the URL — and a
         // closing parenthesis only if it is unbalanced, so a Wikipedia URL
         // ending in `(disambiguation)` survives.
+        //
+        // The parentheses are counted **once**, and the count follows the
+        // characters as they are trimmed. Recounting the whole candidate for
+        // each `)` removed made a run of n of them cost n²: `https://a`
+        // followed by 40 000 `)` took 2.9 s, and the indexer runs this inside
+        // its write transaction (R6-14). `TRAILING` holds no parenthesis, so
+        // only the `)` branch moves a count.
+        let (opening, mut closing) =
+            text[i..end]
+                .chars()
+                .fold((0usize, 0usize), |(o, c), ch| match ch {
+                    '(' => (o + 1, c),
+                    ')' => (o, c + 1),
+                    _ => (o, c),
+                });
         while let Some(c) = text[i..end].chars().next_back() {
             if TRAILING.contains(&c) {
                 end -= c.len_utf8();
                 continue;
             }
-            if c == ')' {
-                let slice = &text[i..end];
-                if slice.matches(')').count() > slice.matches('(').count() {
-                    end -= 1;
-                    continue;
-                }
+            if c == ')' && closing > opening {
+                end -= 1;
+                closing -= 1;
+                continue;
             }
             break;
         }
@@ -1097,5 +1117,56 @@ mod tests {
         let r = render_html("<b>ok</b><script>window.x=1</script>", &o);
         assert!(r.html.contains("<b>ok</b>"), "{}", r.html);
         assert!(!r.html.contains("script"), "{}", r.html);
+    }
+}
+
+#[cfg(test)]
+mod autolink_cost_tests {
+    use super::*;
+
+    /// A liveness test, not a timing one (ADR-095): linear finishes this in
+    /// milliseconds, and the old recount-per-`)` would need hours — so a
+    /// regression shows up as a CI timeout, not as a tight ceiling that flakes.
+    #[test]
+    fn a_million_unbalanced_closing_parentheses_are_trimmed_in_one_pass() {
+        let text = format!("see https://a{}", ")".repeat(1_000_000));
+        let links = autolinks(&text);
+        assert_eq!(links.len(), 1);
+        assert_eq!(&text[links[0].clone()], "https://a");
+    }
+
+    #[test]
+    fn balanced_parentheses_stay_and_the_unbalanced_one_goes() {
+        let text = "(see https://en.wikipedia.org/wiki/Rust_(disambiguation))";
+        let r = autolinks(text);
+        assert_eq!(
+            &text[r[0].clone()],
+            "https://en.wikipedia.org/wiki/Rust_(disambiguation)"
+        );
+        let text = "https://a.example/x))).";
+        assert_eq!(&text[autolinks(text)[0].clone()], "https://a.example/x");
+    }
+
+    /// The renderer never linkified a URL inside a code block; the document the
+    /// index and the knowledge graph read did, as a real link. Now the two agree:
+    /// it is recorded, and marked as code.
+    #[test]
+    fn a_url_in_a_fenced_code_block_is_code_not_a_link() {
+        let doc = parse("prose https://out.example\n\n```\ncurl https://in.example\n```\n");
+        let out = doc
+            .links
+            .iter()
+            .find(|l| l.target == "https://out.example")
+            .unwrap();
+        let inside = doc
+            .links
+            .iter()
+            .find(|l| l.target == "https://in.example")
+            .unwrap();
+        assert!(!out.in_code);
+        assert!(
+            inside.in_code,
+            "a URL in a code block is not a link the graph should follow"
+        );
     }
 }
