@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.9 - a build-script test no longer throws away an uncommitted edit to the Tauri config
+
+`test_stamping_changes_only_the_version_line` stamps `tauri.conf.json`, compares
+it line by line, and then put the file back with `git checkout --`. That restores
+the *committed* file, not the one the test found. With the 1.8.8 CSP change
+sitting uncommitted in the tree, a whole `tools/check.sh` run came back green --
+the CSP step had passed before the packaging tests ran -- and left the tree
+without the change it had just approved.
+
+It now restores the bytes it read and asserts it did, like its neighbour
+`test_stamping_moves_the_fingerprint` always had. Checked by hand: an
+uncommitted edit to the config survives the suite. Nothing else under `tools/`
+restores a file through git.
+
 ## 1.8.8 - the allow-remote-images opt-in shows the image, now that nothing reaches the page without it
 
 Clicking *Allow* on the blocked-images banner turned the placeholder into a real

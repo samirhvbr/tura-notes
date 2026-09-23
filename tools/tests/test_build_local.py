@@ -142,13 +142,19 @@ class Fingerprint(unittest.TestCase):
         not restore its backup then looked like two unrelated edits, which is
         time spent looking for a second writer that was never there.
         """
-        original = self.CONFIG.read_text(encoding='utf-8').splitlines()
+        # Restored from the bytes read here, never with `git checkout`: that
+        # restores the *committed* file, and an uncommitted edit to the config
+        # -- the CSP change of 1.8.8, sitting in the tree while the gate ran --
+        # vanished without a word in the middle of a green run.
+        raw = self.CONFIG.read_bytes()
+        original = raw.decode('utf-8').splitlines()
         try:
             subprocess.run(['bash', str(ROOT / 'tools/stamp-version.sh')], cwd=ROOT,
                            check=True, stdout=subprocess.DEVNULL)
             stamped = self.CONFIG.read_text(encoding='utf-8').splitlines()
         finally:
-            subprocess.run(['git', 'checkout', '--', str(self.CONFIG)], cwd=ROOT, check=True)
+            self.CONFIG.write_bytes(raw)
+        self.assertEqual(self.CONFIG.read_bytes(), raw)
         self.assertEqual(len(original), len(stamped), 'stamping changed the line count')
         differing = [i for i, (a, b) in enumerate(zip(original, stamped)) if a != b]
         self.assertEqual(len(differing), 1,
