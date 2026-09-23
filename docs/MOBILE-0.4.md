@@ -90,7 +90,13 @@ updates it does not have.
 
 An emulator or a device. There is neither on the machine this was written on —
 no AVD, no attached device — so every line above is a contract and none of it is
-evidence. The Android core already cross-compiles for all four ABIs in CI since
+evidence.
+
+**23/09/2026 — where it gets verified moved.** Per
+[ADR-092](decisions.md#adr-092--milestone-04-is-exercised-on-the-macbook-and-on-a-physical-android-device),
+the emulator and the Simulator run on the MacBook and the physical device is an
+Android phone over USB; the steps are [OWNER-ACTS.md §4](OWNER-ACTS.md#4-run-milestone-04-on-the-macbook).
+The iOS project (`gen/apple`) has to be generated there first. The Android core already cross-compiles for all four ABIs in CI since
 1.6.12, which is compilation evidence and nothing more.
 
 The first thing that would make this page `ACTIVE` is a device that opens a tree,

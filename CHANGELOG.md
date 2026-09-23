@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.27 - milestone 0.4 gets a runbook for the MacBook, written and not yet run
+
+ADR-092 moved the mobile milestone off this machine's firmware. `docs/OWNER-ACTS.md`
+gains §4, *Run milestone 0.4 on the MacBook*: the toolchains, the SDK packages
+(`platforms;android-36` for the `compileSdk` the Android project declares, an
+`android-35` `arm64-v8a` system image for the emulator), the AVD, `tauri android
+dev` against the emulator and then a phone over `adb`, and the iOS side -- which
+first has to be **generated** on the Mac, because `gen/apple` does not exist in
+the repository, and committed.
+
+**It says out loud that it has not been run.** No agent on the Linux machine
+reaches the Mac, so every command is the documented path and none of it is
+evidence; the first run is what makes `MOBILE-0.4.md` more than a contract. The
+NDK version it names is a choice so that runs compare, not a requirement -- CI
+builds with whatever NDK the runner carries -- and the page says to record which
+one was used.
+
+The UEFI section, §3, stays as the record of why this machine could not run the
+emulator, marked superseded rather than deleted; `MOBILE-0.4.md` now points at §4.
+
 ## 1.7.26 - an acceptance walk repeats on the next minor, and every page says so
 
 ADR-093 settled what *"repeated on the following release"* means: the next

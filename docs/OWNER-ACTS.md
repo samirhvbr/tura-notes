@@ -112,7 +112,15 @@ gh release view 1.4.0 --json assets -q '.assets | length'   # expect 14, not 0
 
 ---
 
-## 3. Turn SVM back on in the firmware
+## 3. Turn SVM back on in the firmware — superseded
+
+> **23/09/2026 — no longer the way forward.** The owner decided that milestone 0.4
+> runs on the MacBook and on a physical Android device
+> ([ADR-092](decisions.md#adr-092--milestone-04-is-exercised-on-the-macbook-and-on-a-physical-android-device)):
+> on Apple Silicon the Android emulator needs no KVM at all. The steps are §4 below.
+> This section stays as the record of why this machine could not run the
+> emulator, and it still works if anyone ever wants it to.
+
 
 Milestone 0.4 has compilation evidence and no execution evidence, and the reason
 is one disabled bit. The x86_64 Android emulator requires KVM; `/dev/kvm` does
@@ -158,6 +166,89 @@ ls -l /dev/kvm && id -nG | tr ' ' '\n' | grep -x kvm
 be installed on it, and 0.4 gets its first evidence that the thing *runs* rather
 than merely compiles — the open row in
 [ACCEPTANCE-0.4.md](ACCEPTANCE-0.4.md).
+
+---
+
+## 4. Run milestone 0.4 on the MacBook
+
+[ADR-092](decisions.md#adr-092--milestone-04-is-exercised-on-the-macbook-and-on-a-physical-android-device)
+moves the mobile milestone here. **This section is written, not run:** no agent
+on the Linux machine reaches the Mac, so every command below is the documented
+path and none of it is evidence yet. The first run of it is what turns
+`MOBILE-0.4.md` from a contract into something observed.
+
+Why the Mac works where the Linux machine did not: on Apple Silicon the Android
+emulator runs `arm64-v8a` system images through Hypervisor.framework, with no
+KVM involved, and the iOS Simulator ships with Xcode.
+
+### Once: the toolchains
+
+```bash
+xcode-select --install                      # and Xcode itself, from the App Store
+brew install openjdk@17 node rustup
+brew install --cask android-commandlinetools
+rustup-init -y
+rustup target add aarch64-linux-android armv7-linux-androideabi \
+                  i686-linux-android x86_64-linux-android \
+                  aarch64-apple-ios aarch64-apple-ios-sim
+```
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+sdkmanager --sdk_root="$ANDROID_HOME" \
+  "platform-tools" "emulator" "platforms;android-36" "build-tools;36.0.0" \
+  "ndk;27.2.12479018" "system-images;android-35;google_apis;arm64-v8a"
+export NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
+avdmanager create avd -n tura -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_6
+```
+
+`compileSdk` is 36 and `minSdk` 24 in `apps/notes-app/src-tauri/gen/android`,
+so any image from API 24 up is valid; 35 is the one this page names so that two
+runs compare. Put the two `export` lines in the shell profile.
+
+The NDK version is likewise a choice made here so runs compare, not a
+requirement: CI builds the Android core with whatever NDK the runner carries
+(`ANDROID_NDK_LATEST_HOME` in `ci.yml`), so a different recent NDK that
+`sdkmanager --list` offers is fine — write down which one was used.
+
+### Android: emulator, then the physical device
+
+```bash
+cd apps/notes-app && npm ci
+emulator -avd tura &                        # wait for the home screen
+npm run tauri -- android dev                # builds and installs on the running emulator
+```
+
+For the physical device: enable *Developer options* and *USB debugging* on the
+phone, connect it, accept the fingerprint prompt, and check it is seen before
+running the same command:
+
+```bash
+adb devices                                 # the phone must be listed as "device"
+npm run tauri -- android dev
+```
+
+### iOS: the project has to be generated first
+
+`gen/apple` does not exist in the repository yet — `tauri ios init` only runs on
+macOS. Generate it once, **commit what it creates**, then run on the Simulator:
+
+```bash
+npm run tauri -- ios init                   # creates src-tauri/gen/apple — commit it
+npm run tauri -- ios dev                    # picks a Simulator
+```
+
+A physical iPhone additionally needs an Apple development team set in Xcode
+for signing; the Simulator does not.
+
+### What to record, and where
+
+The rows are in [ACCEPTANCE-0.4.md](ACCEPTANCE-0.4.md). The first observation
+that matters is the one `MOBILE-0.4.md` names: a device that opens a folder,
+lists it, writes a note, and survives having its permission revoked while the
+app is open. Anything that fails on the way — a toolchain version, a command
+that does not exist under that name — is a correction to this page, not a
+workaround to remember.
 
 ---
 
