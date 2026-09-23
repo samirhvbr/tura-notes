@@ -3054,3 +3054,42 @@ The two `start_watch` and first-`quick_open` ceilings of 100 ms stay: they do no
 I/O on the calling thread and have run at 0.07 ms, three orders of magnitude
 inside the bound. The owner's walk on real hardware remains where the one-second
 promise is judged.
+
+---
+
+## ADR-096 — Devices are listed and revoked by a credential that was granted that power, over its own workspace only
+
+**Status:** `PROPOSED` · 23/09/2026 · for owner answer (R7-04; ADR-086 left this choice to R7-04 and said to ask if neither option clearly satisfies `security.md` §4.10)
+
+**Proposal.** A seventh permission, `devices`, off by default and granted only by
+the operator from the host (`notes-server token create … --permission devices`).
+A credential holding it may, over HTTPS, **list the sync devices of its own
+workspace** — device id, the label of the credential that owns it, receipts held,
+whether that credential is revoked, and which one is the caller — and **revoke
+the credential of another device in the same workspace**. That is all. It cannot
+create, un-revoke or re-scope a credential, reach another workspace, revoke
+itself, or retire a device (retirement deletes receipts, so it stays the
+offline operator act it is). Every revocation is audited with actor, client and
+target. The desktop app shows the list and a *Revoke* per row when its own
+credential holds the permission.
+
+**Why this and not the other option.** §4.10 says an *administrative* service
+binds to loopback or a private interface. The alternative ADR-086 names, an
+administrative surface kept off the public interface, would mean a second
+listener and a second deployment step for a single-owner server, and the owner
+asked for the screen in the app. The proposal treats revocation as a user action
+scoped exactly as the rest of the API is: one workspace, one explicitly granted
+permission, the same authentication, rate limits and audit. It adds no operator
+power the credential store's owner did not hand out.
+
+**What it costs, stated plainly.** A leaked credential that holds `devices` can
+revoke every other device of that workspace. The owner recovers by issuing new
+credentials on the host, and nothing is lost, since revocation deletes no data.
+That is the same class of harm as a leaked credential holding `delete`, and it
+is why the permission is off by default and named separately. It does not
+include retirement, so it cannot drop receipts.
+
+**What an answer changes.** *Yes*: R7-04 builds this (endpoint pair, permission,
+audit lines, a 403 test for a credential without it, the screen), with
+`security.md` §4.10 amended in the same pass to name it. *No*: device management
+stays on the host's command line, and the screen, if wanted, is read-only.

@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.41 - ADR-096 proposes how a device is revoked from the app, and R7-04 waits on the owner's answer
+
+The owner asked for a screen listing connected devices with revocation one at a
+time, "now if it can be done" (answer `q_dispositivo`, ADR-086). ADR-086 bounded
+it by `docs/security.md` §4.10: an administrative service binds to loopback or
+a private interface, and the sync server is public. It left the choice between
+a user-level action and an off-interface admin surface to this item, and said
+to ask the owner if neither clearly satisfied §4.10.
+
+Neither does clearly, so **ADR-096 is written as `PROPOSED`, not built**. It
+proposes a seventh permission, `devices`, off by default and granted from the
+host. It lets a credential list its own workspace's devices and revoke another
+device's credential there, audited, and nothing else: no creation, no
+un-revoking, no retirement, no other workspace. The cost is stated in the ADR:
+a leaked credential holding it can revoke the workspace's other devices,
+recoverable from the host with nothing lost. R7-04 is parked with that yes/no
+question.
+
 ## 1.8.40 - the tab bar implements the tabs pattern it announces
 
 The tab strip declared `role="tablist"` and implemented none of the pattern. Each
