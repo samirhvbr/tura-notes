@@ -310,15 +310,10 @@ jobs:
   # The acceptance criterion that needs a thousand kills. Not on every push:
   # it takes minutes, and a check that slows every PR becomes a check people
   # learn to skip.
+  # Four platforms, defined once in `crash.yml`, which also runs nightly.
   crash:
-    name: crash-save-loop
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'run-crash-loop')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: tools/crash-save-loop.sh
+    uses: ./.github/workflows/crash.yml
 
   # Dependabot opens pull requests for new versions; it does not say whether the
   # version we are pinned to has a known vulnerability. `security.md` §10 names

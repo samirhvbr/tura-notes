@@ -1,0 +1,48 @@
+name: crash-save-loop
+
+# The 0.1a flagship criterion -- a thousand kills mid-save never leave a
+# truncated note -- on every platform the writer ships to, and every night
+# (owner answer `q_crashloop`, R6-30). It ran on ubuntu-latest only, which left
+# the Windows path (`ReplaceFileW`) and macOS without crash coverage anywhere,
+# while `ARCHITECTURE.md` said "all four CI OS, nightly".
+#
+# One definition, two callers: `ci.yml` calls it on every push to master (and on
+# a pull request labelled `run-crash-loop`), and the schedule below runs it on
+# its own every night, without the rest of CI.
+on:
+  workflow_call:
+  schedule:
+    - cron: "41 3 * * *"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  crash:
+    name: crash-save-loop (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: tools/crash-save-loop.sh
+
+  arch:
+    name: crash-save-loop (arch)
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: toolchain
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel rustup git
+          rustup default stable
+      - run: tools/crash-save-loop.sh

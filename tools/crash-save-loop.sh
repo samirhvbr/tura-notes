@@ -32,7 +32,18 @@ else
   cargo build --quiet -p notes-fs --bin crash-writer || exit 1
   BIN="$ROOT/target/debug/crash-writer"
 fi
+[ -x "$BIN" ] || [ ! -x "$BIN.exe" ] || BIN="$BIN.exe" # Windows
 [ -x "$BIN" ] || { echo "crash-writer not built" >&2; exit 1; }
+
+# How a round must end. On Linux and macOS the kill is a real SIGKILL and bash
+# reports 128 + 9. Git Bash terminates a native Windows process instead, and the
+# status it reports for that is not a signal number, so there the rule is the
+# negative one: not the writer's own exits (0 never happens, 2 is a failed
+# write, 101 a panic).
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) killed() { [ "$1" -ne 0 ] && [ "$1" -ne 2 ] && [ "$1" -ne 101 ]; } ;;
+  *) killed() { [ "$1" -eq 137 ]; } ;;
+esac
 
 # Seed the note so the very first kill has a previous complete version to
 # fall back to.
@@ -67,7 +78,7 @@ for i in $(seq 1 "$ROUNDS"); do
   # 137 is 128 + SIGKILL: the kill landed. Anything else means the writer
   # stopped on its own before it -- 2 is a failed write, 101 a panic -- and the
   # file on disk says nothing about crash safety.
-  if [ "$rc" -ne 137 ]; then
+  if ! killed "$rc"; then
     echo "FAIL round $i: the writer exited by itself with status $rc before the kill"
     fails=$((fails + 1))
   fi
