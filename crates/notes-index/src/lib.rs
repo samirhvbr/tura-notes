@@ -10,7 +10,40 @@ fn sql(e: rusqlite::Error) -> CoreError {
     }
 }
 
+/// The database file exists and is `0600` before SQLite opens it (R6-27a).
+///
+/// SQLite creates a missing file `0644` and gives its `-wal` and `-shm` files
+/// the database's own mode, so the one file decides all three. The content
+/// index holds the full text of every note; an existing file is tightened too.
+fn private_file(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let io = |e: std::io::Error| CoreError::io("private_db", path.display(), &e);
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)
+        {
+            Ok(_) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                let mode = std::fs::metadata(path).map_err(io)?.permissions().mode();
+                if mode & 0o077 != 0 {
+                    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+                        .map_err(io)?;
+                }
+            }
+            Err(e) => return Err(io(e)),
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
 fn open(path: &Path, schema: &str, supported: u32) -> Result<Connection> {
+    private_file(path)?;
     let mut db = Connection::open(path).map_err(sql)?;
     db.busy_timeout(Duration::from_secs(5)).map_err(sql)?;
     let found: u32 = db

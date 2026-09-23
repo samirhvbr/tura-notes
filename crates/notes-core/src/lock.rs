@@ -32,11 +32,14 @@ pub fn acquire(path: &Path) -> Result<WriteLock, CoreError> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| CoreError::io("mkdir", dir.display(), &e))?;
     }
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .read(true)
-        .write(true)
-        .truncate(false)
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).read(true).write(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600); // like everything else in the private store (R6-27a)
+    }
+    let file = options
         .open(path)
         .map_err(|e| CoreError::io("open_lock", path.display(), &e))?;
 

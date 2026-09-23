@@ -174,8 +174,18 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("state");
     let tmp = dir.join(format!(".{name}.tmp-{}", std::process::id()));
 
-    let mut f =
-        std::fs::File::create(&tmp).map_err(|e| CoreError::io("create_temp", tmp.display(), &e))?;
+    // `0600`, and the rename keeps it: state is the user's, not the machine's
+    // (R6-27a). `File::create` gave `0666` less the umask, `0644` in practice.
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut f = options
+        .open(&tmp)
+        .map_err(|e| CoreError::io("create_temp", tmp.display(), &e))?;
     let r = (|| -> std::io::Result<()> {
         f.write_all(bytes)?;
         f.sync_all()

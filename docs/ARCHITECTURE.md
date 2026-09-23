@@ -232,6 +232,15 @@ default_data_dir() = dirs::data_dir()/notes      overridable by NOTES_DATA_DIR (
   Windows  %APPDATA%\notes
 ```
 
+**The directory is private to the user** (since 1.8.21). On Unix the core makes
+it `0700` on every start, tightening an existing install as well as a new one;
+state files, SQLite databases (whose `-wal`/`-shm` files take the database's
+mode) and lock files are created `0600`. It holds the full text of every opened
+note in `index.db`, drafts that never expire and conflict snapshots, and it was
+`0755` with `0644` files before: readable by every account on the machine.
+`tests/private_store.rs` walks a freshly used directory and fails on any file
+another account could read. Windows keeps the ACL `%APPDATA%` already has.
+
 ```
 <data_dir>/
 ├── settings.json                        global settings (§4.5)

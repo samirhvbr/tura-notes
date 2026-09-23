@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.21 - the application's data directory is readable by its user and nobody else
+
+`~/.local/share/notes/` holds the full text of every note ever opened (the
+content index), drafts that by design never expire, conflict snapshots and the
+identity registry. It was created `0755`, and its files `0644`, so every
+account on the machine could read all of it. On the machine the finding came
+from, `index.db` alone was 108 MB of note text with those permissions.
+
+**On Unix the data directory is now `0700`, set on every start**, which also
+closes existing installs: nothing below a directory other accounts cannot enter
+is reachable by them. What is created inside is `0600`: state written through
+`state::write_atomic` (drafts, sessions, settings), the SQLite databases (the
+file is created `0600` before SQLite opens it, and SQLite gives its `-wal` and
+`-shm` files the database's mode) and the lock files. No call site changed.
+Windows keeps the per-user ACL `%APPDATA%` already has.
+
+`tests/private_store.rs` opens a workspace, builds the content index, closes,
+and walks the directory, failing on any file another account could read. Its
+first run found two that the plan had missed, `workspaces.lock` and
+`index.lock`, both `0664`. A second test checks that an existing `0755`
+directory comes back `0700`.
+
+How the user removes this data from inside the app is R6-27 (ADR-091), still
+queued.
+
 ## 1.8.20 - notes past the first 200 can be listed through MCP
 
 `AgentService` honoured `offset` for `notes_list` and `notes_search`, up to

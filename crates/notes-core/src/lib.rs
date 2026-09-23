@@ -238,8 +238,7 @@ impl WorkspaceService {
 
     pub fn with_data_dir(data_dir: impl Into<PathBuf>) -> Result<Self> {
         let data_dir = data_dir.into();
-        std::fs::create_dir_all(&data_dir)
-            .map_err(|e| CoreError::io("mkdir", data_dir.display(), &e))?;
+        paths::private_dir(&data_dir)?;
         let settings = match state::load::<Settings>(&paths::global_settings(&data_dir))? {
             Loaded::Ok(s) => s,
             // A settings file from the future is not fatal: defaults are safe,
