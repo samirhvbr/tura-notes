@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.14 - a pairing preview waits for the whole remote history instead of planning from the first page
+
+Pairing two existing folders in *Reconcile* fetched one page, at most twenty
+revisions, and built the plan from what was cached. Remote notes on later pages
+did not exist in the plan, so their local twins were listed as uploads instead
+of links. When a note's creation was on page one and its update on a later
+page, the cached half made a conflict up, and the documented remedy for a
+conflict (rename the local file so it uploads as a separate note) would then
+create a real duplicate identity. The confirmation digest bound the cursor,
+so nothing wrong was ever committed. But the screen the user decided from was
+wrong, and the fetch dropped `has_more`, so nothing could tell the view was
+partial.
+
+**The queue now records whether the server said there was more**, and a
+preview on a cache that is not drained is refused with `still receiving from
+the server (N revisions so far)`. The field is written only while true, so a
+state from before this version reads as drained. **The desktop preview fetches
+the remaining pages itself before planning**, up to fifty per request, since
+that is the moment the rest is needed and the user is waiting for it. The CLI
+keeps its documented bounded `fetch` steps and now says when one more is needed.
+
+Tests: 45 equal files on both sides. Before any fetch and after one page, the
+preview is refused and names 0 and then 20 received; once drained it lists 45
+links. The previous code previewed 20 links and 25 uploads at the one-page
+point. At the controller level, a preview after `pair`'s single page receives
+the rest and lists 45 links.
+
 ## 1.8.13 - two devices reading sync revisions at once both get an answer
 
 `GET …/sync/revisions` and `GET …/sync/revisions/{id}` went through the same

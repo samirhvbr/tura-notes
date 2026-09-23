@@ -784,7 +784,11 @@ notes-sync-client acknowledge /private/queue /private/token.secret
 
 Repeat bounded `fetch` calls until no unseen remote entries remain before
 confirmation. An unchanged cursor after a fetch means that the current history
-is drained. A subfolder cursor counts the server's global append positions,
+is drained. Since 1.8.14 `pair-preview` refuses until then, saying how many
+revisions have arrived so far: the queue records the server's `has_more` from
+its last fetch, and a plan built from part of the history lists remote notes it
+has not seen as local uploads. The desktop app's preview fetches the remaining
+pages itself before planning, up to fifty per request. A subfolder cursor counts the server's global append positions,
 including filtered entries; it is deliberately separate from received counts.
 All publication paths, including retained branches, are translated at transport
 boundaries. The credential must match the pinned scope on every connection;

@@ -1566,6 +1566,55 @@ fn pairing_confirms_equal_identities_and_stages_local_only_files_without_overwri
     assert!(receiver.preview_pairing(&data).is_err());
 }
 
+/// R6-17: a preview built before the history is drained is refused, and says
+/// so, instead of listing notes it has not received yet as local uploads.
+#[test]
+fn pairing_is_not_previewed_from_a_cache_the_server_has_not_finished_filling() {
+    let (dir, root, sender, mut peer) = fixture();
+    const N: usize = 45;
+    for i in 0..N {
+        fs::write(root.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
+    }
+    sender.stage().unwrap();
+    for _ in 0..3 {
+        sender.transfer(&mut peer).unwrap();
+    }
+    assert_eq!(peer.log.len(), N);
+    let target = dir.path().join("paired");
+    fs::create_dir(&target).unwrap();
+    for i in 0..N {
+        fs::write(target.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
+    }
+    let data = dir.path().join("pair-data");
+    let receiver = Store::open(&dir.path().join("pair-state")).unwrap();
+    receiver
+        .initialize(&target, endpoint(), Mode::Receive, &mut peer)
+        .unwrap();
+    assert!(receiver.receiving().unwrap(), "nothing fetched yet");
+    assert!(matches!(
+        receiver.preview_pairing(&data),
+        Err(Error::Receiving { received: 0 })
+    ));
+
+    receiver.fetch(&mut peer).unwrap();
+    // One page in: the old preview listed 20 links and 25 uploads here, for
+    // files that are already on the server.
+    assert!(matches!(
+        receiver.preview_pairing(&data),
+        Err(Error::Receiving { received: 20 })
+    ));
+
+    receiver.fetch(&mut peer).unwrap();
+    receiver.fetch(&mut peer).unwrap();
+    assert!(!receiver.receiving().unwrap());
+    let preview = receiver.preview_pairing(&data).unwrap();
+    assert_eq!(preview.actions.len(), N);
+    assert!(preview
+        .actions
+        .iter()
+        .all(|a| matches!(a, notes_sync::PairingAction::Link { .. })));
+}
+
 #[test]
 fn pairing_refuses_divergent_bytes_and_unseen_remote_updates() {
     let f = receiver_conflict_fixture();

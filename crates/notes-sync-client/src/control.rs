@@ -510,8 +510,32 @@ impl Controller {
         Ok(())
     }
     pub fn preview(&self) -> Result<SyncPairPreview> {
+        self.preview_with(|store, c| {
+            Remote::connect(&store.endpoint()?, Path::new(&c.token_file), None)
+        })
+    }
+    /// The plan is built from what has been received, so everything the server
+    /// holds is received first (R6-17). `pair` fetches one page; asking for the
+    /// preview is the moment the rest is needed, and the user is waiting for it.
+    /// Bounded: past `PREVIEW_PAGES` pages the store refuses with `Receiving`,
+    /// and asking again continues from where this stopped.
+    fn preview_with<T: Transport>(
+        &self,
+        connect: impl FnOnce(&Store, &SyncConnection) -> Result<T>,
+    ) -> Result<SyncPairPreview> {
+        const PREVIEW_PAGES: usize = 50;
         let _guard = self.operation.try_lock().map_err(|_| Error::Busy)?;
-        let store = Store::open(Path::new(&self.config()?.state_dir))?;
+        let c = self.config()?;
+        let store = Store::open(Path::new(&c.state_dir))?;
+        if store.receiving()? {
+            let mut remote = Budget::new(connect(&store, &c)?);
+            for _ in 0..PREVIEW_PAGES {
+                store.fetch(&mut remote)?;
+                if !store.receiving()? {
+                    break;
+                }
+            }
+        }
         let p = store.preview_pairing(&self.data)?;
         Ok(SyncPairPreview {
             confirmation: p.confirmation,
@@ -791,6 +815,51 @@ mod tests {
         assert_eq!(backoff(120, 0), 120);
         assert_eq!(backoff(120, 1), 240);
         assert_eq!(backoff(3600, 32), 3600);
+    }
+    /// R6-17: `pair` fetches one page, so the desktop preview receives the rest
+    /// before it plans; otherwise 25 of these 45 equal files would be listed
+    /// as uploads of notes the server already has.
+    #[test]
+    fn the_desktop_preview_receives_everything_before_it_plans() {
+        let temp = tempfile::tempdir().unwrap();
+        let endpoint = || Endpoint {
+            origin: "https://notes.example/".into(),
+            name: "home".into(),
+            scope: None,
+            allow_private: false,
+        };
+        let (source, target) = (temp.path().join("source"), temp.path().join("target"));
+        fs::create_dir(&source).unwrap();
+        fs::create_dir(&target).unwrap();
+        for i in 0..45 {
+            fs::write(source.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
+            fs::write(target.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
+        }
+        let peer = RefCell::new(Peer::new());
+        let sender = Store::open(&temp.path().join("sender")).unwrap();
+        sender
+            .initialize(&source, endpoint(), Mode::Upload, &mut &peer)
+            .unwrap();
+        sender.stage().unwrap();
+        for _ in 0..3 {
+            sender.transfer(&mut &peer).unwrap();
+        }
+        let c = config(temp.path());
+        let receiver = Store::open(Path::new(&c.state_dir)).unwrap();
+        receiver
+            .initialize(&target, endpoint(), Mode::Receive, &mut &peer)
+            .unwrap();
+        receiver.fetch(&mut &peer).unwrap(); // what `pair` does
+        assert!(receiver.receiving().unwrap());
+
+        let controller = Controller::new(&temp.path().join("app-data"));
+        controller.configure(c).unwrap();
+        let preview = controller
+            .preview_with(|_, _| -> Result<&RefCell<Peer>> { Ok(&peer) })
+            .unwrap();
+        assert_eq!(preview.rows.len(), 45);
+        assert!(preview.rows.iter().all(|r| r.action == "link"));
+        assert!(!receiver.receiving().unwrap());
     }
     #[test]
     fn worker_retains_offline_edits_and_restarts_without_implicit_application() {

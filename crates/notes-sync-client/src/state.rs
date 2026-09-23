@@ -40,6 +40,13 @@ struct State {
     capture: Option<ReceiverCapture>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pairing: Option<Pairing>,
+    /// The server said, at the last fetch, that entries exist past `cursor`.
+    /// A pairing plan built from a cache in that state lists remote notes it has
+    /// not seen yet as local uploads, and invents conflicts from a creation whose
+    /// update is on a later page (R6-17), so it is refused rather than shown.
+    /// Written only while true, so a state from before 1.8.14 reads as drained.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    unseen: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -309,6 +316,8 @@ impl Store {
                 cursor: 0,
                 capture: None,
                 pairing: None,
+                // Nothing fetched yet: anything the server holds is unseen.
+                unseen: page.has_more || !page.revisions.is_empty(),
             },
             true,
         )
@@ -845,7 +854,15 @@ impl Store {
             state.received.push(p);
         }
         state.cursor = page.next_cursor;
+        state.unseen = page.has_more;
         self.save(state, false)
+    }
+    /// Whether the last fetch left entries on the server that this cache has
+    /// not received. A pairing preview is refused until it is `false`.
+    pub fn receiving(&self) -> Result<bool> {
+        let lock = self.lock()?;
+        let _guard = lock.try_read().map_err(|_| Error::Busy)?;
+        Ok(self.load()?.unseen)
     }
     fn incoming(&self, state: &State) -> Result<Journal> {
         let mut journal = Journal::new(state.local.workspace);
@@ -1995,6 +2012,11 @@ impl Store {
         state: &State,
         data: &Path,
     ) -> Result<(PairingPreview, PairingFiles)> {
+        if state.unseen {
+            return Err(Error::Receiving {
+                received: state.received.len(),
+            });
+        }
         if state.mode != Mode::Receive
             || state.pairing.is_some()
             || state.capture.is_some()

@@ -31,5 +31,9 @@ pub enum Error {
     Limit,
     #[error("remote response was rejected; pending revisions were retained")]
     Protocol,
+    /// A pairing was asked for while the server still holds entries this cache
+    /// has not received. Fetching again, until nothing new arrives, is the way on.
+    #[error("still receiving from the server ({received} revisions so far); fetch until nothing new arrives, then review the pairing")]
+    Receiving { received: usize },
 }
 pub type Result<T> = std::result::Result<T, Error>;
