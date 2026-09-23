@@ -211,6 +211,29 @@ git remote set-head origin -a             # sets origin/HEAD; do it per clone
 behind and a pull is refused by work in flight — backfilling from a stale `HEAD`
 silently omits every version pushed since.
 
+#### One version per push — the workflow publishes only the top one
+
+`release.yml` calls `release.sh --current`, and `--current` tags and publishes
+**the version `version.md` names now**, nothing below it. Push two version bumps
+in one `git push` and the lower one is never published. Measured twice in this
+repository:
+
+- **`1.6.99` has no tag and no Release, and will not get one.** It was pushed on
+  18/09 together with the version after it. The owner decided on 23/09 to accept
+  the gap rather than publish a Release dated five days after the version it
+  names — the answer is on the board of that day, and this paragraph is its
+  record. `release.sh --backfill --dry-run` will keep listing it as
+  `WOULD CREATE`; that line is expected, not a finding.
+- **`1.7.5`** was pushed with `1.7.6` on 22/09 and left the same gap, found the
+  next day and published by hand — `--current --ref <its commit>`, then
+  `--current --ref origin/master` to put `Latest` back, because `--backfill`
+  would also have published `1.6.99`.
+
+The workflow was deliberately left as it is. So the rule is on the pushing side:
+**push each version bump on its own.** Several commits may still share one
+version, pushed together, since only one number is involved; it is two numbers
+in one push that loses the lower one.
+
 ---
 
 ## The hooks

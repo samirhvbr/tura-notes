@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.25 - 1.6.99 keeps its gap on purpose, and the page says one version per push
+
+The owner decided on 23/09 not to backfill `1.6.99`: a Release dated five days
+after the version it names would claim a publication that did not happen then.
+`docs/versioning.md` now records the gap and why, and says that the `WOULD
+CREATE 1.6.99` line `release.sh --backfill --dry-run` keeps printing is expected
+rather than a finding.
+
+**The workflow does not change either**, also by that decision. `release.yml`
+calls `--current`, which publishes only the version `version.md` names at the
+time -- so two bumps in one push lose the lower one. That is how `1.6.99`
+happened, and how `1.7.5` happened again on 22/09 without any carelessness beyond
+pushing two versions together. With the workflow left alone, the rule goes where
+it can be kept: each version bump is pushed on its own. Commits sharing one
+version may still go together.
+
 ## 1.7.24 - the owner's answers are written down as nine decisions before anything is built on them
 
 Nine ADRs, 086 to 094, one per decision of direction from the answers of 23/09:
