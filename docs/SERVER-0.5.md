@@ -290,7 +290,17 @@ and newline policy are preserved; unsupported/mixed text opens read-only.
 
 At most eight bodies/filesystem operations run simultaneously. Excess parallel
 requests receive 503. Fixed one-minute windows permit 60 requests per credential
-and 120 per actual connection address, returning 429 and `Retry-After: 60`.
+and 120 per actual connection address, returning 429 and `Retry-After: 60`. An
+IPv6 address is charged by its /64, so a host holding a routed /64 has one
+budget, not one per address. The windows live in memory in two tables, one for
+addresses and one for credentials, each capped at 4096 live windows. **At the
+cap the oldest window is evicted; a new key is never refused for want of
+room** (since 1.8.16). The address is charged before authentication, so its
+keys are chosen by whoever sends the request, and a refusing table let 4096
+addresses lock every other caller out, including the deploy script's `/healthz`.
+Eviction can hand a flooding client a fresh window. That is the direction this
+control is allowed to fail in: towards letting one caller through, never
+towards refusing everyone.
 Behind a proxy the address budget is charged to the **client**, taken from the
 last `X-Forwarded-For` entry — the one the trusted proxy appended, since
 everything left of it came from the client and is forgeable.

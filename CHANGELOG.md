@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.16 - a flood of addresses no longer locks every other caller out of the server
+
+The rate limiter kept every window in one map, addresses and credentials
+together, capped at 4096 live entries. **At the cap it refused every key it
+did not already hold.** Its keys are chosen by whoever sends the request,
+because an address is charged before authentication. So 4096 requests from
+4096 addresses, trivial from one routed IPv6 /64, meant the next minute
+answered 429 to every paired device, and to the deploy script's own
+`/healthz` check, which then blamed the service. Re-flooding once a minute
+kept it that way at about 68 requests a second.
+
+**At the cap the oldest window is now evicted, and a new key is never refused
+for want of room.** The ceiling still bounds memory; what changed is the
+direction it fails in. Eviction can hand a flooding client a fresh window,
+which lets one caller through, where the old behaviour refused everyone.
+Addresses and credentials now have separate tables, so addresses cannot crowd
+credentials out. At most 1024 credentials exist, so their table never reaches
+its cap. **An IPv6 address is charged by its /64**, so a host holding one has a
+single budget rather than 2^64 of them. An IPv4-mapped address is charged as
+the IPv4 address it is.
+
+Tests: 4096 proxied addresses spend a request each, and the 4097th still gets
+200 on `/healthz` and on an authenticated read (429 on the previous code). 120
+addresses in one /64 exhaust its budget while the next /64 is untouched (the
+previous code answered 200 to the 121st). `SERVER-0.5.md` states the cap, the
+eviction and the /64.
+
 ## 1.8.15 - a sync refusal in the desktop app says what happened instead of "This storage does not support that"
 
 R6-17 asked for the pairing conflict to stop reading as *"This storage does not

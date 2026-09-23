@@ -59,8 +59,67 @@ pub struct Server {
     /// picked out of `X-Forwarded-For`. Meaningless without `trusted_proxy`.
     trusted_hops: usize,
     slots: Arc<Semaphore>,
-    rates: Arc<Mutex<HashMap<String, (Instant, u32)>>>,
+    rates: Arc<Mutex<Rates>>,
     clock: Clock,
+}
+
+/// Fixed one-minute windows, one table per kind of key, each with a ceiling.
+///
+/// **At the ceiling the oldest window is evicted, never the new key refused**
+/// (R6-18). The table was one map for both kinds, and a full one answered 429
+/// to every key it did not already hold. Its keys are chosen by whoever sends
+/// the request -- an address is charged before authentication -- so 4096
+/// requests from 4096 addresses, trivial from one routed IPv6 /64, locked out
+/// every paired device and the deploy script's own health check for a minute,
+/// renewable at about 68 requests a second. The ceiling bounds memory; which
+/// way it fails is the choice, and evicting fails towards letting a caller
+/// through with a fresh window rather than towards refusing everyone.
+///
+/// Separate tables so addresses cannot crowd out credentials: there are at most
+/// 1024 credentials, so their table never reaches its ceiling at all.
+#[derive(Default)]
+struct Rates {
+    addresses: HashMap<IpAddr, (Instant, u32)>,
+    tokens: HashMap<uuid::Uuid, (Instant, u32)>,
+}
+
+const RATE_ENTRIES: usize = 4096;
+const RATE_WINDOW: Duration = Duration::from_secs(60);
+
+fn charge<K: std::hash::Hash + Eq + Copy>(
+    table: &mut HashMap<K, (Instant, u32)>,
+    key: K,
+    limit: u32,
+    now: Instant,
+) -> bool {
+    table.retain(|_, (start, _)| now.saturating_duration_since(*start) < RATE_WINDOW);
+    if table.len() >= RATE_ENTRIES && !table.contains_key(&key) {
+        if let Some(oldest) = table
+            .iter()
+            .min_by_key(|(_, (start, _))| *start)
+            .map(|(k, _)| *k)
+        {
+            table.remove(&oldest);
+        }
+    }
+    let entry = table.entry(key).or_insert((now, 0));
+    entry.1 += 1;
+    entry.1 <= limit
+}
+
+/// The address a budget is charged to: IPv6 by its /64, the smallest block a
+/// site is normally given, so one host cannot mint a fresh budget per address.
+fn rate_key(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => match v6.to_ipv4_mapped() {
+            Some(v4) => IpAddr::V4(v4),
+            None => {
+                let s = v6.segments();
+                IpAddr::V6(std::net::Ipv6Addr::new(s[0], s[1], s[2], s[3], 0, 0, 0, 0))
+            }
+        },
+        v4 => v4,
+    }
 }
 impl Server {
     pub fn new(data: PathBuf, trusted_proxy: Option<IpAddr>) -> Self {
@@ -80,7 +139,7 @@ impl Server {
             trusted_proxy,
             trusted_hops: trusted_hops.max(1),
             slots: Arc::new(Semaphore::new(8)),
-            rates: Arc::new(Mutex::new(HashMap::new())),
+            rates: Arc::new(Mutex::new(Rates::default())),
             clock: Clock::system(),
         }
     }
@@ -115,18 +174,17 @@ impl Server {
         };
         parse_address(hops[index]).unwrap_or(peer)
     }
-    fn rate(&self, key: String, limit: u32) -> bool {
+    fn rate_address(&self, ip: IpAddr) -> bool {
         let Ok(mut rates) = self.rates.lock() else {
             return false;
         };
-        let now = self.clock.now();
-        rates.retain(|_, (time, _)| now.saturating_duration_since(*time) < Duration::from_secs(60));
-        if rates.len() >= 4096 && !rates.contains_key(&key) {
+        charge(&mut rates.addresses, rate_key(ip), 120, self.clock.now())
+    }
+    fn rate_token(&self, credential: uuid::Uuid) -> bool {
+        let Ok(mut rates) = self.rates.lock() else {
             return false;
-        }
-        let entry = rates.entry(key).or_insert((now, 0));
-        entry.1 += 1;
-        entry.1 <= limit
+        };
+        charge(&mut rates.tokens, credential, 60, self.clock.now())
     }
 }
 /// One `X-Forwarded-For` entry as an address: bare, bracketed IPv6, or with a
@@ -315,10 +373,7 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
     if request.headers().contains_key("origin") {
         return Err(err(StatusCode::FORBIDDEN, "browser_origin_denied"));
     }
-    if !server.rate(
-        format!("ip:{}", server.charged_address(peer, request.headers())),
-        120,
-    ) {
+    if !server.rate_address(server.charged_address(peer, request.headers())) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
     }
     if request.method() == "GET" && request.uri().path() == "/healthz" {
@@ -371,7 +426,7 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
             .map_err(|_| internal())?;
             return Err(err(StatusCode::UNAUTHORIZED, "unauthorized"));
         };
-        if !server.rate(format!("token:{}", credential.id), 60) {
+        if !server.rate_token(credential.id) {
             return Err(err(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
         }
         // Only an allowlisted operation name enters the log, never a request URL.

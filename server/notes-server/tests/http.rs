@@ -562,6 +562,82 @@ async fn behind_a_proxy_the_budget_follows_the_client_and_not_the_proxy() {
     );
 }
 
+/// R6-18: a full rate table evicts its oldest window instead of refusing every
+/// key it does not already hold. 4096 addresses used to lock out every other
+/// caller for a minute -- a paired device, and the deploy script's own
+/// `/healthz`.
+#[tokio::test]
+async fn a_flood_of_addresses_does_not_lock_out_the_next_caller() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    let from = |client: &str| {
+        [
+            ("x-forwarded-proto", "https".to_string()),
+            ("x-forwarded-for", client.to_string()),
+        ]
+    };
+    for i in 0..4096u32 {
+        let client = format!("198.18.{}.{}", i / 256, i % 256);
+        let h = from(&client);
+        let h = [(h[0].0, h[0].1.as_str()), (h[1].0, h[1].1.as_str())];
+        assert_eq!(
+            f.request("GET", "/healthz", None, &h).await.0,
+            StatusCode::OK
+        );
+    }
+    let h = from("203.0.113.10");
+    let h = [(h[0].0, h[0].1.as_str()), (h[1].0, h[1].1.as_str())];
+    assert_eq!(
+        f.request("GET", "/healthz", None, &h).await.0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        f.request("GET", COLLECTION, None, &h).await.0,
+        StatusCode::OK
+    );
+}
+
+/// Every address in one IPv6 /64 spends one budget: a host given a /64 would
+/// otherwise have 2^64 fresh ones.
+#[tokio::test]
+async fn an_ipv6_slash_64_is_one_budget() {
+    let mut f = Fixture::new(&[Permission::Read]);
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    for i in 0..120u32 {
+        let client = format!("2001:db8:1:2::{:x}", i + 1);
+        let h = [
+            ("x-forwarded-proto", "https"),
+            ("x-forwarded-for", client.as_str()),
+        ];
+        assert_eq!(
+            f.request("GET", "/healthz", None, &h).await.0,
+            StatusCode::OK
+        );
+    }
+    let same = [
+        ("x-forwarded-proto", "https"),
+        ("x-forwarded-for", "2001:db8:1:2::ffff"),
+    ];
+    assert_eq!(
+        f.request("GET", "/healthz", None, &same).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    let next = [
+        ("x-forwarded-proto", "https"),
+        ("x-forwarded-for", "2001:db8:1:3::1"),
+    ];
+    assert_eq!(
+        f.request("GET", "/healthz", None, &next).await.0,
+        StatusCode::OK
+    );
+}
+
 /// The last entry, and only the last. Each hop appends the address it saw, so
 /// everything left of it came from the client and can say anything — including
 /// the address of a device it would like to lock out.
