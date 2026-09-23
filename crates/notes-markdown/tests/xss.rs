@@ -470,3 +470,33 @@ fn the_links_that_must_survive_do() {
         Some(format!("notes-asset://{WORKSPACE}/xss/imagem.png").as_str())
     );
 }
+
+#[test]
+fn a_raw_data_href_loses_its_href_and_the_note_continues() {
+    let out = render("raw-html-data-href.md", false, true);
+    let tags = html::tags(&out);
+    let a = tags
+        .iter()
+        .find(|t| t.name == "a")
+        .unwrap_or_else(|| panic!("the link text is kept as a link element\n{out}"));
+    assert!(
+        a.attr("href").is_none(),
+        "a data: document is not a link target\n{out}"
+    );
+    assert_body_survived("raw-html-data-href.md", &out);
+}
+
+#[test]
+fn a_tab_inside_the_data_scheme_does_not_smuggle_an_svg_past_the_allowlist() {
+    let out = render("raw-html-svg-data-tab.md", false, true);
+    let tags = html::tags(&out);
+    for img in tags.iter().filter(|t| t.name == "img") {
+        if let Some(src) = img.attr("src") {
+            assert!(
+                html::scheme(src).as_deref() != Some("data"),
+                "the SVG data URL survived: {src:?}\n{out}"
+            );
+        }
+    }
+    assert_body_survived("raw-html-svg-data-tab.md", &out);
+}

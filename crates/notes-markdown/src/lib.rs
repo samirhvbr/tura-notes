@@ -921,13 +921,36 @@ fn build() -> ammonia::Builder<'static> {
         .set_tag_attribute_value("input", "type", "checkbox")
         .attribute_filter(|element, attribute, value| match (element, attribute) {
             ("th" | "td", "style") if !TABLE_ALIGNMENTS.contains(&value.trim()) => None,
-            ("img", "src") if value.trim_start().to_ascii_lowercase().starts_with("data:") => {
-                let compact: String = value.chars().filter(|c| !c.is_whitespace()).collect();
-                match url::classify_image(&RelPath::root(), &compact, false) {
-                    ImagePolicy::Data(u) => Some(u.into()),
-                    _ => None,
+            // Decided by `scheme_of`, which removes whitespace and control
+            // characters before it looks for the colon — the same function the
+            // Markdown path uses. This used to test the literal prefix `data:`,
+            // so `da<TAB>ta:image/svg+xml,…` missed the test and fell through
+            // to ammonia, whose URL parser drops the tab and accepted `data`:
+            // the two disagreed and the permissive one won, carrying an SVG —
+            // a scriptable document — past the raster allowlist (R6-23a).
+            ("img", "src") => match url::scheme_of(value).as_deref() {
+                Some("data") => {
+                    let compact: String = value
+                        .chars()
+                        .filter(|c| !c.is_whitespace() && !c.is_control())
+                        .collect();
+                    match url::classify_image(&RelPath::root(), &compact, false) {
+                        ImagePolicy::Data(u) => Some(u.into()),
+                        _ => None,
+                    }
                 }
-            }
+                // Ours (`notes-asset://`) and remote ones. Whether a remote
+                // image may load is the opt-in's call, applied in R6-23.
+                Some("notes-asset" | "http" | "https") | None => Some(value.into()),
+                Some(_) => None,
+            },
+            // A link in raw HTML goes through the policy a Markdown link does.
+            // `href` was never narrowed, so `<a href="data:text/html,…">`
+            // survived sanitisation with a whole document behind it.
+            ("a" | "area", "href") => match url::classify_link(&RelPath::root(), value).1 {
+                LinkPolicy::Refused => None,
+                _ => Some(value.into()),
+            },
             _ => Some(value.into()),
         });
     builder

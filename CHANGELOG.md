@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.6 - raw HTML meets the same URL policy as Markdown, and a tab no longer smuggles an SVG
+
+With `raw_html` on, a note's HTML goes through `ammonia`, and the attribute
+filter there applied almost none of the URL policy the Markdown path applies.
+Two ways through, each now a fixture in `fixtures/xss/`:
+
+**A tab inside `data:`.** The filter checked `img src` for the literal prefix
+`data:`, so `da<TAB>ta:image/svg+xml;base64,…` did not match and fell through to
+`ammonia`'s own scheme check -- whose URL parser drops the tab and accepted
+`data`. The two disagreed and the permissive one won: an SVG, which is a
+scriptable document and not a picture, passed the raster allowlist. The
+decision is now made by `url::scheme_of`, which removes whitespace and control
+characters before looking for the colon -- the same function the Markdown path
+has used since `mixed-case-and-entities.md`.
+
+**`href` was never narrowed.** `<a href="data:text/html;base64,…">` survived
+sanitisation with a whole document behind it. Links in raw HTML now go through
+`url::classify_link`, and what it refuses loses its `href` and keeps its text.
+
+`notes-asset:` is accepted explicitly, because the filter runs over the whole
+rendered HTML and would otherwise strip the images the Markdown pass itself
+emits. Whether a *remote* raw image may load is the opt-in's decision, and that
+is the next commit.
+
+The suite already declared all of this impossible and nothing exercised it.
+Both fixtures fail on the previous filter on their own, under the census that
+renders every file with all four combinations of `raw_html` and
+`remote_images`; each also has a test of its own.
+
 ## 1.8.5 - each sync checkpoint decoded every received payload twice
 
 The sync client checkpoints its state after every receipt -- deliberately, so a

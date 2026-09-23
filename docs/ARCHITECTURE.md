@@ -729,7 +729,14 @@ has to coincide with a hole in the other to reach a user.
 The rewrite pass is the security policy in code:
 
 - `Html` / `InlineHtml` events → emitted as escaped text unless `raw_html`
-  (which still goes through `ammonia`).
+  (which still goes through `ammonia`). **Raw HTML meets the same URL policy as
+  Markdown**, applied in `ammonia`'s attribute filter: an `<img src>` is decided
+  by `url::scheme_of` — which removes whitespace and control characters before it
+  looks for the colon, so a tab inside `data:` cannot slip an SVG past the raster
+  allowlist — and an `<a>`/`<area href>` by `url::classify_link`, so a raw
+  `href="data:text/html,…"` is dropped like a Markdown one would be (since
+  `1.8.6`; before, only `img src` values with a literal `data:` prefix were
+  checked).
 - Image URLs: relative and resolving inside the root →
   `notes-asset://<workspace_id>/<relpath>`; `http(s)` → kept only if
   `remote_images`, else replaced by
