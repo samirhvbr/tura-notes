@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.38 - the governance pages name SPIKE-0.0.md as milestone 0.0's acceptance walk
+
+`docs/roadmap.md`, `CLAUDE.md` and `AGENTS.md` said every delivered milestone,
+0.0 included, had its own walk in `ACCEPTANCE-*.md`. The 0.0 walk is §2 of
+`SPIKE-0.0.md`, named apart on purpose (a spike's product is evidence, not
+software), and the glob excludes it. A session looking for milestones without an
+acceptance page would find 0.0 missing and create a duplicate, which is what
+happened once for 0.7. The link checker cannot see it, because the citation is a
+glob in prose.
+
+The exception is now written into the sentence in all three places.
+`CLAUDE.md` and `AGENTS.md` remain byte-identical below the H1. "None of them
+ticked" was checked and is right for 0.0 too: the three ticked boxes in
+`SPIKE-0.0.md` are the ADR-033 dmabuf regression check, not the owner's walk.
+
 ## 1.8.37 - link spans inside inline code point at the link, and the golden that had blessed the wrong value is corrected
 
 Links found inside inline code are reported with `in_code: true` so the rename

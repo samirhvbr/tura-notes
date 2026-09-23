@@ -106,8 +106,8 @@ one-line version of both:
   `.continue/0.6-sync.md` carries now is specification to write, not a decision
   to wait for. Owner verification
   on installed releases remains open for **every** delivered milestone — 0.0,
-  0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`, none
-  of them ticked.
+  0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`
+  (0.0's walk is §2 of `SPIKE-0.0.md`), none of them ticked.
   The whole gate is `tools/check.sh`; see [docs/roadmap.md](docs/roadmap.md).
 - **Never do, without an ADR that reverses the one named:**
   - store a note anywhere but as a `.md` file on the filesystem, or put the only

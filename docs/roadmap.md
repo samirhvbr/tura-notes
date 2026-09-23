@@ -3,8 +3,9 @@
 > **Status:** `ACTIVE` · delivered through 0.5, 0.7 and the implemented portions
 > of 0.6 at `0.20.20`.
 > **Every delivered milestone retains owner acceptance** — 0.0, 0.1d, 0.2, 0.3,
-> 0.4, 0.5, 0.6 and 0.7 — each with its own walk in `docs/ACCEPTANCE-*.md`, none
-> of them ticked. What is still *queued* is 0.4 and the acceptance itself, in
+> 0.4, 0.5, 0.6 and 0.7 — each with its own walk in `docs/ACCEPTANCE-*.md`
+> (0.0's is §2 of `docs/SPIKE-0.0.md`, named apart on purpose: a spike's product
+> is evidence, not software), none of them ticked. What is still *queued* is 0.4 and the acceptance itself, in
 > [`.continue/`](../.continue/README.md).
 >
 > **0.7 left the queue at `1.6.5`** and this header said otherwise until
