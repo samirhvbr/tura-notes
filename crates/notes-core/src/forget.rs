@@ -126,7 +126,7 @@ fn drafts_in(ws: &Path) -> Result<u32> {
 
 /// This workspace's lease, exclusively: refused while another process has it
 /// open. A root that no longer exists has no lease anyone could hold.
-fn lease(data: &Path, root: &Path) -> Result<Option<std::fs::File>> {
+fn lease(data: &Path, root: &Path) -> Result<Option<activity::Lease>> {
     let Ok(fs) = notes_fs::LocalFs::open(root) else {
         return Ok(None);
     };

@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.43 - a refused activity lease names who holds it, in every test build
+
+The recovery-test intermittent came back in 1.8.5's and 1.8.15's CI on macOS.
+The second time the message was `activity state file (exclusive)`. Since 1.8.12
+that can only be `WouldBlock`, so something really held the lease at that
+moment, inside the test's own data directory. Reading the code finds no holder:
+no nested workspace service, no thread keeping the lease, nothing in the binary
+that forks.
+
+**So the next occurrence will name it.** `activity::acquire` now returns a
+`Lease`. In debug builds (every test) each live lease records the stack that
+took it, and a refusal prints the in-process holders of that lock file to
+stderr, which `cargo test` shows for a failing test. If the list is empty, the
+holder is outside the process. Release builds record nothing. A unit test checks
+that a held exclusive lease is named and that dropping it clears it.
+
+This instruments the problem and does not claim to fix it. The row tracking the
+intermittent in `.continue/README.md` says so.
+
 ## 1.8.42 - the sync inbox holds twice as much, and the app warns from 80% instead of learning at the 507
 
 Owner answer `q_retencao` (ADR-087): nothing is ever purged automatically, the

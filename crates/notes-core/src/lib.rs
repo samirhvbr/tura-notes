@@ -216,7 +216,7 @@ struct Open {
     /// reconciliation tick cannot put the walk on a treadmill.
     paths: std::sync::Mutex<PathState>,
     sync_exclusive: bool,
-    _activity: std::fs::File,
+    _activity: activity::Lease,
 }
 
 pub struct WorkspaceService {
