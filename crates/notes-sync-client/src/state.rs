@@ -85,11 +85,16 @@ impl State {
             }
         }
         let mut incoming = Journal::new(self.local.workspace);
+        // Each received payload is decoded once, here, and its size kept: the
+        // byte total below used to decode every one of them again (R6-15).
+        let mut received_sizes = Vec::with_capacity(self.received.len());
         for p in &self.received {
             if p.workspace != self.local.workspace {
                 return Err(Error::Invalid);
             }
-            notes_sync::transfer::append(&mut incoming, p).map_err(|_| Error::Invalid)?;
+            received_sizes.push(
+                notes_sync::transfer::append_sized(&mut incoming, p).map_err(|_| Error::Invalid)?,
+            );
         }
         incoming.validate().map_err(|_| Error::Invalid)?;
         if incoming.revisions.len() + self.local.revisions.len() > 20_000 {
@@ -126,9 +131,12 @@ impl State {
         {
             return Err(Error::Invalid);
         }
-        for p in self.pending.iter().chain(&self.received) {
-            bytes = bytes
-                .saturating_add(notes_sync::transfer::payload_size(p).map_err(|_| Error::Invalid)?);
+        let pending_sizes = self
+            .pending
+            .iter()
+            .map(|p| notes_sync::transfer::payload_size(p).map_err(|_| Error::Invalid));
+        for size in pending_sizes.chain(received_sizes.into_iter().map(Ok)) {
+            bytes = bytes.saturating_add(size?);
             if bytes > MAX_BYTES {
                 return Err(Error::Limit);
             }

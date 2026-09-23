@@ -131,7 +131,20 @@ fn attachment_size(
 pub fn content(p: &Publication) -> Result<Vec<u8>> {
     decode(&p.revision, &p.content_base64)
 }
+thread_local! {
+    /// Payloads decoded on this thread. Per thread rather than per process, so a
+    /// test reads exactly what it caused, whatever else runs beside it (R6-15).
+    static DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many payloads this thread has decoded. For tests.
+#[doc(hidden)]
+pub fn decodes_on_this_thread() -> u64 {
+    DECODES.with(|d| d.get())
+}
+
 fn decode(revision: &Revision, encoded: &Option<String>) -> Result<Vec<u8>> {
+    DECODES.with(|d| d.set(d.get() + 1));
     match (&revision.content, encoded) {
         (None, None) => Ok(vec![]),
         (Some(hash), Some(encoded)) if encoded.len() <= MAX_CONTENT.div_ceil(3) * 4 => {
@@ -219,7 +232,17 @@ pub fn prune_linear_payload(p: &mut Publication) -> Result<usize> {
 /// Replay a publication into a disposable journal. Callers validate the complete
 /// graph once after replay, and publish the journal only if that succeeds.
 pub fn append(graph: &mut crate::Journal, p: &Publication) -> Result<()> {
-    payload_size(p)?;
+    append_sized(graph, p).map(|_| ())
+}
+
+/// [`append`], returning the decoded payload size it had to compute anyway.
+///
+/// `append` measured the payload to enforce the limit and threw the number away,
+/// and the sync client's `validate` then decoded every received payload a second
+/// time to add the same numbers up — on every checkpoint, of which a pass makes
+/// up to twenty (R6-15). Returning it lets the caller reuse it.
+pub fn append_sized(graph: &mut crate::Journal, p: &Publication) -> Result<usize> {
+    let size = payload_size(p)?;
     let r = &p.revision;
     if p.workspace != graph.workspace || graph.heads.get(&r.note).copied() != p.expected {
         return Err(Error::Stale);
@@ -265,7 +288,7 @@ pub fn append(graph: &mut crate::Journal, p: &Publication) -> Result<()> {
     }
     insert(graph, r)?;
     graph.heads.insert(r.note, r.id);
-    Ok(())
+    Ok(size)
 }
 fn insert(graph: &mut crate::Journal, r: &Revision) -> Result<()> {
     if !r.path.is_note()

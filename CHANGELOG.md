@@ -7,6 +7,28 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.5 - each sync checkpoint decoded every received payload twice
+
+The sync client checkpoints its state after every receipt -- deliberately, so a
+crash loses at most one -- and a pass makes up to twenty checkpoints. Every save
+and every load runs `validate`, and `validate` rebuilt the incoming graph with
+`transfer::append`, which decodes each payload to enforce the size limit and
+then threw the size away; a few lines later it decoded every payload **again**
+to add the same sizes up. At the documented ceiling that is on the order of a
+gigabyte of base64 and BLAKE3 per pass, under the client lock a concurrent CLI
+command also needs.
+
+`append_sized` returns the size it already computed, and `validate` keeps it.
+Counted by event: validating a receiver with twelve received publications
+decoded **24** payloads and now decodes **12**. The counter is per thread, so the
+test reads exactly what it caused while the other sixty run beside it. All 61
+recovery tests pass, including the five that used to be intermittent.
+
+**What this does not do.** Validation still runs on every save, over the whole
+state: it is the safety net against writing an invalid state, and it stays. The
+remaining cost -- one full decode per checkpoint rather than two -- is queued as
+R7-10, which would validate each publication once, when it arrives.
+
 ## 1.8.4 - a run of closing parentheses after a URL cost quadratic time, and URLs in code blocks counted as links
 
 **The quadratic.** The autolinker trims trailing punctuation from a bare URL,

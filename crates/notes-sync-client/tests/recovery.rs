@@ -2753,3 +2753,30 @@ fn restored_client_checkpoints_nothing_when_transport_fails_mid_audit() {
         2
     );
 }
+
+/// R6-15: a checkpoint decodes each received payload once, not twice.
+///
+/// `validate` runs on every load and every save — up to twenty saves a pass —
+/// and it rebuilt the incoming graph with `append`, which measures each payload
+/// and threw the size away, then decoded every payload again to add the sizes
+/// up. Counted per thread, so the tests running beside this one do not move it.
+#[test]
+fn validating_the_state_decodes_each_received_payload_once() {
+    let (dir, root, sender, mut peer) = fixture();
+    const N: usize = 12;
+    for i in 0..N {
+        fs::write(root.join(format!("n{i:02}.md")), format!("note {i}")).unwrap();
+    }
+    sender.stage().unwrap();
+    sender.transfer(&mut peer).unwrap();
+    let (_, receiver) = receiver(dir.path(), &mut peer);
+    assert_eq!(receiver.status().unwrap().cursor, N);
+
+    let before = notes_sync::transfer::decodes_on_this_thread();
+    receiver.status().unwrap(); // load -> validate
+    let decodes = notes_sync::transfer::decodes_on_this_thread() - before;
+    assert_eq!(
+        decodes as usize, N,
+        "one decode per received payload per validation"
+    );
+}
