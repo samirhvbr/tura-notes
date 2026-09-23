@@ -303,3 +303,22 @@ sozinho, um push por vez.
 
 **Como reverter.** Se o gate do lote falhar, o commit culpado é corrigido com um
 commit novo por cima (nada foi publicado ainda), e o gate roda de novo.
+
+## #0032 — 2026-09-23T19:38:00-03:00
+- **Pergunta:** **R7-04:** aprova o ADR-096?
+- **Pergunta:** **R7-09:** autoriza um PR de diagnóstico só para rodar o job de Windows?
+- **Premissa:** ⛔ a preencher pelo agente nesta iteração
+- **Como reverter:** ⛔ a preencher
+
+## 23/09 — o 1.8.21 publicado a partir de uma arvore suja
+
+**Pergunta:** republicar o 1.8.21 a partir de um checkout limpo? Os
+`--publish` do dono (18:46) compilaram o checkout com a futura 1.8.22 aplicada
+e nao commitada. **Decisao (default reversivel):** nao republicar o 1.8.21. O
+proximo `--publish` de uma versao posterior, feito de um worktree limpo, o
+substitui nos feeds; nada do que o 1.8.21 carrega a mais e destrutivo (as duas
+acoes novas pedem confirmacao e recusam com rascunho). **Descartado:** rodar
+`./build-local.sh --publish` agora — autorizado no escopo, mas publicaria
+enquanto a cadeia de push ainda nao terminou de passar pelo CI. **Como
+reverter:** rodar o publish de um worktree limpo em `origin/master` quando a
+cadeia terminar.

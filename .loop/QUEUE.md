@@ -876,3 +876,9 @@ Cada um traz a pergunta. Respondida, o item volta para a fila como `- [ ]`.
 As dez perguntas completas, com opções e recomendação, estão no artefato — <https://claude.ai/artifact/Vr8WJEfiinAfji3H7Et4Md>, seção **Decisões**.
 
 ## Colhidos automaticamente
+
+## Reabastecimento 23/09 (triagem medida)
+
+Triagem: 0 ADR 'not yet built' (so o ADR-096, PROPOSED, do dono); PROPOSED em docs/: MOBILE-0.4 (aparelho), architecture-v1 (HISTORICAL), ADR-096 (dono); 0 TODO/FIXME no codigo; `.continue/` so tem aceite do dono e o 0.6-sync.md — que ficou velho com o R7-05. Feed macOS em 1.7.21 contra Linux 1.8.21: publicar macOS exige o MacBook (ADR-092), fora do alcance desta maquina.
+
+- [x] R7-13 — **feito em 1.8.44.** `.continue/0.6-sync.md` item 2 dizia R7-05 pendente; agora registra R7-05 construido (1.8.42), R7-04 esperando o ADR-096 e R7-08 parqueado

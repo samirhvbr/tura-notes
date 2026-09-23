@@ -7,6 +7,15 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.44 - the 0.6 queue document stops listing retention as unbuilt
+
+`.continue/0.6-sync.md` still named R7-05 (higher limits and the warning before
+the 507) among the work that did not exist yet, one version after 1.8.42 built
+it. That is the failure golden rule 4 describes: a document made stale by a
+change. It now records R7-05 as built and specified in `SYNC-0.6.md`, R7-04 as
+waiting on the owner's answer to ADR-096, and R7-08 as parked until the MacBook
+has an environment. The item stays in the queue until all three exist.
+
 ## 1.8.43 - a refused activity lease names who holds it, in every test build
 
 The recovery-test intermittent came back in 1.8.5's and 1.8.15's CI on macOS.
