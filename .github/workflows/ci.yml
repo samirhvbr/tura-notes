@@ -127,6 +127,7 @@ jobs:
           }
           run "a serde wrapper declares its wire shape"  python3 tools/ts-serde.py
           run "the desktop CSP is the one ADR-089 allows" python3 tools/csp.py
+          run "third-party licenses are allowed and their notices current" python3 tools/third-party.py --check
           run "third-party actions with write access are pinned" python3 tools/action-pins.py
           run "every document declares one of the five statuses" tools/doc-status.sh
           run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py

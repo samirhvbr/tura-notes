@@ -9,7 +9,9 @@ pkgrel=1
 pkgdesc="Local-first Markdown notes — the files on disk are the source of truth"
 arch=('x86_64')
 url="https://github.com/samirhvbr/tura-notes"
-license=('MIT')
+# The application is MIT; the binary links crates under the others listed, and
+# THIRD-PARTY-NOTICES.md carries every notice (R6-33).
+license=('MIT' 'Apache-2.0' 'MPL-2.0' 'BSD-3-Clause' 'ISC' 'Zlib' 'Unicode-3.0')
 # WebKitGTK and GTK are linked, not vendored. Arch is rolling and webkit2gtk-4.1
 # moves without warning, which is exactly why CI builds against the current one
 # (ADR-023) instead of finding out from a user.
@@ -43,5 +45,6 @@ package() {
     install -Dm644 "share/icons/$icon" "$pkgdir/usr/share/icons/$icon"
   done
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 THIRD-PARTY-NOTICES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD-PARTY-NOTICES.md"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }

@@ -1006,6 +1006,15 @@ that read it (`performance.rs`, `search.rs`) are the owner's to run.
 `version.md` bump via `tools/release.sh`. `.github/workflows/build.yml` builds
 the artifacts and attaches them to that Release.
 
+**Every package carries `THIRD-PARTY-NOTICES.md` beside `LICENSE`** (1.8.32):
+the `.deb` and AppImage under `/usr/share/doc/tura-notes/`, the tarballs at
+their root, the AUR package under `/usr/share/licenses/`. It is generated from
+the lockfiles by `tools/third-party.py`, which walks the normal dependencies of
+the four shipped binaries plus the production npm packages, names the MPL-2.0
+components and where their source is, and carries each license text once. The
+gate fails when it is stale or when a dependency's license is not on the
+allowlist, so a copyleft dependency cannot arrive unnoticed.
+
 **They are two workflows on purpose.** Publishing a Release must not wait on, or
 be failed by, a compiler: the Release is the record that a version exists, and a
 build that breaks should leave a Release with notes rather than no Release at

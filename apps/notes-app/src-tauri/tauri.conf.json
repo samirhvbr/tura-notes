@@ -31,7 +31,15 @@
       "appimage"
     ],
     "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/doc/tura-notes/THIRD-PARTY-NOTICES.md": "../../../THIRD-PARTY-NOTICES.md"
+        }
+      },
       "deb": {
+        "files": {
+          "/usr/share/doc/tura-notes/THIRD-PARTY-NOTICES.md": "../../../THIRD-PARTY-NOTICES.md"
+        },
         "conflicts": [
           "notes (<< 1.0.0)"
         ],

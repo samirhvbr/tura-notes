@@ -218,28 +218,28 @@ jobs:
         run: |
           cargo build --release -p notes-mcp --locked
           mkdir -p dist-release
-          tar -czf "dist-release/notes-mcp-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-mcp
+          tar -czf "dist-release/notes-mcp-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-mcp -C "$GITHUB_WORKSPACE" LICENSE THIRD-PARTY-NOTICES.md
           cd dist-release
           sha256sum notes-mcp-*.tar.gz > "notes-mcp-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz.sha256"
 
       - name: build the standalone REST server
         run: |
           cargo build --release -p notes-server --locked
-          tar -czf "dist-release/notes-server-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-server
+          tar -czf "dist-release/notes-server-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-server -C "$GITHUB_WORKSPACE" LICENSE THIRD-PARTY-NOTICES.md
           cd dist-release
           sha256sum notes-server-*.tar.gz > "notes-server-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz.sha256"
 
       - name: build the standalone pairing preview
         run: |
           cargo build --release -p notes-core --bin notes-sync-plan --locked
-          tar -czf "dist-release/notes-sync-plan-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-sync-plan
+          tar -czf "dist-release/notes-sync-plan-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-sync-plan -C "$GITHUB_WORKSPACE" LICENSE THIRD-PARTY-NOTICES.md
           cd dist-release
           sha256sum notes-sync-plan-*.tar.gz > "notes-sync-plan-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz.sha256"
 
       - name: build the standalone sync client
         run: |
           cargo build --release -p notes-sync-client --locked
-          tar -czf "dist-release/notes-sync-client-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-sync-client
+          tar -czf "dist-release/notes-sync-client-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz" -C target/release notes-sync-client -C "$GITHUB_WORKSPACE" LICENSE THIRD-PARTY-NOTICES.md
           cd dist-release
           sha256sum notes-sync-client-*.tar.gz > "notes-sync-client-${{ needs.what.outputs.version }}-x86_64-linux.tar.gz.sha256"
 

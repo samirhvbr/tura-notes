@@ -16,6 +16,7 @@
 #     share/applications/<Product Name>.desktop   — the bundler names it after productName
 #     share/icons/hicolor/<size>/apps/notes.png
 #     LICENSE
+#     THIRD-PARTY-NOTICES.md   — the licenses of what the binary links (R6-33)
 #     README.md
 #
 # `PKGBUILD` installs that into `/usr`, which is why the paths are prefix-
@@ -48,6 +49,7 @@ chmod 755 "$STAGE/bin/notes"
 cp -r "$WORK/deb/usr/share/applications" "$STAGE/share/applications"
 cp -r "$WORK/deb/usr/share/icons" "$STAGE/share/icons"
 cp "$ROOT/LICENSE" "$STAGE/LICENSE"
+cp "$ROOT/THIRD-PARTY-NOTICES.md" "$STAGE/THIRD-PARTY-NOTICES.md"
 cp "$ROOT/README.md" "$STAGE/README.md"
 
 mkdir -p "$OUT"
