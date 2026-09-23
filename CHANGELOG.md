@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.34 - a path index whose thread could not start stops saying it is still building
+
+`PathIndex::start` spawned the walk with `.spawn(...).ok()`. When the thread
+could not be created (thread or memory exhaustion, a tight `RLIMIT_NPROC` in a
+container or a mobile shell), the closure that clears `building` was dropped
+unrun, so `building` stayed `true` and `paths` empty. `quick_open` replaces an
+index only when it is not building, so it never retried: `Ctrl+P` answered
+"still building" with nothing in it until the workspace was closed.
+`content_index::Job::start` already handled the same case.
+
+**A failed spawn now clears `building`** (`settle_spawn`), so the next
+invalidation retries the walk. A unit test drives both outcomes.
+
 ## 1.8.33 - the updater's state is re-measured from outside, and the queue index cannot keep an old stamp
 
 Two ACTIVE pages told a new session the desktop updater was blocked when it

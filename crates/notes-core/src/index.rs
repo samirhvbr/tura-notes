@@ -39,6 +39,19 @@ pub struct PathIndex {
     unreadable: Arc<AtomicUsize>,
 }
 
+/// A walk whose thread could not be started is not still building (R6-37).
+///
+/// The result used to be dropped with `.ok()`. The closure that would have
+/// cleared `building` was dropped with it, so under thread exhaustion or a
+/// tight `RLIMIT_NPROC` the index said *building* for the life of the
+/// workspace -- and `quick_open` only replaces an index that is not building,
+/// so it never retried. `content_index::Job::start` already handled this.
+fn settle_spawn<T>(spawned: std::io::Result<T>, building: &AtomicBool) {
+    if spawned.is_err() {
+        building.store(false, Ordering::Release);
+    }
+}
+
 /// How many paths are appended before the shared list is touched. A lock per
 /// file would make the walk contend with every keystroke that reads it.
 const BATCH: usize = 256;
@@ -59,7 +72,7 @@ impl PathIndex {
         let cancel = Arc::clone(&index.cancel);
         let unreadable = Arc::clone(&index.unreadable);
 
-        std::thread::Builder::new()
+        let spawned = std::thread::Builder::new()
             .name("notes-index".into())
             .spawn(move || {
                 walk(
@@ -76,8 +89,8 @@ impl PathIndex {
                     paths.lock().unwrap().sort();
                 }
                 building.store(false, Ordering::Release);
-            })
-            .ok();
+            });
+        settle_spawn(spawned, &index.building);
 
         index
     }
@@ -208,6 +221,19 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(2));
         }
+    }
+
+    #[test]
+    fn a_walk_that_could_not_start_is_not_left_building() {
+        let building = AtomicBool::new(true);
+        settle_spawn::<()>(Err(std::io::Error::other("no threads")), &building);
+        assert!(!building.load(Ordering::Acquire));
+        let building = AtomicBool::new(true);
+        settle_spawn(Ok(()), &building);
+        assert!(
+            building.load(Ordering::Acquire),
+            "a started walk clears it itself"
+        );
     }
 
     #[test]
