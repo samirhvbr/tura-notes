@@ -37,3 +37,28 @@ pub enum Error {
     Receiving { received: usize },
 }
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// What the desktop receives: the cause as a code the interface switches on,
+/// never the sentence above, which is for the command line (R6-17).
+impl From<Error> for notes_model::CoreError {
+    fn from(e: Error) -> Self {
+        use notes_model::SyncCause as C;
+        let (cause, received) = match e {
+            Error::ApplicationBlocked { .. } => (C::ApplicationBlocked, None),
+            Error::UnsupportedApplication => (C::UnsupportedApplication, None),
+            Error::Invalid => (C::Invalid, None),
+            Error::Storage => (C::Storage, None),
+            Error::Busy => (C::Busy, None),
+            Error::Offline => (C::Offline, None),
+            Error::Denied => (C::Denied, None),
+            Error::Conflict => (C::Conflict, None),
+            Error::Limit => (C::Limit, None),
+            Error::Protocol => (C::Protocol, None),
+            Error::Receiving { received } => (
+                C::Receiving,
+                Some(u32::try_from(received).unwrap_or(u32::MAX)),
+            ),
+        };
+        notes_model::CoreError::Sync { cause, received }
+    }
+}

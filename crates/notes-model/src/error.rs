@@ -40,6 +40,30 @@ impl std::fmt::Display for LockWait {
     }
 }
 
+/// Why the device sync client refused, as a typed code (R6-17).
+///
+/// Every sync-client error used to reach the desktop as `Unsupported`, which
+/// the interface renders as *"This storage does not support that."* -- for a
+/// conflict, a credential the server denied, the network being down, and a
+/// pairing asked for before the history had arrived alike. One sentence for
+/// eleven causes is the diagnosis that does not discriminate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SyncCause {
+    ApplicationBlocked,
+    UnsupportedApplication,
+    Invalid,
+    Storage,
+    Busy,
+    Offline,
+    Denied,
+    Conflict,
+    Limit,
+    Protocol,
+    Receiving,
+}
+
 /// The kind of an I/O failure, as a **typed code**.
 ///
 /// Scope §17 requires "disco cheio / permissão negada → erro visível", and the
@@ -185,6 +209,15 @@ pub enum CoreError {
     NotSettled { passes: u32, queued: u32 },
     #[error("this storage does not support {cap}")]
     Unsupported { cap: String },
+    /// The device sync client refused. `received` is set for `Receiving`: how
+    /// many revisions have arrived so far.
+    #[error("sync refused: {cause:?}")]
+    Sync {
+        cause: SyncCause,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        received: Option<u32>,
+    },
     #[error("{op} failed on {path}")]
     Io {
         op: String,
@@ -234,6 +267,7 @@ impl CoreError {
             CoreError::LockTimeout { .. } => "lock_timeout",
             CoreError::NotSettled { .. } => "not_settled",
             CoreError::Unsupported { .. } => "unsupported",
+            CoreError::Sync { .. } => "sync",
             CoreError::Io { .. } => "io",
             CoreError::StateUnreadable { .. } => "state_unreadable",
             CoreError::SchemaAhead { .. } => "schema_ahead",

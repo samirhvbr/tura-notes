@@ -11,7 +11,7 @@ mod path;
 mod text;
 
 pub use error::{
-    CoreError, IoKind, LockWait, ReadOnlyReason, UnavailableReason, WorkspaceReadOnly,
+    CoreError, IoKind, LockWait, ReadOnlyReason, SyncCause, UnavailableReason, WorkspaceReadOnly,
 };
 pub use ids::{ContentHash, NoteId, WorkspaceId};
 pub use path::{

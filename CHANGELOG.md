@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.15 - a sync refusal in the desktop app says what happened instead of "This storage does not support that"
+
+R6-17 asked for the pairing conflict to stop reading as *"This storage does not
+support that."* The cause turned out to be wider than the conflict. `sync_error`
+in the Tauri commands turned **every** sync-client error into
+`CoreError::Unsupported`, and the interface renders that code as one fixed
+sentence without reading the message, as it should. A conflict, the server
+being unreachable, a credential it denied, a capacity limit, and 1.8.14's
+*still receiving* all reached the user as the same claim about storage, and
+that claim is false for every one of them.
+
+**`CoreError::Sync { cause, received }` carries the client's refusal as a
+typed `SyncCause`**, one per variant of `notes_sync_client::Error`, converted
+by a `From` in the client crate. Each cause has its own sentence in English and
+Portuguese. `receiving` names how many revisions have arrived. A blocking task
+that panicked, which was also reported as *unsupported*, is now `Internal`,
+the code for a bug. The two preconditions the app checks itself ("no received
+workspace open", a poisoned lock) keep `Unsupported`.
+
+The key checker only resolves literal `t("…")` keys, so a new test holds the
+line. It lists every `SyncCause` in a `Record` over the generated union, so a
+cause added in Rust fails to compile there until it is listed, and then fails
+until both catalogues have its sentence. It also checks that a conflict no
+longer renders as the storage sentence.
+
 ## 1.8.14 - a pairing preview waits for the whole remote history instead of planning from the first page
 
 Pairing two existing folders in *Reconcile* fetched one page, at most twenty
