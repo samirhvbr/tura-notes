@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.42 - the sync inbox holds twice as much, and the app warns from 80% instead of learning at the 507
+
+Owner answer `q_retencao` (ADR-087): nothing is ever purged automatically, the
+limits go up with their reason written beside them, and the client warns before
+the ceiling, so nobody learns about it from a `507`.
+
+**Measured before choosing.** The vault is one document, and every page and
+every fetch loads, parses and revalidates all of it, so a request costs in
+proportion to the vault. At the old ceiling (30 MiB of content, a 42 MB vault on
+disk) that was about 99 ms per page or fetch in a release build; the ignored
+test `vault_cost_at_the_capacity_ceiling` reproduces it. **The limits double**
+to 64 MiB of decoded content, 128 MiB of serialized state and 20,000 revisions,
+on the server and in the client queue that has to hold the same history. At the
+new ceiling a pass of twenty fetches costs about four seconds of server time,
+and the eight request slots can hold about two gigabytes of parsed vault, which
+is what a small VPS carries. A bigger ceiling needs a vault that is not one
+document, and `sync.rs` says so beside the numbers.
+
+**`GET /v1/workspaces/{workspace}/sync/capacity`** (Read permission, in the
+OpenAPI contract) answers the content bytes and revisions against their limits.
+The desktop client asks once per pass and never fails a pass over it, and a
+server older than this answers 404, which means no warning. From 80% of either
+limit the device panel says the inbox is filling and that the operator should
+prune confirmed history before 100%, where new changes are refused and kept on
+the device. `SYNC-0.6.md` specifies all of it, and `CLAUDE.md`, `AGENTS.md` and
+the queue index stop saying retention is specified nowhere.
+
+Tests: the endpoint reports zero, then 1000 bytes and one revision, with the new
+maxima; `percent()` takes the fuller limit and caps at 100; a controller pass
+records nothing from a server that cannot say and 85 from one that can; the
+panel warns at 85% and not at 79%.
+
 ## 1.8.41 - ADR-096 proposes how a device is revoked from the app, and R7-04 waits on the owner's answer
 
 The owner asked for a screen listing connected devices with revocation one at a

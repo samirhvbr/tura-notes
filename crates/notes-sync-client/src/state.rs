@@ -15,8 +15,10 @@ use std::{
     path::{Path, PathBuf},
 };
 use uuid::Uuid;
-const MAX_STATE: usize = 64 * 1024 * 1024;
-const MAX_BYTES: usize = 32 * 1024 * 1024;
+// Twice what they were, with the server's limits (R7-05): this queue holds the
+// workspace's received history, so it has to fit what the server may hold.
+const MAX_STATE: usize = 128 * 1024 * 1024;
+const MAX_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -75,7 +77,7 @@ impl State {
     fn validate(&self, measured: &mut notes_sync::transfer::Measured) -> Result<()> {
         if self.schema != 1
             || !self.source.is_absolute()
-            || self.pending.len() + self.received.len() > 10_000
+            || self.pending.len() + self.received.len() > 20_000
         {
             return Err(Error::Invalid);
         }
@@ -112,7 +114,7 @@ impl State {
         let held: BTreeSet<Uuid> = self.received.iter().map(|p| p.revision.id).collect();
         measured.retain(|id| held.contains(id));
         incoming.validate().map_err(|_| Error::Invalid)?;
-        if incoming.revisions.len() + self.local.revisions.len() > 20_000 {
+        if incoming.revisions.len() + self.local.revisions.len() > 40_000 {
             return Err(Error::Limit);
         }
         for p in &self.pending {

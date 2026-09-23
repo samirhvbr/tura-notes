@@ -11,4 +11,11 @@ export type DeviceSnapshot = { receive: boolean, connection: SyncConnection | nu
  * when the queue cannot answer — a summary is worth having and never
  * worth failing the whole snapshot for.
  */
-paired: SyncPairing | null, phase: DevicePhase, reason: string | null, pending: number, unapplied: number, history: Array<HistoryRow>, conflicts: Array<SyncConflictRow>, };
+paired: SyncPairing | null, phase: DevicePhase, reason: string | null, pending: number, unapplied: number, history: Array<HistoryRow>, conflicts: Array<SyncConflictRow>, 
+/**
+ * How full the server inbox is, in percent, from the last pass that could
+ * ask (R7-05). The panel warns from [`CAPACITY_WARNING`]; nothing is
+ * purged, so the warning is the only notice before a publication is
+ * refused with 507.
+ */
+capacity_percent: number | null, };

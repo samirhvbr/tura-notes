@@ -14,9 +14,46 @@ use std::{
 use uuid::Uuid;
 
 pub use notes_sync::transfer::MAX_CONTENT;
-const MAX_TOTAL: usize = 32 * 1024 * 1024;
-const MAX_STATE: u64 = 64 * 1024 * 1024;
-const MAX_REVISIONS: usize = 10_000;
+// THE LIMITS, AND WHAT THEY COST (ADR-087, R7-05). They doubled in 1.8.42 from
+// 32 MiB / 64 MiB / 10,000. The vault is one document that every page and every
+// fetch loads, parses and revalidates in full, so a request costs in proportion
+// to the vault: measured at the old ceiling (30 MiB of content, a 42 MB vault)
+// at ~99 ms per page or fetch in a release build
+// (`tests/http.rs::vault_cost_at_the_capacity_ceiling`). A pass fetches up to
+// twenty revisions, so at the new ceiling a full pass is about four seconds of
+// server time, and the eight request slots can hold about two gigabytes of
+// parsed vault at once. That is what a small VPS can carry; a bigger ceiling
+// wants a vault that is not one document, not a bigger number. Nothing is ever
+// purged to stay under them: the client warns from 80% (`capacity`).
+const MAX_TOTAL: usize = 64 * 1024 * 1024;
+const MAX_STATE: u64 = 128 * 1024 * 1024;
+const MAX_REVISIONS: usize = 20_000;
+
+/// How full this workspace's inbox is, for the client to warn before a `507`.
+#[derive(Debug, Serialize)]
+pub struct Capacity {
+    pub content_bytes: usize,
+    pub max_content_bytes: usize,
+    pub revisions: usize,
+    pub max_revisions: usize,
+}
+
+/// The workspace's use of the limits above (R7-05). Requires `Read`, like the
+/// inventory, and says nothing about any note.
+pub fn capacity(root: &Path, c: &Credential) -> Result<Capacity> {
+    require(c, Permission::Read)?;
+    read_workspace(root, &c.workspace, |v| {
+        let content_bytes = v.publications.iter().try_fold(0usize, |sum, p| {
+            Ok::<_, Error>(sum + notes_sync::transfer::payload_size(p).map_err(|_| Error::Invalid)?)
+        })?;
+        Ok(Capacity {
+            content_bytes,
+            max_content_bytes: MAX_TOTAL,
+            revisions: v.publications.len().max(v.journal.revisions.len()),
+            max_revisions: MAX_REVISIONS,
+        })
+    })
+}
 
 #[derive(Debug)]
 pub enum Error {

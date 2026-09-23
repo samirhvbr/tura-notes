@@ -99,12 +99,12 @@ one-line version of both:
   two-device move/delete receipt-loss tests.
   Version 0.20.19 adds unanimous resolved-branch payload pruning on the server
   and matching receiver compaction. Version 0.20.20 adds explicit revoked-device
-  retirement and scoped receiver recovery. Broader retention, mobile lifecycle and
-  broader device acceptance remain open — **named here and in two sections of
-  `SYNC-0.6.md`, and specified nowhere** — the three product questions it turned
-  on were answered on 23/09 (ADR-086, ADR-087, ADR-088), so what
-  `.continue/0.6-sync.md` carries now is specification to write, not a decision
-  to wait for. Owner verification
+  retirement and scoped receiver recovery. The three product questions the 0.6
+  gap turned on were answered on 23/09 (ADR-086, ADR-087, ADR-088). Retention is
+  now specified and built: doubled limits with their measured cost, and a
+  warning from 80% (`SYNC-0.6.md`, 1.8.42). Mobile lifecycle waits on a device
+  (R7-08), and device management from the app waits on the owner's answer to
+  ADR-096 (R7-04). Owner verification
   on installed releases remains open for **every** delivered milestone — 0.0,
   0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`
   (0.0's walk is §2 of `SPIKE-0.0.md`), none of them ticked.

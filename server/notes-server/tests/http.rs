@@ -1354,8 +1354,10 @@ async fn sync_concurrent_publications_consume_one_head_and_capacity_refuses_with
     let loser = if ra == StatusCode::OK { &b } else { &a };
     assert_eq!(post_revision(&f, loser).await, StatusCode::CONFLICT);
     // Exercise the actual byte quota; rejected content must not evict history.
+    // Seven full-size notes fit under the 64 MiB ceiling (1.8.42) beside the
+    // small ones above; an eighth would pass it and is refused.
     let bytes = vec![b'x'; notes_server::sync::MAX_CONTENT];
-    for n in 0..3 {
+    for n in 0..7 {
         let large = publication(
             workspace,
             None,
@@ -2055,4 +2057,57 @@ async fn sync_attachments_validate_references_hashes_and_historical_scope() {
             .0,
         StatusCode::NOT_FOUND
     );
+}
+
+/// R7-05: the inbox reports how full it is, so a client can warn long before the
+/// 507 that refuses a publication at the ceiling.
+#[tokio::test]
+async fn the_sync_inbox_reports_its_use_of_the_limits() {
+    let f = Fixture::new(&all());
+    let workspace = sync_workspace(&f).await;
+    let cap = "/v1/workspaces/home/sync/capacity";
+    let (status, _, empty) = f.request("GET", cap, None, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{empty}");
+    assert_eq!(empty["content_bytes"], 0);
+    assert_eq!(empty["max_content_bytes"], 64 * 1024 * 1024);
+    assert_eq!(empty["max_revisions"], 20_000);
+    let p = publication(workspace, None, "allowed/a.md", Some(&[7u8; 1000]));
+    assert_eq!(post_revision(&f, &p).await, StatusCode::OK);
+    let (_, _, used) = f.request("GET", cap, None, &[]).await;
+    assert_eq!(used["content_bytes"], 1000);
+    assert_eq!(used["revisions"], 1);
+}
+
+/// What one sync request costs at the capacity ceiling (R7-05). Every page and
+/// every fetch loads, parses and revalidates the whole vault, so this is the
+/// price the limits are chosen against. A measurement, not an assertion.
+#[tokio::test]
+#[ignore = "a measurement, not an assertion: cargo test -p notes-server --test http -- --ignored --nocapture vault_cost"]
+async fn vault_cost_at_the_capacity_ceiling() {
+    let f = Fixture::new(&all());
+    let workspace = sync_workspace(&f).await;
+    let c = admin::authenticate(&admin::load(&f.data).unwrap(), &f.token).unwrap();
+    let mut ids = vec![];
+    for i in 0..30u32 {
+        let bytes: Vec<u8> = (0..1024 * 1024u32)
+            .map(|b| (b.wrapping_mul(2654435761).wrapping_add(i) >> 13) as u8)
+            .collect();
+        let p = publication(workspace, None, &format!("allowed/n{i}.md"), Some(&bytes));
+        ids.push(p.revision.id);
+        notes_server::sync::publish(&f.data, &c, p).unwrap();
+    }
+    let size = fs::metadata(f.data.join("sync/home/vault.json"))
+        .unwrap()
+        .len();
+    let t = std::time::Instant::now();
+    for _ in 0..5 {
+        notes_server::sync::page(&f.data, &c, 0, 200).unwrap();
+    }
+    let page = t.elapsed() / 5;
+    let t = std::time::Instant::now();
+    for id in ids.iter().take(5) {
+        notes_server::sync::fetch(&f.data, &c, *id).unwrap();
+    }
+    let fetch = t.elapsed() / 5;
+    println!("vault {size} bytes on disk: page {page:?}, fetch {fetch:?} (release build numbers are the ones to quote)");
 }

@@ -7,7 +7,7 @@ import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
 vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn()}));
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
-const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[]};
+const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[],capacity_percent:null};
 const old=useWorkspace.getState();
 // The pairing form now persists its draft, so a test that types into it would
 // otherwise seed the next one.
@@ -219,4 +219,15 @@ it("reopens the form on request, already filled from what was stored",async()=>{
   fireEvent.click(await screen.findByRole("button",{name:"Change connection…"}));
   expect(screen.getByRole("textbox",{name:/Server address/})).toHaveValue("https://tura.example.com");
   expect(screen.getByRole("textbox",{name:/Local notes folder/})).toHaveValue("/notes");
+});
+// R7-05: the server inbox filling is said from 80%, not discovered at the 507.
+it("warns when the server inbox is filling, and only then",async()=>{
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({...empty,capacity_percent:85});
+  show();
+  expect(await screen.findByText(/holds 85% of what it may keep/)).toBeInTheDocument();
+  cleanup();
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({...empty,capacity_percent:79});
+  show();
+  await waitFor(()=>expect(ipc.deviceStatus).toHaveBeenCalled());
+  expect(screen.queryByText(/of what it may keep/)).toBeNull();
 });

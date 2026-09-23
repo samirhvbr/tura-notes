@@ -188,12 +188,30 @@ abandoned temporary file is never loaded as state; future/corrupt committed
 state is refused without replacement. Operators can remove abandoned temporary
 files while the server is stopped, after backing up the data.
 
-Limits are 8 MiB per revision content, 10,000 revisions, 32 MiB cumulative
-decoded content and 64 MiB serialized state per workspace. Identical bytes in
-different revisions count separately. Capacity refusal is HTTP 507 and leaves
-all accepted content intact. History and tombstones are retained for the life
-of the inbox; there is no automatic garbage collection or credential-driven
-purge. This conservative retention is for a bounded first transport block,
+Limits are 8 MiB per revision content, 20,000 revisions, 64 MiB cumulative
+decoded content and 128 MiB serialized state per workspace (since 1.8.42; half
+that before). Identical bytes in different revisions count separately.
+Capacity refusal is HTTP 507 and leaves all accepted content intact. History and
+tombstones are retained for the life of the inbox; there is no automatic garbage
+collection or credential-driven purge ([ADR-087](decisions.md#adr-087--retention-never-purges-on-its-own-the-limits-go-up-and-the-client-warns-before-the-507)).
+
+**Why these numbers.** The vault is one document, and every page and every
+fetch loads, parses and revalidates all of it, so a request costs in proportion
+to the vault. Measured at the old ceiling (30 MiB of content, a 42 MB vault):
+about 99 ms per page or fetch in a release build
+(`server/notes-server/tests/http.rs::vault_cost_at_the_capacity_ceiling`). At
+the new ceiling a pass of twenty fetches costs about four seconds of server
+time, and the eight request slots can hold about two gigabytes of parsed vault
+at once, which is what a small VPS can carry. A larger ceiling needs a vault
+that is not one document, not a larger number.
+
+**The client warns before the ceiling.** `GET
+/v1/workspaces/{workspace}/sync/capacity` (Read permission) answers
+`content_bytes`, `max_content_bytes`, `revisions` and `max_revisions`. The
+desktop client asks once per pass, never fails a pass over it, and from 80% of
+either limit the device panel says the inbox is filling and that the operator
+should prune confirmed history (`notes-server sync-prune`). A server older than
+1.8.42 answers 404, and the panel then says nothing. This conservative retention is for a bounded first transport block,
 not unlimited production history. Offline full-data backup includes the vault
 and excludes its process lock. Restore preserves UUIDs, cursors and original
 bytes. Retention migration and device-confirmed pruning remain future work.

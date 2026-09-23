@@ -204,6 +204,9 @@ export function DeviceSync() {
       <p>{t("device.explain")}</p>
       {snapshot?.connection&&<button onClick={()=>void ipc.devicePause().then(async()=>{const next=await ipc.deviceStatus();setSnapshot(next);setSettings(next.connection);}).catch(e=>setMessage(errorText(ipc.asCoreError(e))))}>{t("device.pause")}</button>}
       {snapshot?.reason&&<p role="status">{["offline","network_limited_or_unknown","power_limited_or_unknown","saved_receiver_changes"].includes(snapshot.reason)?t(`device.reason.${snapshot.reason}`):snapshot.reason}</p>}
+      {/* ADR-087: nothing is purged, so this is the only notice before the server
+          refuses a publication with 507. From 80%, never at the ceiling. */}
+      {snapshot?.capacity_percent!=null&&snapshot.capacity_percent>=80&&<p role="status" className="device-capacity">{t("device.capacity",{percent:snapshot.capacity_percent})}</p>}
       {!!message&&<p role="status" aria-live="polite">{message}</p>}
       {/* Paired: say what to, and keep the six paths out of the way until the
           owner asks for them. The credential appears by name only — the app

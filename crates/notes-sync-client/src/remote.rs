@@ -203,11 +203,35 @@ struct Receipt {
     applied: bool,
 }
 /// Also implemented by fault-injecting tests. No filesystem methods belong here.
+/// How full the server's inbox for this workspace is (R7-05, ADR-087). No
+/// `deny_unknown_fields`: a newer server may say more, and this client only
+/// needs these four.
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub struct Capacity {
+    pub content_bytes: u64,
+    pub max_content_bytes: u64,
+    pub revisions: u64,
+    pub max_revisions: u64,
+}
+impl Capacity {
+    /// The fuller of the two limits, in whole percent, at most 100.
+    pub fn percent(&self) -> u8 {
+        let ratio = |used: u64, max: u64| used.saturating_mul(100) / max.max(1);
+        ratio(self.content_bytes, self.max_content_bytes)
+            .max(ratio(self.revisions, self.max_revisions))
+            .min(100) as u8
+    }
+}
+
 pub trait Transport {
     fn page(&mut self, cursor: usize) -> Result<Page>;
     fn fetch(&mut self, id: Uuid) -> Result<Publication>;
     fn publish(&mut self, publication: &Publication) -> Result<()>;
     fn acknowledge(&mut self, receipt: &ApplicationAcknowledgment) -> Result<()>;
+    /// `None` when the server cannot say: one older than 1.8.42 answers 404.
+    fn capacity(&mut self) -> Result<Option<Capacity>> {
+        Ok(None)
+    }
 }
 pub struct Remote {
     client: Client,
@@ -450,6 +474,20 @@ fn decode<T: serde::de::DeserializeOwned>(response: Response) -> Result<T> {
     serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)
 }
 impl Transport for Remote {
+    fn capacity(&mut self) -> Result<Option<Capacity>> {
+        // `…/sync/revisions` → `…/sync/capacity`.
+        let url = self.base.join("capacity").map_err(|_| Error::Invalid)?;
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.bearer)
+            .send()
+            .map_err(|_| Error::Offline)?;
+        if response.status().as_u16() == 404 {
+            return Ok(None);
+        }
+        decode(response).map(Some)
+    }
     fn acknowledge(&mut self, receipt: &ApplicationAcknowledgment) -> Result<()> {
         let response: ApplicationAcknowledgment = decode(
             self.client

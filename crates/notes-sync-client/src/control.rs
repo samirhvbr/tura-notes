@@ -118,7 +118,15 @@ pub struct DeviceSnapshot {
     pub unapplied: u32,
     pub history: Vec<HistoryRow>,
     pub conflicts: Vec<SyncConflictRow>,
+    /// How full the server inbox is, in percent, from the last pass that could
+    /// ask (R7-05). The panel warns from [`CAPACITY_WARNING`]; nothing is
+    /// purged, so the warning is the only notice before a publication is
+    /// refused with 507.
+    pub capacity_percent: Option<u8>,
 }
+
+/// From here the device panel says the server inbox is filling (ADR-087).
+pub const CAPACITY_WARNING: u8 = 80;
 /**
  * What this device is paired to, read back from where the pairing put it.
  *
@@ -164,6 +172,8 @@ struct Session {
     next: Instant,
     failures: u32,
     cancel: u64,
+    /// The server inbox's use of its limits at the last pass, when it said.
+    capacity: Option<u8>,
 }
 pub struct Controller {
     session: Mutex<Session>,
@@ -202,6 +212,7 @@ impl Controller {
                 next: Instant::now(),
                 failures: 0,
                 cancel: 0,
+                capacity: None,
             }),
             operation: Mutex::new(()),
             file,
@@ -272,9 +283,14 @@ impl Controller {
         Ok(())
     }
     pub fn snapshot(&self) -> Result<DeviceSnapshot> {
-        let (c, phase, reason) = {
+        let (c, phase, reason, capacity_percent) = {
             let s = self.session.lock().map_err(|_| Error::Busy)?;
-            (s.connection.clone(), s.phase.clone(), s.reason.clone())
+            (
+                s.connection.clone(),
+                s.phase.clone(),
+                s.reason.clone(),
+                s.capacity,
+            )
         };
         let mut result = DeviceSnapshot {
             receive: false,
@@ -286,6 +302,7 @@ impl Controller {
             unapplied: 0,
             history: vec![],
             conflicts: vec![],
+            capacity_percent,
         };
         if let Some(c) = c {
             let store = Store::open(Path::new(&c.state_dir))?;
@@ -380,6 +397,7 @@ impl Controller {
             s.reason = None;
         }
         let mut saved_changes = false;
+        let mut capacity = None;
         let outcome = (|| {
             let store = Store::open(Path::new(&c.state_dir))?;
             if store.source_mode()?.1 == Mode::Upload {
@@ -424,6 +442,9 @@ impl Controller {
                 }
                 store.acknowledge(&mut remote)?;
             }
+            // Asked once a pass, and never a reason to fail one: an older
+            // server cannot say, and a pass that moved notes has done its job.
+            capacity = remote.capacity().ok().flatten().map(|c| c.percent());
             let status = store.status()?;
             saved_changes = store.receiver_changes()?;
             Ok(saved_changes
@@ -434,6 +455,9 @@ impl Controller {
         let mut s = self.session.lock().map_err(|_| Error::Busy)?;
         if s.cancel != generation {
             return outcome.map(|_| ());
+        }
+        if capacity.is_some() {
+            s.capacity = capacity;
         }
         match &outcome {
             Ok(pending) => {
@@ -721,6 +745,10 @@ impl<T: Transport> Transport for Budget<'_, T> {
         self.take()?;
         self.inner.acknowledge(a)
     }
+    fn capacity(&mut self) -> Result<Option<crate::remote::Capacity>> {
+        self.take()?;
+        self.inner.capacity()
+    }
 }
 
 #[cfg(test)]
@@ -731,12 +759,14 @@ mod tests {
     struct Peer {
         journal: notes_sync::Journal,
         log: Vec<Publication>,
+        capacity: Option<crate::remote::Capacity>,
     }
     impl Peer {
         fn new() -> Self {
             Self {
                 journal: notes_sync::Journal::new(Uuid::new_v4()),
                 log: vec![],
+                capacity: None,
             }
         }
     }
@@ -771,6 +801,9 @@ mod tests {
         }
         fn acknowledge(&mut self, _: &ApplicationAcknowledgment) -> Result<()> {
             Ok(())
+        }
+        fn capacity(&mut self) -> Result<Option<crate::remote::Capacity>> {
+            Ok(self.borrow().capacity)
         }
     }
     fn config(dir: &Path) -> SyncConnection {
@@ -861,6 +894,63 @@ mod tests {
         assert!(preview.rows.iter().all(|r| r.action == "link"));
         assert!(!receiver.receiving().unwrap());
     }
+    #[test]
+    fn capacity_is_the_fuller_limit_in_whole_percent() {
+        let c = |content_bytes, revisions| crate::remote::Capacity {
+            content_bytes,
+            max_content_bytes: 1000,
+            revisions,
+            max_revisions: 100,
+        };
+        assert_eq!(c(0, 0).percent(), 0);
+        assert_eq!(c(810, 10).percent(), 81);
+        assert_eq!(c(10, 85).percent(), 85);
+        assert_eq!(c(5000, 0).percent(), 100);
+    }
+
+    /// R7-05: a pass records how full the server inbox is, and the snapshot the
+    /// panel reads carries it; a server that cannot say leaves it unknown.
+    #[test]
+    fn a_pass_reports_how_full_the_server_inbox_is() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("notes");
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("a.md"), b"x").unwrap();
+        let c = config(temp.path());
+        let store = Store::open(Path::new(&c.state_dir)).unwrap();
+        let peer = RefCell::new(Peer::new());
+        let endpoint = Endpoint {
+            origin: "https://notes.example/".into(),
+            name: "home".into(),
+            scope: None,
+            allow_private: false,
+        };
+        store
+            .initialize(&root, endpoint, Mode::Upload, &mut &peer)
+            .unwrap();
+        let controller = Controller::new(&temp.path().join("app"));
+        controller.configure(c).unwrap();
+        controller
+            .conditions(SyncConditions {
+                online: true,
+                metered: Some(false),
+                charging: Some(true),
+            })
+            .unwrap();
+        controller.run_with(true, |_, _| Ok(&peer)).unwrap();
+        assert_eq!(controller.snapshot().unwrap().capacity_percent, None);
+        peer.borrow_mut().capacity = Some(crate::remote::Capacity {
+            content_bytes: 85,
+            max_content_bytes: 100,
+            revisions: 1,
+            max_revisions: 100,
+        });
+        controller.run_with(true, |_, _| Ok(&peer)).unwrap();
+        let percent = controller.snapshot().unwrap().capacity_percent;
+        assert_eq!(percent, Some(85));
+        assert!(percent.unwrap() >= CAPACITY_WARNING);
+    }
+
     #[test]
     fn worker_retains_offline_edits_and_restarts_without_implicit_application() {
         let temp = tempfile::tempdir().unwrap();

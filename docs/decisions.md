@@ -2821,7 +2821,7 @@ it becomes a question for the owner rather than an exception.
 
 ## ADR-087 — Retention never purges on its own; the limits go up and the client warns before the 507
 
-**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_retencao`
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_retencao` · built in 1.8.42
 
 **Decision.** The server never deletes a revision automatically, including one
 every known device has confirmed. Purging stays the explicit, offline operator

@@ -68,6 +68,7 @@
   "device.conflicts": "Conflitos",
   "device.connection": "Parear ou reconectar",
   "device.counts": "{pending} na fila · {received} aguardando aplicação",
+  "device.capacity": "O servidor guarda {percent}% do que pode manter para este workspace. Nada é apagado sozinho: peça ao operador para podar o histórico confirmado antes que encha, porque em 100% as alterações novas são recusadas e ficam guardadas neste dispositivo.",
   "device.credentialName": "Arquivo de credencial",
   "device.deleteChoice": "Resolver excluindo esta nota",
   "device.deleted": "excluída",

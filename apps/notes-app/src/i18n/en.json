@@ -68,6 +68,7 @@
   "device.conflicts": "Conflicts",
   "device.connection": "Pair or reconnect",
   "device.counts": "{pending} queued · {received} awaiting application",
+  "device.capacity": "The server holds {percent}% of what it may keep for this workspace. Nothing is deleted on its own: ask the operator to prune confirmed history before it fills, because at 100% new changes are refused and kept on this device.",
   "device.credentialName": "Credential file",
   "device.deleteChoice": "Resolve by deleting this note",
   "device.deleted": "deleted",

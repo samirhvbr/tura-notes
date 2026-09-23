@@ -1127,6 +1127,40 @@
         }
       }
     },
+    "/v1/workspaces/{workspace}/sync/capacity": {
+      "get": {
+        "operationId": "syncCapacity",
+        "description": "How full this workspace's sync inbox is against the server's limits, requiring Read. Decoded content bytes and revisions, each with its ceiling. Nothing is purged automatically; a client should warn from 80% and not wait for the 507 that refuses a publication at 100%. Servers before 1.8.42 answer 404.",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncCapacity"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or revoked credential"
+          },
+          "403": {
+            "description": "Denied workspace or permission, Origin or HTTPS peer"
+          }
+        }
+      }
+    },
     "/v1/workspaces/{workspace}/sync/revisions/{revision}": {
       "get": {
         "operationId": "fetchSyncRevision",
@@ -1768,6 +1802,34 @@
             "type": "string",
             "contentEncoding": "base64",
             "maxLength": 11184812
+          }
+        }
+      },
+      "SyncCapacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content_bytes",
+          "max_content_bytes",
+          "revisions",
+          "max_revisions"
+        ],
+        "properties": {
+          "content_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_content_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revisions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_revisions": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       }
