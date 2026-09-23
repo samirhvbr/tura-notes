@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.25 - the updater tells a Mac copy running from the disk image or a translocated download to move to Applications
+
+On macOS the updater offered an update it could not install whenever the app
+ran from the mounted `.dmg` (`/Volumes/…`) or from the read-only copy
+Gatekeeper's App Translocation makes of a quarantined download. Renaming the new
+`.app` into place crosses devices from there and fails with `EXDEV` without ever
+asking for a password. `docs/updater.md` diagnosed it by hand; 1.6.69 made the
+failure name its cause. The app still made the offer first.
+
+**`supported()` now refuses there, and says why.** `misplaced_path` recognises
+both locations from `current_exe()`; `UpdateStatus` gains `relocate`, and the
+interface shows *"running from the disk image or a temporary copy macOS made …
+drag it into Applications"*, even on the automatic check, since it is the one
+unsupported case the user can fix. Other platforms are unaffected.
+
+Tests: `misplaced_path` on disk-image, translocated, `/Applications`,
+`~/Applications` and Linux paths; the store moves to `relocate` with and without
+being asked, and an unsupported package still stays quiet unless asked. The
+queue-index row for this item leaves `.continue/`.
+
 ## 1.8.24 - the crash-save loop runs on macOS, Windows and Arch, and every night
 
 Owner answer `q_crashloop`: the CI meets the document, not the other way

@@ -346,6 +346,7 @@
   "update.later": "Mais tarde",
   "update.running": "Você está na {version}.",
   "update.title": "Atualização do Tura Notes",
+  "update.relocate": "O Tura Notes está rodando da imagem de disco ou de uma cópia temporária feita pelo macOS e não consegue se atualizar dali. Encerre, arraste-o para Aplicativos e abra-o de lá.",
   "update.unsupported": "Atualize esta instalação pelo gerenciador de pacotes ou baixe um novo instalador.",
   "watch.degraded": "Mudanças feitas por outros programas aparecem a cada poucos segundos, não na hora: {reason}",
   "watch.overLimit": "{count} pastas não estão sob observação: o limite de watches deste sistema está cheio, então mudanças nelas aparecem em alguns segundos, não na hora. Aumente com sysctl fs.inotify.max_user_watches.",

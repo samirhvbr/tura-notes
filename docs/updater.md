@@ -198,7 +198,11 @@ osascript -e 'POSIX path of (path to application "Tura Notes")'
 ```
 
 If that prints anything containing `AppTranslocation` or `/Volumes/`, the fix is
-to quit, drag the `.app` into `/Applications`, clear the attribute and reopen:
+to quit, drag the `.app` into `/Applications`, clear the attribute and reopen.
+Since 1.8.25 the app checks this itself before offering anything: from either
+place it reports itself unable to update and says to move it, instead of
+downloading an update it cannot install (`misplaced_path` in `updater.rs`).
+By hand:
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/Tura Notes.app"

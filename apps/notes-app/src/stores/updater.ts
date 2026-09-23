@@ -3,7 +3,7 @@ import { checkUpdate, installUpdate } from "../ipc/updater";
 import { acquireSyncBarrier, endSyncBarrier } from "../ipc/barrier";
 import { useWorkspace } from "./workspace";
 
-type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "error" | "busy" | "closeWorkspace" | "installing";
+type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "relocate" | "error" | "busy" | "closeWorkspace" | "installing";
 interface State {
   phase: Phase;
   version: string | null;
@@ -51,7 +51,9 @@ export const useUpdater = create<State>((set, get) => ({
     set({ phase: "checking", detail: null });
     try {
       const result = await checkUpdate();
-      if (!result.supported) { set({ phase: manual ? "unsupported" : "idle", version: null, notes: null }); return; }
+      // A copy running from the disk image or a translocated download says so
+      // even unasked: it is the one unsupported case the user can fix (R7-06).
+      if (!result.supported) { set({ phase: result.relocate ? "relocate" : manual ? "unsupported" : "idle", version: null, notes: null }); return; }
       const show = result.version && (manual || result.version !== dismissed());
       set({ version: result.version, notes: result.notes, phase: show ? "available" : manual ? "current" : "idle" });
     } catch (e) {

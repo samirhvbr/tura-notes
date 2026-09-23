@@ -82,7 +82,7 @@ export function UpdateButton() {
   return <div className="update-manual">
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     <button type="button" disabled={phase === "checking" || phase === "installing"} onClick={() => void check(true)}>{t("update.check")}</button>
-    {["checking", "current", "unsupported", "busy"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
+    {["checking", "current", "unsupported", "relocate", "busy"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
     {phase === "error" && <><p role="status">{t(errorKey)}</p><Detail detail={detail} /></>}
   </div>;
 }

@@ -4,8 +4,56 @@ use serde::Serialize;
 #[derive(Serialize)]
 pub struct UpdateStatus {
     supported: bool,
+    /// Unsupported only because of where the app is running from: move it and
+    /// it can update itself. The interface says so instead of pointing at a
+    /// package manager (R7-06).
+    relocate: bool,
     version: Option<String>,
     notes: Option<String>,
+}
+
+/// Whether the executable runs from somewhere macOS will not let it replace
+/// itself: the mounted `.dmg` (`/Volumes/…`) or the read-only randomized copy
+/// Gatekeeper's App Translocation makes of a quarantined download. Renaming the
+/// new `.app` into place crosses devices there, fails with `EXDEV`, and never
+/// even asks for a password; the offer used to be made anyway and fail after
+/// the download (`docs/updater.md`, "did macOS ask for your password?").
+#[cfg(any(target_os = "macos", test))]
+pub fn misplaced_path(exe: &std::path::Path) -> bool {
+    let s = exe.to_string_lossy();
+    s.starts_with("/Volumes/") || s.contains("/AppTranslocation/")
+}
+
+#[cfg(target_os = "macos")]
+fn misplaced() -> bool {
+    std::env::current_exe().is_ok_and(|p| misplaced_path(&p))
+}
+#[cfg(not(target_os = "macos"))]
+fn misplaced() -> bool {
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::misplaced_path;
+    use std::path::Path;
+
+    #[test]
+    fn a_disk_image_or_a_translocated_copy_cannot_update_itself() {
+        for p in [
+            "/Volumes/Tura Notes/Tura Notes.app/Contents/MacOS/tura-notes",
+            "/private/var/folders/x1/abc/T/AppTranslocation/0A1B/d/Tura Notes.app/Contents/MacOS/tura-notes",
+        ] {
+            assert!(misplaced_path(Path::new(p)), "{p}");
+        }
+        for p in [
+            "/Applications/Tura Notes.app/Contents/MacOS/tura-notes",
+            "/Users/me/Applications/Tura Notes.app/Contents/MacOS/tura-notes",
+            "/usr/bin/tura-notes",
+        ] {
+            assert!(!misplaced_path(Path::new(p)), "{p}");
+        }
+    }
 }
 
 #[cfg(desktop)]
@@ -36,7 +84,7 @@ mod desktop {
     }
 
     pub fn supported() -> bool {
-        if cfg!(debug_assertions) {
+        if cfg!(debug_assertions) || super::misplaced() {
             return false;
         }
         #[cfg(target_os = "linux")]
@@ -57,6 +105,7 @@ mod desktop {
         if !supported() {
             return Ok(UpdateStatus {
                 supported: false,
+                relocate: super::misplaced(),
                 version: None,
                 notes: None,
             });
@@ -71,6 +120,7 @@ mod desktop {
             .map_err(|e| e.to_string())?;
         let result = UpdateStatus {
             supported: true,
+            relocate: false,
             version: update.as_ref().map(|u| u.version.clone()),
             notes: update
                 .as_ref()
@@ -132,6 +182,7 @@ pub async fn update_check(app: tauri::AppHandle) -> Result<UpdateStatus, String>
         let _ = app;
         Ok(UpdateStatus {
             supported: false,
+            relocate: false,
             version: None,
             notes: None,
         })

@@ -132,3 +132,20 @@ describe("desktop updates", () => {
     expect(useUpdater.getState().phase).toBe("error");
   });
 });
+// R7-06: a macOS copy running from the disk image or a translocated download is
+// told to move, even on the automatic check, and never offered an update it
+// would download and then fail to install.
+describe("an app that cannot replace itself from where it runs", () => {
+  it("says to move it, with or without being asked", async () => {
+    vi.mocked(invoke).mockResolvedValue({ supported: false, relocate: true, version: null, notes: null });
+    await useUpdater.getState().check(false);
+    expect(useUpdater.getState().phase).toBe("relocate");
+    await useUpdater.getState().check(true);
+    expect(useUpdater.getState().phase).toBe("relocate");
+  });
+  it("an unsupported package stays quiet unless asked", async () => {
+    vi.mocked(invoke).mockResolvedValue({ supported: false, relocate: false, version: null, notes: null });
+    await useUpdater.getState().check(false);
+    expect(useUpdater.getState().phase).toBe("idle");
+  });
+});
