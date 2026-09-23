@@ -20,7 +20,7 @@ raw_html: boolean,
  */
 remote_images: boolean, 
 /**
- * Carried into `notes-asset://` URLs so the scheme handler knows which
+ * Carried into asset URLs ([`ASSET_ORIGIN`]) so the scheme handler knows which
  * root to jail the request to.
  */
 workspace_id: WorkspaceId, };

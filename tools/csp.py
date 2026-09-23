@@ -20,6 +20,12 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONF = ROOT / "apps/notes-app/src-tauri/tauri.conf.json"
+# Tauri merges these over the base on their platform. WebView2 and the Android
+# WebView serve the custom scheme as `http://notes-asset.localhost/`, so their
+# CSP needs that origin; everywhere else it is a request to this machine's port
+# 80 and stays out (R6-25).
+OVERLAYS = [ROOT / f"apps/notes-app/src-tauri/tauri.{p}.conf.json" for p in ("windows", "android")]
+ASSET_HTTP = "http://notes-asset.localhost"
 DOC = ROOT / "docs/ARCHITECTURE.md"
 
 IMG_SRC = {"'self'", "notes-asset:", "data:", "https:"}
@@ -50,6 +56,12 @@ def main() -> int:
         errors.append("ARCHITECTURE.md no longer prints the CSP under 'CSP (`tauri.conf.json`):'")
     elif directives(block.group(1)) != d:
         errors.append("ARCHITECTURE.md §10 prints a CSP that is not the one in tauri.conf.json")
+
+    for path in OVERLAYS:
+        o = directives(json.loads(path.read_text())["app"]["security"]["csp"])
+        expected = dict(d, **{"img-src": d["img-src"] + [ASSET_HTTP]})
+        if {k: sorted(v) for k, v in o.items()} != {k: sorted(v) for k, v in expected.items()}:
+            errors.append(f"{path.name} must be the base CSP with only {ASSET_HTTP} added to img-src")
 
     for e in errors:
         print(e, file=sys.stderr)

@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.27 - images load on Windows and Android, where the webview serves notes-asset over http
+
+On Windows and Android every image in every note was a broken icon, with no
+error on the Rust side. WebView2 and the Android WebView do not route a custom
+scheme as itself; Tauri serves it there as `http://notes-asset.localhost/`. The
+handler in `asset.rs` already accepted that form. The renderer still emitted
+`notes-asset://…`, and the CSP allowed only `notes-asset:`, so no URL could both
+reach the handler and pass the CSP. Latent until now: the Windows installer job
+is off and the 0.4 Android build has never run.
+
+**`notes_markdown::ASSET_ORIGIN` is the platform's form, chosen at compile
+time**, and the renderer emits it. The sanitizer keeps an `http:` asset URL only
+where that is the platform's spelling; on Linux and macOS the same host is a real
+request to this machine's port 80, so it stays remote and obeys the opt-in.
+`tauri.windows.conf.json` and `tauri.android.conf.json` add exactly
+`http://notes-asset.localhost` to `img-src`, and `tools/csp.py` fails if they add
+anything else. `ACCEPTANCE-0.1b` had said this URL shape was "asserted by
+reading"; it now says the reading was wrong and that neither platform has run it.
+
 ## 1.8.26 - reqwest 0.13.4 to 0.13.5, with the Windows clippy step back in the gate
 
 The bump was tried and reverted earlier because the gate could not run its

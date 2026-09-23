@@ -918,6 +918,14 @@ object-src 'none'; form-action 'none'; base-uri 'none'
 `'unsafe-inline'` for styles is a CodeMirror requirement; scripts stay strict.
 `tools/csp.py` fails the gate when this block and the file disagree.
 
+On Windows and Android the webview serves the custom scheme as
+`http://notes-asset.localhost/`, not `notes-asset://`, so the renderer emits that
+form there (`notes_markdown::ASSET_ORIGIN`, chosen at compile time) and
+`tauri.windows.conf.json` / `tauri.android.conf.json` add exactly that origin to
+`img-src`. They add nothing else, which `tools/csp.py` checks. Elsewhere the
+same URL is an ordinary request to this machine's port 80, so it stays out of
+the CSP and the sanitizer treats it as remote (1.8.27).
+
 **`https:` in `img-src` is not the privacy boundary — the renderer is**
 (ADR-089, since 1.8.8). The CSP is per process, so it cannot know which
 workspace opted in; what keeps a note from phoning home is that no remote URL

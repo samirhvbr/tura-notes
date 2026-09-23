@@ -116,7 +116,7 @@ pub struct RenderOpts {
     /// Fetch remote images. Off by default: a note that loads a remote image
     /// tells its author's server that the note was opened.
     pub remote_images: bool,
-    /// Carried into `notes-asset://` URLs so the scheme handler knows which
+    /// Carried into asset URLs ([`ASSET_ORIGIN`]) so the scheme handler knows which
     /// root to jail the request to.
     pub workspace_id: WorkspaceId,
 }
@@ -495,7 +495,7 @@ fn rewrite<'a>(
                 i = next;
                 match url::classify_image(&opts.base, dest_url, opts.remote_images) {
                     ImagePolicy::Asset(p) => out.push(html(format!(
-                        "<img src=\"notes-asset://{}/{}\" alt=\"{}\"{}>",
+                        "<img src=\"{ASSET_ORIGIN}{}/{}\" alt=\"{}\"{}>",
                         opts.workspace_id,
                         attr(&percent_encode_path(p.as_str())),
                         attr(&alt),
@@ -781,6 +781,30 @@ const TABLE_ALIGNMENTS: &[&str] = &[
     "text-align: right",
 ];
 
+/// Where the webview serves the `notes-asset` scheme from (R6-25).
+///
+/// WebKitGTK and WKWebView route a custom scheme as itself. WebView2 on Windows
+/// and the Android WebView do not: Tauri serves it as
+/// `http://notes-asset.localhost/`, and a literal `notes-asset://…` URL never
+/// reaches the handler there -- every image of every note was a broken icon on
+/// both, with no error on the Rust side. The handler in `asset.rs` already took
+/// the workspace id as the first path segment for that form; the renderer and
+/// the CSP were the two halves that had not moved.
+pub const ASSET_ORIGIN: &str = if cfg!(any(windows, target_os = "android")) {
+    "http://notes-asset.localhost/"
+} else {
+    "notes-asset://"
+};
+
+/// An `http:` URL that is this platform's spelling of an asset URL.
+fn asset_http(value: &str) -> bool {
+    ASSET_ORIGIN.starts_with("http:")
+        && value
+            .trim()
+            .get(..ASSET_ORIGIN.len())
+            .is_some_and(|p| p.eq_ignore_ascii_case(ASSET_ORIGIN))
+}
+
 thread_local! {
     /// Remote images the attribute filter saw during one `clean()` -- refused
     /// ones so the banner can offer them (R6-23), allowed ones so it can offer
@@ -986,6 +1010,10 @@ fn build(remote_images: bool) -> ammonia::Builder<'static> {
                         }
                     }
                     Some("notes-asset") => Some(value.into()),
+                    // The same asset URL where the webview spells it as http
+                    // (Windows, Android). Only there: elsewhere that host is a
+                    // real request to this machine's port 80, and stays remote.
+                    Some("http") if asset_http(value) => Some(value.into()),
                     // A remote image in raw HTML obeys the opt-in exactly as a
                     // Markdown one does (ADR-089). It used to load whatever the
                     // setting said — held back only by the CSP, which ADR-089 is
@@ -1135,12 +1163,33 @@ mod tests {
     #[test]
     fn a_relative_image_becomes_an_asset_url() {
         let r = render_html("![a](sub/f.png)", &opts());
+        let url = format!("src=\"{ASSET_ORIGIN}00000000-0000-0000-0000-000000000000/sub/f.png\"");
+        assert!(r.html.contains(&url), "{}", r.html);
+        // An asset is neither a remote image shown nor one blocked, on the
+        // platforms where its URL is spelled `http:` as much as elsewhere.
         assert!(
-            r.html
-                .contains("src=\"notes-asset://00000000-0000-0000-0000-000000000000/sub/f.png\""),
-            "{}",
-            r.html
+            r.shown_remote.is_empty() && r.blocked_remote.is_empty(),
+            "{r:?}"
         );
+    }
+
+    #[test]
+    fn the_asset_origin_is_the_one_this_platform_routes() {
+        if cfg!(any(windows, target_os = "android")) {
+            assert_eq!(ASSET_ORIGIN, "http://notes-asset.localhost/");
+        } else {
+            assert_eq!(ASSET_ORIGIN, "notes-asset://");
+            // Here that host is a request to this machine, and stays remote.
+            let raw = RenderOpts {
+                raw_html: true,
+                ..opts()
+            };
+            let r = render_html("<img src=\"http://notes-asset.localhost/x/a.png\">", &raw);
+            assert_eq!(
+                r.blocked_remote,
+                vec!["http://notes-asset.localhost/x/a.png"]
+            );
+        }
     }
 
     #[test]

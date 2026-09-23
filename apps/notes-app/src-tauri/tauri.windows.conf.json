@@ -1,0 +1,7 @@
+{
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' notes-asset: http://notes-asset.localhost data: https:; font-src 'self'; connect-src ipc: 'self' http://ipc.localhost; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'"
+    }
+  }
+}

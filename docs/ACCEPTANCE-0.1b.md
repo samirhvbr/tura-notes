@@ -454,7 +454,12 @@ build`, `tools/check.sh` and CI.
 - **The `notes-asset://` scheme handler has never served a byte.** Its logic is
   tested through `read_asset`; the Tauri registration, the URL shape on Windows
   (`http://notes-asset.localhost/…`) and the CSP interaction are asserted by
-  reading, not by running.
+  reading, not by running. **That reading was wrong, and was fixed in 1.8.27:**
+  the renderer emitted `notes-asset://` on every platform and the CSP allowed
+  only that, so on Windows and Android no URL could both reach the handler and
+  pass the CSP. The renderer now emits the platform's form (`ASSET_ORIGIN`) and
+  `tauri.windows.conf.json` / `tauri.android.conf.json` add the origin; still
+  not run on either platform.
 - **`shell_open` has never opened a browser.** The scheme check is tested by
   inspection only.
 - **The trash has never been looked at in a file manager**, as §5 says.
