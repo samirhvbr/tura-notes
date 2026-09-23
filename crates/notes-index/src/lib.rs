@@ -134,15 +134,32 @@ pub struct WordHit {
     pub col: u32,
     pub context: String,
 }
-pub struct Index(Connection);
+/// The full-text index.
+///
+/// `fts_rowids` is the fix for a quadratic build (R6-12). The `fts` table keys
+/// its rows by `rowid`, and `path` is `UNINDEXED` in it, so `DELETE FROM fts
+/// WHERE path=?` is a scan of the whole virtual table — once per note, over a
+/// table that grows to every note: 35.8 s for a cold build of 3 000 notes of
+/// ~22 KB and 75.5 s for a forced one, measured before this. The map is read
+/// **once** by [`Index::plan`], a single scan, and every delete after it goes by
+/// `rowid`. Making `rowid` match `notes` instead would have been the textbook
+/// answer and a schema change, which forces every user to reindex and makes the
+/// release a minor; this needed neither.
+///
+/// Without a `plan()` first, the old delete by path still runs — slow, and
+/// correct.
+pub struct Index {
+    conn: Connection,
+    fts_rowids: Option<std::collections::HashMap<String, i64>>,
+}
 impl Index {
     pub fn open(path: &Path) -> Result<Self> {
         open(path, "DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS fts; CREATE TABLE notes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime TEXT NOT NULL, hash TEXT NOT NULL, document TEXT NOT NULL);
-            CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, text, tokenize='unicode61 remove_diacritics 2');", 2).map(Self)
+            CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, text, tokenize='unicode61 remove_diacritics 2');", 2).map(|conn| Self { conn, fts_rowids: None })
     }
     pub fn documents(&self) -> Result<Vec<(String, notes_markdown::Document)>> {
         let mut q = self
-            .0
+            .conn
             .prepare("SELECT path,document FROM notes ORDER BY path")
             .map_err(sql)?;
         let rows = q
@@ -157,9 +174,21 @@ impl Index {
         })
         .collect()
     }
-    pub fn plan(&self) -> Result<BTreeMap<String, Cached>> {
+    pub fn plan(&mut self) -> Result<BTreeMap<String, Cached>> {
+        let rowids = {
+            let mut q = self
+                .conn
+                .prepare("SELECT rowid, path FROM fts")
+                .map_err(sql)?;
+            let rows = q
+                .query_map([], |r| Ok((r.get::<_, String>(1)?, r.get::<_, i64>(0)?)))
+                .map_err(sql)?;
+            rows.collect::<std::result::Result<std::collections::HashMap<_, _>, _>>()
+                .map_err(sql)?
+        };
+        self.fts_rowids = Some(rowids);
         let mut q = self
-            .0
+            .conn
             .prepare("SELECT path,size,mtime,hash FROM notes")
             .map_err(sql)?;
         let rows = q
@@ -187,7 +216,8 @@ impl Index {
         rows
     }
     pub fn apply(&mut self, note: Indexed<'_>, reparse: bool) -> Result<()> {
-        let tx = self.0.transaction().map_err(sql)?;
+        let Index { conn, fts_rowids } = self;
+        let tx = conn.transaction().map_err(sql)?;
         if reparse {
             let document =
                 serde_json::to_string(&notes_markdown::parse(note.text)).map_err(|e| {
@@ -196,13 +226,29 @@ impl Index {
                     }
                 })?;
             tx.execute("INSERT INTO notes VALUES(?1,?2,?3,?4,?5) ON CONFLICT(path) DO UPDATE SET size=excluded.size,mtime=excluded.mtime,hash=excluded.hash,document=excluded.document", params![note.seen.path,note.seen.size as i64,note.seen.mtime,note.hash,document]).map_err(sql)?;
-            tx.execute("DELETE FROM fts WHERE path=?1", [&note.seen.path])
-                .map_err(sql)?;
-            tx.execute(
-                "INSERT INTO fts VALUES(?1,?2)",
-                params![note.seen.path, note.text],
-            )
-            .map_err(sql)?;
+            match fts_rowids.as_mut() {
+                Some(map) => {
+                    if let Some(rowid) = map.remove(&note.seen.path) {
+                        tx.execute("DELETE FROM fts WHERE rowid=?1", [rowid])
+                            .map_err(sql)?;
+                    }
+                    tx.execute(
+                        "INSERT INTO fts(path,text) VALUES(?1,?2)",
+                        params![note.seen.path, note.text],
+                    )
+                    .map_err(sql)?;
+                    map.insert(note.seen.path.clone(), tx.last_insert_rowid());
+                }
+                None => {
+                    tx.execute("DELETE FROM fts WHERE path=?1", [&note.seen.path])
+                        .map_err(sql)?;
+                    tx.execute(
+                        "INSERT INTO fts VALUES(?1,?2)",
+                        params![note.seen.path, note.text],
+                    )
+                    .map_err(sql)?;
+                }
+            }
         } else {
             tx.execute(
                 "UPDATE notes SET size=?2,mtime=?3 WHERE path=?1",
@@ -213,12 +259,23 @@ impl Index {
         tx.commit().map_err(sql)
     }
     pub fn remove(&mut self, paths: &[String]) -> Result<()> {
-        let tx = self.0.transaction().map_err(sql)?;
+        let Index { conn, fts_rowids } = self;
+        let tx = conn.transaction().map_err(sql)?;
         for p in paths {
             tx.execute("DELETE FROM notes WHERE path=?1", [p])
                 .map_err(sql)?;
-            tx.execute("DELETE FROM fts WHERE path=?1", [p])
-                .map_err(sql)?;
+            match fts_rowids.as_mut() {
+                Some(map) => {
+                    if let Some(rowid) = map.remove(p) {
+                        tx.execute("DELETE FROM fts WHERE rowid=?1", [rowid])
+                            .map_err(sql)?;
+                    }
+                }
+                None => {
+                    tx.execute("DELETE FROM fts WHERE path=?1", [p])
+                        .map_err(sql)?;
+                }
+            }
         }
         tx.commit().map_err(sql)
     }
@@ -231,7 +288,7 @@ impl Index {
         if terms.is_empty() {
             return Ok(Vec::new());
         }
-        let mut stmt = self.0.prepare("SELECT path,highlight(fts,1,char(1),char(2)) FROM fts WHERE fts MATCH ?1 ORDER BY rank,path LIMIT ?2").map_err(sql)?;
+        let mut stmt = self.conn.prepare("SELECT path,highlight(fts,1,char(1),char(2)) FROM fts WHERE fts MATCH ?1 ORDER BY rank,path LIMIT ?2").map_err(sql)?;
         let rows = stmt
             .query_map(params![terms.join(" AND "), limit as i64], |r| {
                 Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))

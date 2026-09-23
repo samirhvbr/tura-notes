@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.2 - the full-text index stops scanning itself once per note, 33 to 47 times faster
+
+`Index::apply` replaced a note's full-text row with `DELETE FROM fts WHERE
+path=?` and an insert. `path` is `UNINDEXED` in the `fts5` table, so that delete
+is a scan of the whole virtual table -- once per note, over a table that grows to
+every note. Measured before this change, release build, 3 000 notes of about
+22 KB: **35.8 s for a cold build and 75.5 s for a forced rebuild.** The repository
+generates 10 000 in `fixtures/large`.
+
+**The textbook fix was the expensive one.** Making each `fts` row's `rowid` equal
+its `notes` row's would let every delete go by `rowid` -- and existing indexes
+have unaligned rowids, so it would force every user to reindex, which the
+versioning rules make a minor release: another server signature and another
+round of acceptance walks right after `1.8.0`. Emptying the `fts` table at the
+start of a forced rebuild was the other shortcut, and it is wrong: a rebuild
+cancelled halfway would leave the notes it had not reached out of search for
+good, because the next ordinary pass skips notes whose size and mtime did not
+change.
+
+**What it does instead.** `plan()`, which every build already calls first, reads
+the `path -> rowid` map of the `fts` table in **one** scan, and every delete after
+it goes by `rowid`. Without a `plan()` first, the old delete by path still runs:
+slow, and correct. No schema change, no reindex. After: **1.08 s cold, 1.59 s
+forced** -- 33 and 47 times faster.
+
+The measurement lives in `notes-index/tests/cost.rs`, ignored and printed rather
+than asserted (ADR-095). What is asserted is correctness, because a wrong
+`rowid` would delete **another** note's text: through a rebuild, an update and a
+removal, every note keeps exactly its own words.
+
 ## 1.8.1 - a receive barrier that cannot verify its reload now has a way out
 
 Applying received revisions holds a barrier: input is refused and the document

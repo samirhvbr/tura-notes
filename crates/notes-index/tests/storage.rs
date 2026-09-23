@@ -95,7 +95,7 @@ fn upgrading_derived_parser_schema_clears_only_index_data() {
     let db = rusqlite::Connection::open(&path).unwrap();
     db.execute_batch("CREATE TABLE notes(path TEXT); INSERT INTO notes VALUES('old.md'); CREATE TABLE fts(text TEXT); PRAGMA user_version=1;").unwrap();
     drop(db);
-    let index = Index::open(&path).unwrap();
+    let mut index = Index::open(&path).unwrap();
     assert!(index.plan().unwrap().is_empty());
     drop(index);
     let db = rusqlite::Connection::open(&path).unwrap();
@@ -104,4 +104,103 @@ fn upgrading_derived_parser_schema_clears_only_index_data() {
             .unwrap(),
         2
     );
+}
+
+/// R6-12: deletes now go by `rowid`, from a map `plan()` reads once. A wrong
+/// rowid would delete **another note's** text, silently, so what is asserted
+/// here is that every note keeps exactly its own words through a rebuild, an
+/// update and a removal.
+#[test]
+fn deleting_by_rowid_touches_only_the_note_it_names() {
+    let d = tempfile::tempdir().unwrap();
+    let mut index = Index::open(&d.path().join("index.db")).unwrap();
+    let seen = |p: &str| Seen {
+        path: p.into(),
+        size: 1,
+        mtime: "1".into(),
+    };
+    let (a, b, c) = (seen("a.md"), seen("b.md"), seen("c.md"));
+    let put = |index: &mut Index, s: &Seen, text: &str| {
+        index
+            .apply(
+                Indexed {
+                    seen: s,
+                    hash: text,
+                    text,
+                },
+                true,
+            )
+            .unwrap();
+    };
+    let found = |index: &Index, w: &str| {
+        index
+            .words(w, 10)
+            .unwrap()
+            .into_iter()
+            .map(|h| h.path)
+            .collect::<Vec<_>>()
+    };
+
+    // Cold build through the map.
+    index.plan().unwrap();
+    put(&mut index, &a, "alfa");
+    put(&mut index, &b, "bravo");
+    put(&mut index, &c, "charlie");
+
+    // A forced rebuild in a fresh pass: every row replaced by rowid.
+    index.plan().unwrap();
+    put(&mut index, &a, "alfa");
+    put(&mut index, &b, "bravo");
+    put(&mut index, &c, "charlie");
+    assert_eq!(found(&index, "alfa"), ["a.md"]);
+    assert_eq!(found(&index, "bravo"), ["b.md"]);
+    assert_eq!(found(&index, "charlie"), ["c.md"]);
+
+    // Update one: its old words go, its new ones arrive, the others are intact.
+    put(&mut index, &b, "delta");
+    assert!(found(&index, "bravo").is_empty());
+    assert_eq!(found(&index, "delta"), ["b.md"]);
+    assert_eq!(found(&index, "alfa"), ["a.md"]);
+    assert_eq!(found(&index, "charlie"), ["c.md"]);
+
+    // Remove one: only it disappears.
+    index.remove(&["a.md".into()]).unwrap();
+    assert!(found(&index, "alfa").is_empty());
+    assert_eq!(found(&index, "delta"), ["b.md"]);
+    assert_eq!(found(&index, "charlie"), ["c.md"]);
+}
+
+/// Without `plan()`, the delete by path still runs and is still correct — the
+/// map is an optimisation for a build, not a precondition.
+#[test]
+fn without_a_plan_the_delete_by_path_still_keeps_one_row_per_note() {
+    let d = tempfile::tempdir().unwrap();
+    let mut index = Index::open(&d.path().join("index.db")).unwrap();
+    let s = Seen {
+        path: "a.md".into(),
+        size: 1,
+        mtime: "1".into(),
+    };
+    index
+        .apply(
+            Indexed {
+                seen: &s,
+                hash: "1",
+                text: "first",
+            },
+            true,
+        )
+        .unwrap();
+    index
+        .apply(
+            Indexed {
+                seen: &s,
+                hash: "2",
+                text: "second",
+            },
+            true,
+        )
+        .unwrap();
+    assert!(index.words("first", 10).unwrap().is_empty());
+    assert_eq!(index.words("second", 10).unwrap().len(), 1);
 }
