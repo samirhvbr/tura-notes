@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.45 - the Windows crash loop logs every round, so a silent death shows where it happened
+
+The crash loop's new Windows job (1.8.24) passed once and then, on 1.8.25, died
+between rounds 100 and 200 with exit code 2304, which is `9 << 8`: the shell
+itself was killed. It printed no `FAIL` line, so nothing said which round, which
+process, or what the kill hit. The loop, the writer and the workflow were
+byte-identical between the two runs; 1.8.25 touched only the updater.
+
+**On Windows each round is now traced to stderr**: the MSYS pid the loop holds,
+the Windows pid behind it (`/proc/<pid>/winpid`), and the status `wait`
+returned. The next such death leaves its last round in the job log. The suspect
+to check, not a conclusion, is Git Bash's `kill -9` reaching a process other
+than the writer. Linux and macOS print nothing new, and the stub self-test and a
+local 20-round run still pass.
+
 ## 1.8.44 - the 0.6 queue document stops listing retention as unbuilt
 
 `.continue/0.6-sync.md` still named R7-05 (higher limits and the warning before

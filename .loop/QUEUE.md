@@ -882,3 +882,10 @@ As dez perguntas completas, com opções e recomendação, estão no artefato �
 Triagem: 0 ADR 'not yet built' (so o ADR-096, PROPOSED, do dono); PROPOSED em docs/: MOBILE-0.4 (aparelho), architecture-v1 (HISTORICAL), ADR-096 (dono); 0 TODO/FIXME no codigo; `.continue/` so tem aceite do dono e o 0.6-sync.md — que ficou velho com o R7-05. Feed macOS em 1.7.21 contra Linux 1.8.21: publicar macOS exige o MacBook (ADR-092), fora do alcance desta maquina.
 
 - [x] R7-13 — **feito em 1.8.44.** `.continue/0.6-sync.md` item 2 dizia R7-05 pendente; agora registra R7-05 construido (1.8.42), R7-04 esperando o ADR-096 e R7-08 parqueado
+- [ ] R7-04:** aprovar ou não o ADR-096, a permissão para listar e revogar aparelhos pelo app  <!-- colhido em #0033 -->
+- [ ] R7-09:** autorizar ou não um PR de diagnóstico só para rodar o job de Windows  <!-- colhido em #0033 -->
+- [ ] R7-08:** a fila móvel em segundo plano precisa do MacBook com ambiente  <!-- colhido em #0033 -->
+- [ ] Assinatura da 1.8.0 do servidor:** rodar   na sua máquina, para o deploy do tura.samirhv.com.br passar  <!-- colhido em #0033 -->
+- [ ] Aceites** em release instalada  <!-- colhido em #0033 -->
+- [ ] Feed do macOS:** está em 1.7.21 enquanto o do Linux está em 1.8.21. Publicar o macOS exige build no MacBook, e esta máquina é Linux  <!-- colhido em #0033 -->
+- [x] R7-14 — **feito em 1.8.45 — instrumento.** CI de 1.8.25: o job `crash-save-loop (windows-latest)` morreu entre as rodadas 100 e 200 com codigo 2304 (9<<8, SIGKILL no proprio shell) e sem nenhuma linha FAIL; em 1.8.24, com loop, writer e workflow identicos, passou. Rerun de diagnostico feito uma vez. Agora, so no Windows, cada rodada imprime pid MSYS, winpid e status, e a proxima morte deixa a ultima rodada no log. Suspeita a conferir, nao conclusao: o `kill -9` do Git Bash atingindo outro processo

@@ -41,8 +41,19 @@ fi
 # negative one: not the writer's own exits (0 never happens, 2 is a failed
 # write, 101 a panic).
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) killed() { [ "$1" -ne 0 ] && [ "$1" -ne 2 ] && [ "$1" -ne 101 ]; } ;;
-  *) killed() { [ "$1" -eq 137 ]; } ;;
+  MINGW*|MSYS*|CYGWIN*)
+    killed() { [ "$1" -ne 0 ] && [ "$1" -ne 2 ] && [ "$1" -ne 101 ]; }
+    # R7-14: on 1.8.25 the Windows job died between rounds 100 and 200 with exit
+    # code 2304 (a SIGKILL of the shell itself) and printed nothing, so nothing
+    # said which round, which process, or what the kill hit. Each round is traced
+    # there -- the MSYS pid, the Windows pid behind it, and the status -- so the
+    # next such death leaves its last round in the job log.
+    trace() { echo "  round $1: pid $2 (winpid ${3:-?}) -> status $4" >&2; }
+    ;;
+  *)
+    killed() { [ "$1" -eq 137 ]; }
+    trace() { :; }
+    ;;
 esac
 
 # Seed the note so the very first kill has a previous complete version to
@@ -70,11 +81,13 @@ wrote=0
 for i in $(seq 1 "$ROUNDS"); do
   "$BIN" "$WORK" crash.md >/dev/null 2>&1 &
   pid=$!
+  winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
   # 1–40 ms: long enough to be mid-write, short enough for 1000 rounds.
   sleep "0.$(printf '%03d' $(( (RANDOM % 40) + 1 )))"
   kill -9 "$pid" 2>/dev/null
   wait "$pid" 2>/dev/null
   rc=$?
+  trace "$i" "$pid" "$winpid" "$rc"
   # 137 is 128 + SIGKILL: the kill landed. Anything else means the writer
   # stopped on its own before it -- 2 is a failed write, 101 a panic -- and the
   # file on disk says nothing about crash safety.
