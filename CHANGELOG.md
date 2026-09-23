@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.7 - a remote image in raw HTML obeys the opt-in and shows up in the blocked-images banner
+
+ADR-089 makes the *allow remote images* opt-in work by adding `https:` to the
+preview's `img-src` -- and makes that the last of three steps, because a remote
+`<img>` in raw HTML ignored the opt-in completely. It loaded whatever the
+setting said, held back only by the very CSP that step three opens. Opening it
+first would have turned any `<img src="https://…">` in a note into a request the
+user never allowed.
+
+**It now obeys `remote_images`**, and a refused one is listed in
+`Rendered.blocked_remote`, exactly like a Markdown image, so the banner offers it
+instead of the image vanishing without a word. A protocol-relative `//host/…`
+is treated as the remote URL it is.
+
+**The review sized the reporting half as an ADR's worth of work** -- it assumed
+the rewrite pass would have to pre-parse raw HTML to find the images. It did
+not need to. `ammonia` runs the attribute filter synchronously on the thread
+that renders, so refused URLs go into a per-thread collector during `clean()`
+and are drained right after; and since the filter is a `'static` closure in a
+shared builder, there is one builder per value of the opt-in.
+
+Two fixtures in `fixtures/xss/`, both red under the `1.8.6` filter; a test
+checks, for each, that nothing loads with the opt-in off, that the URL is
+reported, and that it loads with the opt-in on.
+
 ## 1.8.6 - raw HTML meets the same URL policy as Markdown, and a tab no longer smuggles an SVG
 
 With `raw_html` on, a note's HTML goes through `ammonia`, and the attribute

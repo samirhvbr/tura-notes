@@ -500,3 +500,46 @@ fn a_tab_inside_the_data_scheme_does_not_smuggle_an_svg_past_the_allowlist() {
     }
     assert_body_survived("raw-html-svg-data-tab.md", &out);
 }
+
+/// ADR-089: a raw-HTML remote image obeys the opt-in and is reported, so the
+/// banner can offer it — the same treatment a Markdown image has always had.
+#[test]
+fn a_raw_remote_image_is_blocked_and_reported_until_remote_images_is_on() {
+    for (file, url) in [
+        (
+            "raw-html-remote-img.md",
+            "https://tracker.example/pixel.png",
+        ),
+        (
+            "raw-html-protocol-relative-img.md",
+            "https://tracker.example/p.png",
+        ),
+    ] {
+        let src = std::fs::read_to_string(dir().join(file)).unwrap();
+
+        let off = render_html(&src, &opts(false, true));
+        for img in html::tags(&off.html).iter().filter(|t| t.name == "img") {
+            assert!(
+                img.attr("src").is_none(),
+                "{file}: loaded with the opt-in off\n{}",
+                off.html
+            );
+        }
+        assert!(
+            off.blocked_remote.iter().any(|u| u == url),
+            "{file}: blocked but not reported, so the banner cannot offer it: {:?}",
+            off.blocked_remote
+        );
+
+        let on = render_html(&src, &opts(true, true));
+        assert!(
+            html::tags(&on.html)
+                .iter()
+                .any(|t| t.name == "img" && t.attr("src") == Some(url)),
+            "{file}: with the opt-in on, the image loads\n{}",
+            on.html
+        );
+        assert!(on.blocked_remote.is_empty());
+        assert_body_survived(file, &off.html);
+    }
+}

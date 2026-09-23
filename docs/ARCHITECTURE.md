@@ -736,7 +736,12 @@ The rewrite pass is the security policy in code:
   allowlist — and an `<a>`/`<area href>` by `url::classify_link`, so a raw
   `href="data:text/html,…"` is dropped like a Markdown one would be (since
   `1.8.6`; before, only `img src` values with a literal `data:` prefix were
-  checked).
+  checked). **A remote `<img>` in raw HTML obeys `remote_images`** and, when
+  refused, is listed in `Rendered.blocked_remote` like a Markdown image, so the
+  banner offers it (since `1.8.7`, ADR-089); a protocol-relative `//host/…` is
+  treated as the remote URL it is. The refused URLs are collected per thread
+  during `clean()`, because the filter is a `'static` closure in a shared
+  builder — one builder per value of the opt-in.
 - Image URLs: relative and resolving inside the root →
   `notes-asset://<workspace_id>/<relpath>`; `http(s)` → kept only if
   `remote_images`, else replaced by

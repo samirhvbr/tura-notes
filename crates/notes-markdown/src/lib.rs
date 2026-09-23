@@ -189,8 +189,10 @@ pub fn render_html(src: &str, opts: &RenderOpts) -> Rendered {
     let mut raw = String::with_capacity(src.len() * 2);
     pulldown_cmark::html::push_html(&mut raw, rewritten.into_iter());
 
+    let (html, blocked_raw) = sanitize(&raw, opts.remote_images);
+    blocked_remote.extend(blocked_raw);
     Rendered {
-        html: sanitize(&raw),
+        html,
         outline: doc.headings,
         blocked_remote,
     }
@@ -765,6 +767,15 @@ const TABLE_ALIGNMENTS: &[&str] = &[
     "text-align: right",
 ];
 
+thread_local! {
+    /// Remote images the attribute filter refused during one `clean()`, so the
+    /// banner can offer them (R6-23). Per thread because `clean()` runs the
+    /// filter synchronously on the thread that renders, and the filter is a
+    /// `'static` closure inside a shared builder that cannot hold per-render
+    /// state of its own.
+    static BLOCKED_RAW: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// The allowlist is built **once**.
 ///
 /// Measured rather than assumed, which is also why the win is stated small:
@@ -775,16 +786,39 @@ const TABLE_ALIGNMENTS: &[&str] = &[
 /// Everything the builder holds is `'static` and `clean` takes `&self`, so one
 /// of them serves every render; the change costs nothing and is kept on that
 /// basis rather than on the size of the number.
-fn builder() -> &'static ammonia::Builder<'static> {
-    static BUILDER: std::sync::OnceLock<ammonia::Builder<'static>> = std::sync::OnceLock::new();
-    BUILDER.get_or_init(build)
+///
+/// One builder per value of the remote-images opt-in: the filter's answer for a
+/// remote `<img>` depends on it, and a builder is built once.
+fn builder(remote_images: bool) -> &'static ammonia::Builder<'static> {
+    static ALLOW: std::sync::OnceLock<ammonia::Builder<'static>> = std::sync::OnceLock::new();
+    static BLOCK: std::sync::OnceLock<ammonia::Builder<'static>> = std::sync::OnceLock::new();
+    if remote_images {
+        ALLOW.get_or_init(|| build(true))
+    } else {
+        BLOCK.get_or_init(|| build(false))
+    }
 }
 
-fn sanitize(raw: &str) -> String {
-    builder().clean(raw).to_string()
+/// Sanitised HTML, and the remote images raw HTML asked for and was refused.
+fn sanitize(raw: &str, remote_images: bool) -> (String, Vec<String>) {
+    BLOCKED_RAW.with(|b| b.borrow_mut().clear());
+    let html = builder(remote_images).clean(raw).to_string();
+    let blocked = BLOCKED_RAW.with(|b| std::mem::take(&mut *b.borrow_mut()));
+    (html, blocked)
 }
 
-fn build() -> ammonia::Builder<'static> {
+/// A remote image URL, kept when the opt-in is on and recorded as blocked when
+/// it is off.
+fn remote(url: String, remote_images: bool) -> Option<std::borrow::Cow<'static, str>> {
+    if remote_images {
+        Some(url.into())
+    } else {
+        BLOCKED_RAW.with(|b| b.borrow_mut().push(url));
+        None
+    }
+}
+
+fn build(remote_images: bool) -> ammonia::Builder<'static> {
     let mut builder = ammonia::Builder::default();
     builder
         .tags(
@@ -919,40 +953,53 @@ fn build() -> ammonia::Builder<'static> {
         // which can submit nothing, carries no data, and is a checkbox that
         // does not persist, exactly like the disabled ones beside it.
         .set_tag_attribute_value("input", "type", "checkbox")
-        .attribute_filter(|element, attribute, value| match (element, attribute) {
-            ("th" | "td", "style") if !TABLE_ALIGNMENTS.contains(&value.trim()) => None,
-            // Decided by `scheme_of`, which removes whitespace and control
-            // characters before it looks for the colon — the same function the
-            // Markdown path uses. This used to test the literal prefix `data:`,
-            // so `da<TAB>ta:image/svg+xml,…` missed the test and fell through
-            // to ammonia, whose URL parser drops the tab and accepted `data`:
-            // the two disagreed and the permissive one won, carrying an SVG —
-            // a scriptable document — past the raster allowlist (R6-23a).
-            ("img", "src") => match url::scheme_of(value).as_deref() {
-                Some("data") => {
-                    let compact: String = value
-                        .chars()
-                        .filter(|c| !c.is_whitespace() && !c.is_control())
-                        .collect();
-                    match url::classify_image(&RelPath::root(), &compact, false) {
-                        ImagePolicy::Data(u) => Some(u.into()),
-                        _ => None,
+        .attribute_filter(
+            move |element, attribute, value| match (element, attribute) {
+                ("th" | "td", "style") if !TABLE_ALIGNMENTS.contains(&value.trim()) => None,
+                // Decided by `scheme_of`, which removes whitespace and control
+                // characters before it looks for the colon — the same function the
+                // Markdown path uses. This used to test the literal prefix `data:`,
+                // so `da<TAB>ta:image/svg+xml,…` missed the test and fell through
+                // to ammonia, whose URL parser drops the tab and accepted `data`:
+                // the two disagreed and the permissive one won, carrying an SVG —
+                // a scriptable document — past the raster allowlist (R6-23a).
+                ("img", "src") => match url::scheme_of(value).as_deref() {
+                    Some("data") => {
+                        let compact: String = value
+                            .chars()
+                            .filter(|c| !c.is_whitespace() && !c.is_control())
+                            .collect();
+                        match url::classify_image(&RelPath::root(), &compact, false) {
+                            ImagePolicy::Data(u) => Some(u.into()),
+                            _ => None,
+                        }
                     }
-                }
-                // Ours (`notes-asset://`) and remote ones. Whether a remote
-                // image may load is the opt-in's call, applied in R6-23.
-                Some("notes-asset" | "http" | "https") | None => Some(value.into()),
-                Some(_) => None,
-            },
-            // A link in raw HTML goes through the policy a Markdown link does.
-            // `href` was never narrowed, so `<a href="data:text/html,…">`
-            // survived sanitisation with a whole document behind it.
-            ("a" | "area", "href") => match url::classify_link(&RelPath::root(), value).1 {
-                LinkPolicy::Refused => None,
+                    Some("notes-asset") => Some(value.into()),
+                    // A remote image in raw HTML obeys the opt-in exactly as a
+                    // Markdown one does (ADR-089). It used to load whatever the
+                    // setting said — held back only by the CSP, which ADR-089 is
+                    // about to open — and when refused it is now listed in
+                    // `blocked_remote`, so the banner can offer it instead of the
+                    // image vanishing without a word.
+                    Some("http" | "https") => remote(value.to_string(), remote_images),
+                    // Protocol-relative is remote wearing the shape of a path; in a
+                    // `tauri://` origin it resolves to nothing anyone meant.
+                    None if value.trim_start().starts_with("//") => {
+                        remote(format!("https:{}", value.trim_start()), remote_images)
+                    }
+                    None => Some(value.into()),
+                    Some(_) => None,
+                },
+                // A link in raw HTML goes through the policy a Markdown link does.
+                // `href` was never narrowed, so `<a href="data:text/html,…">`
+                // survived sanitisation with a whole document behind it.
+                ("a" | "area", "href") => match url::classify_link(&RelPath::root(), value).1 {
+                    LinkPolicy::Refused => None,
+                    _ => Some(value.into()),
+                },
                 _ => Some(value.into()),
             },
-            _ => Some(value.into()),
-        });
+        );
     builder
 }
 
