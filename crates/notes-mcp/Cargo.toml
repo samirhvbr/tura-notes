@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 notes-core = { workspace = true }
+notes-model = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-notes-model = { workspace = true }
 tempfile = { workspace = true }

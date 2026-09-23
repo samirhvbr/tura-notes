@@ -9,6 +9,7 @@
 //! Nothing here opens a transport, reads a file, or keeps state between calls:
 //! the caller owns the connection and owns [`Session`].
 use notes_core::agent::{AgentArgs, AgentConfig, AgentService};
+use notes_model::CoreError;
 use serde_json::{json, Value};
 
 /// The MCP revision this server implements. Older revisions a client may ask
@@ -144,12 +145,61 @@ fn call(
     let result = built.and_then(|mut service| service.call(name, args));
     let (value, failed) = match result {
         Ok(v) => (v, false),
-        Err(e) => (
-            serde_json::to_value(e).unwrap_or_else(|_| json!({"code": "internal"})),
-            true,
-        ),
+        Err(e) => (refusal(&e), true),
     };
     json!({"content":[{"type":"text","text":value.to_string()}],"isError":failed})
+}
+
+/// What an agent is told when a call fails: the code, and only the fields it
+/// can act on (R6-20).
+///
+/// This used to be the whole `CoreError`, serialised. The REST API has always
+/// reduced the same error to a status and one of a few constant codes, so the
+/// two envelopes of one catalogue disagreed exactly where server detail lives:
+/// a subdirectory losing its read permission sent the agent
+/// `{"op":"read_dir","path":"/srv/notes/workspaces/…","kind":"permission_denied"}`
+/// -- an absolute server path, into the agent's transcript and whoever hosts it,
+/// where REST said `operation_failed`. `docs/security.md` §8 says an error
+/// carries no path, stack trace or version.
+///
+/// Kept: `disk_rev` on a conflict, which is how an agent retries; a path only
+/// when it parses as a workspace-relative one, which is what the caller sent;
+/// the I/O kind, the read-only reason, and whether a permission was the cause.
+/// Everything else -- roots, operations, messages, absolute paths -- stays in
+/// the server.
+fn refusal(e: &CoreError) -> Value {
+    let mut out = json!({ "code": e.code() });
+    let relative = |p: &str| {
+        notes_model::RelPath::parse(p)
+            .ok()
+            .filter(|r| !r.is_root())
+            .map(|r| r.to_string())
+    };
+    match e {
+        CoreError::Conflict { disk_rev, .. } => {
+            out["disk_rev"] = serde_json::to_value(disk_rev).unwrap_or(Value::Null);
+        }
+        CoreError::NotFound { path }
+        | CoreError::AlreadyExists { path }
+        | CoreError::InvalidPath { path, .. }
+        | CoreError::OutsideRoot { path }
+        | CoreError::SymlinkNotFollowed { path } => {
+            if let Some(p) = relative(path) {
+                out["path"] = p.into();
+            }
+        }
+        CoreError::Io { kind, .. } => {
+            out["kind"] = serde_json::to_value(kind).unwrap_or(Value::Null);
+        }
+        CoreError::ReadOnly { reason, .. } => {
+            out["reason"] = serde_json::to_value(reason).unwrap_or(Value::Null);
+        }
+        CoreError::Unsupported { cap } if cap == "agent permission denied" => {
+            out["reason"] = "permission_denied".into();
+        }
+        _ => {}
+    }
+    out
 }
 
 /// Answer one JSON-RPC message.
@@ -245,5 +295,82 @@ pub fn handle(
         Ok(args) => {
             Some(json!({"jsonrpc":"2.0","id":id,"result":call(config, name, args, data_dir)}))
         }
+    }
+}
+
+#[cfg(test)]
+mod refusal_tests {
+    use super::*;
+
+    fn strings(v: &Value, out: &mut Vec<String>) {
+        match v {
+            Value::String(s) => out.push(s.clone()),
+            Value::Array(a) => a.iter().for_each(|v| strings(v, out)),
+            Value::Object(o) => o.values().for_each(|v| strings(v, out)),
+            _ => {}
+        }
+    }
+
+    /// The finding's case: a directory in scope loses its read permission.
+    #[test]
+    fn an_io_failure_names_its_kind_and_not_the_server_path() {
+        let e = CoreError::Io {
+            op: "read_dir".into(),
+            path: "/srv/notes/workspaces/samir/allowed/sub".into(),
+            kind: notes_model::IoKind::PermissionDenied,
+        };
+        let v = refusal(&e);
+        assert_eq!(v, json!({"code": "io", "kind": "permission_denied"}));
+    }
+
+    #[test]
+    fn nothing_absolute_survives_any_variant() {
+        let abs = "/srv/notes/workspaces/samir/secret.md".to_string();
+        for e in [
+            CoreError::NotFound { path: abs.clone() },
+            CoreError::OutsideRoot { path: abs.clone() },
+            CoreError::InvalidPath {
+                path: abs.clone(),
+                reason: format!("bad {abs}"),
+            },
+            CoreError::Unavailable {
+                root: abs.clone(),
+                reason: notes_model::UnavailableReason::PermissionRevoked,
+            },
+            CoreError::StateUnreadable {
+                store: "drafts".into(),
+                path: abs.clone(),
+            },
+            CoreError::Unsupported {
+                cap: format!("reading {abs}"),
+            },
+            CoreError::Internal {
+                message: format!("panic at {abs}"),
+            },
+        ] {
+            let mut found = vec![];
+            strings(&refusal(&e), &mut found);
+            assert!(
+                found
+                    .iter()
+                    .all(|s| !s.starts_with('/') && !s.contains("/srv")),
+                "{e:?} -> {found:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn what_an_agent_acts_on_is_kept() {
+        let rel = CoreError::NotFound {
+            path: "allowed/a.md".into(),
+        };
+        assert_eq!(
+            refusal(&rel),
+            json!({"code": "not_found", "path": "allowed/a.md"})
+        );
+        let denied = CoreError::Unsupported {
+            cap: "agent permission denied".into(),
+        };
+        assert_eq!(refusal(&denied)["reason"], "permission_denied");
     }
 }

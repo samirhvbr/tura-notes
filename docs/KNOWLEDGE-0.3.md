@@ -166,7 +166,12 @@ Transport follows MCP's [stdio framing](https://modelcontextprotocol.io/specific
 [initialization lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle)
 and [tools contract](https://modelcontextprotocol.io/specification/2025-11-25/server/tools):
 newline-delimited JSON-RPC, initialize then initialized, tools/list and
-tools/call, tool failures with `isError`. It supports protocol versions
+tools/call, tool failures with `isError`. A failure's text is
+`{"code": …}` plus only what the agent can act on: `disk_rev` on a conflict, a
+workspace-relative `path` it sent, the I/O `kind`, a read-only `reason`, or
+`"reason": "permission_denied"`. Server roots, operation names, messages and
+absolute paths never leave the process (since 1.8.18; they used to, where the
+REST API already reduced the same error to a code). It supports protocol versions
 2025-11-25, 2025-06-18 and 2025-03-26. Messages are capped at 32 MiB. Stdout is
 protocol-only and no TCP listener is opened. Note text is data and cannot alter
 permissions or execute commands. These scopes govern this integration, not a

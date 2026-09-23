@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.18 - an MCP tool failure no longer hands the agent the server's absolute paths
+
+A failed MCP tool call serialised the whole `CoreError` into the text the agent
+receives. The REST API has always reduced the same error to a status and one of
+a few constant codes, so the two envelopes of one catalogue disagreed exactly
+where server detail lives. The most reachable case needs nothing unusual: a
+subdirectory inside the credential's own scope loses its read permission, and
+the agent gets
+`{"code":"io","op":"read_dir","path":"/srv/notes/workspaces/…","kind":"permission_denied"}`.
+The absolute path then sits in the agent's transcript and with whoever hosts
+it. REST answered `500 operation_failed` for the same thing. `docs/security.md`
+§8 says an error carries no path.
+
+**The failure text is now `{"code": …}` plus only what the agent can act on:**
+`disk_rev` on a conflict, which is how it retries; a `path` only when it parses
+as workspace-relative, meaning the one the agent sent; the I/O `kind`; a
+read-only `reason`; and `"reason": "permission_denied"` when a scope was the
+cause. Roots, operation names, messages and absolute paths stay on the server.
+`notes-model` moved from a dev-dependency of `notes-mcp` to a normal one.
+
+Tests: the finding's `read_dir` case comes out as
+`{"code":"io","kind":"permission_denied"}`. Seven variants with an absolute path
+in every string field leave no string starting with `/` and none naming
+`/srv`. A relative `not_found` keeps its path, and the permission reason
+survives. `KNOWLEDGE-0.3.md` describes the shape.
+
 ## 1.8.17 - the server audit names the client behind the proxy and what each MCP call did
 
 Two gaps in one record left an incident uninvestigable. Every API line's `peer`
