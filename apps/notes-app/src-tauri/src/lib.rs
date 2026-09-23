@@ -164,6 +164,8 @@ pub fn run() {
             commands::workspace_create,
             commands::workspace_restore_last,
             commands::workspace_recent,
+            commands::workspace_forget,
+            commands::app_data_remove,
             commands::workspace_close,
             commands::tree_list,
             commands::note_open,

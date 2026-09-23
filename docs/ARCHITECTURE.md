@@ -241,6 +241,17 @@ note in `index.db`, drafts that never expire and conflict snapshots, and it was
 `tests/private_store.rs` walks a freshly used directory and fails on any file
 another account could read. Windows keeps the ACL `%APPDATA%` already has.
 
+**It can be removed from inside the app** (ADR-091, since 1.8.22). The Welcome
+screen offers *Forget* on each recent workspace (`forget_workspace`: that
+workspace's `workspaces/<id>/` and its enrollment entry) and *Remove Tura's
+data…* (`remove_app_data`: every workspace's state, the enrollment, settings and
+`sync-control.json`, then a restart into a first run). Both refuse with
+`drafts_pending` while any draft exists, because a draft is the only copy of
+what was typed into it, and with `lock_timeout` while another process holds the
+workspace's activity lease. Only names this application writes are removed, since
+`NOTES_DATA_DIR` can point anywhere. Notes are never touched, and neither is a
+folder the user chose, such as a device-sync queue.
+
 ```
 <data_dir>/
 ├── settings.json                        global settings (§4.5)

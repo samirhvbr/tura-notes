@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.22 - the Welcome screen can forget a workspace or remove all of Tura's data
+
+ADR-091 (owner answer `q_dados`): what Tura keeps about the user's notes can be
+removed from inside the app, without reading documentation to find the
+directory. That covers the full text of every opened note in the search index,
+drafts, conflict copies, and the list of every folder ever opened. Uninstalling
+left all of it, and nothing in the app, the packages or the documentation named
+it.
+
+**Two actions on the Welcome screen, each behind a confirmation.** *Forget*, on
+each recent workspace, removes that workspace's `workspaces/<id>/` and its
+enrollment entry; the folder and its notes are not touched. *Remove Tura's
+data…* removes every workspace's state, the enrollment, the settings and the
+device-sync configuration, then restarts into a first run. It restarts rather
+than resets because the sync controller and the window hold configuration in
+memory, and a fresh process is the one state nothing can have left behind.
+
+**Both refuse, and say why, where the action was taken.** They refuse while any
+draft exists, with the new `CoreError::DraftsPending { count }`. A draft is the
+only copy of what was typed into it, so it is resolved in the app and never
+deleted as a side effect of tidying. An unreadable draft counts too. They also
+refuse while another process (a second window, `notes-mcp`) holds the
+workspace's activity lease, which they take exclusively, and while the
+workspace is open here. **Only names this application writes are removed**,
+because `NOTES_DATA_DIR` can point anywhere, and the directory itself goes only
+if nothing else is left in it. A device-sync queue folder the user chose is
+theirs and stays.
+
+Tests: `tests/forget.rs` covers forgetting one workspace while the other and
+the notes remain, refusal with one draft (the draft is still there afterwards),
+refusal while the workspace is open here and while a second service holds it,
+and removing everything while leaving an unknown file (then the empty
+directory goes). Two Welcome tests check that nothing is forgotten before the
+confirmation and that a `drafts_pending` refusal shows its count.
+
 ## 1.8.21 - the application's data directory is readable by its user and nobody else
 
 `~/.local/share/notes/` holds the full text of every note ever opened (the

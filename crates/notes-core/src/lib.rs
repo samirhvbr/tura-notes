@@ -11,6 +11,7 @@ pub mod attachments;
 pub mod conflicts;
 pub mod content_index;
 pub mod drafts;
+mod forget;
 pub mod ignore;
 pub mod index;
 pub mod knowledge;

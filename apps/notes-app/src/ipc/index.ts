@@ -64,6 +64,7 @@ import type { Tab } from "./generated/Tab";
 import type { Settings } from "./generated/Settings";
 import type { WorkspaceInfo } from "./generated/WorkspaceInfo";
 import type { WorkspaceEntry } from "./generated/WorkspaceEntry";
+import type { WorkspaceId } from "./generated/WorkspaceId";
 
 export type {
   BaseRev, ChangeKind, ConflictChoice, ConflictKind, ConflictSnapshot,
@@ -115,6 +116,10 @@ export const workspaceCreate = (parent: string, name: string) =>
 export const workspaceRestoreLast = () =>
   invoke<WorkspaceInfo | null>("workspace_restore_last");
 export const workspaceRecent = () => invoke<WorkspaceEntry[]>("workspace_recent");
+/** Forget one workspace's state; the folder is not touched (ADR-091). */
+export const workspaceForget = (id: WorkspaceId) => invoke<void>("workspace_forget", { id });
+/** Remove everything the app keeps and restart into a first run (ADR-091). */
+export const appDataRemove = () => invoke<void>("app_data_remove");
 export const workspaceClose = (dirty: NoteId[]) =>
   invoke<void>("workspace_close", { dirty });
 

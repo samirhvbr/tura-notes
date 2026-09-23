@@ -2935,7 +2935,7 @@ with such a name that syncs to those platforms answers `Unsupported` there.
 
 ## ADR-091 — The application's own data can be removed from inside the application
 
-**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_dados` · not yet built
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_dados` · built in 1.8.21 (permissions) and 1.8.22 (the two actions)
 
 **Decision.** The product gets two actions: *forget this workspace*, and *remove
 Tura's data*. Both refuse while a draft holds unsaved work, and say which. This

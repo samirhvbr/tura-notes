@@ -123,6 +123,23 @@ pub fn workspace_recent(app: State<'_, App>) -> R<Vec<WorkspaceEntry>> {
     svc(&app)?.recent_workspaces()
 }
 
+/// Forget one workspace's state (ADR-091). The folder is not touched.
+#[tauri::command]
+pub fn workspace_forget(app: State<'_, App>, id: WorkspaceId) -> R<()> {
+    svc(&app)?.forget_workspace(id)
+}
+
+/// Remove everything this application keeps, then restart into a first run
+/// (ADR-091). A restart rather than a reset because the device-sync controller
+/// and the window hold their configuration in memory, and a fresh process is
+/// the one state nothing can have left behind.
+#[tauri::command]
+pub fn app_data_remove(app: State<'_, App>, handle: tauri::AppHandle) -> R<()> {
+    let _ = app.network.pause();
+    svc(&app)?.remove_app_data()?;
+    handle.restart()
+}
+
 #[tauri::command]
 pub fn workspace_close(app: State<'_, App>, dirty: Vec<NoteId>) -> R<()> {
     svc(&app)?.close_workspace(&dirty)

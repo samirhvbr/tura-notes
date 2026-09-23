@@ -189,6 +189,11 @@ pub enum CoreError {
     AlreadyExists { path: String },
     #[error("{count} buffers still have unsaved changes")]
     DirtyBuffers { note_ids: Vec<NoteId>, count: usize },
+    /// Removing the application's data was refused because drafts hold work
+    /// that was never saved (ADR-091). A draft is the only copy of what was
+    /// typed into it, so it is resolved in the app first, never deleted here.
+    #[error("{count} notes have unsaved drafts")]
+    DraftsPending { count: u32 },
     #[error("{note_id} changed on disk since it was opened")]
     Conflict { note_id: NoteId, disk_rev: BaseRev },
     #[error("{note_id} is read-only")]
@@ -260,6 +265,7 @@ impl CoreError {
             CoreError::NotFound { .. } => "not_found",
             CoreError::AlreadyExists { .. } => "already_exists",
             CoreError::DirtyBuffers { .. } => "dirty_buffers",
+            CoreError::DraftsPending { .. } => "drafts_pending",
             CoreError::Conflict { .. } => "conflict",
             CoreError::ReadOnly { .. } => "read_only",
             CoreError::Unavailable { .. } => "unavailable",

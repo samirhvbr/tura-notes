@@ -110,6 +110,7 @@ function coverage(w: WatchStatus): string | null {
 export function errorText(e: CoreError): string {
   if (e.code === "io") return t(`error.io.${e.kind}`);
   if (e.code === "dirty_buffers") return t("error.dirty_buffers", { count: e.count });
+  if (e.code === "drafts_pending") return t("error.drafts_pending", { count: e.count });
   if (e.code === "sync") return t(`error.sync.${e.cause}`, { received: e.received ?? 0 });
   return t(`error.${e.code}`);
 }
