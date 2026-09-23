@@ -1083,6 +1083,49 @@ async fn sync_rejects_hash_forgery_collisions_and_future_state_without_replaceme
     assert_eq!(fs::read(&path).unwrap(), b"incomplete");
 }
 
+/// R6-16: two devices reading at once both get an answer.
+///
+/// Reads held the vault's exclusive lock with a `try_write` that does not wait,
+/// so a second reader in the window got `503 busy` and its pass was backed off.
+/// Holding a shared lock here stands in for the other reader, deterministically.
+#[tokio::test]
+async fn a_sync_read_is_not_refused_while_another_read_holds_the_vault() {
+    let f = Fixture::new(&all());
+    let workspace = sync_workspace(&f).await;
+    let p = publication(workspace, None, "allowed/test.md", Some(b"bytes"));
+    assert_eq!(post_revision(&f, &p).await, StatusCode::OK);
+
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(f.data.join("sync/home/vault.lock"))
+        .unwrap();
+    let other = fd_lock::RwLock::new(file);
+    let _reading = other.try_read().unwrap();
+
+    let (status, _, page) = f.request("GET", SYNC, None, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    assert_eq!(page["revisions"].as_array().unwrap().len(), 1);
+    let one = format!("{SYNC}/{}", p.revision.id);
+    let (status, _, _) = f.request("GET", &one, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // A writer still does not wait: it is refused while a read holds the vault.
+    let q = publication(workspace, Some(&p), "allowed/test.md", Some(b"more"));
+    assert_eq!(post_revision(&f, &q).await, StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// First touch still writes the vault once, under the exclusive lock, and the
+/// sync identity it fixes is the one every later read returns.
+#[tokio::test]
+async fn the_first_sync_read_creates_the_vault_and_later_reads_agree_on_it() {
+    let f = Fixture::new(&all());
+    assert!(!f.data.join("sync/home/vault.json").exists());
+    let first = sync_workspace(&f).await;
+    assert!(f.data.join("sync/home/vault.json").exists());
+    assert_eq!(sync_workspace(&f).await, first);
+}
+
 #[tokio::test]
 async fn sync_vault_survives_offline_backup_restore() {
     let f = Fixture::new(&all());

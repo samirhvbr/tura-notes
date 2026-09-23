@@ -177,9 +177,13 @@ journal and append-ordered publications. This bounded first implementation
 stores copies of revision content as base64 in the same atomic document rather
 than publishing a head before a separate blob exists. Live Markdown remains the
 source of truth. Loading verifies schema, parent order, head transitions and
-content hashes. Publication holds a per-workspace OS lock, writes and syncs a
-private temporary file, atomically replaces the document, and syncs the directory
-on Unix. A lost response is recovered by retrying the same publication. An
+content hashes. Publication holds a per-workspace OS lock, exclusively and
+without waiting (a second writer gets `503 busy`), writes and syncs a private
+temporary file, atomically replaces the document, and syncs the directory on
+Unix. Reading pages and publications takes the same lock **shared and waits for
+a writer** (since 1.8.13), so two devices reading at once both get an answer;
+only the first read of a workspace with no vault yet goes through the exclusive
+path, because it writes the vault that fixes the workspace's sync identity. A lost response is recovered by retrying the same publication. An
 abandoned temporary file is never loaded as state; future/corrupt committed
 state is refused without replacement. Operators can remove abandoned temporary
 files while the server is stopped, after backing up the data.

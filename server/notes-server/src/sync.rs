@@ -191,42 +191,51 @@ fn allowed_attachment(path: &RelPath, c: &Credential, write: bool) -> bool {
                 .join("proposals")
                 .is_ok_and(|scope| within(path, &scope)))
 }
-fn transaction_workspace<T>(
-    root: &Path,
-    workspace: &str,
-    change: impl FnOnce(&mut Vault) -> Result<(T, bool)>,
-) -> Result<T> {
+/// The workspace's vault directory and its lock, created on first use.
+fn vault_dir(root: &Path, workspace: &str) -> Result<(std::path::PathBuf, fd_lock::RwLock<File>)> {
     admin::workspace(root, workspace).map_err(|_| Error::Storage)?;
     let base = root.join("sync");
     admin::private_dir(&base).map_err(|_| Error::Storage)?;
     let dir = base.join(workspace);
     admin::private_dir(&dir).map_err(|_| Error::Storage)?;
-    let mut lock = fd_lock::RwLock::new(
+    let lock = fd_lock::RwLock::new(
         admin::private_file(&dir.join("vault.lock"), false).map_err(|_| Error::Storage)?,
     );
+    Ok((dir, lock))
+}
+/// The committed vault, or `None` when this workspace has never been touched.
+fn read_vault(target: &Path) -> Result<Option<Vault>> {
+    if !target.try_exists().map_err(|_| Error::Storage)? {
+        return Ok(None);
+    }
+    let meta = fs::symlink_metadata(target).map_err(|_| Error::Storage)?;
+    if !meta.is_file() || meta.len() > MAX_STATE {
+        return Err(Error::Storage);
+    }
+    let mut bytes = vec![];
+    File::open(target)
+        .map_err(|_| Error::Storage)?
+        .take(MAX_STATE + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::Storage)?;
+    if bytes.len() as u64 > MAX_STATE {
+        return Err(Error::Storage);
+    }
+    let v: Vault = serde_json::from_slice(&bytes).map_err(|_| Error::Storage)?;
+    v.validate().map_err(|_| Error::Storage)?;
+    Ok(Some(v))
+}
+fn transaction_workspace<T>(
+    root: &Path,
+    workspace: &str,
+    change: impl FnOnce(&mut Vault) -> Result<(T, bool)>,
+) -> Result<T> {
+    let (dir, mut lock) = vault_dir(root, workspace)?;
     let _guard = lock.try_write().map_err(|_| Error::Busy)?;
     let target = dir.join("vault.json");
-    let exists = target.try_exists().map_err(|_| Error::Storage)?;
-    let mut vault = if exists {
-        let meta = fs::symlink_metadata(&target).map_err(|_| Error::Storage)?;
-        if !meta.is_file() || meta.len() > MAX_STATE {
-            return Err(Error::Storage);
-        }
-        let mut bytes = vec![];
-        File::open(&target)
-            .map_err(|_| Error::Storage)?
-            .take(MAX_STATE + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|_| Error::Storage)?;
-        if bytes.len() as u64 > MAX_STATE {
-            return Err(Error::Storage);
-        }
-        let v: Vault = serde_json::from_slice(&bytes).map_err(|_| Error::Storage)?;
-        v.validate().map_err(|_| Error::Storage)?;
-        v
-    } else {
-        Vault::new()
-    };
+    let existing = read_vault(&target)?;
+    let exists = existing.is_some();
+    let mut vault = existing.unwrap_or_else(Vault::new);
     let (output, changed) = change(&mut vault)?;
     if changed || !exists {
         let bytes = serde_json::to_vec(&vault).map_err(|_| Error::Storage)?;
@@ -243,6 +252,34 @@ fn transaction_workspace<T>(
             .map_err(|_| Error::Storage)?;
     }
     Ok(output)
+}
+/// A read of the vault under the **shared** lock, waiting for a writer rather
+/// than failing on one (R6-16).
+///
+/// `page` and `fetch` used to go through [`transaction_workspace`], whose
+/// `try_write` is exclusive and does not wait, for the whole load -- up to
+/// 64 MiB read, parsed and revalidated. Two paired devices asking for revisions
+/// at once meant one of them got `503 busy`, its pass counted a failure, and
+/// the next one was backed off towards an hour, for a read that changes
+/// nothing. Readers now share; `admin::lock` already reads the credential store
+/// this way on every request.
+///
+/// **A workspace with no vault yet still goes through the exclusive path**,
+/// because first touch writes `vault.json`, and that write -- which fixes the
+/// workspace's sync identity -- must stay single.
+fn read_workspace<T>(
+    root: &Path,
+    workspace: &str,
+    look: impl FnOnce(&Vault) -> Result<T>,
+) -> Result<T> {
+    let (dir, lock) = vault_dir(root, workspace)?;
+    {
+        let _guard = lock.read().map_err(|_| Error::Storage)?;
+        if let Some(vault) = read_vault(&dir.join("vault.json"))? {
+            return look(&vault);
+        }
+    }
+    transaction_workspace(root, workspace, |v| look(v).map(|t| (t, false)))
 }
 fn transaction<T>(
     root: &Path,
@@ -480,7 +517,7 @@ pub fn page(root: &Path, c: &Credential, cursor: usize, limit: usize) -> Result<
     if !(1..=200).contains(&limit) {
         return Err(Error::Invalid);
     }
-    transaction(root, c, |v| {
+    read_workspace(root, &c.workspace, |v| {
         if cursor > v.publications.len() {
             return Err(Error::Invalid);
         }
@@ -494,21 +531,18 @@ pub fn page(root: &Path, c: &Credential, cursor: usize, limit: usize) -> Result<
             .iter()
             .filter_map(|r| v.journal.heads.get(&r.note).map(|id| (r.note, *id)))
             .collect();
-        Ok((
-            Page {
-                workspace: v.journal.workspace,
-                revisions,
-                heads,
-                next_cursor: end,
-                has_more: end < v.publications.len(),
-            },
-            false,
-        ))
+        Ok(Page {
+            workspace: v.journal.workspace,
+            revisions,
+            heads,
+            next_cursor: end,
+            has_more: end < v.publications.len(),
+        })
     })
 }
 pub fn fetch(root: &Path, c: &Credential, id: Uuid) -> Result<Publication> {
     require(c, Permission::Read)?;
-    transaction(root, c, |v| {
+    read_workspace(root, &c.workspace, |v| {
         let p = v
             .publications
             .iter()
@@ -517,7 +551,7 @@ pub fn fetch(root: &Path, c: &Credential, id: Uuid) -> Result<Publication> {
         if !v.visible(p.revision.note, c) {
             return Err(Error::Missing);
         }
-        Ok((p.clone(), false))
+        Ok(p.clone())
     })
 }
 pub fn publish(root: &Path, c: &Credential, p: Publication) -> Result<Uuid> {

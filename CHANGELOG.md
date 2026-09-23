@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.13 - two devices reading sync revisions at once both get an answer
+
+`GET …/sync/revisions` and `GET …/sync/revisions/{id}` went through the same
+transaction as a publication, and that transaction takes the vault's lock
+exclusively with a `try_write`, which does not wait. It also held the lock for
+the whole load: up to 64 MiB read, parsed and revalidated. Two paired devices
+polling in the same window meant one of them got `503 busy` for a read that
+changes nothing. Its pass then counted a failure, and the next pass was backed
+off towards an hour. The bigger the workspace, the wider the window.
+
+**Reads now take the lock shared, and wait for a writer instead of failing on
+one**, the way `admin::lock` already reads the credential store on every
+request. Nothing on the read path writes. The one exception is a workspace with
+no vault yet: its first read writes `vault.json`, which fixes the workspace's
+sync identity, so it still goes through the exclusive path. Writers are
+unchanged. They still do not wait, so a publication during a read gets
+`503 busy`, as it did during another publication.
+
+Tests: holding a shared lock on `vault.lock` by hand stands in for the other
+reader, so this needs no timing. Both GETs answer 200 (the previous code
+answered `503 {"error":"busy"}`), and a POST in the same window is still 503.
+Another test checks that the first read creates the vault and later reads agree
+on its workspace id. `SYNC-0.6.md` describes both lock modes.
+
 ## 1.8.12 - the activity lease says whether another holder refused it or the operating system did
 
 The recovery-test intermittent came back in the 1.8.5 CI run on macOS, and for
