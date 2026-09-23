@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.26 - reqwest 0.13.4 to 0.13.5, with the Windows clippy step back in the gate
+
+The bump was tried and reverted earlier because the gate could not run its
+`clippy (windows)` step without a MinGW C compiler, and this round's rule is that
+the `NOTES_NO_WINDOWS_CHECK` escape hatch never covers a commit that touches
+Rust. MinGW is installed now, and the whole gate ran.
+
+`reqwest` stays pinned exactly (ADR-046), now at `=0.13.5`. The first attempt
+seemed to drag `windows-core` 0.61 → 0.62, `base64` 0.22 → 0.23 and `getrandom`
+0.3 → 0.4 along; measured again, those versions were already in the lockfile
+for other crates, and `reqwest` 0.13.5 simply uses them. No crate enters or
+leaves the tree. `SYNC-0.6.md` names the new version. Dependabot's PR #19 closes
+by itself when `master` carries it.
+
 ## 1.8.25 - the updater tells a Mac copy running from the disk image or a translocated download to move to Applications
 
 On macOS the updater offered an update it could not install whenever the app

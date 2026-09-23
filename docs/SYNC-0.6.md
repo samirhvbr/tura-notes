@@ -279,9 +279,9 @@ multicast and cloud metadata addresses remain refused. The selected exception
 is persisted with the endpoint. `NOTES_SYNC_CA_FILE` can add an explicitly
 selected PEM trust anchor without disabling certificate verification.
 
-The client uses reqwest 0.13.4 with its blocking, JSON and provider-free rustls
+The client uses reqwest 0.13.5 with its blocking, JSON and provider-free rustls
 features, selecting ring explicitly. No HTTP dependency enters the domain or
-core crates. See the [reqwest transport documentation](https://docs.rs/reqwest/0.13.4/reqwest/)
+core crates. See the [reqwest transport documentation](https://docs.rs/reqwest/0.13.5/reqwest/)
 for the underlying redirect, proxy and TLS defaults overridden here. Connect
 and request timeouts are 10 and 30 seconds; DNS resolution also depends on the
 operating system resolver. Responses are bounded to 16 MiB. The credential must
