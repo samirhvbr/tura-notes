@@ -135,7 +135,10 @@ The contract is [MCP-0.7.md](MCP-0.7.md), and the walk that is still open is
 Paths are relative to the workspace, including the scope prefix. Unknown or
 extra arguments are refused. Search is literal and case-sensitive over saved
 UTF-8 content, never unsaved buffers; it returns at most 200 hits with bounded
-snippets. List is also capped at 200. A query has 1–4,096 bytes and note input
+snippets. List is also capped at 200. A truncated list or search answer carries
+`next_offset`; passing it back as `offset` continues from there (since 1.8.20 —
+the core honoured `offset` before, but the published schema did not list it, so
+it was refused). A query has 1–4,096 bytes and note input
 and resulting text are limited to 8 MiB. Enumeration is confined to the scope.
 Large trees may take time: operations are serial and there is no progress or
 cancellation capability in this version.

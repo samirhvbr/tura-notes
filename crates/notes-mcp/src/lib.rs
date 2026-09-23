@@ -129,7 +129,7 @@ pub fn tools(config: &AgentConfig) -> Value {
     Value::Array(specs.into_iter().filter(|(name,_,_)|AgentService::permission(name).is_some_and(|p|config.permissions.contains(&p))).map(|(name,description,required)|{
         let mut properties=serde_json::Map::new();
         for field in &required {properties.insert((*field).into(),if *field=="base_rev"{json!({"type":"object","properties":{"size":{"type":"integer","minimum":0},"mtime_ns":{"type":"string","pattern":"^-?[0-9]+$"},"hash":{"type":"string"}},"required":["size","mtime_ns","hash"],"additionalProperties":false})}else{json!({"type":"string"})});}
-        if matches!(name,"notes_list"|"notes_search"){properties.insert("limit".into(),json!({"type":"integer","minimum":1,"maximum":200}));}
+        if matches!(name,"notes_list"|"notes_search"){properties.insert("limit".into(),json!({"type":"integer","minimum":1,"maximum":200}));properties.insert("offset".into(),json!({"type":"integer","minimum":0,"maximum":1_000_000,"description":"Continue from the next_offset of a truncated answer."}));}
         json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":matches!(name,"notes_list"|"notes_search"|"notes_read"),"destructiveHint":matches!(name,"notes_update"|"notes_move"|"notes_delete"),"openWorldHint":false}})
     }).collect())
 }

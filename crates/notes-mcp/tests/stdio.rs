@@ -290,6 +290,34 @@ fn concurrent_app_and_mcp_writers_have_one_winner() {
     }
 }
 
+/// R6-22: a truncated listing can be continued through MCP. `offset` was
+/// honoured by the core and missing from the schema, and `handle` refuses an
+/// argument the schema does not list, so note 201 of 350 was unreachable.
+#[test]
+fn every_note_is_reachable_by_paging_the_listing() {
+    let root = tempfile::tempdir().unwrap();
+    let data = tempfile::tempdir().unwrap();
+    for i in 0..350 {
+        std::fs::write(root.path().join(format!("n{i:03}.md")), "x").unwrap();
+    }
+    let cfg = config(root.path(), json!(["read"]), "", false);
+    let mut c = Client::start(cfg.path(), data.path());
+    let mut seen = std::collections::BTreeSet::new();
+    let mut args = json!({"limit": 200});
+    for _ in 0..3 {
+        let page = body(&c.call("notes_list", args.clone()));
+        for p in page["paths"].as_array().unwrap() {
+            seen.insert(p.as_str().unwrap().to_owned());
+        }
+        if page["truncated"] == false {
+            assert!(page.get("next_offset").is_none());
+            break;
+        }
+        args = json!({"limit": 200, "offset": page["next_offset"]});
+    }
+    assert_eq!(seen.len(), 350);
+}
+
 /// R6-21: the schema declares `mtime_ns` as what the wire carries -- a string --
 /// and the base_rev a read returns satisfies the write schema as published.
 #[test]

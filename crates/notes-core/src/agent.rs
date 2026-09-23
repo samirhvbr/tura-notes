@@ -147,6 +147,17 @@ impl AgentService {
         Ok(paths)
     }
     pub fn call(&mut self, tool: &str, args: AgentArgs) -> Result<Value> {
+        // `truncated` promised a continuation the catalogue could not ask for:
+        // `offset` was honoured here and absent from the published schema, and
+        // `handle` refuses any argument the schema does not list (R6-22). It is
+        // published now, and a truncated answer says where to continue.
+        fn paged(mut v: Value, truncated: bool, next: usize) -> Value {
+            v["truncated"] = truncated.into();
+            if truncated {
+                v["next_offset"] = next.into();
+            }
+            v
+        }
         if !self.allowed(tool) {
             return Err(denied());
         }
@@ -157,9 +168,11 @@ impl AgentService {
         }
         if tool == "notes_list" {
             let paths = self.paths()?;
-            return Ok(
-                json!({"paths":paths.iter().skip(offset).take(limit).collect::<Vec<_>>(),"truncated":paths.len()>offset.saturating_add(limit)}),
-            );
+            return Ok(paged(
+                json!({"paths":paths.iter().skip(offset).take(limit).collect::<Vec<_>>()}),
+                paths.len() > offset.saturating_add(limit),
+                offset + limit,
+            ));
         }
         if tool == "notes_search" {
             let query = args.query.ok_or_else(|| invalid("query is required"))?;
@@ -186,12 +199,16 @@ impl AgentService {
                         hits.push(json!({"path":path,"line":line+1,"context":content.chars().take(240).collect::<String>()}));
                         if hits.len() > limit {
                             hits.truncate(limit);
-                            return Ok(json!({"hits":hits,"truncated":true,"mode":"literal"}));
+                            return Ok(paged(
+                                json!({"hits":hits,"mode":"literal"}),
+                                true,
+                                offset + limit,
+                            ));
                         }
                     }
                 }
             }
-            return Ok(json!({"hits":hits,"truncated":false,"mode":"literal"}));
+            return Ok(paged(json!({"hits":hits,"mode":"literal"}), false, 0));
         }
         let path = args.path.ok_or_else(|| invalid("path is required"))?;
         if tool == "notes_read" {

@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.20 - notes past the first 200 can be listed through MCP
+
+`AgentService` honoured `offset` for `notes_list` and `notes_search`, up to
+1,000,000, and the REST API exposes the same thing as `cursor`. The MCP schema
+published only `limit`, capped at 200, and `handle` refuses any argument the
+schema does not list. So an agent that got 200 paths and `truncated: true`, and
+asked for the next page, got `-32602 Invalid tool arguments`. Over stdio MCP
+(milestone 0.3, no server) there was no other route: in a 350-note workspace,
+150 notes could only be reached by guessing a search that matched them.
+
+**`offset` is published for both tools, and a truncated answer carries
+`next_offset`**, so the continuation `truncated` promised can be asked for.
+`path` was not added to `notes_list`: the core does not narrow a listing to a
+subtree, and publishing an argument that does nothing would be the same empty
+promise again.
+
+Test (stdio): 350 notes, pages of 200, all 350 reached by following
+`next_offset`, with no `next_offset` on the last page.
+
 ## 1.8.19 - the MCP schema declares base_rev's mtime_ns as the string it is on the wire
 
 `BaseRev.mtime_ns` is an `i128` sent as a decimal string on purpose: it is
