@@ -890,11 +890,22 @@ CSP (`tauri.conf.json`):
 
 ```
 default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
-img-src 'self' notes-asset: data:; font-src 'self'; connect-src ipc: 'self';
-frame-src 'none'; object-src 'none'; form-action 'none'
+img-src 'self' notes-asset: data: https:; font-src 'self';
+connect-src ipc: 'self' http://ipc.localhost; frame-src 'none';
+object-src 'none'; form-action 'none'; base-uri 'none'
 ```
 
 `'unsafe-inline'` for styles is a CodeMirror requirement; scripts stay strict.
+`tools/csp.py` fails the gate when this block and the file disagree.
+
+**`https:` in `img-src` is not the privacy boundary — the renderer is**
+(ADR-089, since 1.8.8). The CSP is per process, so it cannot know which
+workspace opted in; what keeps a note from phoning home is that no remote URL
+reaches the page unless that workspace allowed remote images. A Markdown image
+becomes a `blocked-image` placeholder and a raw-HTML `<img>` loses its `src`
+(1.8.7), and both are listed in `Rendered.blocked_remote` for the banner that
+offers the opt-in. Plain `http:` and `*` stay out: a widening beyond `https:`
+is a new decision, and `tools/csp.py` refuses it until an ADR makes it.
 
 One window, one workspace, no tray. Since 1.1.0, desktop updates use native
 HTTPS and pinned signatures, with explicit installation after closing the

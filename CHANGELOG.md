@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.8 - the allow-remote-images opt-in shows the image, now that nothing reaches the page without it
+
+Clicking *Allow* on the blocked-images banner turned the placeholder into a real
+`<img src="https://…">` and cleared the banner -- and the webview's CSP, whose
+`img-src` was `'self' notes-asset: data:`, refused the fetch. The user traded the
+one explanation they had for a broken-image icon. It never showed in `tauri dev`,
+because the CSP is injected only when Tauri serves the page, not when Vite does.
+
+**`img-src` now also allows `https:`** (ADR-089, owner answer `q_imagens`). The
+CSP is per process, so it cannot know which workspace opted in; that is why this
+was the third step and not the first. After 1.8.6 and 1.8.7 no remote URL reaches
+the page unless the workspace allowed remote images -- a Markdown image becomes a
+placeholder and a raw-HTML `<img>` loses its `src` -- so the renderer is the
+privacy boundary and the CSP no longer has to be.
+
+**`tools/csp.py` joins the gate and the CI contracts job.** It fails when
+`img-src` is anything but those four sources -- plain `http:` or `*` would be a
+new decision and needs its own ADR -- and when `ARCHITECTURE.md` §10 prints a
+CSP different from the file. It found that on its first run: the page had
+been missing `base-uri 'none'` and `http://ipc.localhost` for several versions.
+
+ADR-090 and ADR-094 still said *not yet built* after 1.8.0 and 1.8.1 built them;
+their status lines now name the version. `devCsp` is still not declared: the dev
+webview is served by Vite, whose hot-reload socket a copy of the production CSP
+would refuse, and nothing here could check that without a desktop session.
+
 ## 1.8.7 - a remote image in raw HTML obeys the opt-in and shows up in the blocked-images banner
 
 ADR-089 makes the *allow remote images* opt-in work by adding `https:` to the

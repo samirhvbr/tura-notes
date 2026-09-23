@@ -131,6 +131,7 @@ jobs:
             if "$@"; then echo '   ok'; else echo "::error::$*"; fail=1; fi
           }
           run "a serde wrapper declares its wire shape"  python3 tools/ts-serde.py
+          run "the desktop CSP is the one ADR-089 allows" python3 tools/csp.py
           run "every document declares one of the five statuses" tools/doc-status.sh
           run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py
           run "updater publication"                     python3 tools/tests/test_updater_release.py

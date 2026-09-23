@@ -2865,7 +2865,7 @@ wait for.
 
 ## ADR-089 — Remote images load over https, and raw HTML obeys the same opt-in first
 
-**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_imagens` · not yet built
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_imagens` · built in 1.8.6, 1.8.7 and 1.8.8
 
 **Decision.** The "allow remote images" opt-in stays, and works: `https:` is
 added to the preview's `img-src`. **That change is the last of three and may not
@@ -2890,7 +2890,7 @@ documentation rules exist to prevent.
 
 ## ADR-090 — A file name that is not valid UTF-8 is carried as it is, and works
 
-**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_utf8` · not yet built
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_utf8` · built in 1.8.0
 
 **Decision.** The filesystem adapter carries the raw `OsString` beside the
 `RelPath` for every entry, so a file whose name is not valid UTF-8 can be
@@ -2996,7 +2996,7 @@ agent.
 
 ## ADR-094 — A receive barrier that cannot verify its reload keeps the lock and offers a restart
 
-**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_barreira` · not yet built
+**Status:** `ACCEPTED` · 23/09/2026 · owner answer `q_barreira` · built in 1.8.1
 
 **Decision.** When the verified reload after applying received revisions cannot
 succeed, the barrier stays in place and the window offers *restart the

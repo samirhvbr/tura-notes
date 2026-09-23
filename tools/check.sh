@@ -165,6 +165,8 @@ step "generated types"      bash -c '
 step "no fs capability"     bash -c '
   ! grep -rqE "\"fs:[a-z-]+\"" apps/notes-app/src-tauri/capabilities/'
 step "serde/ts pairing"    python3 tools/ts-serde.py
+# The CSP the webview runs under, and the page that prints it (ADR-089).
+step "desktop CSP"         python3 tools/csp.py
 # The bundle version is stamped from version.md at build time (ADR-035). What
 # is committed is the placeholder; a real number here is a second copy of the
 # version, and it is the copy that goes stale.
