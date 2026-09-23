@@ -8,6 +8,11 @@ use std::path::{Path, PathBuf};
 pub struct LocalFs {
     root: PathBuf,
     caps: Caps,
+    /// Directory listings served, for one assertion: that opening a workspace
+    /// and showing its root reads a constant number of directories whatever
+    /// the tree's size. That is the mechanism behind ADR-034's one-second rule,
+    /// and unlike the elapsed time it does not depend on the runner's disk.
+    lists: std::sync::atomic::AtomicU64,
 }
 
 impl LocalFs {
@@ -28,7 +33,14 @@ impl LocalFs {
         Ok(Self {
             root: canonical,
             caps: Caps::LOCAL,
+            lists: std::sync::atomic::AtomicU64::new(0),
         })
+    }
+
+    /// How many directory listings this instance has served. For tests.
+    #[doc(hidden)]
+    pub fn lists_served(&self) -> u64 {
+        self.lists.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn with_caps(mut self, caps: Caps) -> Self {
@@ -144,6 +156,8 @@ impl FileSystem for LocalFs {
     }
 
     fn list(&self, dir: &RelPath) -> Result<Vec<Entry>> {
+        self.lists
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let abs = self.resolve(dir)?;
         let mut out = Vec::new();
         let rd = fs::read_dir(&abs).map_err(|e| CoreError::io("read_dir", abs.display(), &e))?;

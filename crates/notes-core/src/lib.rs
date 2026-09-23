@@ -179,6 +179,16 @@ impl Open {
 struct PathState {
     index: Option<index::PathIndex>,
     stale: bool,
+    /// How many walks this workspace has started. The property the quick-open
+    /// cache promises — *an invalidation does not restart a walk that is still
+    /// running* — is a count of starts, and counting it per workspace keeps a
+    /// test's reading free of every other workspace in the same process.
+    walks: u32,
+    /// How many of those starts replaced a walk **that was still running** —
+    /// the one event the rule forbids. Counted at the point of replacement,
+    /// because from outside "a new walk started" looks the same whether the
+    /// previous one had finished or was cut short.
+    replaced_running: u32,
 }
 
 struct Open {
@@ -1553,9 +1563,15 @@ impl WorkspaceService {
         // ends starts a fresh one.
         let rebuild = match state.index.as_ref() {
             None => true,
-            Some(ix) => state.stale && !ix.snapshot().building,
+            // `size()`, not `snapshot()`: the question is only whether the walk
+            // is still running, and a snapshot copies the whole path list to
+            // answer it — on every keystroke of `Ctrl+P`.
+            Some(ix) => state.stale && !ix.size().1,
         };
         if rebuild {
+            if state.index.as_ref().is_some_and(|ix| ix.size().1) {
+                state.replaced_running += 1;
+            }
             // Dropping the previous index cancels its walk.
             state.index = Some(index::PathIndex::start(
                 open.fs.root(),
@@ -1563,6 +1579,7 @@ impl WorkspaceService {
                 show_hidden,
             ));
             state.stale = false;
+            state.walks += 1;
         }
         let snapshot = state.index.as_ref().expect("just set").snapshot();
         drop(state);
@@ -1573,6 +1590,23 @@ impl WorkspaceService {
             building: snapshot.building,
             unreadable: snapshot.unreadable,
         })
+    }
+
+    /// Directory listings the open workspace's adapter has served. For tests:
+    /// the one-second rule is asserted as this staying constant across the
+    /// open path, whatever the size of the tree.
+    #[doc(hidden)]
+    pub fn fs_lists_served(&self) -> Result<u64> {
+        Ok(self.open()?.fs.lists_served())
+    }
+
+    /// `(walks started, walks that replaced a running one)` for this
+    /// workspace. For tests: the no-restart rule above is asserted as the
+    /// second number staying at zero, not as a deadline.
+    #[doc(hidden)]
+    pub fn quick_open_walks(&self) -> Result<(u32, u32)> {
+        let state = self.open()?.paths.lock().unwrap();
+        Ok((state.walks, state.replaced_running))
     }
 
     /// Start a content search. **Starting one cancels the previous**, because

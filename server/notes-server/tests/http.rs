@@ -327,9 +327,19 @@ async fn reject_invalid_inputs_and_browser_credentials() {
     assert_eq!(response.1["cache-control"], "no-store");
     assert_eq!(response.2, json!({"status":"ok"}));
 }
+/// Sixty requests a minute per credential, asserted against a frozen clock.
+///
+/// Against the real clock this failed twice on `windows-latest` on commits
+/// that changed only documents: the sixty requests took longer than the
+/// sixty-second window, the window expired mid-test, and the sixty-first was
+/// allowed. The limiter was right both times; the test was timing the runner.
 #[tokio::test]
 async fn rate_limit_bounds_authenticated_requests() {
-    let f = Fixture::new(&[Permission::Read]);
+    let mut f = Fixture::new(&[Permission::Read]);
+    let at = std::sync::Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
+    f.app = api::router(
+        api::Server::new(f.data.clone(), None).with_clock(api::Clock::manual(at.clone())),
+    );
     for _ in 0..60 {
         assert_eq!(
             f.request("GET", COLLECTION, None, &[]).await.0,
@@ -339,6 +349,19 @@ async fn rate_limit_bounds_authenticated_requests() {
     let denied = f.request("GET", COLLECTION, None, &[]).await;
     assert_eq!(denied.0, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(denied.1["retry-after"], "60");
+
+    // And what the real clock could never show deterministically: the window
+    // ends. One second short of it, still refused; at sixty seconds, allowed.
+    *at.lock().unwrap() += std::time::Duration::from_secs(59);
+    assert_eq!(
+        f.request("GET", COLLECTION, None, &[]).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    *at.lock().unwrap() += std::time::Duration::from_secs(1);
+    assert_eq!(
+        f.request("GET", COLLECTION, None, &[]).await.0,
+        StatusCode::OK
+    );
 }
 
 /// MCP over HTTP answers from the same catalogue, filtered by the same

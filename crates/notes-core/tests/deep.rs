@@ -70,11 +70,15 @@ fn where_the_time_goes_opening_a_workspace_full_of_directories() {
     );
 
     // The rule this milestone adds: a tree in under a second, at any size.
-    // Everything that needs the whole tree belongs in the background.
+    // Everything that needs the whole tree belongs in the background — which
+    // is asserted as the directories read on the open path (ADR-095), because
+    // the elapsed time on a shared runner measured the runner: this exact line
+    // failed at 1 113 ms on `1.7.20` on code that had measured 15 ms on `1.7.18`.
+    let reads = svc.fs_lists_served().unwrap();
+    println!("directories read:   {reads}   (of {dirs})");
     assert!(
-        (opened + listed).as_secs_f64() < 1.0,
-        "opening and listing took {}, over the one-second rule",
-        ms(opened + listed)
+        reads <= 4,
+        "opening and listing read {reads} of {dirs} directories: the open path is walking the tree"
     );
 
     // And the two calls that used to break it. Before ADR-034 they cost
@@ -243,34 +247,53 @@ fn opened(root: &Path) -> (WorkspaceService, tempfile::TempDir) {
 /// summary, so a regression on them is visible in the run rather than silent —
 /// a reading nobody has to chase, and nobody has to override.
 ///
+/// **ADR-095 then took the verdict off Linux too, and put it on the
+/// mechanism.** On `1.7.20` the same code measured 15 ms, 295 ms, 1 113 ms and
+/// 185 ms on `ubuntu-latest` — the least contended runner was not uncontended.
+/// The rule holds because opening and listing **do not walk the tree**, so that
+/// is what is asserted: the number of directories read on the open path is the
+/// same for a tree of 10 repositories and one of 120. The time is still
+/// measured and published everywhere, and is still judged on real hardware in
+/// the owner's walk.
+///
 /// [ADR-080]: ../../../docs/decisions.md
 #[test]
 fn the_tree_appears_in_well_under_a_second() {
-    let tree = DeepTree::build(120);
-    let data = tempfile::tempdir().unwrap();
-    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    // Directories read on the way to a usable root, for a given tree.
+    let reads = |repos: usize| {
+        let tree = DeepTree::build(repos);
+        let data = tempfile::tempdir().unwrap();
+        let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+        let t = Instant::now();
+        svc.open_workspace(tree.path()).unwrap();
+        let top = svc.list_dir(&RelPath::root()).unwrap();
+        let elapsed = t.elapsed();
+        assert_eq!(top.len(), repos, "the root listed");
+        (svc.fs_lists_served().unwrap(), tree.dirs, elapsed)
+    };
 
-    let t = Instant::now();
-    svc.open_workspace(tree.path()).unwrap();
-    let top = svc.list_dir(&RelPath::root()).unwrap();
-    let elapsed = t.elapsed();
+    let (small, _, _) = reads(10);
+    let (large, dirs, elapsed) = reads(120);
 
-    assert_eq!(top.len(), 120, "the root listed");
-    publish_open_cost(tree.dirs, elapsed);
+    // The reading: published everywhere, a verdict nowhere (ADR-095).
+    publish_open_cost(dirs, elapsed);
     println!(
-        "the tree appeared in {} over {} directories",
+        "the tree appeared in {} over {} directories, reading {} of them",
         ms(elapsed),
-        tree.dirs
+        dirs,
+        large
     );
 
-    if cfg!(target_os = "linux") {
-        assert!(
-            elapsed.as_secs_f64() < 1.0,
-            "{} directories took {} to a usable tree, over the one-second rule",
-            tree.dirs,
-            ms(elapsed)
-        );
-    }
+    // The verdict: the open path reads a constant number of directories.
+    assert_eq!(
+        small, large,
+        "opening and listing read {small} directories for a small tree and {large} \
+         for one with {dirs}: the open path is walking the tree"
+    );
+    assert!(
+        large <= 4,
+        "opening and listing read {large} directories; the root and a probe should be all"
+    );
 }
 
 /// Put the measurement in the CI run's own summary, on every platform.
@@ -564,47 +587,63 @@ fn where_the_time_goes_on_a_real_folder() {
 /// **while the churn is still going**.
 #[test]
 fn an_index_that_is_still_building_is_not_restarted_by_a_change() {
-    // Smaller than the other criteria on purpose. The property is
-    // size-independent — under the old rule this fails at any size, because the
-    // churn always outpaces the walk — and this is the one test whose *main
-    // thread* competes with the walk for the disk. On a two-core runner with
-    // four other tests building corpora beside it, a larger tree measures the
-    // runner's I/O rather than the rule.
+    // Asserted as an **event count**, not as "the index finishes within 120 s
+    // while the churn goes on". The deadline version failed on Windows three
+    // times and on Linux once (`1.7.23`, a commit that changed only documents),
+    // and every failure showed `indexed` still climbing — 5,270 of a tree the
+    // churn had grown past 5,700 — which is what a walk that was *not*
+    // restarted looks like. The deadline measured the runner's disk.
+    //
+    // The event is counted where it happens: a walk replaced **while still
+    // running**. Counting starts alone is not enough — the first attempt at
+    // this test did that, and a walk that had legitimately finished between two
+    // calls, followed by the fresh walk the remembered staleness asks for,
+    // read as a violation.
     let tree = DeepTree::build(120);
     let (mut svc, _data) = opened(tree.path());
 
     let first = svc.quick_open("readme", 10).unwrap();
     assert!(first.building, "the walk is still going at this size");
 
-    let deadline = Instant::now() + Duration::from_secs(120);
-    let mut last = first;
+    // Enough changes to exercise the rule many times over, and no deadline.
     let mut ticks = 0;
-    while Instant::now() < deadline {
+    while ticks < 200 {
         // `create_note` is the tree change that needs no watcher to reach the
         // invalidation, and it is what a user creating notes does anyway.
         svc.create_note(&RelPath::root(), &format!("churn{ticks}"))
             .unwrap();
         ticks += 1;
-        last = svc.quick_open("readme", 10).unwrap();
-        if !last.building {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(1));
+        let q = svc.quick_open("readme", 10).unwrap();
+        let (_, replaced) = svc.quick_open_walks().unwrap();
+        assert_eq!(
+            replaced, 0,
+            "change {ticks} replaced a walk that was still running: {q:?}"
+        );
     }
 
+    // And the staleness is remembered rather than lost: once the churn stops,
+    // the last note created is findable. Waiting is a hang guard, not the
+    // property — nothing is changing the tree any more.
+    let last = format!("churn{}", ticks - 1);
+    let guard = Instant::now() + Duration::from_secs(300);
+    let found = loop {
+        let q = svc.quick_open(&last, 10).unwrap();
+        if !q.building && q.matches.iter().any(|m| m.name.starts_with(&last)) {
+            break true;
+        }
+        if Instant::now() > guard {
+            break false;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
     assert!(
-        ticks > 1,
-        "the list was invalidated more than once: {ticks}"
+        found,
+        "the last change reached the list once things were quiet"
     );
+    let (walks, replaced) = svc.quick_open_walks().unwrap();
+    assert_eq!(replaced, 0);
     assert!(
-        !last.building,
-        "the index finished while the workspace kept changing — it did not, \
-         which means an invalidation restarted a walk that was still running: \
-         {last:?} after {ticks} changes"
-    );
-    assert!(
-        last.indexed >= 120 * 8,
-        "and it indexed the whole workspace: {}",
-        last.indexed
+        walks >= 2,
+        "the invalidations were remembered and cost a fresh walk: {walks}"
     );
 }

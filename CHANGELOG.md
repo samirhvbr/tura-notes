@@ -7,6 +7,51 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.28 - three timing assertions become event counts, and one of them never caught its own regression
+
+CI failed on `ubuntu-latest` on two of three recent runs, both times on a
+commit that changed only documents, both times on a wall-clock assertion. Round
+7's rule is that red CI is the next item, so R7-07 moved ahead of everything
+else: without it, green and red stopped meaning anything.
+
+**The one-second ceiling** (ADR-034's first rule) is asserted in two tests. On
+code that did not change it measured 15, 295, 1 113 and 185 ms on the same
+runner. It is now asserted as its mechanism: the number of directories the open
+path reads, which is 2 of 20 962 in `fixtures/deep` and identical for trees of
+10 and 120 repositories. **With a synchronous walk of the whole tree injected
+into `open_workspace` -- the regression that froze `~/x` -- the open took 38 ms
+here, well inside the ceiling.** The timing test would have passed it. The read
+count went from 2 to 2 163 and failed immediately.
+
+**The index-while-churning test** asserted that the walk finishes within 120 s
+while notes keep being created. Its failures all showed the count still
+climbing, which is what a walk that was *not* restarted looks like. It now
+counts, at the point of replacement, walks replaced while still running. The
+first version of the new test counted walk starts and failed on the legitimate
+fresh walk that remembered staleness asks for; counting at the replacement is
+what tells the two apart. With the old restart-on-every-change rule put back,
+it fails on the first change. It runs in half a second.
+
+**The rate-limit test** sent sixty requests and expected the sixty-first to be
+refused; on a slow runner the sixty took longer than the window and it expired
+mid-test. The limiter now reads an injected clock, the test freezes it, and it
+also asserts what the real clock never could deterministically: at 59 seconds
+still refused, at 60 allowed.
+
+The counters are per instance -- `LocalFs` counts listings, the quick-open state
+counts walks -- because a process-global counter read beside parallel tests is
+the flake `1.7.20` fixed. **ADR-095** amends ADR-080: a timing criterion is
+asserted as its mechanism and its time is only published. The two 100 ms
+ceilings on `start_watch` and the first `quick_open` stay; they do no I/O on the
+calling thread and run at 0.07 ms.
+
+**The fourth "intermittent" was not a timing assertion.** The Windows-only
+`control.rs` test has no deadline and no wait; its peer log shows 3 entries
+where 4 are expected. It was grouped here by mistake and is now its own item,
+R7-09, with a way to diagnose it from CI without a Windows machine. While at it,
+`quick_open` stops copying the whole path list on every keystroke just to ask
+whether the walk is still running.
+
 ## 1.7.27 - milestone 0.4 gets a runbook for the MacBook, written and not yet run
 
 ADR-092 moved the mobile milestone off this machine's firmware. `docs/OWNER-ACTS.md`

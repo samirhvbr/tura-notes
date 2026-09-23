@@ -24,6 +24,33 @@ use tokio::sync::Semaphore;
 use uuid::Uuid;
 
 const BODY_LIMIT: usize = 16 * 1024 * 1024;
+
+/// Where the rate limiter reads the time.
+///
+/// The limiter's window is sixty seconds of *this* clock, and the test that
+/// bounds it used to read the real one: sixty authenticated requests followed
+/// by one that must be refused. On a contended Windows runner the sixty took
+/// longer than a minute, the window expired under the test, and the sixty-first
+/// was allowed — red on two documentation-only commits, and nothing to do with
+/// the limiter. A test that freezes this clock asserts the window itself, and
+/// can also assert what the old one could not: that the window does expire.
+#[derive(Clone)]
+pub struct Clock(Arc<dyn Fn() -> Instant + Send + Sync>);
+
+impl Clock {
+    pub fn system() -> Self {
+        Clock(Arc::new(Instant::now))
+    }
+    /// A clock that reads whatever the caller last stored. For tests.
+    #[doc(hidden)]
+    pub fn manual(at: Arc<Mutex<Instant>>) -> Self {
+        Clock(Arc::new(move || *at.lock().expect("clock")))
+    }
+    fn now(&self) -> Instant {
+        (self.0)()
+    }
+}
+
 #[derive(Clone)]
 pub struct Server {
     pub data: PathBuf,
@@ -33,10 +60,18 @@ pub struct Server {
     trusted_hops: usize,
     slots: Arc<Semaphore>,
     rates: Arc<Mutex<HashMap<String, (Instant, u32)>>>,
+    clock: Clock,
 }
 impl Server {
     pub fn new(data: PathBuf, trusted_proxy: Option<IpAddr>) -> Self {
         Self::with_hops(data, trusted_proxy, 1)
+    }
+
+    /// The same server, reading time from `clock`. For tests.
+    #[doc(hidden)]
+    pub fn with_clock(mut self, clock: Clock) -> Self {
+        self.clock = clock;
+        self
     }
 
     pub fn with_hops(data: PathBuf, trusted_proxy: Option<IpAddr>, trusted_hops: usize) -> Self {
@@ -46,6 +81,7 @@ impl Server {
             trusted_hops: trusted_hops.max(1),
             slots: Arc::new(Semaphore::new(8)),
             rates: Arc::new(Mutex::new(HashMap::new())),
+            clock: Clock::system(),
         }
     }
 
@@ -83,11 +119,12 @@ impl Server {
         let Ok(mut rates) = self.rates.lock() else {
             return false;
         };
-        rates.retain(|_, (time, _)| time.elapsed() < Duration::from_secs(60));
+        let now = self.clock.now();
+        rates.retain(|_, (time, _)| now.saturating_duration_since(*time) < Duration::from_secs(60));
         if rates.len() >= 4096 && !rates.contains_key(&key) {
             return false;
         }
-        let entry = rates.entry(key).or_insert((Instant::now(), 0));
+        let entry = rates.entry(key).or_insert((now, 0));
         entry.1 += 1;
         entry.1 <= limit
     }

@@ -2371,6 +2371,7 @@ name, because a field added on one side only is invisible rather than broken.
 
 **Status:** `ACCEPTED` · 17/09/2026 · amends
 [ADR-034](#adr-034--the-tree-appears-in-under-a-second-at-any-size-whole-tree-work-is-background-work)
+· amended by [ADR-095](#adr-095--a-timing-criterion-is-asserted-as-its-mechanism-and-its-time-is-only-published)
 
 **Context.** ADR-034's first rule is an acceptance criterion: `workspace_open`
 returns and the tree appears in **under one second, at any size**. It was
@@ -2984,3 +2985,46 @@ fail for good, and "Retry safe reload" can never succeed.
 **Consequences.** Round 7 item R6-07 builds both halves: re-reading the document
 after the barrier is acquired, which needed no decision, and the restart that
 this one chose.
+
+---
+
+## ADR-095 — A timing criterion is asserted as its mechanism, and its time is only published
+
+**Status:** `ACCEPTED` · 23/09/2026 · amends
+[ADR-080](#adr-080--a-timing-criterion-is-asserted-where-its-numbers-came-from-and-published-everywhere-else)
+
+**Decision.** Where a test guards a timing criterion, it asserts the **mechanism**
+that makes the criterion true, counted as events, and the elapsed time is
+measured and published but is not a verdict on any platform. ADR-034's
+one-second rule is asserted as *the open path reads a constant number of
+directories, whatever the size of the tree*; the no-restart rule for the
+quick-open walk as *no walk is replaced while it is still running*; the rate
+limit as *sixty requests in a window of an injected clock*.
+
+**Context.** ADR-080 kept the one-second ceiling asserted on Linux because the
+Linux runner was the least contended of the three. Measured on 23/09, on code
+that did not change between the runs: 15 ms at `1.7.18`, 295 ms at `1.7.19`,
+1 113 ms at `1.7.20` — a failure — and 185 ms on a re-run of that same job. The
+index test failed on Linux on `1.7.23`, a commit that changed only documents,
+with the walk's count still climbing, which is what a walk that was **not**
+restarted looks like. Two red runs out of three were the runner; ADR-080's own
+reasoning — *a check that is red for a reason which is not the code spends the
+attention the next real finding needs* — applies to Linux now as well.
+
+**The better reason is that the timing assertion did not catch its own
+regression.** With a synchronous walk of the whole tree injected into
+`open_workspace` — the exact failure that froze `~/x` — the open took **38 ms**
+on the owner's machine, comfortably under the ceiling. The read count went from
+2 to 2 163 and failed at once. On a fast disk the clock is not a test of the
+mechanism at all.
+
+**Consequences.** Three assertions change: `deep.rs`'s two one-second ceilings,
+the index-while-churning test, and the rate-limit test, which now drives an
+injected clock and asserts the window's expiry as well — something the real
+clock could never show deterministically. `LocalFs` counts the listings it
+serves and the quick-open state counts its walks; both are per instance, because
+a process-global counter read beside parallel tests is the flake `1.7.20` fixed.
+The two `start_watch` and first-`quick_open` ceilings of 100 ms stay: they do no
+I/O on the calling thread and have run at 0.07 ms, three orders of magnitude
+inside the bound. The owner's walk on real hardware remains where the one-second
+promise is judged.
