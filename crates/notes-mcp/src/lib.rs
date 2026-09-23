@@ -77,6 +77,13 @@ pub fn error(id: Value, code: i32, message: &str) -> Value {
 /// `notes_delete` exists — the catalogue is the authorization surface, not just
 /// a menu.
 pub fn tools(config: &AgentConfig) -> Value {
+    // A string, and that is the point of the type (R6-21). `BaseRev.mtime_ns`
+    // is an `i128` sent as a decimal string because it is ~1.7e18 and a JSON
+    // number past 9.0e15 is rounded by any JavaScript host. This schema is the
+    // only published declaration of the type, and it said `number`: an agent
+    // that obeyed it had its revision rounded and every write refused as stale,
+    // forever; one that copied the string was refused by a host that validates
+    // arguments. The server still accepts a number, but no longer asks for one.
     let specs = [
         (
             "notes_list",
@@ -100,28 +107,28 @@ pub fn tools(config: &AgentConfig) -> Value {
         ),
         (
             "notes_update",
-            "Replace note text only if base_rev still matches.",
+            "Replace note text only if base_rev still matches. Pass base_rev exactly as notes_read returned it.",
             vec!["path", "text", "base_rev"],
         ),
         (
             "notes_append",
-            "Append once per note and base_rev; retrying does not duplicate text.",
+            "Append once per note and base_rev; retrying does not duplicate text. Pass base_rev exactly as notes_read returned it.",
             vec!["path", "text", "base_rev"],
         ),
         (
             "notes_move",
-            "Move a note within scope. References are not rewritten.",
+            "Move a note within scope. References are not rewritten. Pass base_rev exactly as notes_read returned it.",
             vec!["path", "to", "base_rev"],
         ),
         (
             "notes_delete",
-            "Delete a note if separately permitted and base_rev matches.",
+            "Delete a note if separately permitted and base_rev matches. Pass base_rev exactly as notes_read returned it.",
             vec!["path", "base_rev"],
         ),
     ];
     Value::Array(specs.into_iter().filter(|(name,_,_)|AgentService::permission(name).is_some_and(|p|config.permissions.contains(&p))).map(|(name,description,required)|{
         let mut properties=serde_json::Map::new();
-        for field in &required {properties.insert((*field).into(),if *field=="base_rev"{json!({"type":"object","properties":{"size":{"type":"integer","minimum":0},"mtime_ns":{"type":"number"},"hash":{"type":"string"}},"required":["size","mtime_ns","hash"],"additionalProperties":false})}else{json!({"type":"string"})});}
+        for field in &required {properties.insert((*field).into(),if *field=="base_rev"{json!({"type":"object","properties":{"size":{"type":"integer","minimum":0},"mtime_ns":{"type":"string","pattern":"^-?[0-9]+$"},"hash":{"type":"string"}},"required":["size","mtime_ns","hash"],"additionalProperties":false})}else{json!({"type":"string"})});}
         if matches!(name,"notes_list"|"notes_search"){properties.insert("limit".into(),json!({"type":"integer","minimum":1,"maximum":200}));}
         json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":matches!(name,"notes_list"|"notes_search"|"notes_read"),"destructiveHint":matches!(name,"notes_update"|"notes_move"|"notes_delete"),"openWorldHint":false}})
     }).collect())

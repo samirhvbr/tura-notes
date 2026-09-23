@@ -289,3 +289,39 @@ fn concurrent_app_and_mcp_writers_have_one_winner() {
         );
     }
 }
+
+/// R6-21: the schema declares `mtime_ns` as what the wire carries -- a string --
+/// and the base_rev a read returns satisfies the write schema as published.
+#[test]
+fn the_published_base_rev_type_is_the_one_a_read_returns() {
+    let root = tempfile::tempdir().unwrap();
+    let data = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("a.md"), "x").unwrap();
+    let cfg = config(root.path(), json!(["read", "update"]), "", false);
+    let mut c = Client::start(cfg.path(), data.path());
+    let listed = c.rpc("tools/list", json!({}));
+    let update = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "notes_update")
+        .unwrap()
+        .clone();
+    let declared = &update["inputSchema"]["properties"]["base_rev"]["properties"]["mtime_ns"];
+    assert_eq!(declared["type"], "string");
+    let read = body(&c.call("notes_read", json!({"path":"a.md"})));
+    let sent = &read["base_rev"]["mtime_ns"];
+    assert!(sent.is_string(), "{sent}");
+    let pattern = declared["pattern"].as_str().unwrap();
+    assert_eq!(pattern, "^-?[0-9]+$");
+    assert!(sent
+        .as_str()
+        .unwrap()
+        .chars()
+        .all(|ch| ch.is_ascii_digit() || ch == '-'));
+    let written = c.call(
+        "notes_update",
+        json!({"path":"a.md","text":"y","base_rev":read["base_rev"]}),
+    );
+    assert_eq!(written["result"]["isError"], false);
+}

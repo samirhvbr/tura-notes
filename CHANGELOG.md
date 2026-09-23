@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.19 - the MCP schema declares base_rev's mtime_ns as the string it is on the wire
+
+`BaseRev.mtime_ns` is an `i128` sent as a decimal string on purpose: it is
+about 1.7e18, and a JSON number past 9.0e15 is rounded by any JavaScript host
+(DECISIONS-0.1a D-16). The REST API never shows the shape, since `base_rev`
+travels there as an ETag. `notes_mcp::tools` is the one catalogue that stdio
+and `POST /v1/mcp` share, so its schema was the only published declaration of
+the type. It said `{"type":"number"}`.
+
+Both ways of reading that were a loss. An agent that obeyed it sent a number,
+its host rounded it, the server accepted the rounded value, and every write was
+then refused as stale, on every retry. An agent that copied the string, as
+KNOWLEDGE-0.3 says to, was refused by any host that validates arguments against
+the schema before the call leaves. No test caught it, because the stdio and
+`mcp.py` tests echo the parsed object back and so keep the string.
+
+**The schema now says `{"type":"string","pattern":"^-?[0-9]+$"}`**, and the four
+write tools' descriptions say to pass `base_rev` exactly as `notes_read`
+returned it. That instruction used to exist only on a page no MCP client reads.
+The server still accepts a number.
+
+Test (stdio): the published type is `string`, the `base_rev` a read returns is a
+string matching the published pattern, and a write sent with it succeeds.
+
 ## 1.8.18 - an MCP tool failure no longer hands the agent the server's absolute paths
 
 A failed MCP tool call serialised the whole `CoreError` into the text the agent

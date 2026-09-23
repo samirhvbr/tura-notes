@@ -142,6 +142,10 @@ cancellation capability in this version.
 
 Read returns `note_id`, `path`, `text`, `base_rev` and `read_only`, not drafts or
 conflict snapshots. Copy `base_rev` unchanged into an update/append/move/delete.
+Its `mtime_ns` is a decimal **string**, and the schema says so (since 1.8.19; it
+said `number`, and a JavaScript host rounds a number that large, which turned
+every later write into a stale-revision refusal). The write tools' descriptions
+repeat this, because no MCP client reads this page.
 Create has no existing revision and exclusively creates a new file; it refuses
 collisions. All other writes compare the current content hash under the shared
 workspace lock, even when size and mtime match. App and MCP enrollment also
