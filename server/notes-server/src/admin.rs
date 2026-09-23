@@ -220,17 +220,41 @@ pub fn audit(
     result: &str,
     request: &str,
 ) -> Result<()> {
-    audit_target(root, actor, peer, operation, result, request, None)
+    audit_event(
+        root,
+        &Event {
+            actor,
+            peer,
+            operation,
+            result,
+            request,
+            target_ref: None,
+            client: None,
+        },
+    )
 }
-pub fn audit_target(
-    root: &Path,
-    actor: &str,
-    peer: &str,
-    operation: &str,
-    result: &str,
-    request: &str,
-    target_ref: Option<&str>,
-) -> Result<()> {
+/// One line of `audit/events.jsonl`.
+pub struct Event<'a> {
+    pub actor: &'a str,
+    /// The transport hop: behind a proxy, the proxy.
+    pub peer: &'a str,
+    pub operation: &'a str,
+    pub result: &'a str,
+    pub request: &'a str,
+    pub target_ref: Option<&'a str>,
+    /// The address the request was charged to (R6-19).
+    pub client: Option<&'a str>,
+}
+pub fn audit_event(root: &Path, e: &Event<'_>) -> Result<()> {
+    let Event {
+        actor,
+        peer,
+        operation,
+        result,
+        request,
+        target_ref,
+        client,
+    } = *e;
     let mut lock = fd_lock::RwLock::new(private_file(&root.join("audit/lock"), false)?);
     let _guard = lock.write()?;
     let path = root.join("audit/events.jsonl");
@@ -256,7 +280,14 @@ pub fn audit_target(
     let time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs();
-    let event = serde_json::json!({"time":time,"actor":actor,"peer":peer,"operation":operation,"result":result,"request":request,"target_ref":target_ref});
+    // `peer` is the transport hop; `client` is the address the request was
+    // charged to, which behind a proxy is the only one that names the caller.
+    // Both are kept, so a forged `X-Forwarded-For` is visible beside the truth
+    // instead of replacing it (R6-19).
+    let mut event = serde_json::json!({"time":time,"actor":actor,"peer":peer,"operation":operation,"result":result,"request":request,"target_ref":target_ref});
+    if let Some(client) = client {
+        event["client"] = client.into();
+    }
     writeln!(file, "{event}")?;
     file.sync_data()?;
     Ok(())

@@ -373,7 +373,8 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
     if request.headers().contains_key("origin") {
         return Err(err(StatusCode::FORBIDDEN, "browser_origin_denied"));
     }
-    if !server.rate_address(server.charged_address(peer, request.headers())) {
+    let client = server.charged_address(peer, request.headers());
+    if !server.rate_address(client) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
     }
     if request.method() == "GET" && request.uri().path() == "/healthz" {
@@ -415,13 +416,17 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
             .filter(|s| s.len() < 200)
             .and_then(|s| admin::authenticate(&store, s));
         let Some(credential) = credential else {
-            admin::audit(
+            admin::audit_event(
                 &server.data,
-                "anonymous",
-                &peer.to_string(),
-                "authenticate",
-                "denied",
-                &id,
+                &admin::Event {
+                    actor: "anonymous",
+                    peer: &peer.to_string(),
+                    operation: "authenticate",
+                    result: "denied",
+                    request: &id,
+                    target_ref: None,
+                    client: Some(&client.to_string()),
+                },
             )
             .map_err(|_| internal())?;
             return Err(err(StatusCode::UNAUTHORIZED, "unauthorized"));
@@ -429,42 +434,97 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
         if !server.rate_token(credential.id) {
             return Err(err(StatusCode::TOO_MANY_REQUESTS, "rate_limited"));
         }
-        // Only an allowlisted operation name enters the log, never a request URL.
-        let operation = match parts.method.as_str() {
-            "GET" => "read",
-            "POST" => "create_or_move",
-            "PUT" => "update",
-            "PATCH" => "append",
-            "DELETE" => "delete",
-            _ => "unsupported",
-        };
-        let target_ref = blake3::hash(parts.uri.path().as_bytes()).to_hex()[..20].to_owned();
-        admin::audit_target(
+        let (operation, target_ref) = audit_subject(&parts, &bytes);
+        admin::audit_event(
             &server.data,
-            &credential.id.to_string(),
-            &peer.to_string(),
-            operation,
-            "started",
-            &id,
-            Some(&target_ref),
+            &admin::Event {
+                actor: &credential.id.to_string(),
+                peer: &peer.to_string(),
+                operation: &operation,
+                result: "started",
+                request: &id,
+                target_ref: Some(&target_ref),
+                client: Some(&client.to_string()),
+            },
         )
         .map_err(|_| internal())?;
         let result = dispatch(&server, &credential, &parts, &bytes);
         let outcome = result.as_ref().map(|_| "ok").unwrap_or_else(|e| e.1);
-        admin::audit_target(
+        admin::audit_event(
             &server.data,
-            &credential.id.to_string(),
-            &peer.to_string(),
-            operation,
-            outcome,
-            &id,
-            Some(&target_ref),
+            &admin::Event {
+                actor: &credential.id.to_string(),
+                peer: &peer.to_string(),
+                operation: &operation,
+                result: outcome,
+                request: &id,
+                target_ref: Some(&target_ref),
+                client: Some(&client.to_string()),
+            },
         )
         .map_err(|_| internal())?;
         result
     })
     .await
     .map_err(|_| internal())?
+}
+/// Every tool `notes_mcp::tools` can publish; the audit names no other. A test
+/// holds the two lists together.
+#[doc(hidden)]
+pub const MCP_TOOLS: [&str; 8] = [
+    "notes_list",
+    "notes_search",
+    "notes_read",
+    "notes_create",
+    "notes_update",
+    "notes_append",
+    "notes_move",
+    "notes_delete",
+];
+/// What an audit line says was done, and to what: an allowlisted operation name
+/// and a short hash, never a URL, a path or an argument.
+///
+/// Built from the HTTP verb and the route, every MCP call was the same line --
+/// `POST /v1/mcp` is `create_or_move` with the hash of `/v1/mcp` -- so forty
+/// deletions through a leaked credential read exactly like forty creations
+/// (R6-19). For MCP the operation is the JSON-RPC method and, for a tool call,
+/// the tool's name, both checked against the catalogue so nothing a client sent
+/// reaches the log verbatim; the target is a hash of the `path` argument when
+/// there is one, which correlates calls on one note without naming it.
+fn audit_subject(parts: &axum::http::request::Parts, bytes: &[u8]) -> (String, String) {
+    let hash = |s: &str| blake3::hash(s.as_bytes()).to_hex()[..20].to_owned();
+    let route = parts.uri.path();
+    if parts.method == "POST" && route == "/v1/mcp" {
+        let message: Value = serde_json::from_slice(bytes).unwrap_or(Value::Null);
+        let method = match message["method"].as_str() {
+            Some(m @ ("initialize" | "ping" | "tools/list" | "tools/call")) => m,
+            Some(m) if m.starts_with("notifications/") => "notification",
+            Some(_) => "other",
+            None => "unparsed",
+        };
+        if method != "tools/call" {
+            return (format!("mcp:{method}"), hash(route));
+        }
+        let tool = message["params"]["name"]
+            .as_str()
+            .and_then(|name| MCP_TOOLS.iter().find(|t| **t == name))
+            .copied()
+            .unwrap_or("unknown");
+        let target = match message["params"]["arguments"]["path"].as_str() {
+            Some(path) => hash(&format!("path:{path}")),
+            None => hash(route),
+        };
+        return (format!("mcp:{tool}"), target);
+    }
+    let operation = match parts.method.as_str() {
+        "GET" => "read",
+        "POST" => "create_or_move",
+        "PUT" => "update",
+        "PATCH" => "append",
+        "DELETE" => "delete",
+        _ => "unsupported",
+    };
+    (operation.into(), hash(route))
 }
 /// MCP over HTTP: one JSON-RPC message in, one JSON-RPC response out.
 ///

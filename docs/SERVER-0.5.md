@@ -323,7 +323,16 @@ stack traces or note contents. Unknown routes return 404, not an HTML home page.
 `/data/workspaces` holds source files; `/data/state` holds core identity,
 registries and append receipts; `/data/admin` holds credential digests/schema and
 locks. `/data/audit` records time, credential UUID (or operator/anonymous), peer,
-operation, outcome, request UUID and a short hash of the requested route. The
+client, operation, outcome, request UUID and a short hash of the requested route.
+`peer` is the transport hop, which behind a proxy is always the proxy; `client`
+is the address the request was charged to, and both are kept, so a forged
+`X-Forwarded-For` shows up beside the truth instead of replacing it. An MCP call
+is recorded as `mcp:<tool>` for a tool call (checked against the catalogue,
+`mcp:unknown` otherwise) or `mcp:<method>` for the rest, and its reference is a
+hash of the `path` argument when there is one, so calls on one note correlate
+without the note being named (since 1.8.17; before, every MCP call was
+`create_or_move` on the same hash). The MCP outcome is the transport's: a tool
+that refused inside a successful JSON-RPC answer is still `ok`. The
 route reference allows correlating authorship without logging note paths or full
 note IDs. Clients receive `X-Request-Id` for support. Authentication failures and
 administrative actions are recorded. Mutation auditing starts before the core

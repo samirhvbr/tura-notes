@@ -475,6 +475,109 @@ async fn mcp_call_cannot_reach_outside_the_credential_scope() {
     );
 }
 
+fn audit_lines(f: &Fixture) -> Vec<Value> {
+    fs::read_to_string(f.data.join("audit/events.jsonl"))
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
+/// R6-19: an MCP call is audited as what it was. Every one used to be
+/// `create_or_move` on the hash of `/v1/mcp`, so a deletion read like a
+/// creation, and behind a proxy every line named the proxy as its peer.
+#[tokio::test]
+async fn an_mcp_call_is_audited_as_its_tool_and_note_behind_the_proxy_that_carried_it() {
+    let mut f = Fixture::new(&all());
+    f.app = api::router(api::Server::new(
+        f.data.clone(),
+        Some("127.0.0.1".parse().unwrap()),
+    ));
+    let via = [
+        ("x-forwarded-proto", "https"),
+        ("x-forwarded-for", "203.0.113.7"),
+    ];
+    let call = |name: &str, path: &str| {
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+               "params":{"name":name,"arguments":{"path":path}}})
+    };
+    f.request(
+        "POST",
+        "/v1/mcp",
+        Some(call("notes_read", "allowed/a.md")),
+        &via,
+    )
+    .await;
+    f.request(
+        "POST",
+        "/v1/mcp",
+        Some(call("notes_delete", "allowed/a.md")),
+        &via,
+    )
+    .await;
+    f.request(
+        "POST",
+        "/v1/mcp",
+        Some(call("rm -rf /", "allowed/b.md")),
+        &via,
+    )
+    .await;
+    f.request(
+        "POST",
+        "/v1/mcp",
+        Some(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})),
+        &via,
+    )
+    .await;
+
+    let lines: Vec<_> = audit_lines(&f)
+        .into_iter()
+        .filter(|l| l["result"] == "started")
+        .collect();
+    let ops: Vec<_> = lines
+        .iter()
+        .map(|l| l["operation"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ops,
+        [
+            "mcp:notes_read",
+            "mcp:notes_delete",
+            "mcp:unknown",
+            "mcp:tools/list"
+        ]
+    );
+    // One note, one reference; another note, another; and no path in the log.
+    assert_eq!(lines[0]["target_ref"], lines[1]["target_ref"]);
+    assert_ne!(lines[1]["target_ref"], lines[2]["target_ref"]);
+    let log = fs::read_to_string(f.data.join("audit/events.jsonl")).unwrap();
+    assert!(!log.contains("a.md") && !log.contains("rm -rf"), "{log}");
+    for line in &lines {
+        assert_eq!(line["peer"], "127.0.0.1");
+        assert_eq!(line["client"], "203.0.113.7");
+    }
+}
+
+/// The audit names only tools the catalogue can publish.
+#[test]
+fn the_audited_tool_names_are_the_catalogue() {
+    let config = notes_core::agent::AgentConfig {
+        workspace: "/".into(),
+        scope: RelPath::root(),
+        permissions: all().into_iter().collect(),
+        review: false,
+    };
+    let published: std::collections::BTreeSet<String> = notes_mcp::tools(&config)
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_owned())
+        .collect();
+    let audited: std::collections::BTreeSet<String> =
+        api::MCP_TOOLS.iter().map(|s| s.to_string()).collect();
+    assert_eq!(published, audited);
+}
+
 /// The budget above the credential one, and why holding a second credential is
 /// not a way around it.
 ///

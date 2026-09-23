@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.17 - the server audit names the client behind the proxy and what each MCP call did
+
+Two gaps in one record left an incident uninvestigable. Every API line's `peer`
+was the connection's address, which in any proxied deployment (the only
+non-loopback one supported) is the proxy, `127.0.0.1` on every line. The real
+client address was computed one line earlier to charge the rate limit and then
+thrown away. And the record was built from the HTTP verb and route before
+dispatch, so every MCP call, including `notes_read`, `notes_delete`,
+`tools/list` and a body that did not parse, was `create_or_move` on the hash of
+`/v1/mcp`. Forty deletions through a leaked credential read exactly like forty
+creations, from the proxy.
+
+**Each line now carries `client`, the charged address, beside `peer`**, so a
+forged `X-Forwarded-For` shows up next to the truth instead of replacing it.
+**An MCP call is recorded as `mcp:<tool>` or `mcp:<method>`**, and the target is
+a hash of the tool's `path` argument, so calls on one note correlate without the
+note being named. Nothing the client sent reaches the log verbatim. Tool names
+are checked against `api::MCP_TOOLS` and methods against a short list, and
+anything else is `mcp:unknown`, `mcp:other` or `mcp:unparsed`. A test holds
+`MCP_TOOLS` equal to what `notes_mcp::tools` publishes. `audit_target` had
+grown to eight arguments and is now `audit_event(&Event)`.
+
+One limit is written down rather than fixed. The outcome of an MCP line is the
+transport's, so a tool that refused inside a successful JSON-RPC answer is still
+`ok`.
+
+Tests: behind a proxy, a read, a delete, an unknown tool named `rm -rf /` and a
+`tools/list` are logged as four different operations. The two calls on one note
+share a reference and the call on another does not, neither path nor the forged
+tool name appears in the log, and every line names the proxy as `peer` and the
+client as `client`.
+
 ## 1.8.16 - a flood of addresses no longer locks every other caller out of the server
 
 The rate limiter kept every window in one map, addresses and credentials
