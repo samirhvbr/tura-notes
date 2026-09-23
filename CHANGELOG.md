@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.36 - notes-mcp announces the first version in version.md, not the whole file
+
+`initialize` answered `serverInfo.version` with the whole of `version.md`,
+trimmed. Every other reader of that file (`release.sh`, `stamp-version.sh`, the
+build scripts, `build.yml`, `deploy-server.sh`, `tauri.mjs`) takes the **first**
+`X.Y.Z`, because the versioning norm allows the file to be a Markdown document.
+Adopting that form would have made every MCP client show a paragraph where the
+version goes.
+
+**`notes_mcp::server_version()` takes the first semver**, like the rest. Tests:
+the announced version parses as three numbers, and the extraction picks
+`2.10.3` out of a Markdown sentence and skips a date and a two-part number.
+
 ## 1.8.35 - creating a note leaves at most one temporary per path, and stale ones are swept
 
 `tmp_path` explains at length why a random temporary name is wrong: every crash

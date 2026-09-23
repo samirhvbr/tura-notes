@@ -209,6 +209,66 @@ fn refusal(e: &CoreError) -> Value {
     out
 }
 
+/// The version this server announces: the **first** `X.Y.Z` in `version.md`,
+/// the rule every other reader of that file applies (R6-39). It used to be the
+/// whole file, trimmed, which is right only while the file is a bare number;
+/// the norm allows a Markdown document there.
+pub fn server_version() -> &'static str {
+    first_semver(include_str!("../../../version.md")).unwrap_or("0.0.0")
+}
+
+fn first_semver(text: &str) -> Option<&str> {
+    let bytes = text.as_bytes();
+    let mut start = 0;
+    while start < bytes.len() {
+        if bytes[start].is_ascii_digit() && (start == 0 || !bytes[start - 1].is_ascii_digit()) {
+            let mut end = start;
+            let mut dots = 0;
+            while end < bytes.len() && (bytes[end].is_ascii_digit() || bytes[end] == b'.') {
+                dots += usize::from(bytes[end] == b'.');
+                end += 1;
+            }
+            let candidate = text[start..end].trim_end_matches('.');
+            let parts: Vec<&str> = candidate.split('.').collect();
+            if dots >= 2 && parts.len() >= 3 && parts[..3].iter().all(|p| !p.is_empty()) {
+                let len = parts[0].len() + parts[1].len() + parts[2].len() + 2;
+                return Some(&candidate[..len]);
+            }
+            start = end;
+        }
+        start += 1;
+    }
+    None
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+
+    #[test]
+    fn the_announced_version_is_three_numbers() {
+        let parts: Vec<u32> = server_version()
+            .split('.')
+            .map(|p| p.parse().unwrap())
+            .collect();
+        assert_eq!(parts.len(), 3, "{}", server_version());
+    }
+
+    #[test]
+    fn the_first_semver_of_a_markdown_version_file_is_taken() {
+        assert_eq!(first_semver("1.7.4\n"), Some("1.7.4"));
+        assert_eq!(
+            first_semver("# Version\n\nCurrent: **2.10.3** (was 2.10.2).\n"),
+            Some("2.10.3")
+        );
+        assert_eq!(
+            first_semver("released 12/09, build 1.2 then 3.4.5"),
+            Some("3.4.5")
+        );
+        assert_eq!(first_semver("no version"), None);
+    }
+}
+
 /// Answer one JSON-RPC message.
 ///
 /// `None` means the message was a notification and carries no reply — the
@@ -248,7 +308,7 @@ pub fn handle(
             PROTOCOL
         };
         return Some(
-            json!({"jsonrpc":"2.0","id":id,"result":{"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"notes-mcp","version":include_str!("../../../version.md").trim()}}}),
+            json!({"jsonrpc":"2.0","id":id,"result":{"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"notes-mcp","version":server_version()}}}),
         );
     }
     if method == "ping" {
