@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.21 - the one-second ceiling ADR-080 kept on Linux failed on Linux, on unchanged code
+
+ADR-080 took the wall-clock assertion in
+`where_the_time_goes_opening_a_workspace_full_of_directories` off Windows and
+macOS and kept it asserted on Linux, on the reasoning that the Linux runner was
+the stable one. On `1.7.20` it failed on `ubuntu-latest`: `open_workspace` took
+**1112.71 ms** against a ceiling of 1000.
+
+**The code it measures did not change.** Between `1.7.18` and `1.7.20` the diff
+touches two test files, one document and the changelog. The same function
+measured **15.26 ms** at `1.7.18`, **295.42 ms** at `1.7.19`, **1112.71 ms** at
+`1.7.20`, and **184.89 ms** when the failed job was re-run once as a diagnostic.
+A seventy-fold swing with no production line changed is the runner, not the
+code -- and it is the same shape as the three Windows-only intermittents already
+in `.continue/README.md`, now on the platform that was meant to be immune.
+
+Recorded on that row, which already says the fix for all of them is one
+movement: stop measuring time and measure the event. This entry changes no
+test; it moves the evidence to where the next person deciding will read it.
+
 ## 1.7.20 - a test of a process-wide counter ran beside tests that move the counter
 
 `1.7.18` put CI back to green on Ubuntu, macOS and Arch. Windows stayed red, on
