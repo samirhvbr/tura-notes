@@ -137,17 +137,16 @@ fn inventory_using(root: &Path, data: &Path, exclusive: bool) -> Result<Vec<File
             queued,
         });
     }
-    paths
+    let ids = service.identify_batch(&paths)?;
+    Ok(paths
         .into_iter()
-        .map(|path| {
-            let note = service.open_note(&path)?;
-            Ok(File {
-                note: note.note_id,
-                path,
-                content: note.base_rev.hash,
-            })
+        .zip(ids)
+        .map(|(path, (note, content))| File {
+            note,
+            path,
+            content,
         })
-        .collect()
+        .collect())
 }
 
 // Only a complete permutation with unique native identities AND unchanged bytes

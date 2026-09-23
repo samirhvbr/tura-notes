@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.3 - the sync inventory rewrote the whole identity registry once per note
+
+`sync::inventory` built its list by calling `open_note` for every note, and
+`open_note` takes the workspace write lock, **loads the whole registry, observes
+one note and stores the whole registry back**. N rewrites of a registry that
+grows to N, every one of them under the lock that every save in every process
+also has to take. Counted: an inventory of 200 notes rewrote the registry
+**202 times**, in 1.82 s.
+
+`identify_batch` does the same observation once. **The part that must not
+move inside the lock is the reading.** On a 10 000-note workspace, reading and
+hashing every file takes seconds, and a save in another process waiting on the
+same lock gives up after five and reports `LockTimeout` -- the very failure an
+open intermittent in the queue is investigating. So the files are read and
+hashed first, outside the lock, and the lock covers only the in-memory
+observation and one store. A file that changes in between is caught by the next
+reconciliation, as a file that changed a moment after `open_note` returned
+always was.
+
+Asserted as an event, not a duration: the same 200 notes now cost at most 4
+rewrites (0.08 s), counted by `registry_writes()` from a test binary of its own,
+because a process-wide counter read beside parallel tests is the flake `1.7.20`
+fixed. A second inventory returns the same identities.
+
 ## 1.8.2 - the full-text index stops scanning itself once per note, 33 to 47 times faster
 
 `Index::apply` replaced a note's full-text row with `DELETE FROM fts WHERE

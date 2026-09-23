@@ -24,6 +24,8 @@ pub mod registry;
 pub mod search;
 pub mod settings;
 mod state;
+#[doc(hidden)]
+pub use state::registry_writes;
 pub mod sync;
 
 use std::collections::BTreeSet;
@@ -562,6 +564,54 @@ impl WorkspaceService {
     pub fn open_note(&mut self, path: &RelPath) -> Result<OpenedNote> {
         let mut guard = lock::acquire(&paths::lock_file(&self.open()?.dir))?;
         guard.with(|| self.open_note_locked(path))?
+    }
+
+    /// Identify many notes at once, for the sync inventory.
+    ///
+    /// The inventory used to call [`open_note`](Self::open_note) per note, and
+    /// each call took the write lock, **loaded the whole registry, observed one
+    /// note and stored the whole registry back** — N times over a registry that
+    /// grows to N, all of it under the lock every save in every process also
+    /// needs (R6-13). This loads once and stores once.
+    ///
+    /// **What it must not do is hold the lock while it reads the files.** On a
+    /// 10 000-note workspace that is seconds, and a save in another process
+    /// waiting on the same lock gives up after five and reports `LockTimeout`.
+    /// So the reading and hashing happen first, outside the lock; the lock covers
+    /// only the in-memory observation and the one store. A file that changes in
+    /// between is caught by the next reconciliation, exactly as a file that
+    /// changed a moment after `open_note` returned always was.
+    pub(crate) fn identify_batch(
+        &mut self,
+        notes: &[RelPath],
+    ) -> Result<Vec<(NoteId, notes_model::ContentHash)>> {
+        let mut seen = Vec::with_capacity(notes.len());
+        for path in notes {
+            let open = self.open()?;
+            let stat = open.fs.stat(path)?;
+            let bytes = open.fs.read(path)?;
+            seen.push((stat, notes_fs::hash(&bytes)));
+        }
+        let dir = self.open()?.dir.clone();
+        let mut guard = lock::acquire(&paths::lock_file(&dir))?;
+        guard.with(|| {
+            if let Loaded::Ok(registry) = state::load::<Registry>(&paths::registry_file(&dir))? {
+                self.open_mut()?.registry = registry;
+            }
+            let persist = !self.open()?.read_only;
+            let open = self.open_mut()?;
+            let ids = notes
+                .iter()
+                .zip(seen)
+                .map(|(path, (stat, hash))| {
+                    (open.registry.observe(path, &stat, hash.clone()), hash)
+                })
+                .collect::<Vec<_>>();
+            if persist {
+                state::store(&paths::registry_file(&dir), &open.registry)?;
+            }
+            Ok(ids)
+        })?
     }
 
     fn open_note_locked(&mut self, path: &RelPath) -> Result<OpenedNote> {

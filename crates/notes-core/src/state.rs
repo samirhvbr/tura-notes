@@ -11,6 +11,17 @@ use std::path::Path;
 use notes_model::CoreError;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Whole-registry writes this process has made. The cost of the registry is
+/// how often it is rewritten, so that is what a test asserts on (R6-13) — from a
+/// test binary of its own, because a process-wide count read beside parallel
+/// tests is the flake `1.7.20` fixed.
+static REGISTRY_WRITES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+#[doc(hidden)]
+pub fn registry_writes() -> u64 {
+    REGISTRY_WRITES.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Every state file carries one.
 pub trait Schemad: Serialize + DeserializeOwned {
     const CURRENT: u32;
@@ -134,6 +145,7 @@ pub fn store<T: Schemad>(path: &Path, value: &T) -> Result<(), CoreError> {
         }
         notes_index::RegistryStore::open(&path.with_extension("db"))?
             .write_merged(value.baseline().as_deref(), &bytes)?;
+        REGISTRY_WRITES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         value.remember(&bytes);
         // The JSON is the pre-SQLite format, and `load` still falls back to it
         // when the database is missing — which is how the migration works, and
