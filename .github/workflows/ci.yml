@@ -130,6 +130,7 @@ jobs:
           run "every document declares one of the five statuses" tools/doc-status.sh
           run "Linux packaging orchestration"           python3 tools/tests/test_build_linux.py
           run "updater publication"                     python3 tools/tests/test_updater_release.py
+          run "release.sh exit status says what happened" python3 tools/tests/test_release_exit.py
           run "macOS build script"                      python3 tools/tests/test_build_local.py
           run "crash loop refuses a writer that never wrote" python3 tools/tests/test_crash_loop.py
           run "the self-hosting guide matches the code" python3 tools/tests/test_selfhosting_doc.py

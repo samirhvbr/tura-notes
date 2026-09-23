@@ -31,6 +31,7 @@ set -uo pipefail
 
 MODE=current
 DRY=0
+STOPPED=0           # publish's stop status (9), carried to the exit status
 REPO=""
 SLEEP=0.35          # throttle: ~2.8 req/s, well under GitHub's ceiling
 RATE_FLOOR=200      # stop and report rather than exhausting the budget
@@ -222,6 +223,14 @@ publish() {
     printf '  %-14s %s  published\n' "$ver" "${sha:0:7}"
     printf '%s\n' "$ver" >> "$EXISTING"
     CREATED=$((CREATED+1))
+  elif gh release view "$ver" --repo "$REPO" >/dev/null 2>&1; then
+    # The create failed and the Release is there: another run made it between
+    # the snapshot of existing Releases and this call (R6-31). That is the
+    # outcome wanted, not a failure -- counting it as one turned a race into a
+    # red Release workflow, and that red into a minor with no artifacts.
+    printf '  %-14s %s  created meanwhile by another run — skipped\n' "$ver" "${sha:0:7}"
+    printf '%s\n' "$ver" >> "$EXISTING"
+    SKIPPED=$((SKIPPED+1))
   else
     printf '  %-14s %s  FAILED: %s\n' "$ver" "${sha:0:7}" "$(head -n1 "$nf.err")" >&2
     FAILED=$((FAILED+1))
@@ -243,7 +252,9 @@ if [ "$MODE" = "current" ]; then
   # Tag the commit the version actually lives on, on the remote. Uncommitted or
   # unpushed bumps are not published — GitHub cannot tag a commit it does not
   # have, and a Release for a version nobody can fetch is a lie.
-  publish "$CURRENT" "$(git rev-parse "$REF")" 1
+  # A stop (status 9: the API budget is below the floor) is not success. It
+  # used to be dropped here, and the run exited 0 having published nothing.
+  publish "$CURRENT" "$(git rev-parse "$REF")" 1 || STOPPED=$?
 else
   # Oldest first, so the newest version is created last and ends up "Latest".
   # For each distinct version, the tag points at the LAST commit that carried
@@ -261,7 +272,7 @@ else
   while IFS=$'\t' read -r ver sha; do
     [ -n "$ver" ] || continue
     i=$((i+1))
-    publish "$ver" "$sha" "$([ "$i" = "$TOTAL" ] && echo 1 || echo 0)" || break
+    publish "$ver" "$sha" "$([ "$i" = "$TOTAL" ] && echo 1 || echo 0)" || { STOPPED=$?; break; }
   done <<< "$MAP"
 fi
 
@@ -292,4 +303,4 @@ else
   printf '\ncreated/would-create: %s   skipped: %s   failed: %s\n' "$CREATED" "$SKIPPED" "$FAILED"
 fi
 [ "$DRY" = 1 ] || git fetch --tags --quiet 2>/dev/null || true
-[ "$FAILED" -eq 0 ]
+[ "$FAILED" -eq 0 ] && [ "$STOPPED" -eq 0 ]

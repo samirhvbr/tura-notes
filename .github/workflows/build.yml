@@ -82,10 +82,16 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          # The Release workflow's conclusion is NOT a reason to stop (R6-31).
+          # This used to end here on anything but success, before the checks
+          # below that decide correctly on their own -- so a transient `gh`
+          # error, a cancelled run, or two runs racing to create the same
+          # Release left that minor with notes and no assets, permanently: only
+          # an X.Y.0 is built, and nothing re-triggers without a new number.
+          # Whether the Release exists is the question, and it is asked below.
           if [ "${{ github.event_name }}" = "workflow_run" ] \
              && [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-            echo "::notice::the Release workflow did not succeed — nothing to build"
-            echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
+            echo "::notice::the Release workflow ended '${{ github.event.workflow_run.conclusion }}' — deciding from the Release itself"
           fi
 
           version="${INPUT_VERSION:-}"

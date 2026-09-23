@@ -1013,6 +1013,17 @@ all. `build.yml` triggers on `workflow_run` rather than `on: release`, because
 `release.yml` creates the Release with the built-in `GITHUB_TOKEN` and GitHub
 fires no workflow events for what a `GITHUB_TOKEN` did.
 
+**`build.yml` decides from the Release, not from how the Release workflow
+ended** (1.8.30). It used to stop on any conclusion but success, before the
+checks that answer the real question: does the Release exist, and does it
+already carry the `.SRCINFO` sentinel? A transient API error or two runs racing
+to create one Release then left that minor without artifacts for good, since
+only an `X.Y.0` is built and nothing re-triggers without a new number.
+`release.sh` exits non-zero when it stopped for a low API budget (it used to
+exit 0), and counts a create that lost the race to another run as skipped
+rather than failed. `tools/tests/test_release_exit.py` checks all three with
+a fake `gh`.
+
 **Artifacts are built for a minor bump, and on request** ([ADR-036](decisions.md#adr-036--release-artifacts-are-built-for-minor-bumps-and-on-request)).
 Every commit is a version and every version gets a Release, so most versions are
 a step inside a working session; nine minutes and a 105 MB AppImage for each of

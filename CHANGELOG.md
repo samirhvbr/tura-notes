@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.30 - a minor release no longer loses its artifacts because the Release workflow ended badly
+
+`build.yml` is the only producer of the `.deb`, the AppImage and the server and
+CLI tarballs, and it ran on `workflow_run: [Release]`. Its first step stopped on
+any conclusion other than success -- a transient `gh` error, a cancelled run, two
+runs racing to create one Release -- before the checks that would have decided
+correctly. Artifacts are built only for `X.Y.0`, and nothing re-triggers without
+a new number, so that minor kept notes and zero assets permanently, and
+`deploy-server.sh` would then 404 on it. A third path lost it with the Release
+workflow green: `release.sh` stopping for a low API budget returned 9, and
+`--current` dropped it and exited 0.
+
+**`build.yml` now decides from the Release itself**: does it exist, and does it
+already carry the `.SRCINFO` sentinel? The conclusion becomes a notice.
+**`release.sh` counts a create that failed because the Release now exists as
+skipped** (another run made it), and **carries the stop status to its exit**.
+
+`tools/tests/test_release_exit.py` (gate and CI) runs the script against a fake
+`gh`: the race is a success, the low-budget stop and a create that left nothing
+are failures. The first two fail on the previous script.
+
 ## 1.8.29 - the no-fs-capability check refuses to pass when its directory is missing, and reads inline capabilities
 
 The step whose whole job is to prove a negative -- no `fs:*` permission reaches
