@@ -37,12 +37,7 @@ jobs:
       # capability; every read and write goes through a command that validates
       # the resolved path against the root itself.
       - name: the webview has no filesystem capability
-        run: |
-          if grep -rnE '"fs:[a-z-]+"' apps/notes-app/src-tauri/capabilities/; then
-            echo "::error::a capability file grants an fs permission — see docs/ARCHITECTURE.md §12"
-            exit 1
-          fi
-          echo "no fs capability granted"
+        run: tools/no-fs-capability.sh
 
       # docs/ARCHITECTURE.md §7: the frontend never hand-writes an IPC type.
       # Regenerating must be a no-op; if it is not, Rust and TypeScript disagree

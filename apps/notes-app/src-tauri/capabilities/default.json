@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "docs/ARCHITECTURE.md §12. Window, dialog, and shell-open restricted to http(s). NO fs permission exists in this file, and a CI grep rejects a change that adds one. The dialog opens files as well as directories; a file choice cannot be scoped. Two commands read outside the workspace root, each with its own guard, which is the thing to check rather than this file: pdf_extract (any regular file up to 32 MiB that parses as a PDF; only its text comes back) and the token_file of sync_control_probe (a 0600 regular file holding one nt_ bearer of at most 199 characters, sent only to the origin being probed). Every other read and write goes through a command that validates the resolved path against the workspace root.",
+  "description": "docs/ARCHITECTURE.md §12. Window, dialog, and shell-open restricted to http(s). NO fs permission exists in this file, and the gate and CI reject a change that adds one here or inline in tauri.conf.json. The dialog opens files as well as directories; a file choice cannot be scoped. Two commands read outside the workspace root, each with its own guard, which is the thing to check rather than this file: pdf_extract (any regular file up to 32 MiB that parses as a PDF; only its text comes back) and the token_file of sync_control_probe (a 0600 regular file holding one nt_ bearer of at most 199 characters, sent only to the origin being probed). Every other read and write goes through a command that validates the resolved path against the workspace root.",
   "windows": [
     "main"
   ],

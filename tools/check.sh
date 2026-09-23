@@ -162,8 +162,7 @@ step "generated types"      bash -c '
   # diff does not see at all.
   git diff --quiet --exit-code -- apps/notes-app/src/ipc/generated &&
   [ -z "$(git ls-files --others --exclude-standard -- apps/notes-app/src/ipc/generated)" ]'
-step "no fs capability"     bash -c '
-  ! grep -rqE "\"fs:[a-z-]+\"" apps/notes-app/src-tauri/capabilities/'
+step "no fs capability"     tools/no-fs-capability.sh
 step "serde/ts pairing"    python3 tools/ts-serde.py
 # The CSP the webview runs under, and the page that prints it (ADR-089).
 step "desktop CSP"         python3 tools/csp.py

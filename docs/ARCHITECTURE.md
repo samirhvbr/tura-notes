@@ -902,8 +902,9 @@ built from. Because that costs an open, **the id is filled in by `stat`, not by
 
 Capabilities (`src-tauri/capabilities/default.json`): `core:default`,
 `dialog:allow-open`, `shell:allow-open` scoped to `^https?://`, and the
-`notes-asset` scheme. **No `fs:*` permission exists in the file.** A PR that
-adds one is rejected by a CI grep.
+`notes-asset` scheme. **No `fs:*` permission exists in the file**, nor inline in
+`tauri.conf.json`; the gate and CI reject one in either place, and refuse to
+pass when the capabilities directory they read is missing or empty (1.8.29).
 
 What the file does **not** establish, and used to claim: the dialog opens files
 as well as directories, and a file choice cannot be scoped. Two commands read

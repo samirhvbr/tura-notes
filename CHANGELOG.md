@@ -7,6 +7,23 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.29 - the no-fs-capability check refuses to pass when its directory is missing, and reads inline capabilities
+
+The step whose whole job is to prove a negative -- no `fs:*` permission reaches
+the webview -- failed open. The gate ran `! grep -rqE … capabilities/`, and
+grep's status 2 for a missing directory became a pass; the CI copy had the same
+hole in `if` form and printed "no fs capability granted". A Tauri upgrade or a
+reorganisation that moved the directory would have let `fs:allow-read-file`
+ship with both green. Reproduced: moving the directory aside passed both.
+
+**One script, `tools/no-fs-capability.sh`, now serves the gate and CI**, so the
+two copies cannot drift again. It refuses to pass unless the capabilities
+directory exists and holds at least one capability file, and it also reads
+`tauri*.conf.json`, because Tauri 2 accepts capabilities inline under
+`app.security.capabilities` without any directory change. Checked by breaking it
+on purpose: a moved directory and an inline `fs:allow-read-file` both fail;
+restored, it passes.
+
 ## 1.8.28 - the webview loses the unused clipboard read grant, and the capability file stops claiming a jail it does not have
 
 Two defects in the file an auditor opens first.
