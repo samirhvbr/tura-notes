@@ -400,10 +400,14 @@ impl super::WorkspaceService {
         // and the only one that survives a note being edited as it moves.
         let mut by_native: BTreeMap<String, Vec<RelPath>> = BTreeMap::new();
         let mut sizes: BTreeMap<RelPath, u64> = BTreeMap::new();
+        let mut born: BTreeMap<RelPath, i128> = BTreeMap::new();
         if self.open()?.fs.caps().native_id {
             for p in &appeared {
                 if let Ok(s) = self.open()?.fs.stat(p) {
                     sizes.insert(p.clone(), s.size);
+                    if let Some(b) = s.born_ns {
+                        born.insert(p.clone(), b);
+                    }
                     if let Some(n) = s.native_id {
                         by_native
                             .entry(format!("{n:?}"))
@@ -423,7 +427,7 @@ impl super::WorkspaceService {
         let mut taken: BTreeSet<RelPath> = BTreeSet::new();
         for (id, from) in vanished {
             let rec = match self.open()?.registry.record(id) {
-                Some(r) => (r.native_id.clone(), r.hash.clone(), r.size),
+                Some(r) => (r.native_id.clone(), r.hash.clone(), r.size, r.mtime_ns),
                 None => continue,
             };
 
@@ -433,7 +437,12 @@ impl super::WorkspaceService {
                 if let Some(cands) = by_native.get(&format!("{native:?}")) {
                     let free: Vec<&RelPath> =
                         cands.iter().filter(|p| !taken.contains(*p)).collect();
-                    if free.len() == 1 {
+                    // The native id is necessary and, on its own, not
+                    // sufficient: ext4 hands a freed inode number to the next
+                    // file created, so a move done file by file gives each copy
+                    // the number the previous delete freed. R6-43 — found by CI
+                    // on ext4 runners, invisible on the btrfs it was written on.
+                    if free.len() == 1 && !recycled(born.get(free[0]).copied(), rec.3) {
                         hit = Some(free[0].clone());
                     }
                 }
@@ -647,5 +656,46 @@ impl From<CoreError> for CoreEvent {
         CoreEvent::WatchDegraded {
             reason: e.to_string(),
         }
+    }
+}
+
+/// Whether a file matched by native id is a **different** file that was handed
+/// a recycled inode number.
+///
+/// A file cannot be born after its own last modification. The registry keeps
+/// the vanished note's last recorded `mtime`; a candidate born after that is a
+/// stranger on a reused number. A file that was merely renamed keeps its birth,
+/// which precedes every modification the registry ever recorded.
+///
+/// Unknown birth — a platform or filesystem that keeps none — answers `false`,
+/// which is the behaviour before this existed. The one false refusal it can
+/// produce is a file whose `mtime` was set into the past (an archive extracted
+/// with preserved times): Rule 1 then declines, and Rule 2 correlates it by
+/// content, which is the safe direction.
+fn recycled(born_ns: Option<i128>, recorded_mtime_ns: i128) -> bool {
+    born_ns.is_some_and(|born| born > recorded_mtime_ns)
+}
+
+#[cfg(test)]
+mod recycled_tests {
+    use super::recycled;
+
+    #[test]
+    fn a_file_born_after_the_old_one_was_last_modified_is_a_stranger() {
+        assert!(recycled(Some(2_000), 1_000));
+    }
+
+    #[test]
+    fn a_renamed_file_was_born_before_its_recorded_modification() {
+        assert!(!recycled(Some(500), 1_000));
+        assert!(
+            !recycled(Some(1_000), 1_000),
+            "born and modified in the same tick"
+        );
+    }
+
+    #[test]
+    fn an_unknown_birth_keeps_the_old_behaviour() {
+        assert!(!recycled(None, 1_000));
     }
 }

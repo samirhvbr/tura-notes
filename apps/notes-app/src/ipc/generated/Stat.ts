@@ -9,4 +9,20 @@ export type Stat = { size: number,
  * panic in a note-taking app. Crosses the wire as a string — see
  * [`ns_string`].
  */
-mtime_ns: string, native_id: NativeId | null, kind: EntryKind, };
+mtime_ns: string, native_id: NativeId | null, kind: EntryKind, 
+/**
+ * When the filesystem says this file was created, in the same units as
+ * `mtime_ns`, where it says so at all.
+ *
+ * It exists for one question identity correlation could not answer: *is
+ * this the same file, or a new one that was handed a recycled inode?* ext4
+ * gives a freed inode number to the next file created, so a move done file
+ * by file — copy, delete, copy the next — hands each copy the number the
+ * previous delete freed, and a match on the native id alone moved every
+ * note's identity onto its neighbour (R6-43). A file cannot be born after
+ * its own last modification; a stranger on a recycled inode always is.
+ *
+ * `None` where the platform or filesystem does not record it, and then
+ * correlation behaves exactly as before.
+ */
+born_ns: string | null, };

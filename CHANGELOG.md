@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.0 - a note's identity no longer moves onto its neighbour when ext4 recycles an inode
+
+Identity correlation recognises a note that moved outside the application.
+Rule 1 matches the vanished note's native id -- the inode -- against the files
+that appeared, and on its own that is not enough: **ext4 hands a freed inode
+number to the next file created.** A move done file by file -- copy one, delete
+it, copy the next, which is what a sync client or a cross-volume move does --
+gives each copy the number the previous delete just freed. Rule 1 then attached
+each note's identity to its neighbour's content: every `NoteId`, every revision
+chain the server holds, one file over, and nothing anywhere said so. Worse than
+losing an identity, which at least starts a clean one.
+
+**This was found by CI, not by the review.** A test written in round 6 did
+exactly that sequence, passed on the btrfs it was written on -- btrfs does not
+recycle inode numbers -- and failed on the ext4 runners. The first reaction was
+to rewrite the test so it avoided the sequence; that measured the right thing
+for its own purpose, and left the defect standing. This is the defect.
+
+`Stat` gains `born_ns`: the filesystem's record of when the file was created
+(`statx` btime on Linux, `st_birthtime` on macOS, the creation time on Windows),
+filled only by `stat_at`, which is what correlation reads. **A file cannot be
+born after its own last modification**; the registry keeps the vanished note's
+last recorded `mtime`; a candidate born after it is a stranger on a recycled
+number, and Rule 1 declines it. Rule 2 then correlates by content, which is the
+safe direction. Unknown birth keeps the old behaviour. The one false refusal is
+a file whose `mtime` was set into the past, and Rule 2 handles that too.
+
+Windows was never exposed -- the NTFS file index carries a sequence number that
+changes when an index is reused -- and APFS does not recycle. The test that
+reproduces it only reproduces on ext4, so on this machine it passes with or
+without the fix; CI's `1.7.17` run is its red-before. A second test fails if the
+platform ever stops reporting a birth time, so the guard cannot go inert
+silently.
+
+**Why a minor.** `Stat` is what the `FileSystemAdapter` returns, so this changes
+its surface, which `docs/versioning.md` makes a Y. R6-26 changes that surface
+too and ships in the same minor, pushed together with this commit, so that the
+owner signs one server binary and repeats one round of acceptance walks rather
+than two (`.loop/ASSUMPTIONS.md`).
+
 ## 1.7.28 - three timing assertions become event counts, and one of them never caught its own regression
 
 CI failed on `ubuntu-latest` on two of three recent runs, both times on a

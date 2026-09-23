@@ -640,3 +640,78 @@ fn a_note_created_outside_the_app_is_findable_after_a_full_scan() {
         "the cache must have been dropped even though nothing was announced: {after:?}"
     );
 }
+
+/// R6-43, reproduced the way CI found it: a move done **file by file** — copy
+/// one, delete it, copy the next — which on ext4 hands each copy the inode the
+/// previous delete just freed. Rule 1 matched on the native id alone, so each
+/// note's identity moved onto its neighbour's content, and nothing signalled it.
+///
+/// This passes on btrfs and tmpfs whether or not the fix is there, because
+/// neither recycles inode numbers; the CI's ext4 runners are where it is a
+/// real test, and `1.7.17`'s run is its red-before (`n00.md` took another
+/// note's `NoteId`).
+#[test]
+fn a_move_done_file_by_file_keeps_every_identity_on_its_own_content() {
+    let data = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    const N: usize = 30;
+    for i in 0..N {
+        std::fs::write(
+            work.path().join(format!("n{i:02}.md")),
+            format!("# {i:03}\n"),
+        )
+        .unwrap();
+    }
+    std::fs::create_dir(work.path().join("sub")).unwrap();
+
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    svc.open_workspace(work.path()).unwrap();
+    let mut ids = Vec::new();
+    for i in 0..N {
+        let path = rel(&format!("n{i:02}.md"));
+        ids.push((path.clone(), svc.open_note(&path).unwrap().note_id));
+    }
+
+    // Interleaved, on purpose: the order that recycles inodes.
+    for (path, _) in &ids {
+        let from = work.path().join(path.as_str());
+        let to = work.path().join("sub").join(path.as_str());
+        std::fs::write(&to, std::fs::read(&from).unwrap()).unwrap();
+        std::fs::remove_file(&from).unwrap();
+    }
+
+    let mut passes = 0;
+    loop {
+        let r = svc.reconcile(&BTreeSet::new(), &[]).unwrap();
+        passes += 1;
+        assert!(passes < 50, "correlation must converge");
+        if r.queued == 0 {
+            break;
+        }
+    }
+
+    for (path, id) in &ids {
+        let moved = rel(&format!("sub/{}", path.as_str()));
+        let opened = svc.open_note(&moved).unwrap();
+        assert_eq!(
+            opened.note_id, *id,
+            "{path:?} must keep its own identity, not inherit a neighbour's"
+        );
+    }
+}
+
+/// The guard only works where the platform reports a birth time. Checked here
+/// so that a filesystem or libc that stops reporting it shows up as this
+/// failure, rather than as the guard silently doing nothing.
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+#[test]
+fn the_platform_reports_a_birth_time_for_the_guard_to_use() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("n.md"), b"x").unwrap();
+    let fs = notes_fs::LocalFs::open(dir.path()).unwrap();
+    let stat = notes_fs::FileSystem::stat(&fs, &rel("n.md")).unwrap();
+    assert!(
+        stat.born_ns.is_some(),
+        "no birth time from this filesystem: the recycled-inode guard is inert here"
+    );
+}

@@ -264,3 +264,28 @@ aposentado antes.
 
 **Como reverter.** `git revert` do 1.6.49 devolve as 26 linhas e tira o
 `tools/adr-status.py` do gate. Os textos das ADRs estão intactos nos dois casos.
+
+---
+
+## 23/09/2026 — R6-43 e R6-26 saem juntos, na mesma minor (1.8.0)
+
+**Pergunta.** O conserto do R6-43 (identidade trocada por inode reciclado em ext4)
+precisa que a data de nascimento do arquivo atravesse o `Stat`, e isso muda a
+superfície do `FileSystemAdapter` — bump **Y** pela regra de `docs/versioning.md`.
+O R6-26 (nomes fora de UTF-8 como `OsString`) também é Y, e estava por último na
+fila. Duas minors seguidas custam ao dono duas vezes o que uma minor custa:
+assinar o binário do servidor (`OWNER-ACTS.md` §1) e repetir os aceites na
+próxima `X.Y.0` (ADR-093).
+
+**Decisão.** O R6-26 sobe para logo depois do R6-43, e os dois saem **no mesmo
+push**, como `1.8.0`. O commit do R6-43 fica local até o do R6-26 existir — com
+o gate inteiro verde nos dois — porque uma versão compartilhada só vale se os
+commits dela subirem juntos: empurrar o primeiro criaria a tag `1.8.0` sem o
+segundo.
+
+**Alternativa descartada.** Empurrar o R6-43 já como `1.8.0` e o R6-26 depois
+como `1.9.0`. Mais rápido para o R6-43, e duas rodadas de assinatura e aceite
+para o dono por causa de uma ordem de fila que era escolha minha.
+
+**Como reverter.** Se o R6-26 travar, o R6-43 sai sozinho como `1.8.0`: o commit
+local é independente, e a ordem na fila volta ao que estava.

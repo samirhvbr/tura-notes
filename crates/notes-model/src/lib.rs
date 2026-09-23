@@ -27,6 +27,31 @@ use ts_rs::TS;
 /// merely display wrong — `BaseRev` travels back to the core on every save, so
 /// a rounded `mtime_ns` would make the cheap check disagree with the disk and
 /// send every save down the hashing path. A string is exact and costs nothing.
+/// [`ns_string`] for a timestamp that may be absent.
+pub mod ns_string_opt {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &Option<i128>, s: S) -> Result<S::Ok, S::Error> {
+        match v {
+            Some(v) => s.serialize_str(&v.to_string()),
+            None => s.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<i128>, D::Error> {
+        match Option::<serde_json::Value>::deserialize(d)? {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::String(s)) => {
+                s.parse().map(Some).map_err(serde::de::Error::custom)
+            }
+            Some(serde_json::Value::Number(n)) => Ok(n.as_i64().map(i128::from)),
+            Some(_) => Err(serde::de::Error::custom(
+                "a timestamp must be a string, a number or null",
+            )),
+        }
+    }
+}
+
 pub mod ns_string {
     use serde::{Deserialize, Deserializer, Serializer};
 
@@ -91,6 +116,22 @@ pub struct Stat {
     pub mtime_ns: i128,
     pub native_id: Option<NativeId>,
     pub kind: EntryKind,
+    /// When the filesystem says this file was created, in the same units as
+    /// `mtime_ns`, where it says so at all.
+    ///
+    /// It exists for one question identity correlation could not answer: *is
+    /// this the same file, or a new one that was handed a recycled inode?* ext4
+    /// gives a freed inode number to the next file created, so a move done file
+    /// by file — copy, delete, copy the next — hands each copy the number the
+    /// previous delete freed, and a match on the native id alone moved every
+    /// note's identity onto its neighbour (R6-43). A file cannot be born after
+    /// its own last modification; a stranger on a recycled inode always is.
+    ///
+    /// `None` where the platform or filesystem does not record it, and then
+    /// correlation behaves exactly as before.
+    #[serde(default, with = "ns_string_opt")]
+    #[ts(type = "string | null")]
+    pub born_ns: Option<i128>,
 }
 
 /// What an open buffer was read against.
@@ -220,16 +261,19 @@ mod tests {
             hash: h.clone(),
         };
         let same = Stat {
+            born_ns: None,
             size: 10,
             mtime_ns: 5,
             native_id: None,
             kind: EntryKind::File,
         };
         let size_moved = Stat {
+            born_ns: None,
             size: 11,
             ..same.clone()
         };
         let mtime_moved = Stat {
+            born_ns: None,
             mtime_ns: 6,
             ..same.clone()
         };

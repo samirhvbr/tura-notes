@@ -92,6 +92,7 @@ impl LocalFs {
             fs::symlink_metadata(path).map_err(|e| CoreError::io("stat", path.display(), &e))?;
         Ok(Stat {
             native_id: native_id(path, &meta),
+            born_ns: born_ns(&meta),
             ..Self::stat_from(&meta)
         })
     }
@@ -118,6 +119,7 @@ impl LocalFs {
             mtime_ns: mtime_ns(meta),
             native_id: None,
             kind,
+            born_ns: None,
         }
     }
 
@@ -271,6 +273,7 @@ impl FileSystem for LocalFs {
                         mtime_ns: 0,
                         native_id: None,
                         kind: EntryKind::Other,
+                        born_ns: None,
                     }));
                 }
                 Err(e) => {
@@ -437,6 +440,19 @@ fn mtime_ns(meta: &fs::Metadata) -> i128 {
             Err(e) => -(e.duration().as_nanos() as i128),
         })
         .unwrap_or(0)
+}
+
+/// When the filesystem says the file was created — `statx`'s `btime` on Linux,
+/// `st_birthtime` on macOS, the creation time on Windows — or `None` where it
+/// keeps none. Travels with the native id, because it exists to qualify it: an
+/// inode number the filesystem recycled carries a birth after the old file's
+/// last modification, and a file that was merely renamed never does.
+fn born_ns(meta: &fs::Metadata) -> Option<i128> {
+    let t = meta.created().ok()?;
+    Some(match t.duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_nanos() as i128,
+        Err(e) => -(e.duration().as_nanos() as i128),
+    })
 }
 
 /// The filesystem's own identity for a file: what survives a rename and what a
