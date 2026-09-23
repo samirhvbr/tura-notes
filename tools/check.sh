@@ -166,6 +166,7 @@ step "no fs capability"     tools/no-fs-capability.sh
 step "serde/ts pairing"    python3 tools/ts-serde.py
 # The CSP the webview runs under, and the page that prints it (ADR-089).
 step "desktop CSP"         python3 tools/csp.py
+step "write-scoped actions pinned" python3 tools/action-pins.py
 # The bundle version is stamped from version.md at build time (ADR-035). What
 # is committed is the placeholder; a real number here is a second copy of the
 # version, and it is the copy that goes stale.

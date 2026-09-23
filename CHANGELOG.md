@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.31 - third-party actions are pinned to commits in the jobs that build and publish what gets signed
+
+`build.yml` ran `dtolnay/rust-toolchain@stable` (a branch) and
+`Swatinem/rust-cache@v2` (a movable tag) inside jobs that hold
+`contents: write`, compile what is published, and write the `.sha256` that
+`tools/sign-server-release.sh` checks before the offline key signs the bytes.
+Whoever can move either ref runs code there, and the signature would then vouch
+for their build. ADR-081 accepts "the CI is trusted"; it did not mean a third
+party's branch.
+
+**Both are pinned to commits** (`6bed076…` for `stable`, `6323deb…` for
+`v2.9.2`, which is what `v2` pointed at). Dependabot already watches
+`github-actions` and proposes a new SHA as it would a tag.
+`tools/action-pins.py`, in the gate and CI, fails when a workflow that grants
+`contents: write` uses a non-GitHub action by anything but a 40-character SHA; it
+flags all four uses on the previous `build.yml`. The Arch job's `archlinux:latest`
+image is the named residual: it changes daily, Dependabot does not track
+workflow container images, and a digest pin would rot into a stale toolchain.
+
 ## 1.8.30 - a minor release no longer loses its artifacts because the Release workflow ended badly
 
 `build.yml` is the only producer of the `.deb`, the AppImage and the server and
