@@ -25,6 +25,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # R7-14: the Windows leg died silently (exit 2304, a SIGKILL of the shell) in
+    # two of three runs. It keeps running and reporting, with every round traced,
+    # but does not fail the workflow while that is diagnosed. Remove this line
+    # when it has passed ten nightly runs in a row.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     defaults:
       run:
         shell: bash

@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.46 - the Windows crash loop ends the writer with taskkill, and does not block while that is proven
+
+The Windows leg of the crash loop, added in 1.8.24, died silently in both runs
+on 1.8.25 (once around round 120, once around round 550) with exit code 2304,
+`9 << 8`: the shell itself received SIGKILL. The loop, the writer and the
+workflow were identical to 1.8.24, where the leg passed. The only thing in the
+loop that sends SIGKILL is `kill -9`, and under Git Bash a signal to a native
+Windows process goes through MSYS's own process table.
+
+**On Windows the writer is now ended with `taskkill //F` on its Windows pid**
+(`/proc/<pid>/winpid`, read as it starts), which never touches MSYS's table.
+The per-round trace of 1.8.45 stays, so if the shell still dies, the log shows
+the round and the pids. **The Windows leg is `continue-on-error` while that is
+proven**: it still runs and reports on every push and every night, and the
+workflow does not fail on it. The comment in `crash.yml` says when to remove
+that: ten nightly runs in a row without failing. Linux, macOS and Arch are
+unchanged and still block.
+
 ## 1.8.45 - the Windows crash loop logs every round, so a silent death shows where it happened
 
 The crash loop's new Windows job (1.8.24) passed once and then, on 1.8.25, died

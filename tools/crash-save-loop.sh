@@ -49,10 +49,16 @@ case "$(uname -s)" in
     # there -- the MSYS pid, the Windows pid behind it, and the status -- so the
     # next such death leaves its last round in the job log.
     trace() { echo "  round $1: pid $2 (winpid ${3:-?}) -> status $4" >&2; }
+    # The writer is ended by its Windows pid, with Windows' own tool. Git Bash's
+    # `kill -9` was the only thing in this loop that sends SIGKILL, and the shell
+    # died of one twice in two runs on 1.8.25 (R7-14); a signal sent to a native
+    # Windows process goes through MSYS's pid table, `taskkill` does not.
+    stop() { if [ -n "$2" ]; then taskkill //F //PID "$2" >/dev/null 2>&1; else kill -9 "$1" 2>/dev/null; fi; }
     ;;
   *)
     killed() { [ "$1" -eq 137 ]; }
     trace() { :; }
+    stop() { kill -9 "$1" 2>/dev/null; }
     ;;
 esac
 
@@ -84,7 +90,7 @@ for i in $(seq 1 "$ROUNDS"); do
   winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
   # 1–40 ms: long enough to be mid-write, short enough for 1000 rounds.
   sleep "0.$(printf '%03d' $(( (RANDOM % 40) + 1 )))"
-  kill -9 "$pid" 2>/dev/null
+  stop "$pid" "$winpid"
   wait "$pid" 2>/dev/null
   rc=$?
   trace "$i" "$pid" "$winpid" "$rc"

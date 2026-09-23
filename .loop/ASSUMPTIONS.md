@@ -322,3 +322,20 @@ acoes novas pedem confirmacao e recusam com rascunho). **Descartado:** rodar
 enquanto a cadeia de push ainda nao terminou de passar pelo CI. **Como
 reverter:** rodar o publish de um worktree limpo em `origin/master` quando a
 cadeia terminar.
+
+## 23/09 — a perna Windows do crash loop vermelha, com 20 commits ja prontos atras dela
+
+**Pergunta:** o CI de 1.8.25 ficou vermelho duas vezes so em `crash-save-loop
+(windows-latest)` (o shell morre de SIGKILL no meio das 1000 rodadas; em 1.8.24,
+identico, passou). O rerun de diagnostico ja foi usado. Os commits 1.8.26–1.8.45
+estao prontos e nao tocam nada disso. **Decisao:** 1.8.46 troca o `kill -9` do
+Git Bash por `taskkill` no pid Windows do writer (a unica fonte de SIGKILL do
+loop), rastreia cada rodada, e deixa essa perna `continue-on-error` enquanto o
+R7-14 estiver aberto — ela continua rodando e reportando. Os commits
+1.8.26–1.8.45 sobem um por vez com o CI dos quatro SOs conferido, aceitando
+**somente** essa perna vermelha, ja conhecida; qualquer outro vermelho para a
+cadeia. A partir de 1.8.46 o CI tem de ficar verde inteiro. **Descartado:**
+renumerar vinte commits locais para pôr o conserto antes deles (arriscado e sem
+ganho de verificacao), e desligar a perna Windows (o dono pediu essa cobertura em
+`q_crashloop`). **Como reverter:** tirar a linha `continue-on-error` do
+`crash.yml` — o proprio comentario diz quando: dez noites verdes seguidas.
