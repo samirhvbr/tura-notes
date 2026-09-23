@@ -156,8 +156,18 @@ fn walk(
                 let Ok(rel) = path.strip_prefix(root) else {
                     continue;
                 };
-                let rel = rel.to_string_lossy().replace('\\', "/");
-                if let Ok(rel) = RelPath::parse(&rel) {
+                // Segment by segment through `osname`, as the listing does, so
+                // `Ctrl+P` offers the path that opens rather than a lossy one
+                // that names no file. One segment it cannot express skips the
+                // file, as before.
+                let Some(segments) = rel
+                    .iter()
+                    .map(notes_fs::osname::to_segment)
+                    .collect::<Option<Vec<_>>>()
+                else {
+                    continue;
+                };
+                if let Ok(rel) = RelPath::parse(&segments.join("/")) {
                     if rel.is_note() {
                         batch.push(rel);
                     }

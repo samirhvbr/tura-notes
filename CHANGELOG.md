@@ -7,6 +7,53 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.0 - a file whose name is not UTF-8 opens, saves, renames and copies like any other note
+
+A Unix file name is bytes, and one that is not valid UTF-8 -- an old Windows
+backup unpacked with cp1252 names, `reuni\xe3o.md` -- was listed under a lossy
+spelling with `U+FFFD` in it. No file on disk has that name. The tree still
+marked it a note, so it offered a row that answered *not found*; `Ctrl+P`
+offered the same dead path; the watcher dropped every event about the file; and
+duplicating its folder failed halfway, after part of the copy was written. The
+owner's answer (ADR-090) was to make these files work, not to hide or flag them.
+
+**The raw name travels inside the `RelPath`, reversibly.** Each byte that is not
+valid UTF-8 is written as `U+FFFF` plus two lowercase hex digits, and a literal
+`U+FFFF` as two of them. `U+FFFF` is a Unicode noncharacter: legal in a string,
+not something a real name carries. **Every name that is valid UTF-8 is unchanged
+byte for byte**, so no stored path, registry entry or sync history moves, and the
+`.md` at the end survives, so `is_note` still works. The index, sync and MCP go
+on treating the path as an opaque string. `notes-fs::osname` is the only place a
+name is encoded (listing, watcher, quick-open walk) or decoded (the jail).
+
+**The decoder is strict because its input can be hostile** -- a path arrives
+from sync peers, the REST API and MCP clients. An escape may only stand for a
+byte `>= 0x80`, the only kind that can be invalid UTF-8, or `U+FFFF`+`2f` would
+decode to `/` and leave the workspace; and a segment must be in its canonical
+spelling, or one file would have two paths and its identity, keyed by path,
+would split. `RelPath::parse` enforces both, so a malformed escape never becomes
+a path.
+
+**Two more places treated the name as text, and building this found them.**
+Saving built the temporary file's name with `to_str()`, so such a note opened
+and then refused every save with *target has no file name*. Duplicating a folder
+joined the display name, which for these files is the lossy one. Both now use
+the real name.
+
+Where such a name cannot exist -- Windows names are UTF-16, APFS refuses invalid
+UTF-8 -- a synced note with one answers `Unsupported` rather than being
+approximated.
+
+Six end-to-end tests on a real `reuni\xe3o.md`: listed, opened, saved to the
+same bytes, renamed, copied with its folder, offered by `Ctrl+P`. Six for the
+codec, including every byte value in every position and both attack shapes, and
+one for the watcher. With the old lossy listing put back, the first test fails
+exactly as the review described: `stat .../pasta/reuni\ufffdo.md: NotFound`.
+
+This commit shares `1.8.0` with the identity fix above it: both change the
+adapter's surface, and one minor costs the owner one signature and one round of
+acceptance walks rather than two.
+
 ## 1.8.0 - a note's identity no longer moves onto its neighbour when ext4 recycles an inode
 
 Identity correlation recognises a note that moved outside the application.

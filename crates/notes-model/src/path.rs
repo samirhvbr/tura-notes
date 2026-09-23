@@ -18,10 +18,103 @@ pub enum PathError {
     EmptySegment,
     #[error("path ends with a separator")]
     TrailingSeparator,
+    #[error("path contains a malformed raw-byte escape")]
+    RawByte,
+}
+
+/// Marks one byte of a file name that is not valid UTF-8. `U+FFFF` is a
+/// Unicode *noncharacter*: legal in a Rust string, accepted by [`RelPath::parse`],
+/// and not something a real file name carries — and when one does, it is
+/// escaped as two of these, so the encoding stays injective.
+pub const RAW_BYTE: char = '\u{FFFF}';
+
+/// One file name, from the bytes the filesystem returned, to a path segment.
+///
+/// Valid UTF-8 passes through unchanged except for a literal [`RAW_BYTE`],
+/// which is doubled. Each byte that is not part of valid UTF-8 becomes
+/// `RAW_BYTE` plus two lowercase hex digits. Such a byte is always `>= 0x80`, so
+/// the encoding can never produce `/`, `.`, NUL or anything else the jail
+/// cares about.
+pub fn encode_segment(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len());
+    for chunk in bytes.utf8_chunks() {
+        for c in chunk.valid().chars() {
+            out.push(c);
+            if c == RAW_BYTE {
+                out.push(RAW_BYTE);
+            }
+        }
+        for b in chunk.invalid() {
+            out.push(RAW_BYTE);
+            out.push_str(&format!("{b:02x}"));
+        }
+    }
+    out
+}
+
+/// A path segment back to the bytes of the file name it stands for.
+///
+/// **Strict, because the input may be hostile**: a path can arrive from a sync
+/// peer, the REST API or an MCP client. An escape may only stand for a byte
+/// `>= 0x80` — otherwise `RAW_BYTE` + `2f` would decode to `/` and walk out of
+/// the workspace. And the segment must be **canonical** — exactly what
+/// [`encode_segment`] would produce from the decoded bytes — or one file would
+/// have two spellings, and identity, which the registry keys by path, would
+/// split in two.
+pub fn decode_segment(seg: &str) -> Result<Vec<u8>, PathError> {
+    if !seg.contains(RAW_BYTE) {
+        return Ok(seg.as_bytes().to_vec());
+    }
+    let mut out = Vec::with_capacity(seg.len());
+    let mut chars = seg.chars();
+    let mut buf = [0u8; 4];
+    while let Some(c) = chars.next() {
+        if c != RAW_BYTE {
+            out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+            continue;
+        }
+        match chars.next() {
+            Some(RAW_BYTE) => out.extend_from_slice(RAW_BYTE.encode_utf8(&mut buf).as_bytes()),
+            Some(hi) => {
+                let lo = chars.next().ok_or(PathError::RawByte)?;
+                let (Some(h), Some(l)) = (hi.to_digit(16), lo.to_digit(16)) else {
+                    return Err(PathError::RawByte);
+                };
+                let byte = (h * 16 + l) as u8;
+                if byte < 0x80 {
+                    return Err(PathError::RawByte);
+                }
+                out.push(byte);
+            }
+            None => return Err(PathError::RawByte),
+        }
+    }
+    if encode_segment(&out) != seg {
+        return Err(PathError::RawByte);
+    }
+    Ok(out)
+}
+
+/// A segment as a person reads it: escapes decoded, and what is still not
+/// UTF-8 shown as `U+FFFD`. For display only — never for opening anything.
+pub fn display_segment(seg: &str) -> String {
+    match decode_segment(seg) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(_) => seg.to_string(),
+    }
 }
 
 /// A path relative to the workspace root, `/`-separated, **exactly as the name
 /// is on disk**.
+///
+/// **One reversible exception: bytes that are not UTF-8** (ADR-090). A Unix file
+/// name is bytes, and a name that is not valid UTF-8 used to be listed under a
+/// lossy spelling that no file on disk has — a note the tree offered and that
+/// never opened. Each such byte is now written as [`RAW_BYTE`] followed by two
+/// lowercase hex digits, and a literal `U+FFFF` as two of them; see
+/// [`encode_segment`]. Every name that is valid UTF-8 and has no `U+FFFF` in it —
+/// every name that existed before this — is unchanged, byte for byte. Only
+/// `notes-fs` decodes, at the moment it touches the disk.
 ///
 /// Never normalised and never rewritten: normalising Unicode here would produce
 /// a string that does not open the file the user actually has, on any
@@ -31,6 +124,7 @@ pub enum PathError {
 /// The parser is the **first** half of the root jail; the second half is
 /// `notes-fs` re-resolving and re-checking at the moment of use, because a
 /// symlink turns a valid-looking relative path into an escape.
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, TS)]
 #[serde(try_from = "String", into = "String")]
 #[ts(export, type = "string")]
@@ -57,6 +151,11 @@ impl RelPath {
             match seg {
                 "" => return Err(PathError::EmptySegment),
                 "." | ".." => return Err(PathError::DotSegment),
+                // Validated here, at the first half of the jail, so that a
+                // malformed or non-canonical escape never becomes a `RelPath`.
+                _ if seg.contains(RAW_BYTE) => {
+                    decode_segment(seg)?;
+                }
                 _ => {}
             }
         }
@@ -465,5 +564,79 @@ mod tests {
         let b = RelPath::parse("nota.md").unwrap();
         assert_ne!(CompareKey::new(&a, false), CompareKey::new(&b, false));
         assert_eq!(CompareKey::new(&a, true), CompareKey::new(&b, true));
+    }
+}
+
+#[cfg(test)]
+mod raw_byte_tests {
+    use super::*;
+
+    #[test]
+    fn every_valid_name_is_unchanged() {
+        for name in ["nota.md", "ação.md", "文档.md", "2026-09-22.md", ".hidden"] {
+            assert_eq!(encode_segment(name.as_bytes()), name);
+            assert_eq!(decode_segment(name).unwrap(), name.as_bytes());
+        }
+    }
+
+    #[test]
+    fn a_name_that_is_not_utf8_round_trips_and_keeps_its_extension() {
+        let raw = b"reuni\xe3o.md";
+        let seg = encode_segment(raw);
+        assert!(seg.ends_with(".md"), "{seg:?}");
+        assert_eq!(decode_segment(&seg).unwrap(), raw);
+        let path = RelPath::parse(&format!("pasta/{seg}")).unwrap();
+        assert!(path.is_note());
+        assert_eq!(display_segment(&seg), "reuni\u{FFFD}o.md");
+    }
+
+    #[test]
+    fn a_literal_ffff_is_escaped_so_the_encoding_stays_injective() {
+        let name = "a\u{FFFF}b.md";
+        let seg = encode_segment(name.as_bytes());
+        assert_eq!(seg, "a\u{FFFF}\u{FFFF}b.md");
+        assert_eq!(decode_segment(&seg).unwrap(), name.as_bytes());
+    }
+
+    #[test]
+    fn an_escape_can_never_produce_a_separator_or_a_dot() {
+        for bad in ["\u{FFFF}2f", "a\u{FFFF}2e", "\u{FFFF}00"] {
+            assert_eq!(decode_segment(bad), Err(PathError::RawByte), "{bad:?}");
+            assert!(RelPath::parse(bad).is_err(), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_non_canonical_spelling_is_refused() {
+        // Uppercase hex, and escaped bytes that form valid UTF-8, would both be
+        // a second spelling of a name that already has one.
+        for bad in [
+            "\u{FFFF}E3",
+            "\u{FFFF}c3\u{FFFF}a3",
+            "\u{FFFF}",
+            "\u{FFFF}e",
+            "\u{FFFF}zz",
+        ] {
+            assert_eq!(decode_segment(bad), Err(PathError::RawByte), "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn arbitrary_bytes_round_trip() {
+        // Deterministic sweep instead of a random generator: every byte value in
+        // every position of a short name, around a valid core.
+        for b in 0u8..=255 {
+            if b == b'/' || b == 0 {
+                continue;
+            }
+            for raw in [
+                vec![b],
+                vec![b'x', b, b'y'],
+                vec![b, 0xe3, b'.', b'm', b'd'],
+            ] {
+                let seg = encode_segment(&raw);
+                assert_eq!(decode_segment(&seg).unwrap(), raw, "{raw:?} -> {seg:?}");
+            }
+        }
     }
 }

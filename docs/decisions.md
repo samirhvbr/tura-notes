@@ -2905,6 +2905,32 @@ and never opens; duplicating a folder that contains one stops halfway.
 reason: a surface change should land on a quiet base, after the smaller items
 that touch the same code.
 
+**Mechanism, as built in `1.8.0`.** Not a second value carried beside every
+`RelPath` — every adapter method takes a `RelPath`, and threading an `OsString`
+through all of them would have changed each signature for a case most users
+never meet. The raw name is carried **inside** the `RelPath`, reversibly: each
+byte that is not valid UTF-8 is written as `U+FFFF` plus two lowercase hex
+digits, and a literal `U+FFFF` as two of them. `U+FFFF` is a Unicode
+noncharacter, legal in a string and not something a real name carries. Every
+name that is valid UTF-8 — every name that existed before — is unchanged, so no
+stored path, registry entry or sync history moves. The extension survives, so
+`is_note` still works; the index, sync and MCP treat the path as the opaque
+string they always did; and only `notes-fs` decodes, at the moment it touches
+the disk. The owner's answer was about the outcome — *make these files work* —
+and this is the realisation of it.
+
+**The decoder is strict because its input may be hostile**: a path can arrive
+from a sync peer, the REST API or an MCP client. An escape may only stand for a
+byte `>= 0x80`, which is the only kind that can be invalid UTF-8 — otherwise
+`U+FFFF` + `2f` would decode to `/` and leave the workspace. And a segment must
+be canonical, exactly what the encoder would produce, or one file would have two
+spellings and its identity, keyed by path, would split. `RelPath::parse` applies
+both checks, so a malformed escape never becomes a path at all.
+
+**Where such a file cannot exist, it is refused rather than approximated.** A
+Windows name is UTF-16 and APFS rejects invalid UTF-8 at creation, so a note
+with such a name that syncs to those platforms answers `Unsupported` there.
+
 ---
 
 ## ADR-091 — The application's own data can be removed from inside the application

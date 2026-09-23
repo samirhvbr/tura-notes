@@ -188,6 +188,13 @@ segment; `\`; NUL or C0 control characters; a trailing `/`. It does **not**
 normalize Unicode or case — the string is kept as given so it can be joined to
 the root and hit the file the user actually has.
 
+**A name that is not UTF-8** (Unix only — a name there is bytes) is carried
+reversibly inside the string: each such byte as `U+FFFF` plus two lowercase hex
+digits, a literal `U+FFFF` doubled, and every valid name unchanged. `parse`
+accepts an escape only for a byte `>= 0x80` and only in its canonical spelling;
+`notes-fs::osname` is the single place that encodes (listing, watcher, quick-open
+walk) and decodes (the jail) — ADR-090.
+
 Case-sensitivity of the root is **probed, never assumed from the operating
 system** — a Linux mount can be exFAT, NTFS or SMB, and macOS can be formatted
 case-sensitive. The probe is read-only, because product rule 3 and the 0.1a

@@ -472,7 +472,10 @@ fn relativise(root: &Path, path: &Path) -> Option<RelPath> {
     }
     let mut parts = Vec::new();
     for seg in rest.iter() {
-        let s = seg.to_str()?;
+        // Spelled exactly as the listing spells it (`osname`), so a change to a
+        // file whose name is not UTF-8 reaches the reconciler under the same
+        // path the tree shows. `to_str()?` here used to drop the whole event.
+        let s = crate::osname::to_segment(seg)?;
         if s.starts_with('.') && s.ends_with(".tmp") {
             return None;
         }
@@ -523,6 +526,21 @@ mod tests {
         assert_eq!(relativise(root, Path::new("/w/sub/.a.md.tmp")), None);
         // A file that merely *contains* the word is not one of ours.
         assert!(relativise(root, Path::new("/w/tmp.md")).is_some());
+    }
+
+    /// A change to a file whose name is not UTF-8 reaches the reconciler under
+    /// the path the listing gives it. `to_str()?` used to drop the whole event,
+    /// so such a file changed on disk and nothing was ever reported.
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_utf8_is_relativised_the_way_the_listing_spells_it() {
+        use std::os::unix::ffi::OsStrExt;
+        let root = std::path::Path::new("/w");
+        let raw = std::ffi::OsStr::from_bytes(b"reuni\xe3o.md");
+        let rel = relativise(root, &root.join("pasta").join(raw)).expect("reported, not dropped");
+        let expected = format!("pasta/{}", crate::osname::to_segment(raw).unwrap());
+        assert_eq!(rel.as_str(), expected);
+        assert!(rel.is_note());
     }
 
     #[test]

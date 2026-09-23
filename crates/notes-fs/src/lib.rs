@@ -11,6 +11,7 @@
 //! against `std::fs` is a rewrite of the core.
 
 mod local;
+pub mod osname;
 mod probe;
 pub mod watch;
 

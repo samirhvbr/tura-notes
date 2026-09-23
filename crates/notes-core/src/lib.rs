@@ -1047,7 +1047,10 @@ impl WorkspaceService {
         let open = self.open()?;
         open.fs.create_dir(to)?;
         for e in open.fs.list(from)? {
-            let target = to.join(&e.name)?;
+            // The segment, not `e.name`: `name` is what a person reads, and
+            // for a name that is not UTF-8 it names no file (ADR-090). Joining
+            // it wrote the copy under a lossy twin — or failed halfway.
+            let target = to.join(e.path.file_name())?;
             match e.kind {
                 notes_model::EntryKind::Dir => self.copy_tree(&e.path, &target)?,
                 notes_model::EntryKind::File => {

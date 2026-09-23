@@ -66,7 +66,7 @@ impl LocalFs {
             return Ok(p);
         }
         for seg in rel.as_str().split('/') {
-            p.push(seg);
+            p.push(crate::osname::to_os(seg)?);
             if let Ok(meta) = fs::symlink_metadata(&p) {
                 if meta.file_type().is_symlink() {
                     return Err(CoreError::SymlinkNotFollowed {
@@ -127,13 +127,12 @@ impl LocalFs {
         let dir = target.parent().ok_or_else(|| CoreError::Internal {
             message: "target has no parent directory".into(),
         })?;
-        let name =
-            target
-                .file_name()
-                .and_then(|n| n.to_str())
-                .ok_or_else(|| CoreError::Internal {
-                    message: "target has no file name".into(),
-                })?;
+        // An `OsStr`, not a `str`: `to_str()` here refused every note whose
+        // name is not UTF-8 with "target has no file name", so such a note
+        // could be opened and never saved (ADR-090).
+        let name = target.file_name().ok_or_else(|| CoreError::Internal {
+            message: "target has no file name".into(),
+        })?;
         // Same directory, therefore the same volume, therefore the rename is
         // atomic and `same_volume_move` holds.
         //
@@ -148,7 +147,10 @@ impl LocalFs {
         // Two of our processes writing the same note are serialised by
         // `write.lock`, so the shared name cannot collide; a third-party editor
         // does not use our naming.
-        Ok(dir.join(format!(".{name}.tmp")))
+        let mut tmp = std::ffi::OsString::from(".");
+        tmp.push(name);
+        tmp.push(".tmp");
+        Ok(dir.join(tmp))
     }
 }
 
@@ -168,8 +170,16 @@ impl FileSystem for LocalFs {
                 Ok(e) => e,
                 Err(_) => continue, // a file that vanished mid-listing is not an error
             };
-            let name = entry.file_name().to_string_lossy().to_string();
-            let Ok(path) = dir.join(&name) else { continue };
+            // The segment is the name as it really is — escaped where it is not
+            // UTF-8 — and `name` is what a person reads. They used to be one
+            // lossy string, and the lossy string named no file on disk.
+            let Some(segment) = crate::osname::to_segment(&entry.file_name()) else {
+                continue;
+            };
+            let Ok(path) = dir.join(&segment) else {
+                continue;
+            };
+            let name = notes_model::display_segment(&segment);
             let Ok(meta) = entry
                 .metadata()
                 .or_else(|_| fs::symlink_metadata(entry.path()))

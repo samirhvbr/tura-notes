@@ -14,7 +14,10 @@ pub use error::{
     CoreError, IoKind, LockWait, ReadOnlyReason, UnavailableReason, WorkspaceReadOnly,
 };
 pub use ids::{ContentHash, NoteId, WorkspaceId};
-pub use path::{portable_name, CompareKey, NameRule, PathError, RelPath};
+pub use path::{
+    decode_segment, display_segment, encode_segment, portable_name, CompareKey, NameRule,
+    PathError, RelPath, RAW_BYTE,
+};
 pub use text::{Encoding, Eol, TextProfile};
 
 use serde::{Deserialize, Serialize};

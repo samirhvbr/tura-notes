@@ -4,6 +4,15 @@
  * A path relative to the workspace root, `/`-separated, **exactly as the name
  * is on disk**.
  *
+ * **One reversible exception: bytes that are not UTF-8** (ADR-090). A Unix file
+ * name is bytes, and a name that is not valid UTF-8 used to be listed under a
+ * lossy spelling that no file on disk has — a note the tree offered and that
+ * never opened. Each such byte is now written as [`RAW_BYTE`] followed by two
+ * lowercase hex digits, and a literal `U+FFFF` as two of them; see
+ * [`encode_segment`]. Every name that is valid UTF-8 and has no `U+FFFF` in it —
+ * every name that existed before this — is unchanged, byte for byte. Only
+ * `notes-fs` decodes, at the moment it touches the disk.
+ *
  * Never normalised and never rewritten: normalising Unicode here would produce
  * a string that does not open the file the user actually has, on any
  * filesystem that stores NFD (`ARCHITECTURE.md` §3). Comparison is
