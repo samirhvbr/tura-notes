@@ -103,14 +103,44 @@ export function ReceivedSyncControls() {
       void useSync.getState().start();
       return;
     }
-    frozen.current = doc;
+    // Read again, now that the barrier holds. The read above was taken before
+    // the drain, and during the drain input is still admitted — so a keystroke,
+    // a Ctrl+S or a click in the tree replaced the document object, the frozen
+    // copy stopped being the document on screen, and the identity check in
+    // `acceptSyncReload` could never pass again: recovery was a button that
+    // could not succeed (ADR-094). Under the barrier nothing can change it.
+    const held = useEditor.getState().doc;
+    if (held && (held.bufferVersion !== held.savedVersion || held.status === "writing" || held.conflict || held.draft)) {
+      endSyncBarrier();
+      setMessage(t("received.dirty"));
+      void useSync.getState().start();
+      return;
+    }
+    frozen.current = held;
     setWorking(true);
     setMessage(t("received.applying"));
-    try { finish(await ipc.syncApply(snapshots(doc))); }
+    try { finish(await ipc.syncApply(snapshots(held))); }
     catch {
       setRecovery(true);
       setMessage(t("received.recovery"));
     } finally { setWorking(false); }
+  }
+  /** Keep the barrier and restart, writing the buffer as an exit draft first
+   * (ADR-094). The core writes the draft and restarts only if it was written, so
+   * a failure here leaves the window exactly as it was and says so. */
+  async function restart() {
+    if (!recovery || working) return;
+    setWorking(true);
+    const doc = useEditor.getState().doc;
+    const dirty = doc && doc.bufferVersion !== doc.savedVersion;
+    try {
+      await ipc.syncRecoveryRestart(dirty
+        ? { noteId: doc.noteId, text: doc.text, bufferVersion: doc.bufferVersion, baseRev: doc.baseRev }
+        : null);
+    } catch (e) {
+      setMessage(errorText(ipc.asCoreError(e)));
+      setWorking(false);
+    }
   }
   async function recover() {
     if (!recovery || working) return;
@@ -124,6 +154,7 @@ export function ReceivedSyncControls() {
     <button disabled={!!info || locked || working} title={info ? t("received.closeFirst") : t("received.pick")} onClick={() => void openReceived()}>{t("received.open")}</button>
     {connected && <button disabled={locked || working} onClick={() => void apply()}>{t("received.apply")}</button>}
     {recovery && <button disabled={working} onClick={() => void recover()}>{t("received.retryReload")}</button>}
+    {recovery && <button disabled={working} onClick={() => void restart()}>{t("received.restart")}</button>}
     <span role="status" aria-live="polite">{message}</span>
   </section>;
 }

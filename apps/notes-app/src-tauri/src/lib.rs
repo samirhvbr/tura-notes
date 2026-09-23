@@ -146,6 +146,7 @@ pub fn run() {
             commands::sync_open,
             commands::sync_apply,
             commands::sync_reload,
+            commands::sync_recovery_restart,
             commands::knowledge_get,
             commands::wiki_candidates,
             commands::metadata_get,

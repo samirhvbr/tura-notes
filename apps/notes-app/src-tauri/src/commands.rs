@@ -423,6 +423,36 @@ pub fn draft_write(
     svc(&app)?.write_draft(note_id, &text, buffer_version, &base_rev, reason)
 }
 
+/// The way out of a receive barrier that cannot verify its reload (ADR-094).
+///
+/// When received revisions were applied and the reload that should follow could
+/// not be verified, the window stays behind the barrier — every edit and every
+/// tracked call refused — and until now "Retry safe reload" was the only button,
+/// one that could never succeed once the document had changed during the drain.
+/// The owner chose to keep the barrier and offer a restart instead.
+///
+/// This is the one call exempt from the barrier, and the exemption is safe
+/// because it ends the process. **The draft is written first, and the restart
+/// happens only if it was**: a restart that lost the buffer would be the failure
+/// this exists to prevent. Passed only when the buffer is dirty — a clean buffer
+/// holds nothing the disk and the applied revisions do not already have.
+#[tauri::command]
+pub fn sync_recovery_restart(
+    app: State<'_, App>,
+    handle: tauri::AppHandle,
+    note_id: Option<NoteId>,
+    text: Option<String>,
+    buffer_version: Option<u64>,
+    base_rev: Option<BaseRev>,
+) -> R<()> {
+    if let (Some(note_id), Some(text), Some(buffer_version), Some(base_rev)) =
+        (note_id, text, buffer_version, base_rev)
+    {
+        svc(&app)?.write_draft(note_id, &text, buffer_version, &base_rev, DraftReason::Exit)?;
+    }
+    handle.restart()
+}
+
 #[tauri::command]
 pub fn draft_list(app: State<'_, App>) -> R<Vec<DraftInfo>> {
     svc(&app)?.list_drafts()

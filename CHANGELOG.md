@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.1 - a receive barrier that cannot verify its reload now has a way out
+
+Applying received revisions holds a barrier: input is refused and the document
+is frozen until the reload after the apply is verified to be the one on screen.
+When that verification failed, the window stayed behind the barrier, and the
+only button, *Retry safe reload*, could never succeed once the document object
+had changed. The owner chose (ADR-094) to keep the barrier and offer a restart
+that writes the buffer as an exit draft on the way.
+
+**Why retry could never succeed.** `apply()` read the document **before**
+acquiring the barrier, and the barrier admits input while it drains the calls
+already in flight. A keystroke, a `Ctrl+S` or a click in the tree during those
+milliseconds replaced the document object; the frozen copy was then not the
+document on screen, and `acceptSyncReload`, which compares by identity, could
+never pass. It now reads the document again once the barrier holds, when nothing
+can change it, and repeats the guard: something typed during the drain makes the
+apply refuse, with nothing sent, instead of freezing a copy of a document that no
+longer exists.
+
+**The way out is one new command, `sync_recovery_restart`.** It writes the exit
+draft and restarts **only if the draft was written**; a failure leaves the window
+behind the barrier and says why. A clean buffer sends no draft, because it holds
+nothing the disk and the applied revisions do not already have.
+
+**Found on the way: from inside the barrier, not even the draft could be
+written.** Every IPC call from the frontend goes through `tracked()`, which
+refuses while the barrier holds. The new command is exempt the same way
+`syncReload` already was, and the exemption is safe because it ends the process.
+
+Four tests. With the pre-barrier read put back, the drain test fails: the apply
+is sent with the stale document.
+
 ## 1.8.0 - a file whose name is not UTF-8 opens, saves, renames and copies like any other note
 
 A Unix file name is bytes, and one that is not valid UTF-8 -- an old Windows

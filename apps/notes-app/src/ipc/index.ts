@@ -16,6 +16,12 @@ export type { BufferSnapshot, SyncApplyResult };
 export const syncOpen = (stateDir: string) => rawInvoke<WorkspaceInfo>("sync_open", { stateDir });
 export const syncApply = (buffers: BufferSnapshot[]) => rawInvoke<SyncApplyResult>("sync_apply", { buffers });
 export const syncReload = (buffers: BufferSnapshot[]) => rawInvoke<SyncApplyResult>("sync_reload", { buffers });
+/** The way out of an unverifiable receive reload (ADR-094): write the dirty
+ * buffer as an exit draft, then restart. Not `tracked`, like `syncReload`: it is
+ * called from behind the barrier, and it ends the process. */
+export const syncRecoveryRestart = (draft: {
+  noteId: NoteId; text: string; bufferVersion: number; baseRev: BaseRev;
+} | null) => rawInvoke<void>("sync_recovery_restart", draft ?? {});
 
 import type { BaseRev } from "./generated/BaseRev";
 import type { CoreError } from "./generated/CoreError";

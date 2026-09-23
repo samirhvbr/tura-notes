@@ -8,7 +8,7 @@ import { useEditor } from "../stores/editor";
 import { useWorkspace } from "../stores/workspace";
 import { useSync } from "../stores/sync";
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn(async () => "/receive-state") }));
-vi.mock("../ipc", async original => ({ ...await original<typeof import("../ipc")>(), syncOpen: vi.fn(), syncApply: vi.fn(), syncReload: vi.fn() }));
+vi.mock("../ipc", async original => ({ ...await original<typeof import("../ipc")>(), syncOpen: vi.fn(), syncApply: vi.fn(), syncReload: vi.fn(), syncRecoveryRestart: vi.fn() }));
 vi.mock("./DeviceSync", () => ({ DeviceSync: () => null }));
 const originals = { ws: useWorkspace.getState(), sync: useSync.getState() };
 const rev = { hash: "b3:abc", size: 3, mtime_ns: "1" } as ipc.BaseRev;
@@ -125,4 +125,61 @@ it("refuses while an IME composition is active", async () => {
   setComposing(false);
   expect(await acquireSyncBarrier()).toBe(true);
   endSyncBarrier();
+});
+
+// ADR-094. The document is read again once the barrier holds: during the drain
+// input is still admitted, so the copy read before it was no longer the one on
+// screen, and the reload that must match it could never succeed.
+it("a keystroke during the drain refuses the apply instead of freezing a stale document", async () => {
+  await connected();
+  let finishCall!: () => void;
+  const inFlight = tracked(() => new Promise<void>(r => { finishCall = r; }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply received revisions" }));
+  // Draining: the door is shut to new calls, but the editor is not locked yet.
+  expect(isSyncLocked()).toBe(false);
+  useEditor.getState().edit("typed during the drain");
+  finishCall(); await inFlight;
+  await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Save your edits"));
+  expect(ipc.syncApply).not.toHaveBeenCalled();
+  expect(isSyncLocked()).toBe(false);
+  expect(useEditor.getState().doc?.text).toBe("typed during the drain");
+});
+
+it("recovery offers a restart, and a clean buffer sends no draft", async () => {
+  await connected();
+  vi.mocked(ipc.syncApply).mockRejectedValue(new Error("lost response"));
+  vi.mocked(ipc.syncRecoveryRestart).mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: "Apply received revisions" }));
+  const restart = await screen.findByRole("button", { name: "Restart the app and keep my text as a draft" });
+  expect(isSyncLocked()).toBe(true);
+  await act(async () => { fireEvent.click(restart); });
+  expect(ipc.syncRecoveryRestart).toHaveBeenCalledWith(null);
+  // A restart that succeeded ends the process; the button stays disabled
+  // rather than inviting a second one.
+  expect((restart as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("a dirty buffer that reaches recovery is what the restart saves", async () => {
+  await connected();
+  vi.mocked(ipc.syncApply).mockRejectedValue(new Error("lost response"));
+  vi.mocked(ipc.syncRecoveryRestart).mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: "Apply received revisions" }));
+  const restart = await screen.findByRole("button", { name: "Restart the app and keep my text as a draft" });
+  // Defensive: re-reading under the barrier should keep this from happening,
+  // and if it ever does, the unsaved text is what gets kept.
+  useEditor.setState(st => ({ doc: st.doc && { ...st.doc, text: "unsaved", bufferVersion: 3 } }));
+  await act(async () => { fireEvent.click(restart); });
+  expect(ipc.syncRecoveryRestart).toHaveBeenCalledWith(
+    expect.objectContaining({ noteId: fresh.note_id, text: "unsaved", bufferVersion: 3 }));
+});
+
+it("a restart whose draft cannot be written leaves the barrier up and says so", async () => {
+  await connected();
+  vi.mocked(ipc.syncApply).mockRejectedValue(new Error("lost response"));
+  vi.mocked(ipc.syncRecoveryRestart).mockRejectedValue({ code: "io", op: "write_draft", path: "d", kind: "disk_full" });
+  fireEvent.click(screen.getByRole("button", { name: "Apply received revisions" }));
+  const restart = await screen.findByRole("button", { name: "Restart the app and keep my text as a draft" });
+  await act(async () => { fireEvent.click(restart); });
+  expect(isSyncLocked()).toBe(true);
+  expect(screen.getByRole("status").textContent).not.toBe("");
 });
