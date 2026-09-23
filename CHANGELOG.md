@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.7.18 - the intermittent row in the queue index stops trusting a count over a shared message
+
+`.continue/README.md` carries an open investigation into an intermittent
+`ApplicationBlocked` in `stage_receiver_edits`, and its evidence was *five tests
+with "timed out waiting for the workspace write lock" against two with the
+capture guard*, concluding the lock variant dominates and that the next step is
+to measure how long the write lock is held.
+
+`1.7.10` found that sentence emitted from four places, and only one of them is
+that lock. The count was taken over the message, so nobody knows how many of
+the five were the write lock at all. The row now says so, and says that the next
+occurrence arrives already discriminated by `LockWait` -- measuring the hold
+time of the write lock is only worth doing if it says `WorkspaceWrite`.
+
+This is the "a document made stale by a change is fixed in the same pass" rule,
+applied one version late: `1.7.10` changed what the row's evidence meant and did
+not touch the row.
+
 ## 1.7.18 - three parked items release the half that never needed the owner
 
 Round 6 parked seven items as `- 🔒` because fixing them needed a product
