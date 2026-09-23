@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.28 - the webview loses the unused clipboard read grant, and the capability file stops claiming a jail it does not have
+
+Two defects in the file an auditor opens first.
+
+**The webview could read the OS clipboard without a gesture or a prompt**, and
+nothing used it. `capabilities/default.json` granted
+`clipboard-manager:allow-read-text` and `allow-write-text`, `lib.rs` initialised
+the plugin, and not one line of the front end called it (the JS package was not
+even installed); every clipboard operation used the web platform. The read grant
+was the only permission in the file that reaches data outside the application:
+a password, a TOTP, the `nt_…` bearer the owner copies into a token file. The
+plugin, its initialisation, its dependency and both grants are removed; the
+lockfile loses 28 packages it pulled in.
+
+**The file described a jail that does not exist.** It said the dialog was
+"directories only" and that every read goes through a command validating the
+path against the workspace root. `dialog:allow-open` has no such scope, a file
+choice cannot be scoped, and two commands read outside the root. The description
+and `ARCHITECTURE.md` §12 now name them with their guards, which are what an
+auditor should check: `pdf_extract` reads any regular file up to 32 MiB that
+parses as a PDF and returns only its text; `sync_control_probe`'s `token_file`
+must be a `0600` file holding one `nt_` bearer of at most 199 characters, sent
+only to the origin being probed.
 ## 1.8.28 - three tests stop assuming the asset URL is spelled the same on every platform
 
 1.8.27 made the renderer emit each platform's own asset origin:

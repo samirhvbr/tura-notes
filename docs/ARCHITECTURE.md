@@ -901,10 +901,19 @@ built from. Because that costs an open, **the id is filled in by `stat`, not by
   environment is never overridden.
 
 Capabilities (`src-tauri/capabilities/default.json`): `core:default`,
-`dialog:allow-open` (directories only), `clipboard-manager:allow-read-text`,
-`clipboard-manager:allow-write-text`, `shell:allow-open` scoped to
-`^https?://`, and the `notes-asset` scheme. **No `fs:*` permission exists in
-the file.** A PR that adds one is rejected by a CI grep.
+`dialog:allow-open`, `shell:allow-open` scoped to `^https?://`, and the
+`notes-asset` scheme. **No `fs:*` permission exists in the file.** A PR that
+adds one is rejected by a CI grep.
+
+What the file does **not** establish, and used to claim: the dialog opens files
+as well as directories, and a file choice cannot be scoped. Two commands read
+outside the workspace root, and each carries its own guard, which is the thing
+to audit. `pdf_extract` reads any regular file up to 32 MiB that parses as a
+PDF and returns only its text. The `token_file` of `sync_control_probe` must be
+a `0600` regular file holding one `nt_` bearer of at most 199 characters, and it
+is sent only to the origin being probed. Clipboard access is the web platform's:
+the clipboard plugin, which granted the webview unprompted reads of the OS
+clipboard and was used by nothing, was removed in 1.8.28.
 
 CSP (`tauri.conf.json`):
 
