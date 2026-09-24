@@ -7,6 +7,15 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.52 - trash 5.2.8 to 5.2.9
+
+Dependabot #27. A patch release of the crate that implements the Freedesktop
+bin, the Recycle Bin and the Finder trash. It is a desktop-only dependency by
+construction (`Caps::LOCAL.trash` is `false` on iOS and Android, and the crate
+is not compiled there at all, ADR-040), so this moves nothing on mobile. The
+`notes-fs` suite passes, including the delete tests that assert an undoable
+delete reports `DeleteOutcome::Trashed` and a permanent one says so.
+
 ## 1.8.51 - pdf-extract 0.12.0 to 0.12.1
 
 Dependabot #29. A patch release of the crate behind `pdf_extract`, the command

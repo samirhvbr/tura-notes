@@ -460,7 +460,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tower-service` | 0.3.3 | MIT | https://github.com/tower-rs/tower |
 | Rust: `tracing` | 0.1.44 | MIT | https://github.com/tokio-rs/tracing |
 | Rust: `tracing-core` | 0.1.36 | MIT | https://github.com/tokio-rs/tracing |
-| Rust: `trash` | 5.2.8 | MIT | https://github.com/ArturKovacs/trash |
+| Rust: `trash` | 5.2.9 | MIT | https://github.com/ArturKovacs/trash |
 | Rust: `tray-icon` | 0.24.2 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tray-icon |
 | Rust: `try-lock` | 0.2.5 | MIT | https://github.com/seanmonstar/try-lock |
 | Rust: `ts-rs` | 12.0.1 | MIT | https://github.com/Aleph-Alpha/ts-rs |
@@ -16287,7 +16287,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### trash 5.2.8
+### trash 5.2.9
 
 ```text
 Copyright 2019 Artúr Barnabás Kovács
