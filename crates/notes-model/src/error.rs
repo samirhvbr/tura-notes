@@ -23,8 +23,9 @@ pub enum LockWait {
     /// stat → compare → replace sequence. Five seconds with a 20 ms retry, so
     /// this one genuinely waited. It is the only wait the old message named.
     WorkspaceWrite,
-    /// The activity state file, taken exclusively. `try_lock`, so nothing was
-    /// waited for: another process holds it right now.
+    /// The activity state file, taken exclusively. A `try_lock` tried again
+    /// only for the quarter of a second a spawning process can carry a copy of
+    /// it, so nothing was waited for: another process holds it right now.
     ActivityExclusive,
     /// The activity state file, taken shared. `try_lock_shared`, same.
     ActivityShared,

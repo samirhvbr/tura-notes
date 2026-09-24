@@ -117,8 +117,9 @@ mod tests {
             "timed out waiting for the workspace write lock"
         );
 
-        // The activity state file is a `try_lock`: nothing was waited for, and
-        // it used to report itself in the sentence above.
+        // The activity state file is a `try_lock`, retried only across a
+        // spawn's window: no holder was waited for, and it used to report
+        // itself in the sentence above.
         let activity = CoreError::LockTimeout {
             what: notes_model::LockWait::ActivityExclusive,
         };

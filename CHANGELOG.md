@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.62 - a process spawned by another thread no longer keeps a dropped activity lease locked
+
+The macOS recovery-test intermittent is found, and it was what the instrument
+said: a holder outside the process. The holder was a process being spawned by
+another test's thread. A spawned child starts with a copy of every open
+descriptor and keeps it until it execs, and a `flock` belongs to the open file,
+not to the descriptor. So a lease dropped during that window stays locked, held
+by a process that is about to become something else. On macOS every note
+deletion spawns one: the `trash` crate asks the Finder through `osascript`, and
+the recovery tests delete notes on parallel threads. That is why it only ever
+happened on macOS. On Linux `trash` spawns nothing, and on Windows handles are
+not inherited.
+
+Measured on Linux before changing anything, with one thread taking an exclusive
+lease, dropping it and taking a shared one, while a second thread spawned
+`/bin/true`: 274,000 refusals of a lock nobody held in 1.4 million rounds, and
+none in 1.3 million without the spawner.
+
+A refused activity lease is now tried again every 5 ms for up to 250 ms before
+it is reported. The window closes in milliseconds, and a real holder is still
+refused, a quarter of a second later; the workspace write lock already waits
+5 s. `forget`'s probe of every lease file goes through the same function, since
+it is the same kind of lock. Two tests: one with a thread spawning processes
+takes and drops the lease 400 times without a refusal, and with the window set
+to zero it failed in rounds 1 to 3 on each of three runs; the other shows that a
+real holder is still refused after the window.
+
+The row in `.continue/README.md` keeps tracking the intermittent for a week of
+macOS CI, and the Linux occurrences from before 1.7.10, which were counted by a
+string that four places emitted, stay open on it.
+
 ## 1.8.62 - the updater feeds and the queue index are re-measured at 1.8.58
 
 Measured from outside on 24/09, after the owner ran `tools/build-linux.sh

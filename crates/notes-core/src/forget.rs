@@ -145,7 +145,7 @@ fn exclusive(path: &Path) -> Result<std::fs::File> {
         .write(true)
         .open(path)
         .map_err(|e| CoreError::io("activity", "state", &e))?;
-    match file.try_lock() {
+    match activity::lock(&file, true) {
         Ok(()) => Ok(file),
         Err(std::fs::TryLockError::WouldBlock) => Err(CoreError::LockTimeout {
             what: notes_model::LockWait::ActivityExclusive,
