@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.47 - a refused sync application in the tests says what it actually returned
+
+The macOS CI of 1.8.37 failed on
+`collision_never_creates_intent_and_future_application_state_is_preserved`, at
+`assert!(matches!(receiver.apply(&data), Err(Error::ApplicationBlocked { .. })))`.
+That assertion discards the value, so the log says only that the pattern did
+not match: whether the collision went undetected and the call returned `Ok` --
+which would mean a received note overwriting a file the queue does not know --
+or whether some other refusal came back, cannot be told apart. 1.8.37 changed
+only `notes-markdown` and its fixtures, so the code this test exercises did not
+move.
+
+**The five `ApplicationBlocked` assertions in `recovery.rs` are now
+`blocked(...)`**, which panics with the value it received. A test proves the
+diagnostic itself: it catches the panic for `Ok(7)` and for `Error::Conflict`
+and checks each is named. This is not a fix for the failure; it is what makes
+the next one legible, the same reason 1.6.10 made `ApplicationBlocked` carry its
+cause and 1.8.43 made a refused lease name its holder.
+
+Worth recording: a lease timeout maps to `ApplicationBlocked` and would have
+made this assertion **pass**, so this red is not the intermittent the other
+macOS failures are.
+
 ## 1.8.46 - the Windows crash loop ends the writer with taskkill, and does not block while that is proven
 
 The Windows leg of the crash loop, added in 1.8.24, died silently in both runs

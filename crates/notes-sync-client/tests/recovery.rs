@@ -5,6 +5,37 @@ use notes_sync_client::{
     Error, Result,
 };
 use std::fs;
+
+/// A refusal that must be `ApplicationBlocked`, printing what it actually was.
+///
+/// `assert!(matches!(call(), Err(Error::ApplicationBlocked { .. })))` throws the
+/// value away, so a failure says only that the pattern did not match. This
+/// suite fails on macOS CI and nowhere else, and every such failure so far has
+/// printed nothing about what the call returned (R7-17).
+#[track_caller]
+fn blocked<T: std::fmt::Debug>(result: Result<T>) {
+    match result {
+        Err(Error::ApplicationBlocked { .. }) => {}
+        other => panic!("expected ApplicationBlocked, got {other:?}"),
+    }
+}
+
+/// The diagnostic above is the point of it, so it is checked like anything else.
+#[test]
+fn a_refusal_that_is_not_application_blocked_says_what_it_was() {
+    let said = std::panic::catch_unwind(|| blocked(Ok::<_, Error>(7usize)))
+        .unwrap_err()
+        .downcast::<String>()
+        .map(|s| *s)
+        .unwrap_or_default();
+    assert!(said.contains("got Ok(7)"), "{said}");
+    let said = std::panic::catch_unwind(|| blocked(Err::<(), _>(Error::Conflict)))
+        .unwrap_err()
+        .downcast::<String>()
+        .map(|s| *s)
+        .unwrap_or_default();
+    assert!(said.contains("Conflict"), "{said}");
+}
 use uuid::Uuid;
 
 struct Peer {
@@ -340,10 +371,7 @@ fn apply_checkpoints_updates_and_preserves_local_edits() {
     sender.stage().unwrap();
     sender.transfer(&mut peer).unwrap();
     receiver.transfer(&mut peer).unwrap();
-    assert!(matches!(
-        receiver.apply(&data),
-        Err(Error::ApplicationBlocked { .. })
-    ));
+    blocked(receiver.apply(&data));
     assert_eq!(receiver.status().unwrap().applied_revisions, 2);
     assert_eq!(receiver.status().unwrap().received, 3);
     assert_eq!(fs::read(target.join("test.md")).unwrap(), b"local work");
@@ -438,10 +466,7 @@ fn durable_intent_recovers_lost_receipt_without_rewriting_but_rejects_later_edit
     );
     fs::write(&state_path, serde_json::to_vec(&checkpoint).unwrap()).unwrap();
     fs::write(target.join("test.md"), b"newer local").unwrap();
-    assert!(matches!(
-        receiver.apply(&data),
-        Err(Error::ApplicationBlocked { .. })
-    ));
+    blocked(receiver.apply(&data));
     assert_eq!(fs::read(target.join("test.md")).unwrap(), b"newer local");
     assert_eq!(receiver.status().unwrap().applied_revisions, 0);
 }
@@ -457,10 +482,7 @@ fn collision_never_creates_intent_and_future_application_state_is_preserved() {
     fs::write(target.join("test.md"), b"same").unwrap();
     let app = dir.path().join("receiver/application.json");
     for _ in 0..2 {
-        assert!(matches!(
-            receiver.apply(&data),
-            Err(Error::ApplicationBlocked { .. })
-        ));
+        blocked(receiver.apply(&data));
         assert!(!app.exists());
     }
     fs::write(&app, b"{\"schema\":999}").unwrap();
@@ -2081,10 +2103,7 @@ fn edits_during_transfer_are_recaptured_without_applying_the_older_publication()
     fs::write(f.target.join("test.md"), b"newer while offline").unwrap();
     assert_eq!(f.receiver.stage_receiver_edits().unwrap(), 0);
     f.receiver.transfer(&mut f.peer).unwrap();
-    assert!(matches!(
-        f.receiver.confirm_receiver_edit(),
-        Err(Error::ApplicationBlocked { .. })
-    ));
+    blocked(f.receiver.confirm_receiver_edit());
     assert_eq!(
         fs::read(f.target.join("test.md")).unwrap(),
         b"newer while offline"
@@ -2161,10 +2180,7 @@ fn receiver_binary_edits_keep_their_bytes_when_confirmation_is_interrupted() {
     ));
     f.receiver.transfer(&mut f.peer).unwrap();
     fs::write(f.target.join("asset.bin"), [128, 0, 2]).unwrap();
-    assert!(matches!(
-        f.receiver.confirm_receiver_edit(),
-        Err(Error::ApplicationBlocked { .. })
-    ));
+    blocked(f.receiver.confirm_receiver_edit());
     assert_eq!(fs::read(f.target.join("asset.bin")).unwrap(), [128, 0, 2]);
     f.receiver.stage_receiver_edits().unwrap();
     f.receiver.transfer(&mut f.peer).unwrap();
