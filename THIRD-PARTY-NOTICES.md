@@ -299,7 +299,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `pango-sys` | 0.18.0 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | Rust: `parking_lot` | 0.12.5 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
 | Rust: `parking_lot_core` | 0.9.12 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
-| Rust: `pdf-extract` | 0.12.0 | MIT | https://github.com/jrmuizel/pdf-extract |
+| Rust: `pdf-extract` | 0.12.1 | MIT | https://github.com/jrmuizel/pdf-extract |
 | Rust: `percent-encoding` | 2.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |
 | Rust: `phf` | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | Rust: `phf` | 0.14.0 | MIT | https://github.com/rust-phf/rust-phf |

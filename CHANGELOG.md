@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.51 - pdf-extract 0.12.0 to 0.12.1
+
+Dependabot #29. A patch release of the crate behind `pdf_extract`, the command
+that reads a dropped PDF's text; no other crate moves with it. The two tests
+that cover it pass, including the one for the standard-encoding file that
+`1.4.x` added after a PDF came back as mojibake.
+
 ## 1.8.50 - the HTML sanitizer moves to ammonia 4.2.0, parser and all
 
 Dependabot #23. The HTML sanitizer the preview depends on for everything it
