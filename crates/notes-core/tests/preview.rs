@@ -141,8 +141,10 @@ fn relative_links_resolve_from_the_notes_own_folder() {
         .unwrap();
     let id = f.svc.workspace_id().unwrap();
     assert!(
-        r.html
-            .contains(&format!("notes-asset://{id}/sub/figura.png")),
+        r.html.contains(&format!(
+            "{}{id}/sub/figura.png",
+            notes_markdown::ASSET_ORIGIN
+        )),
         "{}",
         r.html
     );

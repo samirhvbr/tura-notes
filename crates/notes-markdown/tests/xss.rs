@@ -37,7 +37,16 @@ fn opts(remote_images: bool, raw_html: bool) -> RenderOpts {
 
 fn render(name: &str, remote_images: bool, raw_html: bool) -> String {
     let src = std::fs::read_to_string(dir().join(name)).unwrap_or_else(|e| panic!("{name}: {e}"));
-    render_html(&src, &opts(remote_images, raw_html)).html
+    canonical(render_html(&src, &opts(remote_images, raw_html)).html)
+}
+
+/// The rendered HTML with this platform's asset origin written the one way the
+/// assertions below expect. Windows and Android emit
+/// `http://notes-asset.localhost/` (`ASSET_ORIGIN`, 1.8.27), which is the same
+/// URL spelled for their webview; checking it as `notes-asset://` keeps every
+/// rule here meaning the same thing on every platform.
+fn canonical(html: String) -> String {
+    html.replace(notes_markdown::ASSET_ORIGIN, "notes-asset://")
 }
 
 /// Nothing in this list may appear as a **tag** in rendered output, under any

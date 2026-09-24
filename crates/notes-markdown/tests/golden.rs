@@ -87,7 +87,12 @@ fn every_fixture_renders_to_its_golden_html() {
         let src = std::fs::read_to_string(dir().join(&name)).unwrap();
         let rendered = render_html(&src, &opts());
         let target = dir().join(name.replace(".md", ".html"));
-        if let Some(f) = compare(&target, &rendered.html) {
+        // The goldens hold the `notes-asset://` spelling; Windows and Android
+        // emit the same URL as `http://notes-asset.localhost/` (1.8.27).
+        let html = rendered
+            .html
+            .replace(notes_markdown::ASSET_ORIGIN, "notes-asset://");
+        if let Some(f) = compare(&target, &html) {
             failures.push(f);
         }
     }
@@ -141,7 +146,9 @@ fn the_corpus_has_no_orphans() {
 fn the_prose_corpus_obeys_the_same_rules_as_the_payload_corpus() {
     for name in inputs() {
         let src = std::fs::read_to_string(dir().join(&name)).unwrap();
-        let out = render_html(&src, &opts()).html;
+        let out = render_html(&src, &opts())
+            .html
+            .replace(notes_markdown::ASSET_ORIGIN, "notes-asset://");
         for tag in html::tags(&out) {
             assert!(
                 !matches!(

@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.28 - three tests stop assuming the asset URL is spelled the same on every platform
+
+1.8.27 made the renderer emit each platform's own asset origin:
+`http://notes-asset.localhost/` on Windows and Android, `notes-asset://`
+elsewhere. Its CI then failed on `rust (windows-latest)`, because
+`notes-core/tests/preview.rs` looked for the literal `notes-asset://`. Two more
+tests would have failed after it (cargo stops at the first failing binary): the
+xss corpus and the markdown goldens.
+
+**The core preview test now builds its expectation from `ASSET_ORIGIN`**, and the
+xss and golden tests normalise this platform's origin back to `notes-asset://`
+before they compare. The goldens keep one spelling, and every rule they check
+means the same thing everywhere. Checked here by forcing the Windows origin and
+running every `notes-markdown` and `notes-core` test binary: the only failure
+was the test that asserts which origin the real platform uses, as it should be.
+
 ## 1.8.27 - images load on Windows and Android, where the webview serves notes-asset over http
 
 On Windows and Android every image in every note was a broken icon, with no
