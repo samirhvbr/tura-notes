@@ -877,17 +877,23 @@ As dez perguntas completas, com opções e recomendação, estão no artefato �
 
 ## Colhidos automaticamente
 
+> **Nota de 24/09.** As seis linhas `🔒` marcadas *duplicata colhida do chat*
+> entraram aqui pelo proprio loop, que arquiva a ultima mensagem do turno e
+> colheu dela a lista de pendencias. Nao sao itens novos: tres repetem os `🔒`
+> desta rodada e tres sao atos do dono ja no quadro. Ficam como registro, fora
+> da fila de execucao.
+
 ## Reabastecimento 23/09 (triagem medida)
 
 Triagem: 0 ADR 'not yet built' (so o ADR-096, PROPOSED, do dono); PROPOSED em docs/: MOBILE-0.4 (aparelho), architecture-v1 (HISTORICAL), ADR-096 (dono); 0 TODO/FIXME no codigo; `.continue/` so tem aceite do dono e o 0.6-sync.md — que ficou velho com o R7-05. Feed macOS em 1.7.21 contra Linux 1.8.21: publicar macOS exige o MacBook (ADR-092), fora do alcance desta maquina.
 
 - [x] R7-13 — **feito em 1.8.44.** `.continue/0.6-sync.md` item 2 dizia R7-05 pendente; agora registra R7-05 construido (1.8.42), R7-04 esperando o ADR-096 e R7-08 parqueado
-- [ ] R7-04:** aprovar ou não o ADR-096, a permissão para listar e revogar aparelhos pelo app  <!-- colhido em #0033 -->
-- [ ] R7-09:** autorizar ou não um PR de diagnóstico só para rodar o job de Windows  <!-- colhido em #0033 -->
-- [ ] R7-08:** a fila móvel em segundo plano precisa do MacBook com ambiente  <!-- colhido em #0033 -->
-- [ ] Assinatura da 1.8.0 do servidor:** rodar   na sua máquina, para o deploy do tura.samirhv.com.br passar  <!-- colhido em #0033 -->
-- [ ] Aceites** em release instalada  <!-- colhido em #0033 -->
-- [ ] Feed do macOS:** está em 1.7.21 enquanto o do Linux está em 1.8.21. Publicar o macOS exige build no MacBook, e esta máquina é Linux  <!-- colhido em #0033 -->
+- 🔒 R7-04 (duplicata colhida do chat em #0033) — o item real, com a pergunta, esta acima; aprovar ou nao o ADR-096
+- 🔒 R7-09 (duplicata colhida do chat em #0033) — o item real esta acima; autorizar ou nao um PR de diagnostico para o job de Windows
+- 🔒 R7-08 (duplicata colhida do chat em #0033) — o item real esta acima; a fila movel espera aparelho
+- 🔒 Assinatura da 1.8.0 do servidor — ato do dono (`tools/sign-server-release.sh 1.8.0`, chave privada, fora do escopo do loop). No quadro como OWNER_sign180
+- 🔒 Aceites em release instalada — ato do dono, um `ACCEPTANCE-*.md` por marco (o do 0.0 e o §2 do `SPIKE-0.0.md`)
+- 🔒 Feed do macOS em 1.7.21 contra Linux 1.8.47 — publicar exige build assinado no MacBook (ADR-092); esta maquina e Linux
 - [x] R7-14 — **feito em 1.8.45 — instrumento.** CI de 1.8.25: o job `crash-save-loop (windows-latest)` morreu entre as rodadas 100 e 200 com codigo 2304 (9<<8, SIGKILL no proprio shell) e sem nenhuma linha FAIL; em 1.8.24, com loop, writer e workflow identicos, passou. Rerun de diagnostico feito uma vez. Agora, so no Windows, cada rodada imprime pid MSYS, winpid e status, e a proxima morte deixa a ultima rodada no log. Suspeita a conferir, nao conclusao: o `kill -9` do Git Bash atingindo outro processo
 - [x] R7-15 — **feito em 1.8.46.** A perna Windows do crash loop morreu calada nas duas execucoes de 1.8.25 (~rodada 120 e ~550, codigo 2304). No Windows o writer agora e encerrado com `taskkill //F` no pid Windows (a unica fonte de SIGKILL do loop era o `kill -9` do Git Bash), com o rastro por rodada do 1.8.45; a perna fica `continue-on-error` ate dez noites verdes seguidas (comentario no `crash.yml`). Ver ASSUMPTIONS 23/09
 - [x] R7-17 — **feito em 1.8.47 — instrumento.** CI de 1.8.37 no macOS: `collision_never_creates_intent_and_future_application_state_is_preserved` falhou em `assert!(matches!(receiver.apply(&data), Err(ApplicationBlocked)))`, e a asserção jogou fora o que realmente veio — nao da para saber se foi `Ok` (colisao NAO detectada, que seria serio) ou outro erro. Note que timeout de lease daria ApplicationBlocked e **passaria**, entao este vermelho nao e o intermitente dos outros. Os cinco sitios viraram `blocked(...)`, que imprime o valor recebido; um teste prova o diagnostico (`got Ok(7)`, `Conflict`). 1.8.37 so mexeu em notes-markdown e fixtures — o caminho medido nao mudou, o que justifica o unico rerun

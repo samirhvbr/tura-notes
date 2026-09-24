@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.48 - six duplicate queue lines harvested from the chat leave the execution queue
+
+The loop archives the last message of each turn and harvested the list of
+pending items out of it, which put six `- [ ]` lines into `.loop/QUEUE.md` with
+the markdown half-eaten (`R7-04:**`). None of them is new work: three repeat
+this round's own `🔒` items and three are owner acts already on the board (the
+server signing, the acceptance walks, the macOS feed). Left as they were, every
+future stop would pick one up as the next thing to build.
+
+They are marked `🔒` with a note saying where they came from, so the record
+stays and the execution queue is empty. Round 7 ends with 0 open items and 9
+parked, all of them waiting on the owner, a device or the MacBook.
+
 ## 1.8.47 - a refused sync application in the tests says what it actually returned
 
 The macOS CI of 1.8.37 failed on
