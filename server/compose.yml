@@ -21,7 +21,7 @@ services:
       backend:
         ipv4_address: 172.30.90.3
   caddy:
-    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    image: caddy:2-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e
     restart: unless-stopped
     environment:
       NOTES_DOMAIN: ${NOTES_DOMAIN:?Set NOTES_DOMAIN to the public DNS hostname}

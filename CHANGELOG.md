@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.58 - the Caddy image digest in the compose deployment
+
+Dependabot #26. The tag does not move — it is `2-alpine` before and after — and
+the digest does, which is the whole point of pinning by digest: the same tag
+served different bytes, and this records which bytes this deployment runs. The
+image is the TLS front of the two-line `compose.yml` deployment, not of the
+`cotenant` templates, which use the host's nginx or Apache.
+
+The digest is the one Dependabot resolved (#26), not one derived here; nothing
+else in the repository carried the old one.
+
 ## 1.8.57 - jsdom 30.0.1 to 30.1.0
 
 Dependabot #21. The DOM the component tests run against, a development
