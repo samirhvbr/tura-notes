@@ -11,7 +11,7 @@ These are used unmodified. Their source is available at the locations named
 here, as MPL-2.0 section 3.2 requires.
 
 - `cssparser` 0.36.0 — https://github.com/servo/rust-cssparser
-- `cssparser` 0.37.0 — https://github.com/servo/rust-cssparser
+- `cssparser` 0.38.0 — https://github.com/servo/rust-cssparser
 - `cssparser-macros` 0.6.1 — https://github.com/servo/rust-cssparser
 - `dtoa-short` 0.3.5 — https://github.com/upsuper/dtoa-short
 - `option-ext` 0.2.0 — https://github.com/soc/option-ext.git
@@ -27,7 +27,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `aho-corasick` | 1.1.5 | Unlicense OR MIT | https://github.com/BurntSushi/aho-corasick |
 | Rust: `alloc-no-stdlib` | 2.0.4 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
 | Rust: `alloc-stdlib` | 0.2.4 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
-| Rust: `ammonia` | 4.1.4 | MIT OR Apache-2.0 | https://github.com/rust-ammonia/ammonia |
+| Rust: `ammonia` | 4.2.0 | MIT OR Apache-2.0 | https://github.com/rust-ammonia/ammonia |
 | Rust: `android_system_properties` | 0.1.6 | MIT OR Apache-2.0 | https://github.com/nical/android_system_properties |
 | Rust: `anyhow` | 1.0.104 | MIT OR Apache-2.0 | https://github.com/dtolnay/anyhow |
 | Rust: `arbitrary` | 1.4.2 | MIT OR Apache-2.0 | https://github.com/rust-fuzz/arbitrary/ |
@@ -88,7 +88,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `crossbeam-utils` | 0.8.23 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |
 | Rust: `crypto-common` | 0.1.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | Rust: `cssparser` | 0.36.0 | MPL-2.0 | https://github.com/servo/rust-cssparser |
-| Rust: `cssparser` | 0.37.0 | MPL-2.0 | https://github.com/servo/rust-cssparser |
+| Rust: `cssparser` | 0.38.0 | MPL-2.0 | https://github.com/servo/rust-cssparser |
 | Rust: `cssparser-macros` | 0.6.1 | MPL-2.0 | https://github.com/servo/rust-cssparser |
 | Rust: `ctor` | 0.8.0 | Apache-2.0 OR MIT | https://github.com/mmastrac/rust-ctor |
 | Rust: `ctor-proc-macro` | 0.0.7 | Apache-2.0 OR MIT | https://github.com/mmastrac/rust-ctor |
@@ -179,7 +179,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `heck` | 0.5.0 | MIT OR Apache-2.0 | https://github.com/withoutboats/heck |
 | Rust: `hex` | 0.4.3 | MIT OR Apache-2.0 | https://github.com/KokaKiwi/rust-hex |
 | Rust: `html5ever` | 0.38.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
-| Rust: `html5ever` | 0.39.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
+| Rust: `html5ever` | 0.40.1 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `http` | 1.5.0 | MIT OR Apache-2.0 | https://github.com/hyperium/http |
 | Rust: `http-body` | 1.1.0 | MIT | https://github.com/hyperium/http-body |
 | Rust: `http-body-util` | 0.1.5 | MIT | https://github.com/hyperium/http-body |
@@ -246,7 +246,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `lopdf` | 0.42.0 | MIT | https://github.com/J-F-Liu/lopdf.git |
 | Rust: `maplit` | 1.0.2 | MIT/Apache-2.0 | https://github.com/bluss/maplit |
 | Rust: `markup5ever` | 0.38.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
-| Rust: `markup5ever` | 0.39.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
+| Rust: `markup5ever` | 0.40.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `matchit` | 0.8.4 | MIT AND BSD-3-Clause | https://github.com/ibraheemdev/matchit |
 | Rust: `md-5` | 0.10.6 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | Rust: `memchr` | 2.8.3 | Unlicense OR MIT | https://github.com/BurntSushi/memchr |
@@ -302,9 +302,11 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `pdf-extract` | 0.12.0 | MIT | https://github.com/jrmuizel/pdf-extract |
 | Rust: `percent-encoding` | 2.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |
 | Rust: `phf` | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
+| Rust: `phf` | 0.14.0 | MIT | https://github.com/rust-phf/rust-phf |
 | Rust: `phf_generator` | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | Rust: `phf_macros` | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | Rust: `phf_shared` | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
+| Rust: `phf_shared` | 0.14.0 | MIT | https://github.com/rust-phf/rust-phf |
 | Rust: `pin-project-lite` | 0.2.17 | Apache-2.0 OR MIT | https://github.com/taiki-e/pin-project-lite |
 | Rust: `plist` | 1.10.1 | MIT | https://github.com/ebarnard/rust-plist/ |
 | Rust: `png` | 0.17.16 | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
@@ -400,6 +402,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `soup3-sys` | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
 | Rust: `sqlite-wasm-rs` | 0.5.5 | MIT | https://github.com/Spxg/sqlite-wasm-rs |
 | Rust: `stable_deref_trait` | 1.2.1 | MIT OR Apache-2.0 | https://github.com/storyyeller/stable_deref_trait |
+| Rust: `string_cache` | 0.11.0 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
 | Rust: `string_cache` | 0.9.0 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
 | Rust: `stringprep` | 0.1.5 | MIT/Apache-2.0 | https://github.com/sfackler/rust-stringprep |
 | Rust: `strsim` | 0.11.1 | MIT | https://github.com/rapidfuzz/strsim-rs |
@@ -496,6 +499,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `wasm-streams` | 0.5.0 | MIT OR Apache-2.0 | https://github.com/MattiasBuelens/wasm-streams/ |
 | Rust: `web-sys` | 0.3.105 | MIT OR Apache-2.0 | https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/web-sys |
 | Rust: `web_atoms` | 0.2.6 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
+| Rust: `web_atoms` | 0.3.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `webkit2gtk` | 2.0.2 | MIT | https://github.com/tauri-apps/webkit2gtk-rs |
 | Rust: `webkit2gtk-sys` | 2.0.2 | MIT | https://github.com/tauri-apps/webkit2gtk-rs |
 | Rust: `webpki-root-certs` | 1.0.9 | CDLA-Permissive-2.0 | https://github.com/rustls/webpki-roots |
@@ -1391,7 +1395,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### ammonia 4.1.4, crc32fast 1.5.1, ctor 0.8.0, ctor-proc-macro 0.0.7, dpi 0.1.2, dtor 0.3.0, dtor-proc-macro 0.0.6, fallible-iterator 0.3.0, fallible-streaming-iterator 0.1.9, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, jni-sys 0.3.1, jni-sys 0.4.1, json-patch 3.0.1, serde_spanned 0.6.9, serde_spanned 1.1.1, stringprep 0.1.5, tao 0.35.3, toml 1.1.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.19.15, toml_edit 0.20.2, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
+### ammonia 4.2.0, crc32fast 1.5.1, ctor 0.8.0, ctor-proc-macro 0.0.7, dpi 0.1.2, dtor 0.3.0, dtor-proc-macro 0.0.6, fallible-iterator 0.3.0, fallible-streaming-iterator 0.1.9, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, jni-sys 0.3.1, jni-sys 0.4.1, json-patch 3.0.1, serde_spanned 0.6.9, serde_spanned 1.1.1, stringprep 0.1.5, tao 0.35.3, toml 1.1.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.19.15, toml_edit 0.20.2, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
 
 ```text
 Apache License
@@ -1597,7 +1601,7 @@ Apache License
    limitations under the License.
 ```
 
-### ammonia 4.1.4
+### ammonia 4.2.0
 
 ```text
 Copyright (c) 2015-2022 The ammonia Developers
@@ -1845,7 +1849,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 END OF TERMS AND CONDITIONS
 ```
 
-### arbitrary 1.4.2, arrayvec 0.7.8, atomic-waker 1.1.2, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.1, bs58 0.5.1, bstr 1.13.1, bumpalo 3.20.3, camino 1.2.5, cff-parser 0.2.0, cfg-if 1.0.4, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, derive_arbitrary 1.4.2, displaydoc 0.2.7, equivalent 1.0.2, errno 0.3.14, euclid 0.20.14, fastrand 2.5.0, filetime 0.2.29, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.2, glob 0.3.4, hashbrown 0.12.3, hashbrown 0.16.1, hashbrown 0.17.1, heck 0.4.1, heck 0.5.0, html5ever 0.38.0, html5ever 0.39.0, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, jni 0.21.1, js-sys 0.3.105, keyboard-types 0.7.0, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, maplit 1.0.2, markup5ever 0.38.0, markup5ever 0.39.0, mime 0.3.17, muda 0.19.3, num-traits 0.2.19, once_cell 1.21.4, openssl-probe 0.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, png 0.17.16, png 0.18.1, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustix 1.1.4, rustls 0.23.45, rustls-native-certs 0.8.4, scopeguard 1.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.22.0, serde_with_macros 3.22.0, servo_arc 0.4.3, signal-hook 0.4.4, signal-hook-registry 1.4.8, simd_cesu8 1.2.0, smallvec 1.16.0, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.9.0, syn 1.0.109, system-configuration 0.7.0, system-configuration-sys 0.6.0, tao-macros 0.1.4, tar 0.4.46, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.24.2, ttf-parser 0.25.1, unicase 2.9.0, unicode-bidi 0.3.18, unicode-normalization 0.1.25, unicode-properties 0.1.4, unicode-segmentation 1.13.3, url 2.5.8, uuid 1.26.1, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, weezl 0.1.12, window-vibrancy 0.6.0, wit-bindgen 0.57.1, wry 0.55.1, xattr 1.6.1
+### arbitrary 1.4.2, arrayvec 0.7.8, atomic-waker 1.1.2, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.1, bs58 0.5.1, bstr 1.13.1, bumpalo 3.20.3, camino 1.2.5, cff-parser 0.2.0, cfg-if 1.0.4, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, derive_arbitrary 1.4.2, displaydoc 0.2.7, equivalent 1.0.2, errno 0.3.14, euclid 0.20.14, fastrand 2.5.0, filetime 0.2.29, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.2, glob 0.3.4, hashbrown 0.12.3, hashbrown 0.16.1, hashbrown 0.17.1, heck 0.4.1, heck 0.5.0, html5ever 0.38.0, html5ever 0.40.1, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, jni 0.21.1, js-sys 0.3.105, keyboard-types 0.7.0, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, maplit 1.0.2, markup5ever 0.38.0, markup5ever 0.40.0, mime 0.3.17, muda 0.19.3, num-traits 0.2.19, once_cell 1.21.4, openssl-probe 0.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, png 0.17.16, png 0.18.1, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustix 1.1.4, rustls 0.23.45, rustls-native-certs 0.8.4, scopeguard 1.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.22.0, serde_with_macros 3.22.0, servo_arc 0.4.3, signal-hook 0.4.4, signal-hook-registry 1.4.8, simd_cesu8 1.2.0, smallvec 1.16.0, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.11.0, string_cache 0.9.0, syn 1.0.109, system-configuration 0.7.0, system-configuration-sys 0.6.0, tao-macros 0.1.4, tar 0.4.46, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.24.2, ttf-parser 0.25.1, unicase 2.9.0, unicode-bidi 0.3.18, unicode-normalization 0.1.25, unicode-properties 0.1.4, unicode-segmentation 1.13.3, url 2.5.8, uuid 1.26.1, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, web_atoms 0.3.0, weezl 0.1.12, window-vibrancy 0.6.0, wit-bindgen 0.57.1, wry 0.55.1, xattr 1.6.1
 
 ```text
 Apache License
@@ -4092,7 +4096,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, euclid 0.20.14, string_cache 0.9.0
+### core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, euclid 0.20.14, string_cache 0.11.0, string_cache 0.9.0
 
 ```text
 Copyright (c) 2012-2013 Mozilla Foundation
@@ -4922,7 +4926,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### cssparser 0.36.0, cssparser 0.37.0, cssparser-macros 0.6.1
+### cssparser 0.36.0, cssparser 0.38.0, cssparser-macros 0.6.1
 
 ```text
 Mozilla Public License Version 2.0
@@ -8303,7 +8307,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### html5ever 0.38.0, html5ever 0.39.0, markup5ever 0.38.0, markup5ever 0.39.0, web_atoms 0.2.6
+### html5ever 0.38.0, html5ever 0.40.1, markup5ever 0.38.0, markup5ever 0.40.0, web_atoms 0.2.6, web_atoms 0.3.0
 
 ```text
 Copyright (c) 2014 The html5ever Project Developers
@@ -12047,7 +12051,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### phf 0.13.1, phf_generator 0.13.1, phf_macros 0.13.1, phf_shared 0.13.1
+### phf 0.13.1, phf 0.14.0, phf_generator 0.13.1, phf_macros 0.13.1, phf_shared 0.13.1, phf_shared 0.14.0
 
 ```text
 The MIT License (MIT)

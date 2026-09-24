@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.50 - the HTML sanitizer moves to ammonia 4.2.0, parser and all
+
+Dependabot #23. The HTML sanitizer the preview depends on for everything it
+refuses, so this bump is read rather than waved through: 4.2.0 carries
+`html5ever` 0.39 → 0.40.1 and `markup5ever` with it, moves `cssparser` 0.37 →
+0.38 (still MPL-2.0, still named in `THIRD-PARTY-NOTICES.md`), and adds the
+`phf`, `string_cache` and `web_atoms` crates its new atom tables use. Nothing
+was dropped.
+
+The evidence is the corpus that exists for this: every file in `fixtures/xss/`
+still produces no `<script>`, no `javascript:` link, no `file:` image, no
+`data:` outside the raster allowlist, and no remote fetch without the opt-in —
+25 tests, plus the 50 of the renderer and the goldens. `THIRD-PARTY-NOTICES.md`
+is regenerated, and the licence check passes with the four new crates on the
+allowlist.
+
 ## 1.8.49 - the model pin leaves .claude/settings.json
 
 `"model": "opus[1m]"` and the `ANTHROPIC_DEFAULT_OPUS_MODEL` env pin are gone.
