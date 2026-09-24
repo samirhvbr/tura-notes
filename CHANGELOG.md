@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.59 - the repository stops choosing the model
+
+`CLAUDE_CODE_SUBAGENT_MODEL` leaves `.claude/settings.json`. The model is now the user's
+choice, made with `/model`, and a subagent inherits it: by default Claude Code gives a
+subagent the session's model, and this variable was the only thing making it different —
+with the session on Opus 5.5, subagents were measured on Opus 5, because the variable names
+the `opus` alias and the alias still resolves through the organization's managed pin.
+
+`.claude/README.md`, `README.md` stop(s) describing a model profile.
+
+Rule and measurement: repodocs ADR-027.
+
+No test: configuration and documents. Checked that the file parses and that repodocs
+runbook §7's check is silent here.
+
 ## 1.8.58 - the Caddy image digest in the compose deployment
 
 Dependabot #26. The tag does not move — it is `2-alpine` before and after — and

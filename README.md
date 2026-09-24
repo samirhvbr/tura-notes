@@ -132,7 +132,7 @@ Ubuntu, macOS, Windows and rolling Arch.
 | [docs/decisions.md](docs/decisions.md) | **The ADRs** — what was decided, why, and what it cost |
 | [docs/](docs/README.md) | **The record** — the full index, plus security, versioning and runbooks |
 | [.continue/](.continue/README.md) | **The queue** — what is still open, and whose call it is |
-| [.claude/](.claude/README.md) | Model profile and permission posture for agents |
+| [.claude/](.claude/README.md) | Permission posture and effort level for agents — the repository chooses no model |
 | [CHANGELOG.md](CHANGELOG.md) | **The history** — newest first; each heading is a commit subject |
 | [version.md](version.md) | **The single authority on the version** — read as the first `X.Y.Z` in the file. Every bump becomes a tag and a published Release |
 
