@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.60 - the loop's state files record that round 7 ended with its scope exhausted
+
+The loop harness's own records — `STATE.json`, `STATUS.md`, `INDEX.md` and
+entries 0030 to 0033 — now say how round 7 closed on 23/09 at 19:41: stopped by
+scope exhaustion after four iterations, with 126 queue items done through 1.8.44
+and what remained (R7-04, R7-08, R7-09, the 1.8.0 signature, the acceptance
+walks, the macOS feed) waiting on the owner, a device or the MacBook. The
+verdict quoted in `STATUS.md` lists what each hypothesis measured, so the next
+round starts from the sweep rather than repeating it.
+
+Entries 0030 and 0031 are the harness recording the same R7-10 turn twice. They
+stay as written: the log is the harness's, and correcting it by hand would make
+it a record of the correction instead.
+
 ## 1.8.59 - the repository stops choosing the model
 
 `CLAUDE_CODE_SUBAGENT_MODEL` leaves `.claude/settings.json`. The model is now the user's

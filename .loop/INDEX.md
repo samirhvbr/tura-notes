@@ -33,3 +33,7 @@ Uma linha por vez que o agente encerrou o turno.
 | 0027 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0027-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
 | 0028 | DOC | relato | continuou | R5x — **bump do `reqwest` 0.13.4 → 0.13.5, revertido e parqueado até o | [entry](entries/0028-DOC-r5x-bump-do-reqwest-0-13-4-0-13-5-revertido-e-pa.md) |
 | 0029 | DOC | relato | continuou | R6-02 — **save() desiste em silêncio enquanto há outro save em voo, e  | [entry](entries/0029-DOC-r6-02-save-desiste-em-silencio-enquanto-ha-outro.md) |
+| 0030 | DOC | relato | continuou | R7-10 — **o checkpoint ainda valida o estado inteiro a cada gravacao** | [entry](entries/0030-DOC-r7-10-o-checkpoint-ainda-valida-o-estado-inteiro.md) |
+| 0031 | DOC | relato | continuou | R7-10 — **o checkpoint ainda valida o estado inteiro a cada gravacao** | [entry](entries/0031-DOC-r7-10-o-checkpoint-ainda-valida-o-estado-inteiro.md) |
+| 0032 | ASK | pergunta-direta | continuou | — | [entry](entries/0032-ASK-pergunta-direta.md) |
+| 0033 | ASK | handoff | encerrou: escopo esgotado | R7-04:** aprovar ou não o ADR-096, a permissão para listar e revogar a | [entry](entries/0033-ASK-r7-04-aprovar-ou-nao-o-adr-096-a-permissao-para.md) |
