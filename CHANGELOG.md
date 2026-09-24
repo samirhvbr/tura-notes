@@ -7,6 +7,15 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.55 - @codemirror/view 6.43.11 to 6.43.12
+
+Dependabot #22. The editor's view layer — the DOM the user types into, and the
+one CodeMirror package whose behaviour the tests here cannot fully reach, since
+`Editor.tsx`'s dispatch is what a device exercises. A patch release; the range
+follows, `^6.36.0` to `^6.43.12`. The 189 frontend tests and the type check
+pass, and `'unsafe-inline'` for styles stays the CodeMirror requirement
+`ARCHITECTURE.md` §10 already records.
+
 ## 1.8.54 - @codemirror/commands 6.11.0 to 6.11.1
 
 Dependabot #24. The editor's command set — the keymap behind undo, indent and
