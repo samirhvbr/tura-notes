@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.61 - the nine Dependabot pull requests closed themselves as their bumps reached master
+
+R8-00 leaves the queue. The owner's request of 24/09 was to land the open
+Dependabot pull requests in master or delete what master already had. #19 was
+already there and was closed by hand. The other nine were applied as 1.8.50 to
+1.8.58, one push at a time, each only after the previous one was green on all
+four operating systems.
+
+What was measured along the way: none of the nine needed closing by hand.
+Dependabot closed each one itself ("is up-to-date now, so this is no longer
+needed") between 16:51 and 18:02 UTC, as each bump reached master, and deleted
+the branch with it. After a `git fetch -p`, the remote lists `master` and nothing
+else, and there are no open pull requests. The queue line records that, so the
+next round of bumps can skip the closing step.
+
 ## 1.8.60 - round 8 enters the queue with one buildable item and four that wait
 
 Round 8 is the answer to the owner's question of 24/09 — what is left to
