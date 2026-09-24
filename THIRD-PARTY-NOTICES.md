@@ -587,7 +587,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `zune-core` | 0.5.3 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image |
 | Rust: `zune-jpeg` | 0.5.15 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
 | npm: `@codemirror/autocomplete` | 6.20.3 | MIT | git+https://code.haverbeke.berlin/codemirror/autocomplete.git |
-| npm: `@codemirror/commands` | 6.11.0 | MIT | git+https://code.haverbeke.berlin/codemirror/commands.git |
+| npm: `@codemirror/commands` | 6.11.1 | MIT | git+https://code.haverbeke.berlin/codemirror/commands.git |
 | npm: `@codemirror/lang-angular` | 0.1.4 | MIT | https://github.com/codemirror/lang-angular.git |
 | npm: `@codemirror/lang-cpp` | 6.0.3 | MIT | https://github.com/codemirror/lang-cpp.git |
 | npm: `@codemirror/lang-css` | 6.3.1 | MIT | https://github.com/codemirror/lang-css.git |
@@ -649,7 +649,7 @@ here, as MPL-2.0 section 3.2 requires.
 
 Each text is given once, followed by the packages that ship it.
 
-### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.0, @codemirror/lang-angular 0.1.4, @codemirror/lang-cpp 6.0.3, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-java 6.0.2, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-less 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-php 6.0.2, @codemirror/lang-python 6.2.1, @codemirror/lang-rust 6.0.2, @codemirror/lang-sass 6.0.2, @codemirror/lang-sql 6.10.0, @codemirror/lang-vue 0.1.3, @codemirror/lang-wast 6.0.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/language-data 6.5.2, @codemirror/legacy-modes 6.5.4, @codemirror/lint 6.9.7, @codemirror/search 6.7.2, @codemirror/state 6.7.5, @codemirror/view 6.43.11, codemirror 6.0.2
+### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.1, @codemirror/lang-angular 0.1.4, @codemirror/lang-cpp 6.0.3, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-java 6.0.2, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-less 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-php 6.0.2, @codemirror/lang-python 6.2.1, @codemirror/lang-rust 6.0.2, @codemirror/lang-sass 6.0.2, @codemirror/lang-sql 6.10.0, @codemirror/lang-vue 0.1.3, @codemirror/lang-wast 6.0.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/language-data 6.5.2, @codemirror/legacy-modes 6.5.4, @codemirror/lint 6.9.7, @codemirror/search 6.7.2, @codemirror/state 6.7.5, @codemirror/view 6.43.11, codemirror 6.0.2
 
 ```text
 MIT License

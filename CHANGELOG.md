@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.54 - @codemirror/commands 6.11.0 to 6.11.1
+
+Dependabot #24. The editor's command set — the keymap behind undo, indent and
+the Markdown toolbar's six marks. A patch release; the declared range follows
+the installed version, `^6.7.1` to `^6.11.1`. The 189 frontend tests and the
+type check pass.
+
 ## 1.8.53 - @codemirror/state 6.7.4 to 6.7.5
 
 Dependabot #25. The editor's document and selection model, a patch release. The
