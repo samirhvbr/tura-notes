@@ -282,20 +282,27 @@ previous version of this paragraph recorded, in good faith, as a path to
 confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
 against it.
 
-### What is published, measured from outside — 23/09/2026
+### What is published, measured from outside — 24/09/2026
 
-Read back over HTTPS from `https://samirhv.com.br` on 23/09/2026:
+Read back over HTTPS from `https://samirhv.com.br` on 24/09/2026, after the
+owner's `tools/build-linux.sh --publish` of that afternoon:
 
 | Feed | State |
 |---|---|
-| `linux-x86_64-deb.json` | `1.8.21`, 416-byte signature |
-| `linux-x86_64-appimage.json` | `1.8.21`, 424-byte signature |
+| `linux-x86_64-deb.json` | `1.8.58`, 416-byte signature |
+| `linux-x86_64-appimage.json` | `1.8.58`, 424-byte signature |
 | `darwin-aarch64-app.json` | `1.7.21`, 408-byte signature: the macOS feed exists and is behind Linux |
 | `darwin-aarch64.json`, `darwin-x86_64-app.json` | `404`: only Apple Silicon `.app` is published |
 
-`/p/tura-notes` lists releases up to `1.8.21`; it no longer says *In
-preparation*. The updater key the publish needs is `~/.config/tura-notes/updater.key`
-(`tools/updater-release.py`), not the notarisation files the 18/09 text named.
+`/p/tura-notes` lists releases up to `1.8.58`. On 23/09 both Linux feeds were
+at `1.8.21`, built from a tree that carried uncommitted work; the `1.8.58` build
+replaced it. The updater key the publish needs is
+`~/.config/tura-notes/updater.key` (`tools/updater-release.py`), not the
+notarisation files the 18/09 text named.
+
+An installed `1.6.100` offers the newest feed version within six hours (or 20 s
+after it opens) and installs only when asked: the check is automatic and the
+installation explicit, as ADR-074 decided. Nothing after `1.6.100` changed that.
 
 **What remains is the acceptance**, which no script infers: an installed upgrade
 between two versions on macOS, AppImage, deb and rpm, and confirming that the
@@ -303,7 +310,7 @@ between two versions on macOS, AppImage, deb and rpm, and confirming that the
 carries it
 ([ADR-082](decisions.md#adr-082--the-renamed-package-takes-over-the-one-it-was-renamed-from-and-the-binary-keeps-its-name)).
 The feeds are not in step with each other: macOS clients are offered `1.7.21`
-while Linux clients are offered `1.8.21`, because each platform is published by
+while Linux clients are offered `1.8.58`, because each platform is published by
 its own build run.
 
 ### The 18/09/2026 measurement, kept as the record it is

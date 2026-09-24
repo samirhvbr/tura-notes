@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.62 - the updater feeds and the queue index are re-measured at 1.8.58
+
+Measured from outside on 24/09, after the owner ran `tools/build-linux.sh
+--publish` that afternoon: both Linux feeds moved from `1.8.21` to `1.8.58`,
+with 416- and 424-byte signatures, and `/p/tura-notes` lists up to `1.8.58`. The
+macOS feed is still `1.7.21`, and the two other Darwin names still answer 404.
+`docs/updater.md` now carries that measurement in place of the one from 23/09,
+which named `1.8.21` twice, and says in one paragraph what the owner asked on
+24/09: an installed `1.6.100` finds the newest version by itself and installs
+it only when asked, by ADR-074, and nothing since `1.6.100` changed that.
+
+Touching the queue index means restamping it, and the restamp certifies every
+row, so two rows that had gone stale were rewritten, in English, as they were
+touched. The updater row now names the feeds as measured today, plus the two
+questions of R8-02 and R8-03. The 0.4 row still gave the firmware bit that
+blocks KVM on this machine as the reason nothing mobile has been seen running,
+and still named "Samir (UEFI)" as who unblocks it. Since ADR-092 the path is the
+MacBook and a physical Android, and the row points to OWNER-ACTS §4.
+
 ## 1.8.62 - the lease report matches holders by inode and counts the live ones
 
 The instrument from 1.8.43 fired twice in a row on the macOS CI of 1.8.60, a
