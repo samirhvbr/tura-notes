@@ -614,7 +614,7 @@ here, as MPL-2.0 section 3.2 requires.
 | npm: `@codemirror/legacy-modes` | 6.5.4 | MIT | git+https://code.haverbeke.berlin/codemirror/legacy-modes.git |
 | npm: `@codemirror/lint` | 6.9.7 | MIT | git+https://code.haverbeke.berlin/codemirror/lint.git |
 | npm: `@codemirror/search` | 6.7.2 | MIT | git+https://code.haverbeke.berlin/codemirror/search.git |
-| npm: `@codemirror/state` | 6.7.4 | MIT | git+https://code.haverbeke.berlin/codemirror/state.git |
+| npm: `@codemirror/state` | 6.7.5 | MIT | git+https://code.haverbeke.berlin/codemirror/state.git |
 | npm: `@codemirror/view` | 6.43.11 | MIT | git+https://code.haverbeke.berlin/codemirror/view.git |
 | npm: `@lezer/common` | 1.5.2 | MIT | https://github.com/lezer-parser/common.git |
 | npm: `@lezer/cpp` | 1.1.6 | MIT | git+https://code.haverbeke.berlin/lezer/cpp.git |
@@ -649,7 +649,7 @@ here, as MPL-2.0 section 3.2 requires.
 
 Each text is given once, followed by the packages that ship it.
 
-### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.0, @codemirror/lang-angular 0.1.4, @codemirror/lang-cpp 6.0.3, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-java 6.0.2, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-less 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-php 6.0.2, @codemirror/lang-python 6.2.1, @codemirror/lang-rust 6.0.2, @codemirror/lang-sass 6.0.2, @codemirror/lang-sql 6.10.0, @codemirror/lang-vue 0.1.3, @codemirror/lang-wast 6.0.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/language-data 6.5.2, @codemirror/legacy-modes 6.5.4, @codemirror/lint 6.9.7, @codemirror/search 6.7.2, @codemirror/state 6.7.4, @codemirror/view 6.43.11, codemirror 6.0.2
+### @codemirror/autocomplete 6.20.3, @codemirror/commands 6.11.0, @codemirror/lang-angular 0.1.4, @codemirror/lang-cpp 6.0.3, @codemirror/lang-css 6.3.1, @codemirror/lang-html 6.4.12, @codemirror/lang-java 6.0.2, @codemirror/lang-javascript 6.2.5, @codemirror/lang-json 6.0.2, @codemirror/lang-less 6.0.2, @codemirror/lang-markdown 6.5.2, @codemirror/lang-php 6.0.2, @codemirror/lang-python 6.2.1, @codemirror/lang-rust 6.0.2, @codemirror/lang-sass 6.0.2, @codemirror/lang-sql 6.10.0, @codemirror/lang-vue 0.1.3, @codemirror/lang-wast 6.0.2, @codemirror/lang-xml 6.1.0, @codemirror/language 6.12.4, @codemirror/language-data 6.5.2, @codemirror/legacy-modes 6.5.4, @codemirror/lint 6.9.7, @codemirror/search 6.7.2, @codemirror/state 6.7.5, @codemirror/view 6.43.11, codemirror 6.0.2
 
 ```text
 MIT License

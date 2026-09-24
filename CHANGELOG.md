@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.53 - @codemirror/state 6.7.4 to 6.7.5
+
+Dependabot #25. The editor's document and selection model, a patch release. The
+declared range moves with it — `^6.5.0` to `^6.7.5` — because a range that
+still permits the version before the one we install says nothing true about
+what was tested. The 189 frontend tests and the type check pass.
+
 ## 1.8.52 - trash 5.2.8 to 5.2.9
 
 Dependabot #27. A patch release of the crate that implements the Freedesktop
