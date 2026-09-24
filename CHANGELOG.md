@@ -7,6 +7,14 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.57 - jsdom 30.0.1 to 30.1.0
+
+Dependabot #21. The DOM the component tests run against, a development
+dependency: it ships in nothing, which is why `THIRD-PARTY-NOTICES.md` does not
+move — that file lists the production closure, and this is the check that it
+does. The 30 test files and 189 tests pass on it, which is the whole of what
+this dependency does here.
+
 ## 1.8.56 - lucide-react 1.45.0 to 1.47.0
 
 Dependabot #28, the same package `1.6.54` last moved by hand for the same
