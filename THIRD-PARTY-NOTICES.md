@@ -638,7 +638,7 @@ here, as MPL-2.0 section 3.2 requires.
 | npm: `codemirror` | 6.0.2 | MIT | https://github.com/codemirror/basic-setup.git |
 | npm: `crelt` | 1.0.7 | MIT | git+https://code.haverbeke.berlin/marijn/crelt.git |
 | npm: `csstype` | 3.2.3 | MIT | https://github.com/frenic/csstype |
-| npm: `lucide-react` | 1.45.0 | ISC | https://github.com/lucide-icons/lucide.git |
+| npm: `lucide-react` | 1.47.0 | ISC | https://github.com/lucide-icons/lucide.git |
 | npm: `react` | 19.3.0 | MIT | https://github.com/react/react.git |
 | npm: `react-dom` | 19.3.0 | MIT | https://github.com/react/react.git |
 | npm: `scheduler` | 0.28.0 | MIT | https://github.com/react/react.git |
@@ -10513,7 +10513,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### lucide-react 1.45.0
+### lucide-react 1.47.0
 
 ```text
 ISC License

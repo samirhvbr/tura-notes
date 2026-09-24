@@ -7,6 +7,14 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.56 - lucide-react 1.45.0 to 1.47.0
+
+Dependabot #28, the same package `1.6.54` last moved by hand for the same
+reason. Two minor releases of the icon set; every icon this application uses is
+imported by name, so a removed one would fail the type check rather than render
+blank. It does not: the 189 frontend tests and `tsc` pass. The contrast gate
+also passes, which is what says the icons still read against every surface.
+
 ## 1.8.55 - @codemirror/view 6.43.11 to 6.43.12
 
 Dependabot #22. The editor's view layer — the DOM the user types into, and the
