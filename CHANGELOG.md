@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.60 - round 8 enters the queue with one buildable item and four that wait
+
+Round 8 is the answer to the owner's question of 24/09 — what is left to
+produce — measured instead of guessed. The queue had nothing open and nine
+parked items. The only milestone with work left is 0.4, and nearly every line of
+`ACCEPTANCE-0.4.md` needs a device.
+
+Five items. R8-00 is the owner's other request that day: ten open Dependabot
+pull requests. #19 was already in master and was closed; the other nine were
+applied by hand as 1.8.50 to 1.8.58. Measured since: Dependabot closes a pull
+request and deletes its branch by itself once the bump is in master (#23
+disappeared minutes after 1.8.50), so what is left of the item is checking the
+remote at the end.
+
+R8-01, polling with a budget (`MOBILE-0.4.md` §Polling), was the one 0.4 line
+that looked buildable without a device. It is parked, and the reason is written
+into the line: the budget belongs to the adapter surface, changing that surface
+is a Y bump, and the only adapter that would declare anything other than
+today's 5 s is SAF, which does not exist yet. Built now, it would be a mechanism
+with one constant producer.
+
+R8-02 (install updates without asking) would reverse part of ADR-074, and R8-03
+(the Linux feed following master) is a publication the loop's scope does not
+cover. Both are questions on the board. The owner ran the Linux publish at 13:43
+the same day, and the feed moved from 1.8.21 to 1.8.58, measured from outside —
+which retires the 1.8.21 built from a dirty tree, but not the question of who
+publishes the next one. R8-04 waits for ten green nights on the
+Windows crash leg; the first came on 24/09.
+
 ## 1.8.60 - the loop's state files record that round 7 ended with its scope exhausted
 
 The loop harness's own records — `STATE.json`, `STATUS.md`, `INDEX.md` and
