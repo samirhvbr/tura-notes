@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.63 - the permission lists follow repodocs: five commands move to ask, seven rules leave deny
+
+`rm -rf` and `curl`/`wget` piped into a shell leave `deny` and now ask for confirmation.
+Reading `.env`/`.env.*`, `git push --force`/`-f`, `git reset --hard` and `git clean -fd`
+leave `deny`. Key reads (`*.pem`, `*.key`, `*.p8`, `*.p12`, `*.pfx`) stay blocked. The
+owner's decision on 24/09/2026, replicated from repodocs 1.17.0 (ADR-028).
+
 ## 1.8.62 - a process spawned by another thread no longer keeps a dropped activity lease locked
 
 The macOS recovery-test intermittent is found, and it was what the instrument
