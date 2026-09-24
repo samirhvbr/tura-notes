@@ -27,17 +27,45 @@ impl Drop for Lease {
 /// and a refusal prints the in-process holders of that file to stderr, which
 /// `cargo test` shows for a failing test. An empty list means the holder is not
 /// in this process. Release builds record nothing.
+///
+/// A holder is matched by path and by file identity (device and inode), not by
+/// path alone: on macOS `/var` is `/private/var`, and the first report from CI
+/// (1.8.60) said "none" for a path spelled one way, which is only conclusive if
+/// a lease taken through the other spelling would have been found too. The
+/// report also counts every live lease in the process, so "none" can be told
+/// apart from a registry that recorded nothing.
 #[cfg(debug_assertions)]
 mod holders {
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::Mutex;
+    use std::sync::{Mutex, MutexGuard};
 
-    type Held = (u64, PathBuf, bool, String);
+    /// Device and inode of an open file, where the platform has them.
+    pub type Identity = Option<(u64, u64)>;
+    type Held = (u64, PathBuf, Identity, bool, String);
     static LIVE: Mutex<Vec<Held>> = Mutex::new(Vec::new());
     static NEXT: AtomicU64 = AtomicU64::new(1);
 
-    pub fn add(path: &Path, exclusive: bool) -> u64 {
+    /// A panic elsewhere must not blind the instrument: the list is still
+    /// valid after one, so a poisoned lock is read through.
+    fn live() -> MutexGuard<'static, Vec<Held>> {
+        LIVE.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    pub fn identity(file: &std::fs::File) -> Identity {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            file.metadata().ok().map(|m| (m.dev(), m.ino()))
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = file;
+            None
+        }
+    }
+
+    pub fn add(path: &Path, identity: Identity, exclusive: bool) -> u64 {
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
         let trace = std::backtrace::Backtrace::force_capture().to_string();
         // Only this workspace's frames: the rest is the runtime and the harness.
@@ -47,39 +75,55 @@ mod holders {
             .take(12)
             .map(str::trim)
             .collect();
-        if let Ok(mut live) = LIVE.lock() {
-            live.push((id, path.to_path_buf(), exclusive, ours.join(" <- ")));
-        }
+        live().push((
+            id,
+            path.to_path_buf(),
+            identity,
+            exclusive,
+            ours.join(" <- "),
+        ));
         id
     }
 
     pub fn remove(id: u64) {
-        if let Ok(mut live) = LIVE.lock() {
-            live.retain(|h| h.0 != id);
-        }
+        live().retain(|h| h.0 != id);
     }
 
-    pub fn report(path: &Path, exclusive: bool) {
-        eprintln!("{}", describe(path, exclusive));
+    pub fn report(path: &Path, identity: Identity, exclusive: bool) {
+        eprintln!("{}", describe(path, identity, exclusive));
     }
 
-    pub fn describe(path: &Path, exclusive: bool) -> String {
-        let held: Vec<String> = LIVE
-            .lock()
-            .map(|live| {
-                live.iter()
-                    .filter(|h| h.1 == path)
-                    .map(|h| format!("[{}] {}", if h.2 { "exclusive" } else { "shared" }, h.3))
-                    .collect()
+    pub fn describe(path: &Path, identity: Identity, exclusive: bool) -> String {
+        let live = live();
+        let held: Vec<String> = live
+            .iter()
+            .filter(|h| h.1 == path || (identity.is_some() && h.2 == identity))
+            .map(|h| {
+                let kind = if h.3 { "exclusive" } else { "shared" };
+                let spelled = if h.1 == path {
+                    String::new()
+                } else {
+                    format!(" as {}", h.1.display())
+                };
+                format!("[{kind}{spelled}] {}", h.4)
             })
-            .unwrap_or_default();
+            .collect();
         format!(
             "activity lease {} refused ({}); held in this process by {} lease(s): {}",
             path.display(),
             if exclusive { "exclusive" } else { "shared" },
             held.len(),
             if held.is_empty() {
-                "none, so the holder is outside this process".to_string()
+                format!(
+                    "none among the {} live in this process, matched by path{}, \
+                     so the holder is outside this process",
+                    live.len(),
+                    if identity.is_some() {
+                        " and by inode"
+                    } else {
+                        ""
+                    }
+                )
             } else {
                 held.join(" | ")
             }
@@ -133,14 +177,14 @@ pub fn acquire(data: &Path, root: &str, exclusive: bool) -> Result<Lease, CoreEr
         return match tried {
             Ok(()) => Ok(Lease {
                 #[cfg(debug_assertions)]
-                id: holders::add(&path, exclusive),
+                id: holders::add(&path, holders::identity(&file), exclusive),
                 _file: file,
             }),
             Err(e) => match refusal(e, what) {
                 Some(err) => {
                     #[cfg(debug_assertions)]
                     if matches!(err, CoreError::LockTimeout { .. }) {
-                        holders::report(&path, exclusive);
+                        holders::report(&path, holders::identity(&file), exclusive);
                     }
                     Err(err)
                 }
@@ -196,13 +240,42 @@ mod tests {
                 .trim_start_matches("b3:")
         ));
         let held = acquire(data.path(), "named", true).unwrap();
-        let said = holders::describe(&path, false);
+        let said = holders::describe(&path, None, false);
         assert!(
             said.contains("1 lease(s)") && said.contains("[exclusive]"),
             "{said}"
         );
         drop(held);
-        assert!(holders::describe(&path, false).contains("outside this process"));
+        let said = holders::describe(&path, None, false);
+        assert!(said.contains("outside this process"), "{said}");
+        assert!(said.contains("live in this process"), "{said}");
+    }
+
+    /// The same file reached through another spelling of its directory -- a
+    /// symlink here, `/var` against `/private/var` on macOS -- is the same
+    /// holder, and the report has to find it.
+    #[cfg(unix)]
+    #[test]
+    fn a_refusal_finds_a_holder_that_spelled_the_path_another_way() {
+        let base = tempfile::tempdir().unwrap();
+        let real = base.path().join("real");
+        fs::create_dir(&real).unwrap();
+        let alias = base.path().join("alias");
+        std::os::unix::fs::symlink(&real, &alias).unwrap();
+        let _held = acquire(&alias, "spelled", true).unwrap();
+        let path = real.join("active").join(format!(
+            "{}.lock",
+            notes_fs::hash(b"spelled")
+                .to_string()
+                .trim_start_matches("b3:")
+        ));
+        let file = File::open(&path).unwrap();
+        assert!(holders::describe(&path, None, false).contains("outside this process"));
+        let said = holders::describe(&path, holders::identity(&file), false);
+        assert!(
+            said.contains("1 lease(s)") && said.contains("[exclusive as "),
+            "{said}"
+        );
     }
 
     #[test]

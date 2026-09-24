@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.62 - the lease report matches holders by inode and counts the live ones
+
+The instrument from 1.8.43 fired twice in a row on the macOS CI of 1.8.60, a
+commit that touched no Rust (`git diff --stat 298fd8c fabd02a`, which is what
+justified the one rerun). Run 36040110533:
+`receiver_recapture_preserves_old_bytes_before_choice_and_after_publication`
+(`recovery.rs:1341`) and then
+`saved_receiver_edits_publish_without_a_remote_conflict_or_source_rewrite`
+(`recovery.rs:2090`). Both were refused the shared activity lease, and both
+reports said the process held zero leases on that file, "so the holder is
+outside this process".
+
+Before acting on that answer, the two ways it could have been wrong are closed.
+First, the registry matched a holder only by how its path was spelled. On macOS
+`/var` is `/private/var`, so a lease taken through the other spelling of the
+same file would have been reported as missing. Holders are now matched by path
+and by device and inode, and a new test takes a lease through a symlinked
+directory and checks that the report finds it. Second, a registry whose mutex
+had been poisoned by a panic elsewhere read as an empty list. It is now read
+through the poisoning, and the report counts every live lease in the process, so
+"none" can no longer be confused with "the registry recorded nothing".
+
+Debug builds only, as before; release builds record nothing. What the answer
+turned out to mean is the next commit.
+
 ## 1.8.61 - the nine Dependabot pull requests closed themselves as their bumps reached master
 
 R8-00 leaves the queue. The owner's request of 24/09 was to land the open
