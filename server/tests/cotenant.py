@@ -269,6 +269,33 @@ for forbidden in ["systemctl reload apache2", "systemctl restart apache2", "a2en
         assert forbidden not in line.split("#", 1)[0], f"deploy-server.sh now touches Apache: {line.strip()}"
 assert "$VHOST" in deploy, "the vhost is no longer even compared"
 
+# The comparison reads directives, not bytes. `cmp` warned on every deploy: the
+# live vhost carries certbot's HTTP->HTTPS redirect and lacks the template's
+# comments, which on 25/09 was the whole difference. A warning that always fires
+# is one nobody reads on the day a directive really changes.
+import re as _re
+_match = _re.search(r"^directives\(\) \{\n.*?^\}\n", deploy, _re.S | _re.M)
+assert _match, "deploy-server.sh no longer defines directives()"
+_template = (cotenant / "apache-tura.conf").read_text()
+_live = "\n".join(l for l in _template.splitlines() if not l.strip().startswith("#")) \
+    .replace("</VirtualHost>",
+             "RewriteEngine on\nRewriteCond %{SERVER_NAME} =tura.samirhv.com.br\n"
+             "RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]\n</VirtualHost>")
+with tempfile.TemporaryDirectory() as _d:
+    _d = pathlib.Path(_d)
+    (_d / "template").write_text(_template)
+    (_d / "certbot").write_text(_live)
+    (_d / "changed").write_text(_live.replace("ProxyPass        / http://127.0.0.1:8787/",
+                                              "ProxyPass        / http://127.0.0.1:9999/"))
+    def _same(a, b):
+        script = _match.group(0) + f'diff <(directives {_d / a}) <(directives {_d / b})'
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+    assert _same("template", "certbot").returncode == 0, \
+        "comments and certbot's redirect still read as a vhost difference"
+    _changed = _same("template", "changed")
+    assert _changed.returncode == 1 and "9999" in _changed.stdout, \
+        "a changed directive no longer reads as a difference, or is not printed"
+
 # ── The signature, which is the gate the checksum never was ─────────────────
 # ADR-081. The `.sha256` comes from the same URL as the tarball, so it proves
 # the download arrived intact and nothing about where it came from. These assert

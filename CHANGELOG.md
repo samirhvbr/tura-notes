@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.2 - the deploy's vhost warning fires only when a directive differs, and prints it
+
+The owner's deploy on 25/09 printed the vhost warning again: the installed
+`tura.samirhv.com.br.conf` "differs from the repository template". Read back
+over ssh and compared, the whole difference was two things, neither a
+directive: a comment block that exists only in the template, and the
+HTTP→HTTPS redirect that certbot writes into the HTTP vhost. The script
+compared bytes with `cmp`, so the warning would fire on every deploy for as
+long as certbot manages the name, and a warning that always fires teaches its
+reader to skip it, including on the day a directive really changes.
+
+`deploy-server.sh` now compares what Apache reads: without comments, blank
+lines and indentation, and without certbot's three redirect lines. When a
+difference remains, the log prints those directives (`<` template, `>`
+installed) instead of saying only that the file differs. The script still
+never writes to Apache, for the certbot reasons written above the comparison.
+Checked against the live vhost: no difference. `server/tests/cotenant.py`
+runs the function itself. The template plus certbot's redirect, without
+comments, reads as the same; a changed `ProxyPass` reads as different and is
+printed.
+
 ## 1.9.1 - the Linux publish the owner authorized stops at the server's sudo password
 
 1.9.0 was the first minor after the owner authorized the loop to publish the

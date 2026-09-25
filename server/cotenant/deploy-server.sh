@@ -120,8 +120,24 @@ sync_file "$REPO/server/cotenant/tura-credential" "$WRAPPER" 0755 && changed=1
 #
 # Meia configuração atualizada é pior que nenhuma, porque ninguém desconfia.
 # Então este script compara, avisa, e não toca em nada do Apache — nem recarrega.
-if ! cmp -s "$REPO/server/cotenant/apache-tura.conf" "$VHOST" 2>/dev/null; then
-    log "  ⚠️  $VHOST difere do modelo do repositório."
+#
+# Compara o que o Apache LÊ, não o arquivo. Até 1.9.2 era `cmp` byte a byte, e o
+# aviso saía em todo deploy: o certbot acrescenta o redirecionamento HTTP→HTTPS
+# ao vhost HTTP, e o modelo tem comentários que o vivo não tem. Medido em 25/09:
+# a diferença inteira era essa, nenhuma diretiva. Um aviso que sai sempre ensina
+# a não ler, e aí não é lido no dia em que uma diretiva de verdade mudar.
+# Então: sem comentários, linhas vazias e recuo, e sem as três linhas do
+# redirecionamento do certbot — e, quando sobra diferença, ela vai para o log.
+directives() {
+    sed -e 's/^[[:space:]]*//' -e '/^#/d' -e '/^$/d' "$1" | grep -v -E \
+        '^(RewriteEngine on|RewriteCond %\{SERVER_NAME\} =.*|RewriteRule \^ https://%\{SERVER_NAME\}%\{REQUEST_URI\} \[END,NE,R=permanent\])$'
+}
+if [ ! -f "$VHOST" ]; then
+    log "  ⚠️  $VHOST não existe; o modelo é server/cotenant/apache-tura.conf."
+elif ! vhost_diff=$(diff <(directives "$REPO/server/cotenant/apache-tura.conf") <(directives "$VHOST")); then
+    log "  ⚠️  $VHOST difere do modelo do repositório nestas diretivas"
+    log "      (< modelo, > instalado; comentários e o redirecionamento do certbot ignorados):"
+    while IFS= read -r line; do log "        $line"; done <<<"$vhost_diff"
     log "      Ele é co-gerido pelo certbot (o -le-ssl.conf é um clone dele), então"
     log "      a atualização é à mão: compare, aplique, 'apachectl configtest' e"
     log "      recarregue. Este deploy não mexe em Apache."
