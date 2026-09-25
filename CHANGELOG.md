@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.1 - the Linux publish the owner authorized stops at the server's sudo password
+
+1.9.0 was the first minor after the owner authorized the loop to publish the
+Linux feed (1.8.65), and the publish could not be run. `tools/build-linux.sh
+--publish` runs `sudo -u www-data php artisan files:add` on the server over
+`ssh`, and `tools/updater-release.py` runs `sudo -u www-data` `mkdir`, `install`
+and `mv` into the updates directory. Measured without changing anything, with
+`sudo -n -u www-data true` as the server's user: "a password is required". The
+loop types no password, and sudo is on its list of acts to stop at, so the
+authorization does not reach the step that needs it. That should have been
+measured before the question was asked, and it was not.
+
+`.loop/SCOPE.md` records the block under the authorization it limits, and R8-03
+is parked on a new question on the owner's board, `q_publish_sudo`. The options:
+the owner runs the publish at each minor with the loop's notice, which changes
+nothing on the server; a passwordless sudoers rule limited to the publish's own
+commands; or an updates directory the server's user can write without sudo,
+which would leave only the download page's row to the owner. The 1.9.0 publish
+is on the board as an owner act, with the command to run it from a clean
+worktree.
+
 ## 1.9.0 - the device panel lists the workspace's devices and revokes another one after asking
 
 **Why a minor.** `docs/versioning.md` moves Y for "an ADR that reverses an earlier one or overrides a fleet convention", when it lands. ADR-096 is such an ADR: it names an exception to `security.md` §4.10, which this repository inherits as written from the fleet standard, keeping administrative services off public interfaces. Its first half landed in 1.8.66 as a Z. That was a mistake, and a published version is not rewritten, so the Y is taken here, on the commit that completes the ADR. Being a minor has consequences, and they are intended: the Build workflow attaches release binaries to X.Y.0, which is what the server deploy installs, so the device routes reach a server only from here (once the owner signs this release); the Linux feed is published at each minor (R8-03); and the acceptance walks repeat on the next minor (ADR-093).

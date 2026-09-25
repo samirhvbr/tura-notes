@@ -15,6 +15,12 @@
   `linux-x86_64-appimage.json` na versao publicada). Autorizado pelo dono em
   24/09, resposta `q_publish_linux` no quadro. Patch (`X.Y.Z` com Z > 0) nao
   entra: continua do dono.
+  **Travado no mesmo dia, por medicao:** o publish roda no servidor
+  `sudo -u www-data` (o `files:add` do artisan e o `mkdir/install/mv` do feed),
+  e `ssh b3sys@100.64.100.125 'sudo -n -u www-data true'` responde "a password
+  is required". Senha nao se digita, e sudo esta na lista de parar. Ate o dono
+  responder `q_publish_sudo`, o loop avisa no quadro quando uma X.Y.0 fica verde
+  e o publish e do dono.
 - Criar e apagar worktree próprio sob `~/x/`.
 - Ler qualquer coisa do repositório e rodar o gate quantas vezes for preciso.
 
