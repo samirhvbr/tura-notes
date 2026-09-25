@@ -18,6 +18,7 @@ const causes: Record<SyncCause, true> = {
   limit: true,
   protocol: true,
   receiving: true,
+  own_device: true,
 };
 
 it("every sync refusal has its own sentence in both languages", () => {

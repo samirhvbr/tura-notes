@@ -310,6 +310,12 @@ export type { SyncProbeOutcome } from "./generated/SyncProbeOutcome";
  *  workspace open — which is when somebody wants to know whether the server is
  *  there at all. */
 export const deviceProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("sync_control_probe", {origin,allowPrivate,tokenFile});
+export type { SyncDevice } from "./generated/SyncDevice";
+/** The paired workspace's devices (ADR-096), or `null` when this device's
+ *  credential was not granted `devices`. Writes nothing, so it works with the
+ *  workspace open. */
+export const deviceList = () => invoke<import("./generated/SyncDevice").SyncDevice[] | null>("sync_control_devices");
+export const deviceRevoke = (device: string) => invoke<import("./generated/SyncDevice").SyncDevice>("sync_control_revoke_device", {device});
 export const devicePair = (request: import("./generated/SyncPairRequest").SyncPairRequest) => invoke<void>("sync_control_pair", {request});
 export const devicePreview = () => invoke<import("./generated/SyncPairPreview").SyncPairPreview>("sync_control_preview");
 export const deviceConfirm = (confirmation: string) => invoke<void>("sync_control_confirm", {confirmation});

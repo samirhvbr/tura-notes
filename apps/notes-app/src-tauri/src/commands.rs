@@ -716,6 +716,34 @@ pub async fn sync_control_probe(
     .map_err(sync_error)
 }
 
+/// The paired workspace's devices, or `null` when this device's credential was
+/// not granted `devices` (ADR-096). Available with the workspace open, like the
+/// probe: it writes nothing on this machine.
+#[tauri::command]
+pub async fn sync_control_devices(
+    app: State<'_, App>,
+) -> R<Option<Vec<notes_sync_client::remote::SyncDevice>>> {
+    let controller = app.network.clone();
+    tauri::async_runtime::spawn_blocking(move || controller.devices().map_err(CoreError::from))
+        .await
+        .map_err(sync_error)?
+}
+/// Revoke another device's credential on the server (ADR-096). Asked for from
+/// an explicit confirmation in the interface; the server refuses this device's
+/// own credential.
+#[tauri::command]
+pub async fn sync_control_revoke_device(
+    app: State<'_, App>,
+    device: String,
+) -> R<notes_sync_client::remote::SyncDevice> {
+    let controller = app.network.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        controller.revoke_device(&device).map_err(CoreError::from)
+    })
+    .await
+    .map_err(sync_error)?
+}
+
 #[tauri::command]
 pub async fn sync_control_pair(
     app: State<'_, App>,

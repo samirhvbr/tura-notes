@@ -1,6 +1,6 @@
 //! Desktop-owned coordination. No editor buffer access and no implicit source writes.
 use crate::{
-    remote::{Endpoint, Remote, SyncProbe, Transport},
+    remote::{Endpoint, Remote, SyncDevice, SyncProbe, Transport},
     state::{Mode, Store},
     Error, Result,
 };
@@ -668,6 +668,29 @@ impl Controller {
     /// the workspace closed because pairing writes.
     pub fn probe(&self, origin: String, allow_private: bool, token_file: String) -> SyncProbe {
         Remote::probe(&origin, allow_private, Path::new(&token_file), None)
+    }
+
+    /// The paired workspace's sync devices, as the server lists them to this
+    /// device's credential, or `None` when it was not granted `devices`
+    /// (ADR-096). Like `probe`, it takes no operation lock and no workspace:
+    /// it writes nothing here, so a transfer in progress must not turn it into
+    /// `Busy`.
+    pub fn devices(&self) -> Result<Option<Vec<SyncDevice>>> {
+        self.remote()?.devices()
+    }
+
+    /// Revoke the credential of another device of the paired workspace. The
+    /// server does the writing; nothing in this client's state changes, so it
+    /// takes no lock either.
+    pub fn revoke_device(&self, device: &str) -> Result<SyncDevice> {
+        let device = Uuid::parse_str(device).map_err(|_| Error::Invalid)?;
+        self.remote()?.revoke_device(device)
+    }
+
+    fn remote(&self) -> Result<Remote> {
+        let c = self.config()?;
+        let store = Store::open(Path::new(&c.state_dir))?;
+        Remote::connect(&store.endpoint()?, Path::new(&c.token_file), None)
     }
 }
 fn validate_connection(c: &SyncConnection) -> Result<()> {

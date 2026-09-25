@@ -223,6 +223,21 @@ impl Capacity {
     }
 }
 
+/// One sync device of this workspace, as the server lists it to a credential
+/// granted `devices` (ADR-096). No `deny_unknown_fields`, as with `Capacity`.
+#[derive(Clone, Debug, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct SyncDevice {
+    #[ts(type = "string")]
+    pub device: Uuid,
+    /// The owning credential's label, as the operator wrote it.
+    pub label: String,
+    pub receipts: u32,
+    pub revoked: bool,
+    /// One of this credential's own devices, which it cannot revoke.
+    pub yours: bool,
+}
+
 pub trait Transport {
     fn page(&mut self, cursor: usize) -> Result<Page>;
     fn fetch(&mut self, id: Uuid) -> Result<Publication>;
@@ -473,6 +488,51 @@ fn decode<T: serde::de::DeserializeOwned>(response: Response) -> Result<T> {
     }
     serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)
 }
+/// Device management (ADR-096). Not part of `Transport`: nothing here moves a
+/// note, and a transfer never needs it.
+impl Remote {
+    /// The workspace's sync devices, or `None` when this credential was not
+    /// granted `devices` (403) or the server predates the list (404): the
+    /// screen then shows no list rather than an error.
+    pub fn devices(&self) -> Result<Option<Vec<SyncDevice>>> {
+        #[derive(Deserialize)]
+        struct List {
+            devices: Vec<SyncDevice>,
+        }
+        // `…/sync/revisions` → `…/sync/devices`.
+        let url = self.base.join("devices").map_err(|_| Error::Invalid)?;
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.bearer)
+            .send()
+            .map_err(|_| Error::Offline)?;
+        if matches!(response.status().as_u16(), 403 | 404) {
+            return Ok(None);
+        }
+        decode::<List>(response).map(|list| Some(list.devices))
+    }
+
+    /// Revoke the credential that owns another device of this workspace. The
+    /// server refuses this credential's own device with 409, which is not the
+    /// revision conflict every other 409 is.
+    pub fn revoke_device(&self, device: Uuid) -> Result<SyncDevice> {
+        let url = self
+            .base
+            .join(&format!("devices/{device}/revoke"))
+            .map_err(|_| Error::Invalid)?;
+        let response = self
+            .client
+            .post(url)
+            .bearer_auth(&self.bearer)
+            .send()
+            .map_err(|_| Error::Offline)?;
+        if response.status().as_u16() == 409 {
+            return Err(Error::OwnDevice);
+        }
+        decode(response)
+    }
+}
 impl Transport for Remote {
     fn capacity(&mut self) -> Result<Option<Capacity>> {
         // `…/sync/revisions` → `…/sync/capacity`.
@@ -718,6 +778,102 @@ mod http_tests {
         }
         let _ = mode;
         token
+    }
+
+    /// Several requests on separate connections, one canned reply each, in
+    /// order; the request lines come back for the test to read.
+    fn serving(
+        replies: Vec<String>,
+    ) -> (std::net::SocketAddr, std::thread::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            let mut lines = vec![];
+            for reply in replies {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut received = vec![];
+                while !received.ends_with(b"\r\n\r\n") {
+                    let mut b = [0u8; 1];
+                    if stream.read_exact(&mut b).is_err() {
+                        break;
+                    }
+                    received.push(b[0]);
+                }
+                let text = String::from_utf8_lossy(&received).into_owned();
+                lines.push(text.lines().next().unwrap_or_default().to_owned());
+                let _ = stream.write_all(reply.as_bytes());
+            }
+            lines
+        });
+        (address, handle)
+    }
+
+    fn paired(address: std::net::SocketAddr, dir: &std::path::Path) -> Remote {
+        Remote::connect(
+            &Endpoint {
+                scope: None,
+                origin: format!("http://{address}"),
+                name: "home".into(),
+                allow_private: true,
+            },
+            &token_at(dir, "nt_test", 0o600),
+            None,
+        )
+        .unwrap()
+    }
+
+    const WORKSPACES: &str = r#"{"workspaces":[{"name":"home","scope":"","review":false}]}"#;
+
+    /// ADR-096 from the device's side: a list when the credential holds
+    /// `devices`, nothing (not an error) when it does not, and its own device
+    /// refused as what it is rather than as a revision conflict.
+    #[test]
+    fn devices_are_listed_hidden_without_the_permission_and_never_revoked_as_ones_own() {
+        let device = Uuid::new_v4();
+        let row = format!(
+            r#"{{"device":"{device}","label":"phone","receipts":3,"revoked":false,"yours":false}}"#
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let (address, server) = serving(vec![
+            json("200 OK", WORKSPACES),
+            json("200 OK", &format!(r#"{{"devices":[{row}]}}"#)),
+            json(
+                "200 OK",
+                &row.replace(r#""revoked":false"#, r#""revoked":true"#),
+            ),
+        ]);
+        let remote = paired(address, dir.path());
+        let listed = remote.devices().unwrap().unwrap();
+        assert_eq!(
+            (listed.len(), listed[0].label.as_str(), listed[0].receipts),
+            (1, "phone", 3)
+        );
+        assert!(remote.revoke_device(device).unwrap().revoked);
+        let lines = server.join().unwrap();
+        assert_eq!(lines[1], "GET /v1/workspaces/home/sync/devices HTTP/1.1");
+        assert_eq!(
+            lines[2],
+            format!("POST /v1/workspaces/home/sync/devices/{device}/revoke HTTP/1.1")
+        );
+
+        for (status, expect_none) in [("403 Forbidden", true), ("404 Not Found", true)] {
+            let (address, server) = serving(vec![json("200 OK", WORKSPACES), json(status, "{}")]);
+            assert_eq!(
+                paired(address, dir.path()).devices().unwrap().is_none(),
+                expect_none,
+                "{status}"
+            );
+            server.join().unwrap();
+        }
+        let (address, server) = serving(vec![
+            json("200 OK", WORKSPACES),
+            json("409 Conflict", r#"{"error":"own_device"}"#),
+        ]);
+        assert!(matches!(
+            paired(address, dir.path()).revoke_device(device),
+            Err(Error::OwnDevice)
+        ));
+        server.join().unwrap();
     }
 
     /// The point of the probe: one cause each, where the transport has three

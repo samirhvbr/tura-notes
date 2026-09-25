@@ -134,6 +134,8 @@ pub fn run() {
             commands::sync_control_run,
             commands::sync_control_pause,
             commands::sync_control_probe,
+            commands::sync_control_devices,
+            commands::sync_control_revoke_device,
             commands::sync_control_pair,
             commands::sync_control_preview,
             commands::sync_control_confirm,

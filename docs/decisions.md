@@ -3059,7 +3059,7 @@ promise is judged.
 
 ## ADR-096 — Devices are listed and revoked by a credential that was granted that power, over its own workspace only
 
-**Status:** `ACCEPTED` · proposed 23/09/2026, accepted by the owner on 24/09/2026 as proposed (board answer `q_devices`) · server routes in 1.8.66; the app's screen follows · `security.md` §4.10 names the exception
+**Status:** `ACCEPTED` · proposed 23/09/2026, accepted by the owner on 24/09/2026 as proposed (board answer `q_devices`) · server routes in 1.8.66, the app's screen in 1.9.0 · `security.md` §4.10 names the exception
 
 **Proposal.** A seventh permission, `devices`, off by default and granted only by
 the operator from the host (`notes-server token create … --permission devices`).

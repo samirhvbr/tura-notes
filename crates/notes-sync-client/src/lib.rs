@@ -35,6 +35,8 @@ pub enum Error {
     /// has not received. Fetching again, until nothing new arrives, is the way on.
     #[error("still receiving from the server ({received} revisions so far); fetch until nothing new arrives, then review the pairing")]
     Receiving { received: usize },
+    #[error("a device cannot revoke its own credential; revoke it on the server's host or from another device")]
+    OwnDevice,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -54,6 +56,7 @@ impl From<Error> for notes_model::CoreError {
             Error::Conflict => (C::Conflict, None),
             Error::Limit => (C::Limit, None),
             Error::Protocol => (C::Protocol, None),
+            Error::OwnDevice => (C::OwnDevice, None),
             Error::Receiving { received } => (
                 C::Receiving,
                 Some(u32::try_from(received).unwrap_or(u32::MAX)),

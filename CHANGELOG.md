@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.0 - the device panel lists the workspace's devices and revokes another one after asking
+
+**Why a minor.** `docs/versioning.md` moves Y for "an ADR that reverses an earlier one or overrides a fleet convention", when it lands. ADR-096 is such an ADR: it names an exception to `security.md` §4.10, which this repository inherits as written from the fleet standard, keeping administrative services off public interfaces. Its first half landed in 1.8.66 as a Z. That was a mistake, and a published version is not rewritten, so the Y is taken here, on the commit that completes the ADR. Being a minor has consequences, and they are intended: the Build workflow attaches release binaries to X.Y.0, which is what the server deploy installs, so the device routes reach a server only from here (once the owner signs this release); the Linux feed is published at each minor (R8-03); and the acceptance walks repeat on the next minor (ADR-093).
+
+The app half of ADR-096, which closes R7-04. Once paired, the device panel lists
+the workspace's sync devices, each with its credential's label, its state and
+its receipts. Every device that is not this one has *Revoke*, and the
+confirmation, in place rather than in a blocking dialog, says what revoking
+does: that device stops syncing until a new credential is issued for it on the
+server, and nothing is deleted. A credential without `devices` gets no list and
+no error. The server's 403 is read as "not granted", because most credentials
+will never have the permission, and a refusal on every open would look like
+something broken.
+
+Underneath, `Remote::devices` returns no list on 403 and on 404 (a server older
+than 1.8.66). `Remote::revoke_device` turns the server's 409 into its own error,
+`OwnDevice`, with its own cause and sentence in both languages, because every
+other 409 in this client means a revision conflict and would have said so.
+`Controller::devices` and `revoke_device` take no lock, as the connection test
+takes none: they write nothing on this machine, so a transfer in progress must
+not turn them into "busy". Two Tauri commands carry them.
+
+Tests: the client against a local server, checking the list, the exact method
+and path of each request, the 403 and 404 read as no list, and the 409 read as
+`OwnDevice`; and the component, checking that nothing is shown without the
+permission, that this device has no *Revoke*, that another needs the
+confirmation first, and that a refusal says why. SYNC-0.6, ADR-096, the queue
+and the `CLAUDE.md`/`AGENTS.md` line say it is built. What remains is the
+owner's acceptance on an installed release, as it is for every milestone.
+
 ## 1.8.66 - a credential granted devices lists its workspace's sync devices and revokes another one over HTTPS
 
 ADR-096 was accepted by the owner on 24/09, as proposed. This is its server

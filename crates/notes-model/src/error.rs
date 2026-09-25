@@ -63,6 +63,9 @@ pub enum SyncCause {
     Limit,
     Protocol,
     Receiving,
+    /// A device asked to revoke its own credential (ADR-096): that is done on
+    /// the server's host, or from another device.
+    OwnDevice,
 }
 
 /// The kind of an I/O failure, as a **typed code**.

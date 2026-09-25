@@ -1307,6 +1307,12 @@ the workspace `404`, and a credential without the permission `403`. Revocation
 deletes nothing; retiring the revoked device, which does, stays the stopped-server
 operator act above.
 
+The desktop app shows this list in the device panel once paired (1.9.0), with
+*Revoke* on every device that is not itself and a confirmation in place that
+says the other device stops syncing until it gets a new credential. A
+credential without `devices` gets no list and no error: the 403 is read as "not
+granted" and the section is simply absent.
+
 Retirement is permanent operational intent. Restoring the pre-retirement backup
 restores the registration; otherwise a returning device must be paired as a new
 device under a new credential and reconcile normally. If retirement leaves no

@@ -9,4 +9,4 @@
  * pairing asked for before the history had arrived alike. One sentence for
  * eleven causes is the diagnosis that does not discriminate.
  */
-export type SyncCause = "application_blocked" | "unsupported_application" | "invalid" | "storage" | "busy" | "offline" | "denied" | "conflict" | "limit" | "protocol" | "receiving";
+export type SyncCause = "application_blocked" | "unsupported_application" | "invalid" | "storage" | "busy" | "offline" | "denied" | "conflict" | "limit" | "protocol" | "receiving" | "own_device";

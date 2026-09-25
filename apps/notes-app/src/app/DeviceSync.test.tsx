@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { DeviceSync, conditions } from "./DeviceSync";
 import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
-vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn()}));
+vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn(),deviceList:vi.fn(async()=>null),deviceRevoke:vi.fn()}));
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
 const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[],capacity_percent:null};
 const old=useWorkspace.getState();
