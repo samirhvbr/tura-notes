@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.64 - a copy older than 1.7.0 cannot install an update, and the updater page says how to leave it
+
+The owner's report of 24/09, made plain on the board: an installed `1.6.100`
+checks, finds the newer version, and fails when asked to install it. It was not
+a request for automatic installation, and the answer to that question was to
+keep the installation explicit.
+
+Measured on the machine that reported it, which runs the `1.6.100` `.deb`. The
+`1.8.58` feed answers; the package downloads (7.1 MB); its signature verifies
+with `minisign -V` against the public key built into `1.6.100`; the plugin's own
+format check (`infer::archive::is_deb`) accepts it; its dependencies are
+satisfied; and the installed binary carries the Debian bundle marker, so the
+plugin would take the `.deb` path. `journalctl` has no `pkexec` from Tura Notes
+at all, while two other Tauri applications on the same machine went through the
+same `pkexec dpkg -i` four times since 21/09. So the click never reached the
+plugin. It stops at the editor barrier of 1.6.x, which 1.7.0 fixed: the claim was
+one instant's check against the application's own polling (500 ms, 3 s, 15 s), a
+coin toss the installation nearly always lost, reported as "nothing was
+attempted".
+
+A fix cannot reach the copy whose installer is the defect, so leaving 1.6.x
+takes one manual install. `docs/OWNER-ACTS.md` §5 has the two commands, against
+the package verified here. `docs/updater.md` says that versions 1.1.0 to 1.6.x
+find updates and cannot install them, and it corrects two sentences that said
+otherwise: one written this morning ("installs only when asked"), and one that
+blamed "something else" holding the barrier for a message that, on 1.6.x, was
+the barrier itself.
+
 ## 1.8.63 - the permission lists follow repodocs: five commands move to ask, seven rules leave deny
 
 `rm -rf` and `curl`/`wget` piped into a shell leave `deny` and now ask for confirmation.

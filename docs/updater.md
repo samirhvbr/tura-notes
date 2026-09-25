@@ -43,6 +43,15 @@ Versions predating 1.1.0 cannot discover updates: manually install the first
 updater-capable release. A GitHub Release alone does not activate its updater
 feed; the signed local publisher does that.
 
+**Versions from 1.1.0 to 1.6.x discover updates and almost never install them.**
+Before installing, the application claims the editor barrier, and until `1.7.0`
+that claim was a single instant's check against the index poll (every 500 ms),
+the knowledge panel (3 s) and the device status (15 s): a coin toss the install
+loses nearly every time, reported as *"nothing was attempted"*. `1.7.0` fixed the
+claim, but a fix cannot reach the copy whose installer is the broken part, so a
+1.6.x installation leaves by hand, once — [OWNER-ACTS.md §5](OWNER-ACTS.md#5-leave-16x-by-hand-once).
+From `1.7.0` on, the in-app installation is the one this page describes.
+
 ## Release builder setup
 
 Tura uses an independent updater signing key. The public key is committed in
@@ -164,10 +173,13 @@ the close is an IPC call, and the barrier that call releases a macrotask later
 was being asked for a microtask too early — so the update was refused by its own
 completed work, and reported with the macOS advice for a step that never ran. It
 was reported twice from use, on two different versions, and the sign was always
-the same: an empty space where the verbatim error should be. Fixed in `1.6.99`,
-which also gives that refusal its own sentence — *"nothing was attempted"* —
-instead of the platform hint. A `1.6.99` or later build saying that is telling
-you something else holds the editor barrier; the same button retries.
+the same: an empty space where the verbatim error should be. `1.6.99` gave that
+refusal its own sentence — *"nothing was attempted"* — instead of the platform
+hint, and `1.7.0` fixed the claim itself, which until then was a coin toss
+against the application's own polling. A 1.6.x build saying it is that defect,
+and pressing the button again is a retry of the same toss; see the 1.1.0
+paragraph above for the way out. A `1.7.0` or later build saying it is telling
+you something else really holds the barrier.
 
 ### macOS — the one question that splits it
 
@@ -301,8 +313,15 @@ replaced it. The updater key the publish needs is
 notarisation files the 18/09 text named.
 
 An installed `1.6.100` offers the newest feed version within six hours (or 20 s
-after it opens) and installs only when asked: the check is automatic and the
-installation explicit, as ADR-074 decided. Nothing after `1.6.100` changed that.
+after it opens): the check is automatic and the installation explicit, as ADR-074
+decided. **It cannot install it**, though, which is what the owner reported on
+24/09: the click reaches the editor barrier of 1.6.x and stops there (above,
+under the 1.1.0 paragraph). Measured the same day on the machine that reported
+it: the `1.8.58` feed answers, the `.deb` downloads, its signature verifies
+against the key built into `1.6.100` with `minisign -V`, and the plugin's own
+format check accepts it — while `journalctl` shows no `pkexec` from Tura Notes at
+all, against four from two other Tauri applications updating through the same
+`pkexec dpkg -i` since 21/09.
 
 **What remains is the acceptance**, which no script infers: an installed upgrade
 between two versions on macOS, AppImage, deb and rpm, and confirming that the

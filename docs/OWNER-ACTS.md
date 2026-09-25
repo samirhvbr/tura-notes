@@ -252,6 +252,32 @@ workaround to remember.
 
 ---
 
+## 5. Leave 1.6.x by hand, once
+
+A Tura Notes from `1.1.0` to `1.6.x` finds every update and cannot install one:
+its installer stops at the editor barrier that `1.7.0` fixed, and the fix cannot
+reach the copy whose installer is broken ([updater.md](updater.md)). The machine
+that reported it on 24/09 runs the `.deb` of `1.6.100`. What the agent checked
+that day, so none of it needs checking again: the feed offers `1.8.58`, the
+package downloads, and its signature verifies with `minisign -V` against the key
+built into `1.6.100`.
+
+Close Tura Notes, then:
+
+```sh
+curl -fLo /tmp/TuraNotes_1.8.58_amd64.deb \
+  'https://samirhv.com.br/updates/tura-notes/1.8.58-linux-x86_64-deb-ade9beeaddbf18bc-TuraNotes_1.8.58_amd64.deb'
+sudo apt install /tmp/TuraNotes_1.8.58_amd64.deb
+```
+
+`apt` rather than `dpkg -i`, so a dependency the new build needs is fetched
+instead of left half-configured. `dpkg -s tura-notes | grep Version` then says
+`1.8.58`, and so does **About Tura Notes** in the application menu. The next update after that is the in-app one, and the
+first one to install through the fixed barrier is the acceptance `updater.md`
+asks for — record it there.
+
+---
+
 ## What none of these is
 
 None is acceptance. A signed binary, a recovered attachment and a booting
