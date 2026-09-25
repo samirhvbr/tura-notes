@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.4 - the parked queue lines say what they wait on today
+
+The owner asked on 25/09 whether anything is left to produce, and the sweep
+measured nothing buildable here. No queue line is open. Of the parked ones,
+four wait on the owner (the 1.9.0 signature, the acceptance walks, installing
+the publish helper, the macOS feed that needs the MacBook), two on a device
+(the Android adapter's budgeted polling and the mobile background queue), and
+one on time (the Windows crash leg). There are no open pull requests and no
+branch but `master`, no `TODO` or `FIXME` in the code, and no ADR left
+`PROPOSED` or unbuilt. The only `PROPOSED` document is the Android adapter
+contract, which needs a device. CI is green on the last three versions.
+
+Three parked lines had gone stale, and this corrects them. The chat-harvested
+duplicate of R7-04 still asked whether to approve ADR-096, which was approved
+on 24/09 and built in 1.8.66 and 1.9.0, so it is closed. The signature line
+named `1.8.0`, which will never be deployed now that the line is 1.9; it names
+`1.9.0`, with the morning's refused deploy as the measurement. The macOS feed
+line compared 1.7.21 against a Linux 1.8.47 that was never published; it now
+compares it with the 1.9.2 measured from outside. And R8-04 records the second
+green night on the Windows crash leg, 2 of 10.
+
 ## 1.9.3 - the publish runs through one checked helper instead of sudo wildcards
 
 The owner's answer to `q_publish_sudo` on 25/09: a passwordless rule, limited
