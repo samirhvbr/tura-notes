@@ -1121,7 +1121,14 @@ mod tests {
         expanded.capture_new = true;
         controller.configure(expanded).unwrap();
         controller.run_with(true, |_, _| Ok(&peer)).unwrap();
-        assert_eq!(peer.borrow().log.len(), 4);
+        // Three on Windows, intermittently (R7-09): say which guard held.
+        assert_eq!(
+            peer.borrow().log.len(),
+            4,
+            "the new note was not captured; snapshot {}\n{}",
+            serde_json::to_string(&controller.snapshot().unwrap()).unwrap(),
+            receiver.new_note_capture_diagnosis()
+        );
         let created_note = peer.borrow().log[3].revision.note;
         fs::rename(target.join("new.md"), target.join("middle.md")).unwrap();
         let mut expanded = controller.config().unwrap();

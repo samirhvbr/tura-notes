@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.65 - the Windows intermittent names the guard that took no new note, and the owner has the steps to run it
+
+R7-09 had been waiting on the owner's answer. The Windows-only intermittent in
+`received_bytes_remain_pending_until_explicit_application` needs one run on
+Windows, and the owner chose on 24/09 to do it on a Windows machine rather than
+through a diagnostic pull request. This makes that one run enough.
+
+The assertion that fails, three log entries where four are expected after
+`capture_new` is switched on, now prints every reason `stage_receiver_changes`
+has for capturing no new note without an error: pending publications, a capture
+in progress, how far the application has got against what was received, and
+each file in the closed inventory with the applied note it matched, if any. The
+function behind it, `Store::new_note_capture_diagnosis`, exists only in tests
+and reads the same state the capture reads. It was checked by forcing the
+assertion to fail once on Linux, where it printed the inventory with both
+notes matched. The suspicion to confirm or discard is that on NTFS the new
+file's identity comes from a file ID and matches a note already applied.
+
+`docs/OWNER-ACTS.md` §6 has the steps: rustup and Git once, then a PowerShell
+loop of twenty runs that stops at the first failure and writes it to a file to
+paste. The `ignore` stays until the cause is fixed.
+
+Restamping the queue index meant re-reading its rows. The Windows row now
+points to those steps, and the updater row, stale since the owner's answers,
+now records them: installation stays explicit, the loop publishes the Linux
+feed at each minor, and a 1.6.x copy leaves by hand once.
+
 ## 1.8.64 - a copy older than 1.7.0 cannot install an update, and the updater page says how to leave it
 
 The owner's report of 24/09, made plain on the board: an installed `1.6.100`

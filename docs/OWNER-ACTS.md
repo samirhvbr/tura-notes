@@ -278,6 +278,42 @@ asks for — record it there.
 
 ---
 
+## 6. Run the Windows intermittent on a Windows machine
+
+`received_bytes_remain_pending_until_explicit_application`
+(`crates/notes-sync-client/src/control.rs`) sees three entries in the peer's log
+where every other platform sees four, on Windows only and not every time. The
+note created while `capture_new` is on is not captured, and nothing says why. It
+has been `#[cfg_attr(windows, ignore)]` since 1.5.0. The owner chose, on 24/09,
+to run it on a Windows machine rather than through a diagnostic pull request.
+
+Since 1.8.65 the assertion that fails prints every reason the capture can have
+for taking nothing: pending publications, a capture in progress, how far the
+application got, and each file in the inventory with the note it matched, if
+any. One failing run names the guard.
+
+Once, on the Windows machine: [rustup](https://rustup.rs) with the default MSVC
+toolchain (it offers the Visual Studio Build Tools if they are missing), and Git.
+Then, in PowerShell:
+
+```powershell
+git clone https://github.com/samirhvbr/tura-notes
+cd tura-notes
+# It is intermittent: twenty runs, stopping at the first failure.
+1..20 | ForEach-Object {
+  cargo test -p notes-sync-client --lib received_bytes_remain_pending_until_explicit_application -- --include-ignored 2>&1 | Tee-Object -Variable out | Out-Null
+  if ($LASTEXITCODE -ne 0) { $out | Out-File windows-r7-09.txt; "failed on run $_"; break }
+  "run $_ passed"
+}
+```
+
+The first run compiles for a few minutes; the rest take seconds. If a run fails,
+paste `windows-r7-09.txt` into the chat or onto the board. If twenty pass, say
+so: that is a measurement too, and the machine and the Windows version go with
+it (`winver`).
+
+---
+
 ## What none of these is
 
 None is acceptance. A signed binary, a recovered attachment and a booting

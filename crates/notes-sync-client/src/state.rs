@@ -2439,6 +2439,66 @@ impl Store {
         Ok(0)
     }
 
+    /// Every reason `stage_receiver_changes` can have for capturing no new note
+    /// without an error, read from the same state it reads (R7-09). The test
+    /// that sees four log entries everywhere but Windows, where it sees three,
+    /// prints this when it fails, so one run on a Windows machine names the
+    /// guard instead of leaving it to be guessed from the code.
+    #[cfg(test)]
+    pub(crate) fn new_note_capture_diagnosis(&self) -> String {
+        let describe = || -> Result<String> {
+            let state = self.load()?;
+            let Some(app) = self.application(&state)? else {
+                return Ok("no application record: returns Ok(0) before anything".into());
+            };
+            let mut out = vec![
+                format!("pending publications: {}", state.pending.len()),
+                format!(
+                    "capture in progress: {}",
+                    state.capture.as_ref().map_or("none".into(), |c| format!(
+                        "{} (publishable: {})",
+                        c.path, c.publishable
+                    ))
+                ),
+                format!(
+                    "application next {} of {} received, {} deferred",
+                    app.next,
+                    state.received.len(),
+                    app.deferred.len()
+                ),
+            ];
+            match notes_core::sync::closed_inventory(&state.source, &app.core_data) {
+                Ok(files) => {
+                    for f in &files {
+                        let known = app.notes.values().find(|n| {
+                            n.local.note_id == f.note || (!n.deleted && n.path == f.path)
+                        });
+                        out.push(format!(
+                            "inventory {} note {:?}: {}",
+                            f.path,
+                            f.note,
+                            known.map_or("new".into(), |n| format!(
+                                "matches the applied note at {} (note {:?}, deleted {})",
+                                n.path, n.local.note_id, n.deleted
+                            ))
+                        ));
+                    }
+                    for n in app.notes.values().filter(|n| !n.deleted) {
+                        if !files.iter().any(|f| f.path == n.path) {
+                            out.push(format!(
+                                "applied note {} is missing from the inventory",
+                                n.path
+                            ));
+                        }
+                    }
+                }
+                Err(e) => out.push(format!("closed inventory failed: {e}")),
+            }
+            Ok(out.join("\n"))
+        };
+        describe().unwrap_or_else(|e| format!("diagnosis failed: {e}"))
+    }
+
     /// Record a published capture already present in the source. This performs
     /// guarded reads only; a later saved edit is never replaced by older bytes.
     pub fn confirm_receiver_edit(&self) -> Result<usize> {
