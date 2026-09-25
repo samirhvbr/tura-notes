@@ -190,6 +190,17 @@ loopback or a private interface — never `0.0.0.0` because it was convenient.
 That last one is not hypothetical here: an Ollama instance was found exposed to
 the internet on 10/08/2026 and reselling access under fake model names.
 
+**One named exception, [ADR-096](decisions.md#adr-096--devices-are-listed-and-revoked-by-a-credential-that-was-granted-that-power-over-its-own-workspace-only)
+(24/09/2026):** the sync server's public HTTPS API lets a credential the
+operator granted `devices` list the sync devices of its own workspace and revoke
+the credential of **another** one. It is a user action, scoped as the rest of
+the API is (one workspace, one explicit permission that is never implied, the
+same authentication, rate limits and audit), and not an administrative service.
+Creating, listing every, un-revoking or re-scoping credentials, and retiring a
+device, stay operator acts on the host. The cost is stated in the ADR: a leaked
+credential holding `devices` can revoke the other devices of its workspace,
+which the owner recovers from on the host without losing anything.
+
 ## 5. Secrets and configuration
 
 - **Everything in this fleet is versioned. The only exception is a secret** — a

@@ -15,6 +15,10 @@ pub enum Permission {
     Move,
     Delete,
     Search,
+    /// Server only (ADR-096): list the sync devices of the credential's own
+    /// workspace and revoke the credential of another one. No agent tool asks
+    /// for it, so on a local agent it grants nothing.
+    Devices,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

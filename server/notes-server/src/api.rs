@@ -391,10 +391,20 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
         .await
         .map_err(|_| err(StatusCode::REQUEST_TIMEOUT, "body_timeout"))?
         .map_err(|_| err(StatusCode::PAYLOAD_TOO_LARGE, "body_too_large"))?;
+    let rewrites_store = device_revocation(&parts).is_some();
     tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        let lock = admin::lock(&server.data).map_err(|_| internal())?;
-        let _guard = lock.read().map_err(|_| internal())?;
+        let mut lock = admin::lock(&server.data).map_err(|_| internal())?;
+        // Every request reads the credential store under a shared lock, and one
+        // route writes it: revoking another device's credential (ADR-096). That
+        // one takes the lock exclusively, as `token revoke` on the host does,
+        // since a shared holder cannot upgrade without deadlocking against
+        // itself.
+        let _guard = if rewrites_store {
+            Held::Write(lock.write().map_err(|_| internal())?)
+        } else {
+            Held::Read(lock.read().map_err(|_| internal())?)
+        };
         // RE-READ ON EVERY REQUEST, AND DELIBERATELY. Caching the parsed store
         // is the obvious optimisation and it is the wrong trade here.
         //
@@ -468,6 +478,28 @@ async fn execute(server: Server, request: Request, id: String) -> ApiResult<Resp
     .await
     .map_err(|_| internal())?
 }
+/// The admin lock as one request holds it.
+enum Held<'a> {
+    Read(#[allow(dead_code)] fd_lock::RwLockReadGuard<'a, std::fs::File>),
+    Write(#[allow(dead_code)] fd_lock::RwLockWriteGuard<'a, std::fs::File>),
+}
+
+/// The device a `POST /v1/workspaces/{w}/sync/devices/{device}/revoke` names,
+/// or `None` for any other request, a malformed id included (the handler then
+/// answers it, under the shared lock like everything else).
+fn device_revocation(parts: &axum::http::request::Parts) -> Option<Uuid> {
+    if parts.method != "POST" {
+        return None;
+    }
+    let segments: Vec<&str> = parts.uri.path().split('/').collect();
+    match segments.as_slice() {
+        ["", "v1", "workspaces", _, "sync", "devices", device, "revoke"] => {
+            Uuid::parse_str(device).ok()
+        }
+        _ => None,
+    }
+}
+
 /// Every tool `notes_mcp::tools` can publish; the audit names no other. A test
 /// holds the two lists together.
 #[doc(hidden)]
@@ -515,6 +547,12 @@ fn audit_subject(parts: &axum::http::request::Parts, bytes: &[u8]) -> (String, S
             None => hash(route),
         };
         return (format!("mcp:{tool}"), target);
+    }
+    if let Some(device) = device_revocation(parts) {
+        return ("sync_device_revoke".into(), format!("device:{device}"));
+    }
+    if parts.method == "GET" && route.ends_with("/sync/devices") {
+        return ("sync_devices_list".into(), hash(route));
     }
     let operation = match parts.method.as_str() {
         "GET" => "read",
@@ -621,6 +659,8 @@ fn dispatch(
     }
     if route.1 == "sync/acknowledgments"
         || route.1 == "sync/capacity"
+        || route.1 == "sync/devices"
+        || route.1.starts_with("sync/devices/")
         || route.1 == "sync/revisions"
         || route.1.starts_with("sync/revisions/")
     {
@@ -715,6 +755,7 @@ fn sync_dispatch(
     use crate::sync;
     let map = |e| match e {
         sync::Error::Forbidden => err(StatusCode::FORBIDDEN, "forbidden"),
+        sync::Error::OwnDevice => err(StatusCode::CONFLICT, "own_device"),
         sync::Error::Invalid => err(StatusCode::BAD_REQUEST, "invalid_sync_revision"),
         sync::Error::Missing => err(StatusCode::NOT_FOUND, "not_found"),
         sync::Error::Stale => err(StatusCode::CONFLICT, "sync_revision_changed"),
@@ -731,6 +772,18 @@ fn sync_dispatch(
         }
         ("GET", "sync/capacity") => {
             Ok(Json(sync::capacity(&server.data, credential).map_err(map)?).into_response())
+        }
+        ("GET", "sync/devices") => Ok(Json(
+            json!({"devices": sync::list_devices(&server.data, credential).map_err(map)?}),
+        )
+        .into_response()),
+        ("POST", path) if path.starts_with("sync/devices/") => {
+            let device = device_revocation(parts)
+                .ok_or(err(StatusCode::BAD_REQUEST, "invalid_device_id"))?;
+            Ok(
+                Json(sync::revoke_device(&server.data, credential, device).map_err(map)?)
+                    .into_response(),
+            )
         }
         ("GET", "sync/revisions") => Ok(Json(
             sync::page(&server.data, credential, cursor, limit).map_err(map)?,

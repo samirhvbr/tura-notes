@@ -1289,6 +1289,100 @@
           }
         }
       }
+    },
+    "/v1/workspaces/{workspace}/sync/devices": {
+      "get": {
+        "operationId": "syncDevices",
+        "description": "The sync devices of this workspace, requiring Devices (ADR-096): each device, the label of the credential that owns it, the application receipts it holds, whether that credential is revoked, and whether it is the caller's own. Servers before 1.8.66 answer 404.",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "devices"
+                  ],
+                  "properties": {
+                    "devices": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SyncDevice"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or revoked credential"
+          },
+          "403": {
+            "description": "Denied workspace or permission (requires Devices), Origin or HTTPS peer"
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{workspace}/sync/devices/{device}/revoke": {
+      "post": {
+        "operationId": "syncDeviceRevoke",
+        "description": "Revoke the credential that owns another sync device of this workspace, requiring Devices (ADR-096). The caller's own device is refused with 409; revoking an already revoked credential answers the same row. Nothing is deleted: the device's receipts stay until the operator retires it on the host. Audited as sync_device_revoke with the device as target.",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "device",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The device, now revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncDevice"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or revoked credential"
+          },
+          "403": {
+            "description": "Denied workspace or permission (requires Devices), Origin or HTTPS peer"
+          },
+          "404": {
+            "description": "No such device in this workspace"
+          },
+          "409": {
+            "description": "own_device: a credential cannot revoke itself"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1830,6 +1924,35 @@
           "max_revisions": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "SyncDevice": {
+        "type": "object",
+        "required": [
+          "device",
+          "label",
+          "receipts",
+          "revoked",
+          "yours"
+        ],
+        "properties": {
+          "device": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "receipts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "yours": {
+            "type": "boolean"
           }
         }
       }

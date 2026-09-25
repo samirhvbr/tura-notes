@@ -1,4 +1,6 @@
-//! Operator-only provisioning. HTTP never receives administrative authority.
+//! Operator-only provisioning. HTTP never receives administrative authority;
+//! the one thing a credential may do to another over HTTP is revoke another
+//! sync device of its own workspace, with `devices` granted here (ADR-096).
 use crate::Result;
 use notes_core::agent::Permission;
 use notes_model::RelPath;

@@ -103,8 +103,8 @@ one-line version of both:
   gap turned on were answered on 23/09 (ADR-086, ADR-087, ADR-088). Retention is
   now specified and built: doubled limits with their measured cost, and a
   warning from 80% (`SYNC-0.6.md`, 1.8.42). Mobile lifecycle waits on a device
-  (R7-08), and device management from the app waits on the owner's answer to
-  ADR-096 (R7-04). Owner verification
+  (R7-08). Device management from the app was accepted on 24/09 (ADR-096): the
+  server routes are in 1.8.66 and the app's screen is being built (R7-04). Owner verification
   on installed releases remains open for **every** delivered milestone — 0.0,
   0.1d, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.7, each with its own `ACCEPTANCE-*.md`
   (0.0's walk is §2 of `SPIKE-0.0.md`), none of them ticked.

@@ -7,6 +7,43 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.66 - a credential granted devices lists its workspace's sync devices and revokes another one over HTTPS
+
+ADR-096 was accepted by the owner on 24/09, as proposed. This is its server
+half. A seventh permission, `devices`, is granted only from the host
+(`token create … devices`) and never implied. It lets a credential do two
+things over the public HTTPS API, both in its own workspace:
+`GET /v1/workspaces/{w}/sync/devices` lists the sync devices, each with its
+owning credential's label, its receipts, whether that credential is revoked and
+whether it is the caller's own; and
+`POST /v1/workspaces/{w}/sync/devices/{device}/revoke` revokes the credential
+that owns another device. The caller's own device answers `409 own_device`, a
+device the workspace does not have answers `404`, and a credential without the
+permission answers `403`. Revoking a revoked credential answers the same row
+and rewrites nothing. The revoked device is out on its next request, with no
+restart.
+
+Every request reads the credential store under a shared administration lock,
+and this is the one route that writes it. A shared holder cannot upgrade
+without waiting on itself, so the revocation takes the lock exclusively for its
+whole request, as `token revoke` does on the host. Deciding that needs only the
+method and the path shape. It is audited as `sync_device_revoke`, with the
+caller as actor, the client address, and `device:<id>` as the target.
+
+The permission is a variant of the same enum local agents use. No agent tool
+asks for it, so on a local agent it grants nothing. `security.md` §4.10, which
+keeps administrative services off public interfaces, now names this as its one
+exception and states what it costs. SERVER-0.5 no longer says revocation is
+never a remote route, SYNC-0.6 says revocation can be done from a device while
+retirement stays the operator's, and the OpenAPI document, the CLI help, ADR-096
+itself (now `ACCEPTED`) and the lines in `CLAUDE.md`, `AGENTS.md` and the queue
+that said R7-04 waited on an answer all follow.
+
+Two tests: the full path with two credentials and their devices, including the
+409, the 404, the idempotent second revocation, the revoked device's 401 and
+the audit lines; and the 403 for a credential without `devices`, and for
+another workspace. The app's screen is what R7-04 still needs.
+
 ## 1.8.65 - the loop publishes the Linux feed at each minor, from a clean worktree
 
 The owner's answer to `q_publish_linux` on 24/09: yes, at each minor, from a

@@ -32,8 +32,13 @@ while retaining reads within scope. Create that proposals directory first.
 
 `token list` shows redacted metadata. `token revoke UUID` takes an exclusive
 administration lock, waits for authorized in-flight operations, and persists
-revocation; no server restart is required. Credential creation/list/revocation
-are operator CLI operations, never remote API routes. Tokens contain randomly
+revocation; no server restart is required. Credential creation, listing and
+revocation are operator CLI operations. The one remote exception is ADR-096: a
+credential granted `devices` (never implied, and absent from the example above)
+may list its own workspace's sync devices and revoke another device's
+credential over HTTPS (`GET …/sync/devices`, `POST …/sync/devices/{id}/revoke`),
+audited as `sync_device_revoke`. It cannot create, un-revoke or re-scope a
+credential, revoke itself, or retire a device. Tokens contain randomly
 generated secrets; only BLAKE3 digests are persisted in `admin/tokens.json`.
 These are high-entropy bearer secrets, not human passwords.
 

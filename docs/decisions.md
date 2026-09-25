@@ -3059,7 +3059,7 @@ promise is judged.
 
 ## ADR-096 — Devices are listed and revoked by a credential that was granted that power, over its own workspace only
 
-**Status:** `PROPOSED` · 23/09/2026 · for owner answer (R7-04; ADR-086 left this choice to R7-04 and said to ask if neither option clearly satisfies `security.md` §4.10)
+**Status:** `ACCEPTED` · proposed 23/09/2026, accepted by the owner on 24/09/2026 as proposed (board answer `q_devices`) · server routes in 1.8.66; the app's screen follows · `security.md` §4.10 names the exception
 
 **Proposal.** A seventh permission, `devices`, off by default and granted only by
 the operator from the host (`notes-server token create … --permission devices`).
@@ -3089,7 +3089,7 @@ That is the same class of harm as a leaked credential holding `delete`, and it
 is why the permission is off by default and named separately. It does not
 include retirement, so it cannot drop receipts.
 
-**What an answer changes.** *Yes*: R7-04 builds this (endpoint pair, permission,
+**What the answer changed.** *Yes* (the answer): R7-04 builds this (endpoint pair, permission,
 audit lines, a 403 test for a credential without it, the screen), with
 `security.md` §4.10 amended in the same pass to name it. *No*: device management
 stays on the host's command line, and the screen, if wanted, is read-only.

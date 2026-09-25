@@ -1296,6 +1296,17 @@ all revisions, payloads, tombstones, heads, cursors and other devices remain.
 The success is audited as `sync_device_retire` and reports the removed receipt
 count and remaining device count. It is not exposed over HTTP.
 
+**Revocation, unlike retirement, can be done from a device** (ADR-096, from
+1.8.66). A credential the operator granted `devices` reads
+`GET /v1/workspaces/{w}/sync/devices` — each device, its owning credential's
+label, its receipts, whether that credential is revoked, and whether it is the
+caller's own — and `POST /v1/workspaces/{w}/sync/devices/{device}/revoke`
+revokes the owning credential of **another** device, taking effect on that
+device's next request. Its own device answers `409 own_device`, a device outside
+the workspace `404`, and a credential without the permission `403`. Revocation
+deletes nothing; retiring the revoked device, which does, stays the stopped-server
+operator act above.
+
 Retirement is permanent operational intent. Restoring the pre-retirement backup
 restores the registration; otherwise a returning device must be paired as a new
 device under a new credential and reconcile normally. If retirement leaves no

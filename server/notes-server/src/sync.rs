@@ -58,6 +58,8 @@ pub fn capacity(root: &Path, c: &Credential) -> Result<Capacity> {
 #[derive(Debug)]
 pub enum Error {
     Forbidden,
+    /// A credential asked to revoke the device it is itself (ADR-096).
+    OwnDevice,
     Invalid,
     Missing,
     Stale,
@@ -371,6 +373,74 @@ pub fn devices(root: &Path, workspace: &str) -> Result<Vec<DeviceStatus>> {
             })
             .collect();
         Ok((rows, false))
+    })
+}
+
+/// One row of the device list a credential holding `devices` sees (ADR-096):
+/// its own workspace only. `label` is the owning credential's, which is what
+/// the operator named when issuing it; `yours` marks the caller's devices.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceView {
+    pub device: Uuid,
+    pub label: String,
+    pub receipts: usize,
+    pub revoked: bool,
+    pub yours: bool,
+}
+
+pub fn list_devices(root: &Path, c: &Credential) -> Result<Vec<DeviceView>> {
+    require(c, Permission::Devices)?;
+    let credentials = admin::load(root).map_err(|_| Error::Storage)?;
+    read_workspace(root, &c.workspace, |v| {
+        Ok(v.device_owners
+            .iter()
+            .map(|(device, owner)| view(v, &credentials, *device, *owner, c.id))
+            .collect())
+    })
+}
+
+fn view(v: &Vault, store: &admin::Store, device: Uuid, owner: Uuid, caller: Uuid) -> DeviceView {
+    let credential = store.credentials.iter().find(|x| x.id == owner);
+    DeviceView {
+        device,
+        label: credential.map_or_else(String::new, |x| x.label.clone()),
+        receipts: v
+            .journal
+            .acknowledgments
+            .get(&device)
+            .map_or(0, BTreeMap::len),
+        revoked: credential.is_none_or(|x| x.revoked),
+        yours: owner == caller,
+    }
+}
+
+/// Revoke the credential that owns `device`, which must be another device of
+/// the caller's own workspace (ADR-096). Nothing else: no un-revoke, no
+/// retirement (that deletes receipts and stays the operator's), no other
+/// workspace. Revoking a revoked credential answers the same row again.
+///
+/// The caller holds the admin lock exclusively (`api::execute` takes it so for
+/// this route alone), because the credential store is rewritten here.
+pub fn revoke_device(root: &Path, c: &Credential, device: Uuid) -> Result<DeviceView> {
+    require(c, Permission::Devices)?;
+    let owner = read_workspace(root, &c.workspace, |v| {
+        v.device_owners.get(&device).copied().ok_or(Error::Missing)
+    })?;
+    if owner == c.id {
+        return Err(Error::OwnDevice);
+    }
+    let mut store = admin::load(root).map_err(|_| Error::Storage)?;
+    let target = store
+        .credentials
+        .iter_mut()
+        .find(|x| x.id == owner && x.workspace == c.workspace)
+        .ok_or(Error::Missing)?;
+    if !target.revoked {
+        target.revoked = true;
+        admin::save(root, &store).map_err(|_| Error::Storage)?;
+    }
+    read_workspace(root, &c.workspace, |v| {
+        Ok(view(v, &store, device, owner, c.id))
     })
 }
 

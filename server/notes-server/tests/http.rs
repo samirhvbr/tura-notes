@@ -2111,3 +2111,149 @@ async fn vault_cost_at_the_capacity_ceiling() {
     let fetch = t.elapsed() / 5;
     println!("vault {size} bytes on disk: page {page:?}, fetch {fetch:?} (release build numbers are the ones to quote)");
 }
+
+/// ADR-096: a credential granted `devices` lists its own workspace's sync
+/// devices and revokes another one's credential, over HTTPS, audited. Nothing
+/// else: not without the permission, not itself, not a device it cannot see.
+#[tokio::test]
+async fn devices_are_listed_and_another_revoked_only_by_a_credential_granted_that() {
+    let mut granted = all();
+    granted.push(Permission::Devices);
+    let f = Fixture::new(&granted);
+    let caller = admin::authenticate(&admin::load(&f.data).unwrap(), f.token.trim()).unwrap();
+    let workspace = notes_server::sync::page(&f.data, &caller, 0, 20)
+        .unwrap()
+        .workspace;
+    let publication = publication(workspace, None, "allowed/test.md", Some(b"kept"));
+    notes_server::sync::publish(&f.data, &caller, publication.clone()).unwrap();
+    let acknowledge = |credential: &admin::Credential, device| {
+        notes_server::sync::acknowledge(
+            &f.data,
+            credential,
+            &notes_sync::transfer::ApplicationAcknowledgment {
+                workspace,
+                device,
+                revision: publication.revision.id,
+            },
+        )
+        .unwrap()
+    };
+    let mine = uuid::Uuid::new_v4();
+    acknowledge(&caller, mine);
+    let other_secret = f._dir.path().join("phone.secret");
+    let other_id = admin::create_token(
+        &f.data,
+        "phone".into(),
+        "home".into(),
+        RelPath::parse("allowed").unwrap(),
+        all().into_iter().collect(),
+        false,
+        &other_secret,
+    )
+    .unwrap();
+    let other_token = fs::read_to_string(&other_secret).unwrap();
+    let other = admin::authenticate(&admin::load(&f.data).unwrap(), other_token.trim()).unwrap();
+    let theirs = uuid::Uuid::new_v4();
+    acknowledge(&other, theirs);
+
+    let (status, _, body) = f
+        .request("GET", "/v1/workspaces/home/sync/devices", None, &[])
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let rows = body["devices"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    let row = |id: uuid::Uuid| {
+        rows.iter()
+            .find(|r| r["device"] == id.to_string())
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(row(mine)["yours"], true);
+    assert_eq!(row(mine)["label"], "test");
+    assert_eq!(row(theirs)["yours"], false);
+    assert_eq!(row(theirs)["label"], "phone");
+    assert_eq!(row(theirs)["receipts"], 1);
+    assert_eq!(row(theirs)["revoked"], false);
+
+    let revoke = |device: uuid::Uuid| format!("/v1/workspaces/home/sync/devices/{device}/revoke");
+    let before = fs::read(f.data.join("admin/tokens.json")).unwrap();
+    let (status, _, body) = f.request("POST", &revoke(mine), None, &[]).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::CONFLICT, Some("own_device"))
+    );
+    let (status, _, _) = f
+        .request("POST", &revoke(uuid::Uuid::new_v4()), None, &[])
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(fs::read(f.data.join("admin/tokens.json")).unwrap(), before);
+
+    let (status, _, body) = f.request("POST", &revoke(theirs), None, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        (body["device"].as_str(), body["revoked"].as_bool()),
+        (Some(theirs.to_string().as_str()), Some(true))
+    );
+    assert!(admin::load(&f.data)
+        .unwrap()
+        .credentials
+        .iter()
+        .any(|c| c.id == other_id && c.revoked));
+    // The revoked device is out at once, with no restart.
+    let mut phone = Fixture {
+        token: other_token.clone(),
+        ..Fixture::new(&[])
+    };
+    phone.data = f.data.clone();
+    phone.app = api::router(api::Server::new(f.data.clone(), None));
+    let (status, _, _) = phone
+        .request("GET", "/v1/workspaces/home/sync/devices", None, &[])
+        .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    // Again: the same row, and nothing rewritten.
+    let after = fs::read(f.data.join("admin/tokens.json")).unwrap();
+    let (status, _, body) = f.request("POST", &revoke(theirs), None, &[]).await;
+    assert_eq!(
+        (status, body["revoked"].as_bool()),
+        (StatusCode::OK, Some(true))
+    );
+    assert_eq!(fs::read(f.data.join("admin/tokens.json")).unwrap(), after);
+    // The caller is still in.
+    let (status, _, _) = f
+        .request("GET", "/v1/workspaces/home/sync/devices", None, &[])
+        .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let audited: Vec<_> = audit_lines(&f)
+        .into_iter()
+        .filter(|l| l["operation"] == "sync_device_revoke" && l["result"] == "ok")
+        .collect();
+    assert_eq!(audited.len(), 2);
+    assert_eq!(audited[0]["actor"], caller.id.to_string());
+    assert_eq!(audited[0]["target_ref"], format!("device:{theirs}"));
+    assert!(audited[0]["client"].is_string());
+}
+
+#[tokio::test]
+async fn without_the_devices_permission_the_list_and_the_revocation_are_forbidden() {
+    let f = Fixture::new(&all());
+    let (status, _, _) = f
+        .request("GET", "/v1/workspaces/home/sync/devices", None, &[])
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let device = uuid::Uuid::new_v4();
+    let (status, _, _) = f
+        .request(
+            "POST",
+            &format!("/v1/workspaces/home/sync/devices/{device}/revoke"),
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    // Another workspace is refused by the route before any permission is asked.
+    let (status, _, _) = f
+        .request("GET", "/v1/workspaces/other/sync/devices", None, &[])
+        .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
