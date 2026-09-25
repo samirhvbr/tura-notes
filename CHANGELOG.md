@@ -7,6 +7,16 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.2 - the next server release to sign is 1.9.0, not 1.8.0
+
+The same deploy stopped where it should: it targeted `1.9.0`, found no
+`notes-server-1.9.0-x86_64-linux.tar.gz.minisig`, refused, and left `1.7.0`
+running. `docs/OWNER-ACTS.md` §1 still named `1.8.0` as the next signature. It
+never will be: the deploy installs the minor of the line it is on, and the line
+is now 1.9. The page now says `1.9.0`, that its tarball and checksum are
+attached, and that the private key is not on the Linux desktop (checked for
+existence only), so the signing runs wherever `1.7.0` was signed.
+
 ## 1.9.2 - the deploy's vhost warning fires only when a directive differs, and prints it
 
 The owner's deploy on 25/09 printed the vhost warning again: the installed

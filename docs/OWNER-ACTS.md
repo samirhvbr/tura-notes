@@ -60,15 +60,17 @@ two blast radii.
 ### Per release: sign
 
 ```bash
-tools/sign-server-release.sh 1.6.0
+tools/sign-server-release.sh 1.9.0
 ```
 
 **Only `X.Y.0` is accepted, and this is where the queue was wrong.** It said
 "sign the current version"; the script refuses anything that is not a minor,
 because attachments are built on minor releases only (ADR-036) and a patch
-Release carries none. At the time of writing the version to sign was **1.6.0** (23/09: `1.7.0` is signed; the next is `1.8.0`),
-whose `notes-server-1.6.0-x86_64-linux.tar.gz` and its `.sha256` are both
-attached — checked, not assumed.
+Release carries none. **On 25/09 the version to sign is `1.9.0`:** the deploy that morning targeted it and refused it for the
+missing `.minisig`, with `1.7.0` still running (the last one signed). `1.8.0` never needs signing, since
+the deploy installs the minor of the line it is on and that line is now `1.9`. `notes-server-1.9.0-x86_64-linux.tar.gz`
+and its `.sha256` are both attached — checked, not assumed. The private key is not on the Linux
+desktop (checked the same day), so this runs where `1.7.0` was signed.
 
 What it does, in order, and why the order is the point:
 
