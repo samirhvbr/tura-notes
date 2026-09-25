@@ -122,16 +122,19 @@ no newline and a line-buffered filter holds it until something ends the line:
 the build looks hung, with nothing on screen to type into.
 
 That makes it work by **asking**. To make it stop asking — which is what an
-unattended release needs — one line on the publication host, in
-`/etc/sudoers.d/tura-publish`, mode 0440 and checked with `visudo -c`:
+unattended release needs — install the publish helper on the publication host
+([OWNER-ACTS.md §7](OWNER-ACTS.md#7-let-the-publish-run-without-a-password)).
+The sudoers line then names one program, `/usr/local/sbin/tura-publish`, with no
+arguments in the rule; the helper checks every argument itself and keeps the
+destination as its own constant. From 1.9.3 both publishers and
+`tools/updater-release.py` use it when `sudo -n -l` says it is granted, and ask
+for the password as before when it is not.
 
-```
-b3sys ALL=(www-data) NOPASSWD: /usr/bin/php /srv/www/samirhv.com.br/samirhv/artisan files:add *
-```
-
-`tools/updater-release.py` needs the same for its `install`/`mv` of the feed, or
-it asks a second time in the same run. Grant the commands, never a blanket
-`NOPASSWD: ALL`.
+**Not a sudoers line with wildcards**, which is what this page used to suggest
+(`… artisan files:add *`, and the same for the feed's `install`/`mv`). In
+sudoers `*` matches spaces and `../` too: the first line let whoever holds the
+publisher's SSH key ingest any file www-data can read — a site's `.env` —
+and the `install` form let them write as www-data anywhere it can write.
 
 **The order of publication is the contract, and 1.1.14 corrected it.** The
 destination is asked whether it *is* the destination — one `test -f

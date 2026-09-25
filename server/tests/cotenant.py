@@ -383,6 +383,94 @@ with tempfile.TemporaryDirectory() as temp:
                              env=dict(os.environ, TURA_SERVER_KEY=str(existing)))
         assert out.returncode != 0, f"the signer accepted {bad_version!r}"
 
+# ── The publish helper: the only thing the publisher runs as www-data ──────
+# (docs/OWNER-ACTS.md §7). Run for real against a copy whose two constants point
+# into a temporary tree, as the user running this suite. What it must do:
+# install the payload and the feed; what it must refuse: any path that is not
+# one plain component, any platform or version it does not know, and a symlink
+# anywhere it reads, which would otherwise publish whatever www-data can read.
+_helper_src = (cotenant / "tura-publish").read_text()
+assert os.access(cotenant / "tura-publish", os.X_OK), "tura-publish is not executable"
+assert "NOPASSWD: /usr/local/sbin/tura-publish\n" in (cotenant / "sudoers-tura-publish").read_text()
+assert "*" not in (cotenant / "sudoers-tura-publish").read_text().split("NOPASSWD:", 1)[1], \
+    "the sudoers line grew a wildcard"
+with tempfile.TemporaryDirectory() as _root:
+    _root = pathlib.Path(_root)
+    _app = _root / "app"
+    _app.mkdir()
+    (_app / "artisan").write_text("")
+    _bin = _root / "bin"
+    _bin.mkdir()
+    (_bin / "php").write_text('#!/bin/bash\nprintf "%s\\n" "$PWD" "$@" > "$0.called"\ncat "$3" > "$0.content"\n')
+    (_bin / "php").chmod(0o755)
+    _me = subprocess.run(["id", "-un"], capture_output=True, text=True, check=True).stdout.strip()
+    _script = _root / "tura-publish"
+    _script.write_text(_helper_src.replace("APP=/srv/www/samirhv.com.br/samirhv", f"APP={_app}")
+                       .replace("RUN_AS=www-data", f"RUN_AS={_me}"))
+    _script.chmod(0o755)
+    _env = dict(os.environ, PATH=f"{_bin}:{os.environ['PATH']}")
+    def _run(*args):
+        return subprocess.run([str(_script), *args], capture_output=True, text=True, env=_env)
+    _staged = pathlib.Path(subprocess.run(["mktemp", "-d", "/tmp/tura-update.XXXXXX"],
+                                          capture_output=True, text=True, check=True).stdout.strip())
+    _loose = pathlib.Path(subprocess.run(["mktemp", "/tmp/tura-publish-test.XXXXXX"],
+                                         capture_output=True, text=True, check=True).stdout.strip())
+    _link = pathlib.Path(str(_loose) + ".link")
+    try:
+        _secret = _root / "secret.env"
+        _secret.write_text("DB_PASSWORD=never-published")
+        _payload = "TuraNotes_1.9.2_amd64.deb"
+        _name = f"1.9.2-linux-x86_64-deb-0123456789abcdef-{_payload}"
+        (_staged / _payload).write_bytes(b"payload")
+        (_staged / "linux-x86_64-deb.json").write_text('{"version":"1.9.2"}')
+        _dest = _app / "public/updates/tura-notes"
+        _ok = _run("feed", str(_staged), "linux-x86_64-deb", _payload, _name)
+        assert _ok.returncode == 0, _ok.stderr
+        assert (_dest / _name).read_bytes() == b"payload"
+        assert (_dest / "linux-x86_64-deb.json").read_text() == '{"version":"1.9.2"}'
+        assert oct((_dest / _name).stat().st_mode & 0o777) == "0o644"
+        assert not list(_dest.glob(".*.tmp")), "a temporary file was left in the feed directory"
+        for _bad in [
+            ("feed", "/tmp/../etc", "linux-x86_64-deb", _payload, _name),
+            ("feed", str(_staged), "linux-x86_64-deb/../..", _payload, _name),
+            ("feed", str(_staged), "windows-x86_64-msi", _payload, _name),
+            ("feed", str(_staged), "linux-x86_64-deb", "../" + _payload, _name),
+            ("feed", str(_staged), "linux-x86_64-deb", _payload, "../../index.php"),
+            ("feed", str(_staged), "linux-x86_64-deb", _payload, _name.replace("0123", "zzzz")),
+            ("feed", str(_staged), "linux-x86_64-deb", _payload, "1.9.2-linux-x86_64-deb-0123456789abcdef-other.deb"),
+            ("download", "/etc/passwd", "1.9.2", "linux-x86_64"),
+            ("download", "/tmp/../etc/passwd", "1.9.2", "linux-x86_64"),
+            ("download", str(_loose), "1.9", "linux-x86_64"),
+            ("download", str(_loose), "1.9.2", "windows"),
+            ("anything",),
+        ]:
+            _out = _run(*_bad)
+            assert _out.returncode != 0 and "tura-publish:" in _out.stderr, f"accepted {_bad}: {_out.stderr}"
+        # A symlink where the payload should be: refused, and nothing published.
+        (_staged / _payload).unlink()
+        (_staged / _payload).symlink_to(_secret)
+        (_dest / _name).unlink()
+        _out = _run("feed", str(_staged), "linux-x86_64-deb", _payload, _name)
+        assert _out.returncode != 0 and "symlink" in _out.stderr, _out.stderr
+        assert not (_dest / _name).exists() and not list(_dest.glob(".*.tmp"))
+        # The download page: artisan gets a private copy and the label is built here.
+        _loose.write_bytes(b"image")
+        _ok = _run("download", str(_loose), "1.9.2", "linux-x86_64")
+        assert _ok.returncode == 0, _ok.stderr
+        _called = (_bin / "php.called").read_text().splitlines()
+        assert _called[0] == str(_app) and _called[1:3] == ["artisan", "files:add"], _called
+        assert _called[3] != str(_loose) and _called[3].endswith(_loose.name), "artisan read the staged file itself"
+        assert (_bin / "php.content").read_bytes() == b"image"
+        assert "--label=Tura Notes 1.9.2 — Linux (x86_64)" in _called and "--project=tura-notes" in _called
+        _link.symlink_to(_secret)
+        _out = _run("download", str(_link), "1.9.2", "linux-x86_64")
+        assert _out.returncode != 0 and "symlink" in _out.stderr, _out.stderr
+        # And the real one refuses anyone but www-data.
+        _real = subprocess.run([str(cotenant / "tura-publish"), "check"], capture_output=True, text=True)
+        assert _real.returncode != 0 and "www-data" in _real.stderr
+    finally:
+        subprocess.run(["rm", "-rf", "--", str(_staged), str(_loose), str(_link)], check=False)
+
 # A DEPLOY THAT CANNOT DO ITS WORK MUST NOT REPORT SUCCESS.
 #
 # `deploy-server.sh` runs under `set -uo pipefail` and deliberately not `-e`:

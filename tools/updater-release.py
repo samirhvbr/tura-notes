@@ -107,6 +107,12 @@ def prepare(artifact, version, platform):
     temp.replace(record_path(artifact))
 
 
+# The server's publish helper (server/cotenant/tura-publish) and how to ask,
+# without a prompt, whether this user may run it without a password.
+HELPER = '/usr/local/sbin/tura-publish'
+GRANTED = f'sudo -n -l -u www-data {HELPER} check >/dev/null 2>&1'
+
+
 def publish(artifact, version, host, app, stage, base):
     data = verify(artifact, version)
     if not re.fullmatch(r'[a-zA-Z0-9_.@-]+', host) or host.startswith('-'):
@@ -137,12 +143,21 @@ def publish(artifact, version, host, app, stage, base):
             if actual != data['sha256']:
                 raise ValueError('Updater upload checksum mismatch; feed unchanged')
             feed_temp = destination + '/' + feed + '.' + remote.rsplit('/', 1)[-1] + '.tmp'
-            command = (
+            # The server's helper when it is installed and granted (OWNER-ACTS
+            # §7): no password, every argument checked there, the destination
+            # its own constant. Otherwise the four commands it replaces, which
+            # need sudo's password and therefore the terminal below.
+            helper = (
+                f'sudo -n -u www-data {HELPER} feed {q(remote)} {q(data["platform"])} '
+                f'{q(artifact.name)} {q(filename)}'
+            )
+            fallback = (
                 f'sudo -u www-data mkdir -p {q(destination)} && '
                 f'sudo -u www-data install -m 644 {q(staged_payload)} {q(destination + "/" + filename)} && '
                 f'sudo -u www-data install -m 644 {q(remote + "/" + feed)} {q(feed_temp)} && '
                 f'sudo -u www-data mv -f {q(feed_temp)} {q(destination + "/" + feed)}'
             )
+            command = f'if {GRANTED}; then {helper}; else {fallback}; fi'
             # mktemp creates mode 700; permit the service user to read staged files.
             # -t so the sudo in `command` can prompt: ssh allocates no terminal
             # by default and sudo then refuses rather than asking.

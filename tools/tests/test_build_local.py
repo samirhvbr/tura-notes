@@ -184,13 +184,19 @@ class Fingerprint(unittest.TestCase):
     def test_the_ingest_allocates_a_terminal_for_sudo(self):
         # `ssh host "cmd"` allocates no tty, so the remote sudo cannot prompt and
         # refuses — after the build, the notarisation and a verified upload.
-        script = (ROOT / 'build-local.sh').read_text()
+        # From 1.9.3 the server's publish helper is tried first (OWNER-ACTS §7),
+        # which never prompts; the password path stays as the fallback, so the
+        # terminal stays too. Continuation lines are joined: the call is one.
+        script = (ROOT / 'build-local.sh').read_text().replace('\\\n', ' ')
         ingest = [l for l in script.splitlines() if 'php artisan files:add' in l and l.strip().startswith(('ssh', 'if ! ssh'))]
         self.assertEqual(len(ingest), 1, 'build-local.sh no longer ingests with one ssh call')
         self.assertIn('ssh -t ', ingest[0], 'the ingest cannot prompt for a sudo password')
+        self.assertIn('if sudo -n -l -u www-data $helper check', ingest[0])
+        self.assertIn('$helper download', ingest[0])
 
         linux = (ROOT / 'tools/build-linux.sh').read_text()
-        self.assertIn('ssh -t "$host" "cd $(quote "$app") && sudo -u www-data', linux)
+        self.assertIn('ssh -t "$host" "if sudo -n -l -u www-data $helper check', linux)
+        self.assertIn('else cd $(quote "$app") && sudo -u www-data php artisan files:add', linux)
 
     def test_the_placeholder_is_restored_before_the_fingerprint_is_compared(self):
         script = (ROOT / 'build-local.sh').read_text().splitlines()

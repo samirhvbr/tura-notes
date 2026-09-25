@@ -1,0 +1,7 @@
+# /etc/sudoers.d/tura-publish — mode 0440, root:root, checked with
+# `visudo -cf /etc/sudoers.d/tura-publish` before anything else reads it.
+#
+# The publisher (b3sys) may run one program as www-data without a password.
+# The program, /usr/local/sbin/tura-publish, checks every argument itself; see
+# the comment at its top for why this is not a line of wildcards instead.
+b3sys ALL=(www-data) NOPASSWD: /usr/local/sbin/tura-publish

@@ -18,9 +18,12 @@
   **Travado no mesmo dia, por medicao:** o publish roda no servidor
   `sudo -u www-data` (o `files:add` do artisan e o `mkdir/install/mv` do feed),
   e `ssh b3sys@100.64.100.125 'sudo -n -u www-data true'` responde "a password
-  is required". Senha nao se digita, e sudo esta na lista de parar. Ate o dono
-  responder `q_publish_sudo`, o loop avisa no quadro quando uma X.Y.0 fica verde
-  e o publish e do dono.
+  is required". Senha nao se digita, e sudo esta na lista de parar. **O dono
+  respondeu `q_publish_sudo` em 25/09: regra sem senha, restrita.** Desde 1.9.3
+  ela e o helper `server/cotenant/tura-publish` (OWNER-ACTS §7), que o dono
+  instala uma vez. Antes de cada publish o loop roda, como b3sys,
+  `sudo -n -l -u www-data /usr/local/sbin/tura-publish check`: respondeu sem
+  senha, o publish e do loop; pediu senha, continua do dono, com aviso no quadro.
 - Criar e apagar worktree próprio sob `~/x/`.
 - Ler qualquer coisa do repositório e rodar o gate quantas vezes for preciso.
 

@@ -316,6 +316,47 @@ it (`winver`).
 
 ---
 
+## 7. Let the publish run without a password
+
+Answered on the board on 25/09 (`q_publish_sudo`): a passwordless rule limited to
+the publish. The publish runs as www-data on the server in two places, the
+download page's `artisan files:add` and the updater feed's copy into
+`public/updates/tura-notes`, and `sudo` asks b3sys for a password there, so
+nothing unattended can publish.
+
+**A rule of wildcards would not be limited.** In sudoers `*` matches spaces and
+`../`, so `artisan files:add *` would ingest any file www-data can read, and an
+`install … /updates/tura-notes/*` line would write as www-data anywhere it can.
+The rule names one program instead, `server/cotenant/tura-publish`, which checks
+every argument, writes only under its own constant destination, and reads
+nothing through a symlink. `server/tests/cotenant.py` runs it against traversal,
+unknown platforms and versions, and symlinks, and checks what it installs.
+
+Once, on the server, as root, from the checkout the deploy keeps up to date (at
+`1.9.3` or later):
+
+```sh
+cd /srv/www/tura.samirhv.com.br/repo
+install -o root -g root -m 0755 server/cotenant/tura-publish /usr/local/sbin/tura-publish
+install -o root -g root -m 0440 server/cotenant/sudoers-tura-publish /etc/sudoers.d/tura-publish
+visudo -cf /etc/sudoers.d/tura-publish
+```
+
+Then, as b3sys, this must print the helper's path and nothing asks for a
+password:
+
+```sh
+sudo -n -l -u www-data /usr/local/sbin/tura-publish check
+```
+
+That is also the check the loop runs before publishing, so no answer needs
+passing on: from the next minor, the loop publishes the Linux feed itself
+(`.loop/SCOPE.md`). If the helper in the repository changes later, the deploy
+says so (it compares, and never installs it), and this section is run again. To
+undo: delete both installed files.
+
+---
+
 ## What none of these is
 
 None is acceptance. A signed binary, a recovered attachment and a booting

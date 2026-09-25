@@ -143,6 +143,16 @@ elif ! vhost_diff=$(diff <(directives "$REPO/server/cotenant/apache-tura.conf") 
     log "      recarregue. Este deploy não mexe em Apache."
 fi
 
+# O helper de publicação (docs/OWNER-ACTS.md §7) também é à mão, pelo root, e
+# pelo mesmo motivo de fundo: ele é o alcance inteiro de uma regra sudoers sem
+# senha, e uma cópia que este deploy instalasse a partir do repositório seria
+# uma que quem escreve no repositório muda sem ninguém revisar. Compara e avisa.
+HELPER=/usr/local/sbin/tura-publish
+if [ -e "$HELPER" ] && ! cmp -s "$REPO/server/cotenant/tura-publish" "$HELPER"; then
+    log "  ⚠️  $HELPER difere de server/cotenant/tura-publish."
+    log "      Reinstale à mão, como root, e confira: docs/OWNER-ACTS.md §7."
+fi
+
 # ── 3. Binário do servidor ───────────────────────────────────────────────────
 if [ "$installed" != "$target" ]; then
     log "==> Baixando notes-server $target..."

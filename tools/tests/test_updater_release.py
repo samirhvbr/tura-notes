@@ -115,6 +115,23 @@ class UpdaterReleaseTests(unittest.TestCase):
             if call[0] == 'ssh' and 'sudo -u www-data' not in call[-1]:
                 self.assertNotIn('-t', call, 'a pty here only mangles parsed output')
 
+    def test_the_server_helper_is_tried_first_and_needs_no_password(self):
+        """OWNER-ACTS §7: once the helper is installed and granted, the feed goes
+        through it with `sudo -n`, which never prompts, and with the staging
+        directory, platform, payload and final name as its only arguments. The
+        four commands it replaces stay as the fallback for a server without it.
+        """
+        calls, _ = self.publish()
+        command = next(c[-1] for c in calls if updater.HELPER in c[-1])
+        guard, rest = command.split('; then ', 1)
+        self.assertIn(f'sudo -n -l -u www-data {updater.HELPER} check', guard)
+        helper, fallback = rest.split('; else ', 1)
+        self.assertEqual(
+            helper,
+            f"sudo -n -u www-data {updater.HELPER} feed /tmp/tura-update.unique linux-aarch64-deb "
+            f"'Tura Notes.deb' '1.1.0-linux-aarch64-deb-{updater.sha(self.artifact)[:16]}-Tura Notes.deb'")
+        self.assertIn('sudo -u www-data install -m 644', fallback)
+
     def test_bad_upload_never_changes_feed_and_staging_is_cleaned(self):
         with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
             self.publish('wrong checksum')

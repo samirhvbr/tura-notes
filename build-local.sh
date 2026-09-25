@@ -567,13 +567,19 @@ publish_release() {
   # there looking hung with nothing on screen to type into. Six spaces of
   # indentation are not worth a prompt nobody can see.
   step "[publish] ingest into the download service"
-  if ! ssh -t "$PUBLISH_HOST" "cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
+  # With the server's helper installed and granted (docs/OWNER-ACTS.md §7)
+  # there is no password to ask for, and the helper checks every argument.
+  local helper=/usr/local/sbin/tura-publish
+  if ! ssh -t "$PUBLISH_HOST" "if sudo -n -l -u www-data $helper check >/dev/null 2>&1; then \
+      sudo -n -u www-data $helper download $(_q "$staged") $(_q "$version") macos-apple-silicon; \
+      else cd $(_q "$PUBLISH_APP") && sudo -u www-data php artisan files:add \
       $(_q "$staged") --project=$(_q "$PUBLISH_SLUG") --file-version=$(_q "$version") \
-      --label=$(_q "Tura Notes $version — macOS (Apple silicon)")"; then
+      --label=$(_q "Tura Notes $version — macOS (Apple silicon)"); fi"; then
     echo "  ✗ the ingest failed; the uploaded file is still staged at $staged" >&2
-    echo "    If it was sudo asking and you would rather it stopped, one line on the server:" >&2
-    echo "      b3sys ALL=(www-data) NOPASSWD: /usr/bin/php $PUBLISH_APP/artisan files:add *" >&2
-    echo "    in /etc/sudoers.d/tura-publish, mode 0440, checked with visudo -c." >&2
+    echo "    If it was sudo asking and you would rather it stopped, install the publish" >&2
+    echo "    helper on the server: docs/OWNER-ACTS.md §7. Not a sudoers line with a" >&2
+    echo "    wildcard: in sudoers '*' matches spaces, so 'files:add *' would ingest any" >&2
+    echo "    file www-data can read." >&2
     return 1
   fi
 

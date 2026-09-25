@@ -7,6 +7,49 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.3 - the publish runs through one checked helper instead of sudo wildcards
+
+The owner's answer to `q_publish_sudo` on 25/09: a passwordless rule, limited
+to the publish, so the loop can publish the Linux feed at each minor as
+authorized. Written as sudoers wildcards it would not have been limited. In
+sudoers `*` matches spaces and `../` as well, so `artisan files:add *` ingests
+any file www-data can read, a site's `.env` included, and
+`install -m 644 /tmp/* …/updates/tura-notes/*` writes as www-data anywhere www-data
+can write. `docs/runbook.md` recommended the first of those lines, and the
+failure message in `build-local.sh` printed it.
+
+So the rule names one program, `server/cotenant/tura-publish`, with no
+arguments in the rule. The helper checks every argument itself. The staging
+directory must have the publisher's `mktemp` shape, and names must be one plain
+path component. The platform must be one of the known feeds, the version three
+numbers, and the download-page target one of three, whose label the helper
+builds. The destination is a constant in the helper, never an argument. It
+reads nothing through a symlink (`dd iflag=nofollow`), so a link swapped in
+after the checks publishes nothing, and `artisan` gets a private copy rather
+than the staged path. It refuses to run as anyone but www-data. The
+sudoers file, `server/cotenant/sudoers-tura-publish`, is one line.
+
+`tools/build-linux.sh`, `build-local.sh` and `tools/updater-release.py` try the
+helper first, when `sudo -n -l -u www-data /usr/local/sbin/tura-publish check`
+says it is granted without a password, and fall back to the old
+password-asking commands otherwise, so a server without the helper publishes
+as it did. The deploy compares an installed helper with the repository's copy
+and warns when they differ. It never installs the helper, because the helper
+is the whole reach of a passwordless grant, and a copy installed from the
+repository would change without review. `docs/OWNER-ACTS.md` §7 has the
+one-time install and the check, the runbook's wildcard advice is replaced, and
+`.loop/SCOPE.md` says the loop publishes when that check answers without a
+password.
+
+Tests: `server/tests/cotenant.py` runs the helper for real against a copy
+pointed at a temporary tree. It installs the payload and the feed at 0644 and
+leaves no temporary file, and it refuses twelve bad calls, among them
+traversal in each argument, an unknown platform and version, a staged file
+outside `/tmp`, and a symlink as payload and as download. `artisan` receives a
+copy, the real helper refuses a non-www-data user, and the sudoers line has no
+wildcard. `test_updater_release.py` checks the exact helper call and that the
+fallback remains; `test_build_local.py` follows the new shape of the ingest.
+
 ## 1.9.2 - the next server release to sign is 1.9.0, not 1.8.0
 
 The same deploy stopped where it should: it targeted `1.9.0`, found no

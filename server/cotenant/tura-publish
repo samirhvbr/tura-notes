@@ -1,0 +1,97 @@
+#!/bin/bash
+# tura-publish — the one program the publisher may run as www-data without a
+# password (docs/OWNER-ACTS.md §7). Installed by root, root-owned, mode 0755:
+#
+#     install -o root -g root -m 0755 server/cotenant/tura-publish /usr/local/sbin/tura-publish
+#     install -o root -g root -m 0440 server/cotenant/sudoers-tura-publish /etc/sudoers.d/tura-publish
+#     visudo -cf /etc/sudoers.d/tura-publish
+#
+# WHY A PROGRAM AND NOT A SUDOERS LINE WITH WILDCARDS. In sudoers `*` matches
+# spaces and `../` too, so `install -m 644 /tmp/* …/updates/tura-notes/*` lets
+# whoever holds the publisher's SSH key write as www-data anywhere www-data can
+# write, and `artisan files:add *` lets them publish any file www-data can read,
+# a site's `.env` included. The sudoers line names this file and nothing else;
+# every argument is checked here, the destination is a constant below and never
+# an argument, and nothing is read through a symlink.
+#
+# Nothing here reads the environment: sudo resets it, and a destination that
+# came from a variable would be a destination the caller chose.
+set -euo pipefail
+umask 022
+APP=/srv/www/samirhv.com.br/samirhv
+DEST="$APP/public/updates/tura-notes"
+PROJECT=tura-notes
+RUN_AS=www-data
+
+die() { echo "tura-publish: $*" >&2; exit 2; }
+[ "$(id -un)" = "$RUN_AS" ] || die "run it as $RUN_AS (sudo -u $RUN_AS)"
+
+# A directory made by `mktemp -d /tmp/tura-update.XXXXXX`, as the publisher makes it.
+staged_dir() {
+    [[ "$1" =~ ^/tmp/tura-update\.[A-Za-z0-9]{6}$ ]] && [ -d "$1" ] && [ ! -L "$1" ] \
+        || die "not a staging directory: $1"
+}
+# One path component: no slash, no leading dot (so no `..`). Spaces are allowed,
+# because the macOS image is `Tura Notes_<version>_<arch>.dmg`, and every use
+# below is quoted.
+plain() {
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9\ ._-]{0,199}$ ]] || die "not a plain file name: $1"
+}
+# Copy without following a symlink. A link swapped in after the checks above
+# would otherwise publish whatever www-data can read.
+copy() {
+    dd if="$1" of="$2" iflag=nofollow status=none 2>/dev/null \
+        || { rm -f -- "$2"; die "could not read $1 (a symlink is refused)"; }
+    chmod 644 "$2"
+}
+
+case "${1:-}" in
+check)
+    # Lets the publisher ask `sudo -n -l` whether this is installed and granted.
+    exit 0
+    ;;
+feed)
+    # feed STAGED_DIR PLATFORM PAYLOAD FILENAME — the updater payload, then its
+    # feed, each renamed into place so a reader never sees half of either.
+    [ $# -eq 5 ] || die "usage: feed STAGED_DIR PLATFORM PAYLOAD FILENAME"
+    dir=$2 platform=$3 payload=$4 filename=$5
+    staged_dir "$dir"
+    [[ "$platform" =~ ^(linux|darwin)-(x86_64|aarch64)-(deb|rpm|appimage|app)$ ]] \
+        || die "unknown platform: $platform"
+    plain "$payload"
+    plain "$filename"
+    [[ "$filename" =~ ^[0-9]+\.[0-9]+\.[0-9]+-$platform-[0-9a-f]{16}-(.+)$ ]] \
+        && [ "${BASH_REMATCH[1]}" = "$payload" ] \
+        || die "payload name does not match: $filename"
+    mkdir -p -- "$DEST"
+    copy "$dir/$payload" "$DEST/.$filename.$$.tmp"
+    mv -f -- "$DEST/.$filename.$$.tmp" "$DEST/$filename"
+    copy "$dir/$platform.json" "$DEST/.$platform.json.$$.tmp"
+    [ "$(stat -c %s "$DEST/.$platform.json.$$.tmp")" -le 65536 ] \
+        || { rm -f -- "$DEST/.$platform.json.$$.tmp"; die "feed is larger than 64 KiB"; }
+    mv -f -- "$DEST/.$platform.json.$$.tmp" "$DEST/$platform.json"
+    ;;
+download)
+    # download FILE VERSION TARGET — one row on the download page.
+    [ $# -eq 4 ] || die "usage: download FILE VERSION TARGET"
+    file=$2 version=$3 target=$4
+    [[ "$file" =~ ^/tmp/ ]] || die "not a staged file: $file"
+    plain "${file#/tmp/}"
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "not a version: $version"
+    case "$target" in
+        linux-x86_64) label="Linux (x86_64)" ;;
+        linux-aarch64) label="Linux (aarch64)" ;;
+        macos-apple-silicon) label="macOS (Apple silicon)" ;;
+        *) die "unknown target: $target" ;;
+    esac
+    work=$(mktemp -d)
+    trap 'rm -rf -- "$work"' EXIT
+    copy "$file" "$work/${file#/tmp/}"
+    cd "$APP"
+    php artisan files:add "$work/${file#/tmp/}" --project="$PROJECT" \
+        --file-version="$version" --label="Tura Notes $version — $label"
+    ;;
+*)
+    die "usage: tura-publish check | feed STAGED_DIR PLATFORM PAYLOAD FILENAME | download FILE VERSION TARGET"
+    ;;
+esac

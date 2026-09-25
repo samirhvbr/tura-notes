@@ -138,8 +138,10 @@ project page, never the exit code
 ingest half is the one with nothing watching it.
 
 After download-service ingestion, the publisher stages files in a unique
-remote directory, checks SHA-256 and uses `sudo -u www-data` to install under
-`$TURA_PUBLISH_APP/public/updates/tura-notes`. It installs the payload first and
+remote directory, checks SHA-256 and installs as www-data under
+`$TURA_PUBLISH_APP/public/updates/tura-notes` — through the publish helper
+without a password when it is installed ([OWNER-ACTS.md §7](OWNER-ACTS.md#7-let-the-publish-run-without-a-password)),
+otherwise through `sudo -u www-data`, which asks. It installs the payload first and
 atomically replaces only that platform's feed last. Staging is cleaned even on
 failure. It then checks the public feed and hashes the public download. The web
 server must serve this directory directly without authentication or stale cache

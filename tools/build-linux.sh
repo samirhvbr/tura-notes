@@ -230,9 +230,12 @@ for artifact in "${artifacts[@]}"; do
     expected="$(sha256sum "$artifact" | awk '{print $1}')"
     actual="$(ssh "$host" "sha256sum -- $(quote "$remote_file")" | awk '{print $1}')"
     [ "$actual" = "$expected" ] || { echo 'Upload checksum mismatch; not ingested.' >&2; exit 1; }
-    # -t: ssh allocates no terminal by default, so sudo cannot prompt and dies
-    # with "a terminal is required to read the password". See build-local.sh.
-    ssh -t "$host" "cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --file-version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))")"
+    # The server's helper when it is installed and granted (docs/OWNER-ACTS.md
+    # §7): no password, and it checks every argument. Otherwise artisan through
+    # sudo's password, and -t, because ssh allocates no terminal by default and
+    # sudo then dies with "a terminal is required to read the password".
+    helper=/usr/local/sbin/tura-publish
+    ssh -t "$host" "if sudo -n -l -u www-data $helper check >/dev/null 2>&1; then sudo -n -u www-data $helper download $(quote "$remote_file") $(quote "$version") $(quote "linux-$(uname -m)"); else cd $(quote "$app") && sudo -u www-data php artisan files:add $(quote "$remote_file") --project=$(quote "$slug") --file-version=$(quote "$version") --label=$(quote "Tura Notes $version — Linux ($(uname -m))"); fi"
     ssh "$host" "rm -f -- $(quote "$remote_file") $(quote "$remote_file.sha256")"
     python3 tools/updater-release.py publish --artifact "$artifact" --version "$version" --host "$host" --stage "$stage" --app "$app" --base "$base"
   fi
