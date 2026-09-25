@@ -9,6 +9,12 @@
   texto que ele carrega estiver comprovadamente errado.
 - `./build-local.sh --publish` — autorizado explicitamente pelo dono em 17/09,
   resposta `voce-roda` no artefato.
+- `tools/build-linux.sh --publish` **a cada minor (`X.Y.0`)**, de um worktree
+  limpo em `origin/master` (nunca da arvore de trabalho, que carrega o que ainda
+  nao foi commitado), e depois o feed lido de fora (`linux-x86_64-deb.json` e
+  `linux-x86_64-appimage.json` na versao publicada). Autorizado pelo dono em
+  24/09, resposta `q_publish_linux` no quadro. Patch (`X.Y.Z` com Z > 0) nao
+  entra: continua do dono.
 - Criar e apagar worktree próprio sob `~/x/`.
 - Ler qualquer coisa do repositório e rodar o gate quantas vezes for preciso.
 

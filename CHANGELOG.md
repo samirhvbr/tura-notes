@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.8.65 - the loop publishes the Linux feed at each minor, from a clean worktree
+
+The owner's answer to `q_publish_linux` on 24/09: yes, at each minor, from a
+clean worktree. `.loop/SCOPE.md` now lists `tools/build-linux.sh --publish` among
+the acts the loop takes without asking, with the conditions. Only for `X.Y.0`,
+since a patch release stays the owner's to publish. Only from a worktree on
+`origin/master`, never from the working tree, because on 21/09 a `1.8.21` built
+from a tree carrying uncommitted work reached the feed. And only followed by
+reading both Linux feeds back from outside.
+
+Without this, the in-app updater has nothing new to offer: the feed moved only
+when the owner ran the publish, and on 24/09 it was 37 versions behind GitHub
+until they did. R8-03 stays open in the queue because it recurs. The next time
+it applies is 1.9.0.
+
 ## 1.8.65 - the Windows intermittent names the guard that took no new note, and the owner has the steps to run it
 
 R7-09 had been waiting on the owner's answer. The Windows-only intermittent in
