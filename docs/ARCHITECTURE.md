@@ -1052,7 +1052,7 @@ run is rebuilt rather than mistaken for a finished one; every upload uses
 | Debian / Ubuntu | `.deb` (built on `ubuntu-22.04` for the oldest glibc still supported), AppImage | none required | **shipping** |
 | Arch Linux | `packaging/aur/notes-bin/PKGBUILD` consuming the release tarball (binary, `.desktop`, icons); `notes-git` optional | AUR account; `makepkg` and `--printsrcinfo` run in an `archlinux:latest` container | **shipping** — `depends=(webkit2gtk-4.1 gtk3)`, and the job installs the package and checks `ldd` resolves |
 | macOS | `.dmg` (universal) | Developer ID + `notarytool` | **written and disabled** — needs an Apple Developer Program membership and the certificate; ADR-024 |
-| Windows | NSIS installer (MSI later if asked) | OV code-signing certificate, `signtool` | **written and disabled** — needs the certificate; ADR-024 |
+| Windows | NSIS installer (MSI later if asked) | OV code-signing certificate, `signtool` | **local unsigned build only** — `build-local.cmd` for testing (ADR-097); the CI job is written and disabled until the certificate exists; ADR-024 |
 | iOS `[0.4]` | TestFlight → App Store | Apple Developer | built on the macOS runner |
 | Android `[0.4]` | APK on the Release; Play later | upload key in CI secrets | built on Linux |
 

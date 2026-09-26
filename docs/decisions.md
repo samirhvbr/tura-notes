@@ -3093,3 +3093,54 @@ include retirement, so it cannot drop receipts.
 audit lines, a 403 test for a credential without it, the screen), with
 `security.md` §4.10 amended in the same pass to name it. *No*: device management
 stays on the host's command line, and the screen, if wanted, is read-only.
+
+---
+
+## ADR-097 — Windows builds locally through `build-local.cmd`, unsigned and never published
+
+**Status:** `ACCEPTED` · 26/09/2026, the owner's choice (“build unsigned, do not publish”) · built in 1.9.5
+
+**Context.** Tura Notes could be packaged on macOS (`build-local.sh`) and on
+Linux (`tools/build-linux.sh`), but a Windows installer existed only as the
+`windows` job in `build.yml`, disabled because ADR-024 publishes no unsigned
+Windows artefact and there is no OV code-signing certificate. So there was no
+way to try the application on the owner's Windows machine. The sibling desktop
+projects of the fleet solve this with a versioned `build-local.cmd` that
+launches a `build-local.ps1`, and the owner asked for the same thing here.
+
+**Decision.** `build-local.cmd` at the repository root is double-clicked or run
+from cmd. It launches `build-local.ps1` past the `.ps1`→Notepad association and
+the ExecutionPolicy. The script builds an NSIS installer
+(`TuraNotes_<version>_x64-setup.exe`) and its `.sha256` under
+`target\local-windows\<host-triple>\`. **The installer is unsigned and is
+never published.** `-Publish` exists only to refuse, before anything runs,
+because `build-local.sh --publish` exists and the habit carries over from it.
+This applies ADR-024; it does not reverse it. When a certificate exists,
+signing and publication are a new decision.
+
+Three choices in the script have reasons worth keeping:
+
+- **The version is passed to Tauri as a `--config` file, not stamped.**
+  `tauri.conf.json` keeps its committed `0.0.0` throughout. With no stamp there
+  is no backup to restore, and an interrupted build cannot leave a stamped tree
+  for the next commit. On the other two platforms `stamp-version.sh` has to
+  guard against exactly that.
+- **npm scripts run through Git Bash.** On Windows npm runs package scripts
+  through cmd.exe, and `npm run build` → `lint` calls
+  `tools/no-blocking-dialogs.sh`, which cmd.exe cannot run. The script finds
+  Git for Windows' `bash.exe` from `git --exec-path` rather than taking the
+  first `bash` on PATH, which may be WSL's. It sets `npm_config_script_shell`
+  for its own process only.
+- **The script is pure ASCII.** Windows PowerShell 5.1 reads a file without a
+  BOM in the ANSI code page. `tools/tests/test_build_windows.py` holds the
+  script to this and to the properties above, by reading it: nothing in this
+  repository's gate can run PowerShell.
+
+**Consequences.** Windows can be exercised on real hardware ahead of any
+signature, and SmartScreen warns on that machine, which is acceptable for its
+owner and nobody else. Windows is still outside the update channel
+(`updater.rs` `supported()` does not accept NSIS), so each new build is
+installed by hand. The disabled CI job is untouched. It still passes the Windows
+certificate as `TAURI_SIGNING_PRIVATE_KEY`, which is the updater key's variable
+and not a code-signing one, and that has to be corrected on the day it is
+switched on.

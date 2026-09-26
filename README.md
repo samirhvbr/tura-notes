@@ -52,7 +52,9 @@ GitHub Release carries the Linux artefacts only.
 **Windows is not published.** An unsigned build teaches its user to click past
 the warning that exists to protect them ([ADR-024](docs/decisions.md#adr-024--no-unsigned-macos-or-windows-artefact-is-published)); the
 missing piece is an OV code-signing certificate, and it is named in
-`.github/workflows/build.yml`.
+`.github/workflows/build.yml`. To try it on your own Windows machine, `build-local.cmd`
+builds an unsigned installer that is never published
+([ADR-097](docs/decisions.md#adr-097--windows-builds-locally-through-build-localcmd-unsigned-and-never-published)).
 
 Stack: Tauri 2 · React · TypeScript · Rust · CodeMirror 6 · SQLite/FTS5.
 

@@ -75,7 +75,7 @@ What ships today, and what does not:
 |---|---|
 | Linux | `.deb`, AppImage, a tarball, and the AUR `notes-bin` package — all built in CI and attached to the Release. Local deb/AppImage/rpm builds and optional download-service publication are also available; see [local Linux installers](#local-linux-installers-103) |
 | macOS | **published**, from this repository's own `build-local.sh` rather than from CI, because the certificate that signs it lives in a keychain rather than in a repository secret, so the machine that holds it is the machine that packages ([ADR-070](decisions.md#adr-070--macos-releases-are-signed-notarised-and-published-by-the-local-pipeline)). Served from [samirhv.com.br](https://samirhv.com.br/p/tura-notes) rather than attached to the Release; the `darwin-aarch64-app` updater feed is live. The `build.yml` job stays behind `if: false` |
-| Windows | **not published.** The job is written in `build.yml` behind `if: false` and carries the list of what is missing; it is an OV certificate rather than code (ADR-024) |
+| Windows | **not published.** An unsigned installer can be built on a Windows machine for testing with `build-local.cmd`; see [local Windows installer](#local-windows-installer-195). The CI job is written in `build.yml` behind `if: false` and carries the list of what is missing; it is an OV certificate rather than code (ADR-024, ADR-097) |
 
 ### The macOS release, from the repository root
 
@@ -457,3 +457,53 @@ The 11 orchestration tests pass on macOS and Linux. The full gate was rerun;
 frontend and network smoke checks pass, while the existing sync-client Clippy
 warning and watcher startup timing test still fail. This change does not mark
 those queue items complete.
+
+## Local Windows installer (1.9.5)
+
+**Unsigned, for testing on your own machine, and never published**
+([ADR-024](decisions.md#adr-024--no-unsigned-macos-or-windows-artefact-is-published), [ADR-097](decisions.md#adr-097--windows-builds-locally-through-build-localcmd-unsigned-and-never-published)).
+SmartScreen warns on first run. That is the reason the installer is not
+distributed.
+
+Prerequisites, installed once (reopen the terminal afterwards):
+
+| | |
+|---|---|
+| Node 22.22.2+, 24.15+ or 26+ | `winget install OpenJS.NodeJS.LTS` |
+| Rust, MSVC toolchain | `winget install Rustlang.Rustup`, then `rustup default stable-msvc` |
+| MSVC C++ build tools | Visual Studio Build Tools, workload *Desktop development with C++* |
+| Git for Windows | `winget install Git.Git`. It is the clone and also the shell npm runs the package scripts in |
+| WebView2 | ships with Windows 11 and current Windows 10 |
+
+NSIS is downloaded by the Tauri bundler on the first build.
+
+From the repository root, double-click `build-local.cmd`, or run:
+
+```
+build-local.cmd                 :: sync (git pull --ff-only), npm ci, build
+build-local.cmd -SkipNpmCi      :: dependencies already installed
+build-local.cmd -SkipGitPull    :: build this checkout as it is
+```
+
+The output is
+`target\local-windows\x86_64-pc-windows-msvc\release\bundle\nsis\TuraNotes_<version>_x64-setup.exe`,
+with a `.sha256` beside it in `sha256sum` format. `-Publish` is refused
+before anything is built.
+
+What the script does differently from the other two platforms, and why:
+
+- **It never writes `tauri.conf.json`.** The version from `version.md` reaches
+  Tauri as a temporary `--config` file.
+- **It sets `npm_config_script_shell` to Git Bash for its own process.** The
+  frontend's `lint` calls a `.sh` script that cmd.exe cannot run. It uses the
+  `bash.exe` of the Git that is on PATH, never WSL's.
+- **It has no build reuse.** It deletes the old `bundle\nsis` first, so a failed
+  build cannot present an earlier installer as its result. Cargo's incremental
+  build is what makes the second run fast.
+- **It does not take part in updates.** Windows is outside the update channel
+  ([updater.md](updater.md)), so a new build is installed over the old one by
+  hand.
+
+**What has been verified.** `tools/tests/test_build_windows.py` checks the
+script's text. PowerShell does not run in the gate. At 1.9.5 no build had yet
+been run on a real Windows machine, and the first run there is its acceptance.
