@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.5 - Windows gets a local unsigned build through build-local.cmd
+
+The owner asked on 26/09 for the Windows build file, in the same shape as the
+sibling desktop projects: a `build-local.cmd` that is versioned and can be
+double-clicked, and that launches a `build-local.ps1`. Asked about signing, the
+owner chose to build unsigned and not publish. ADR-024 therefore stands as it
+is, and ADR-097 records the choice.
+
+The script builds an NSIS installer and renames it the way
+`tools/name-bundles.sh` renames the others (`TuraNotes_<version>_x64-setup.exe`).
+It writes a `.sha256` in `sha256sum` format beside it, and it decides success by
+finding that one installer on disk after deleting the previous one.
+`-Publish` refuses before anything runs.
+
+It departs from the Linux script in two places, and both are forced by the
+platform.
+
+The version reaches Tauri as a temporary `--config` file rather than being
+stamped into `tauri.conf.json`. The committed `0.0.0` is never rewritten, so
+the backup, the restore and the stamped-tree refusal that the other two
+platforms need have nothing to guard here.
+
+npm scripts run through Git Bash, located from `git --exec-path` so WSL's
+`bash.exe` is never picked up. This is needed because `npm run build` reaches
+`tools/no-blocking-dialogs.sh` through `lint`, and cmd.exe, npm's default script
+shell on Windows, cannot run it.
+
+The file is pure ASCII, because Windows PowerShell 5.1 reads a file without a
+BOM in the ANSI code page. `.gitattributes` pins `*.cmd` to CRLF.
+`build-local.sh` now points a Git Bash user at the `.cmd` rather than refusing
+without saying where to go.
+
+What this measured is limited, and should be read that way. PowerShell does not
+run on this machine or in the gate. `tools/tests/test_build_windows.py` checks
+the script's text: the refusal comes first, the config is never written, the
+native steps are checked, the rename and checksum are there, the script shell
+is set, and the launcher is CRLF. It runs in `tools/check.sh` and in CI. No
+installer has been built on Windows yet. The first double-click on the owner's
+Windows machine is the acceptance.
+
 ## 1.9.4 - the parked queue lines say what they wait on today
 
 The owner asked on 25/09 whether anything is left to produce, and the sweep

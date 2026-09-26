@@ -111,6 +111,13 @@ cd "$ROOT"
 if [ "$(uname -s)" = Linux ]; then
   exec bash "$ROOT/tools/build-linux.sh" "$@"
 fi
+# Git Bash, MSYS or Cygwin on Windows. Not an exec: the Windows script is
+# PowerShell with its own flags, and its installer is never published (ADR-097).
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "build-local.sh: on Windows, run build-local.cmd (or build-local.ps1)." >&2
+    exit 1 ;;
+esac
 
 # ── Clock: total wall time, and time per step ────────────────────────────────
 # `step`, `_summary` and `_clock_abort` live in `tools/build-clock.sh` because
@@ -161,7 +168,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "build-local.sh: supported build hosts are macOS and Linux." >&2
+  echo "build-local.sh: supported build hosts are macOS and Linux (Windows: build-local.cmd)." >&2
   exit 1
 fi
 

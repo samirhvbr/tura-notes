@@ -135,6 +135,7 @@ jobs:
           run "updater publication"                     python3 tools/tests/test_updater_release.py
           run "release.sh exit status says what happened" python3 tools/tests/test_release_exit.py
           run "macOS build script"                      python3 tools/tests/test_build_local.py
+          run "Windows build script"                    python3 tools/tests/test_build_windows.py
           run "crash loop refuses a writer that never wrote" python3 tools/tests/test_crash_loop.py
           run "the self-hosting guide matches the code" python3 tools/tests/test_selfhosting_doc.py
           run "the env report is not a hand-written IPC shape" python3 tools/tests/test_env_report.py

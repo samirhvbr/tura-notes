@@ -10,3 +10,10 @@ fixtures/** -text
 
 # Keep diffs of the corpus out of review noise; they are generated data.
 fixtures/** linguist-generated=true
+
+# cmd.exe reads batch files by line and finds labels and `goto` targets by
+# offset; with LF-only endings it misreads them. Git for Windows would check a
+# `.cmd` out with CRLF by default, but a Linux or macOS checkout would not, and
+# the launcher is committed from both.
+*.cmd text eol=crlf
+*.bat text eol=crlf
