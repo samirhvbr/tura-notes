@@ -3144,3 +3144,35 @@ installed by hand. The disabled CI job is untouched. It still passes the Windows
 certificate as `TAURI_SIGNING_PRIVATE_KEY`, which is the updater key's variable
 and not a code-signing one, and that has to be corrected on the day it is
 switched on.
+
+## ADR-098 — The server signing key was replaced, and the new private half lives on the Linux desktop
+
+**Status:** `ACCEPTED` · 28/09/2026, the owner's choice ("trocar a chave aqui") · key `9DA44321DEC69F20`, replacing `D32452D0D2C181A6`
+
+**Context.** The deploy installs a server binary only with a `minisign`
+signature that verifies against `server/cotenant/notes-server.pub` (ADR-081).
+The private half that signed `1.7.0` was generated on another machine and is
+not on the Linux desktop where the agent works. So `1.9.0`, which carries the
+device routes of ADR-096, could not be signed, and the deploy refused it on
+25/09 and twice on 28/09, keeping `1.7.0` running. Asked, the owner chose to
+replace the pair on this machine rather than sign from the machine that holds
+the old key.
+
+**Decision.** A new pair was generated with `minisign -G -W` on 28/09. The
+public half replaces `server/cotenant/notes-server.pub` in `1.9.7`; the private
+half is `~/.config/tura-notes/notes-server.key` on the Linux desktop, mode
+0600. It is **not password-protected** (`-W`), because the agent cannot type a
+password and the point of the change was that it can sign. `minisign -C` adds
+one later, at the cost of the agent no longer signing unattended.
+
+**Consequences.** Signatures made with the old key no longer verify against
+the repository, which matters only for a release the deploy would install
+again; it installs the current minor, and `1.9.0` is signed with the new key.
+The deploy verifies with the public key from the checkout it has just pulled,
+so the new key must be pushed before the signature is uploaded; it was. A leak
+of the unencrypted private half lets someone sign a server binary the deploy
+will install, which is the same class of harm ADR-081 accepted for the old
+key, now held on a machine that also runs agents. The owner should back the
+key up outside the repository. The old private half, wherever it is, can be
+deleted.
+

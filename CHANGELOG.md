@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.7 - the server signing key is replaced, and its private half is on the Linux desktop
+
+The server signing key is replaced (ADR-098). The deploy installs a server
+binary only with a signature that verifies against
+`server/cotenant/notes-server.pub`. The private half that signed 1.7.0 is not on
+the Linux desktop, so 1.9.0, which carries the device routes, could not be
+signed, and the deploy refused it on 25/09 and twice on 28/09. Asked, the owner
+chose a new pair on this machine over signing from the machine with the old
+key.
+
+The new pair (`9DA44321DEC69F20`, replacing `D32452D0D2C181A6`) was made with
+`minisign -G -W`. The public half is this commit; the private half is
+`~/.config/tura-notes/notes-server.key`, mode 0600, without a password, because
+the agent cannot type one and signing unattended was the point.
+`tools/sign-server-release.sh` is unchanged: it still verifies each signature
+against the committed public half before uploading it. This commit is pushed
+before 1.9.0 is signed, because the deploy verifies with the key from the
+checkout it has just pulled. `docs/OWNER-ACTS.md` §1 records the change and
+asks for a backup of the key outside the repository.
+
 ## 1.9.6 - the publish helper is installed on the server and grants without a password
 
 The publish helper is installed on the server. The owner put
