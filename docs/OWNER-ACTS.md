@@ -355,6 +355,11 @@ passing on: from the next minor, the loop publishes the Linux feed itself
 says so (it compares, and never installs it), and this section is run again. To
 undo: delete both installed files.
 
+**Done on 28/09.** The owner installed both files and `visudo` parsed the rule.
+The agent checked it the same day as b3sys, not as root (root passes any
+`sudo -l`): the check answered with `rc=0` without a password, and the
+installed helper is byte-identical to the repository's.
+
 ---
 
 ## What none of these is

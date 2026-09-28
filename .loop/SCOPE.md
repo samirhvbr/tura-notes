@@ -24,6 +24,9 @@
   instala uma vez. Antes de cada publish o loop roda, como b3sys,
   `sudo -n -l -u www-data /usr/local/sbin/tura-publish check`: respondeu sem
   senha, o publish e do loop; pediu senha, continua do dono, com aviso no quadro.
+  **Instalado pelo dono em 28/09 e medido no mesmo dia como b3sys:** `rc=0`
+  sem senha, e o helper instalado igual ao do repositorio (`cmp`). O primeiro
+  publish do loop e a proxima minor (1.10.0).
 - Criar e apagar worktree próprio sob `~/x/`.
 - Ler qualquer coisa do repositório e rodar o gate quantas vezes for preciso.
 

@@ -7,6 +7,28 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.6 - the publish helper is installed on the server and grants without a password
+
+The publish helper is installed on the server. The owner put
+`/usr/local/sbin/tura-publish` and `/etc/sudoers.d/tura-publish` in place on
+28/09, and `visudo` parsed the rule. The owner's own check ran as root, which
+passes any `sudo -l` and so proves nothing about the grant. It was repeated the
+same day as b3sys, the user the publish runs as:
+`sudo -n -l -u www-data /usr/local/sbin/tura-publish check` answered with
+`rc=0` without asking for a password, and `cmp` found the installed helper
+byte-identical to the repository's.
+
+That unblocks R8-03. `.loop/SCOPE.md` records the measurement, and
+`docs/OWNER-ACTS.md` §7 records the act as done and how it was verified. The
+queue line is open again as a recurring item: the loop's first unattended Linux
+publish is the next minor, 1.10.0, from a clean worktree on `origin/master`,
+with the feed read back from outside. Patch releases stay the owner's to
+publish.
+
+The same morning's deploy refused 1.9.0 again, for the missing `.minisig`, and
+kept 1.7.0 running. Signing needs the private key, which is not on this
+machine, so it remains the owner's act.
+
 ## 1.9.5 - Windows gets a local unsigned build through build-local.cmd
 
 The owner asked on 26/09 for the Windows build file, in the same shape as the
