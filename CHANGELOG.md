@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.8 - the notes list can carry each note's ETag, and a note can be created with its folders
+
+This is the first block of the remote folder the owner asked for on 28/09: a
+rail icon in the app that opens the server's notes workspace and edits it in
+place, "like Nextcloud Notes; I literally want to replace that app". Two things
+the app needs were missing from the REST API.
+
+**`GET …/notes?detail=true` lists `{path, size, etag}` per note.** The remote
+tree marks each note as only on the server, the same as the local copy, or
+different from it. Without a hash per note that means one GET per note, and
+the server allows 60 requests a minute per credential, which cannot cover a
+real workspace. The tag is exactly the one a read of that note answers with,
+so it is also a valid `If-Match`. The first test run caught a way it could
+differ: the read serialises the revision through a JSON map, which orders the
+keys, and the listing serialised the struct, which keeps declaration order.
+The two tags carried the same revision and did not match byte for byte. Both
+now go through one `etag()` that canonicalises first. A note over the 8 MiB
+read limit lists `etag: null`, because a read refuses it and there is no
+revision to condition a write on. The flag is refused on every other route.
+
+**`POST …/notes` accepts `parents: true`** and makes the missing folders above
+the note. They are held to the rules the note is held to: inside the scope,
+under `proposals` in review mode, no hidden segment, portable names, and no
+symlink on the way. A new note can then be filed under a new folder, the way a
+category works in other notes apps, and the API still gains no folder routes
+of its own. Without the flag a missing parent is an error, as before.
+
+The OpenAPI contract describes both. It also records two things it had drifted
+from: the `next_offset` a truncated plain list carries, and the empty `text`,
+not `null`, that a read of a non-UTF-8 note returns. Four new tests in
+`server/notes-server/tests/http.rs` cover the rest: the listed tag equals the
+read's and a PUT accepts it, scope and hidden files, paging, the flag refused
+elsewhere, Read required, parent creation with its refusals, and no folders
+made without Create.
+
 ## 1.9.7 - the server signing key is replaced, and its private half is on the Linux desktop
 
 The server signing key is replaced (ADR-098). The deploy installs a server

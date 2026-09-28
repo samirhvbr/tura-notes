@@ -262,8 +262,8 @@ liveness after peer/transport checks; it exposes no version or data.
 | Route | Method | Permission and conditions |
 |---|---|---|
 | `/v1/workspaces` | GET | Returns only the credential's workspace, scope and permissions |
-| `/v1/workspaces/{workspace}/notes` | GET | `read`; `limit` and `cursor` pagination |
-| Same collection | POST | `create`; JSON `path`, `text`; `If-None-Match: *` |
+| `/v1/workspaces/{workspace}/notes` | GET | `read`; `limit` and `cursor` pagination; `detail=true` lists `{path, size, etag}` per note (1.9.8) |
+| Same collection | POST | `create`; JSON `path`, `text`, optional `parents`; `If-None-Match: *` |
 | `/v1/workspaces/{workspace}/notes/{path}` | GET | `read`; returns text and ETag |
 | Same note | PUT | `update`; JSON `text`; exact `If-Match` |
 | Same note | PATCH | `update`; JSON `text` to append; exact `If-Match` |
@@ -284,6 +284,20 @@ Create is exclusive; a name collision returns 409. Append retries with the same
 ETag and text use durable core receipts and do not duplicate the append. A
 retry with different text is invalid. Keep those receipts with operational
 state. A lost response is not proof a write failed.
+
+**`detail=true` lists every note with the ETag a read of it would answer**
+(1.9.8). A client comparing a whole remote tree against its own copy needs a
+hash per note, and one GET per note is out of reach of 60 requests a minute on
+any real workspace. The tag is byte for byte the read's, so it is also a valid
+`If-Match`; a note over the 8 MiB read limit lists `etag: null`. The server
+reads each listed note to hash it, which is what a page of 200 costs. The flag
+is refused (400 `invalid_query`) on every other route.
+
+**`parents: true` on create makes the missing folders above the note** (1.9.8),
+under the rules the note is held to: inside the scope, under `proposals` in
+review mode, no hidden segment, portable names, no symlink. Without it a missing
+parent is still an error. The API still has no route that creates, moves or
+deletes a folder by itself.
 
 JSON rejects unknown fields. Text and final note size are limited to 8 MiB,
 HTTP bodies to 16 MiB, body delivery to 15 seconds, query text to 4096 UTF-8

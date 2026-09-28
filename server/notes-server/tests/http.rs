@@ -2257,3 +2257,146 @@ async fn without_the_devices_permission_the_list_and_the_revocation_are_forbidde
         .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 }
+#[tokio::test]
+async fn the_detailed_list_carries_the_tag_a_read_answers_with() {
+    let f = Fixture::new(&[Permission::Read, Permission::Update]);
+    fs::create_dir(f.data.join("workspaces/home/allowed/sub")).unwrap();
+    fs::write(f.data.join("workspaces/home/allowed/a.md"), "one\r\n").unwrap();
+    fs::write(f.data.join("workspaces/home/allowed/sub/b.md"), "two\n").unwrap();
+    fs::write(f.data.join("workspaces/home/allowed/.hidden.md"), "no").unwrap();
+    fs::write(f.data.join("workspaces/home/allowed/image.png"), "no").unwrap();
+    let list = f
+        .request("GET", &format!("{COLLECTION}?detail=true"), None, &[])
+        .await;
+    assert_eq!(list.0, StatusCode::OK);
+    let notes = list.2["notes"].as_array().unwrap();
+    let paths: Vec<_> = notes.iter().map(|n| n["path"].as_str().unwrap()).collect();
+    // Scoped: the out-of-scope secret.md is not listed, nor hidden or non-note files.
+    assert_eq!(paths, ["allowed/a.md", "allowed/sub/b.md"]);
+    assert_eq!(notes[0]["size"], 5);
+    assert!(list.2["next_cursor"].is_null());
+    for note in notes {
+        let path = note["path"].as_str().unwrap();
+        let read = f
+            .request("GET", &format!("{COLLECTION}/{path}"), None, &[])
+            .await;
+        assert_eq!(note["etag"], read.1["etag"].to_str().unwrap(), "{path}");
+    }
+    // And the listed tag is one a write can be conditioned on.
+    let tag = notes[0]["etag"].as_str().unwrap();
+    let save = f
+        .request(
+            "PUT",
+            &format!("{COLLECTION}/allowed/a.md"),
+            Some(json!({"text":"changed\n"})),
+            &[("if-match", tag)],
+        )
+        .await;
+    assert_eq!(save.0, StatusCode::OK);
+    let page = f
+        .request(
+            "GET",
+            &format!("{COLLECTION}?detail=true&limit=1"),
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(page.2["notes"].as_array().unwrap().len(), 1);
+    assert_eq!(page.2["next_cursor"], 1);
+    assert_eq!(page.2["truncated"], true);
+    // Without the flag nothing changes, and the flag means nothing elsewhere.
+    let plain = f.request("GET", COLLECTION, None, &[]).await;
+    assert!(plain.2.get("notes").is_none());
+    assert_eq!(
+        plain.2["paths"],
+        json!(["allowed/a.md", "allowed/sub/b.md"])
+    );
+    for bad in [
+        format!("{COLLECTION}?detail=1"),
+        "/v1/workspaces/home/search?q=x&detail=true".to_string(),
+        format!("{COLLECTION}/allowed/a.md?detail=true"),
+    ] {
+        assert_eq!(
+            f.request("GET", &bad, None, &[]).await.2["error"],
+            "invalid_query",
+            "{bad}"
+        );
+    }
+}
+#[tokio::test]
+async fn the_detailed_list_needs_read() {
+    let f = Fixture::new(&[Permission::Search]);
+    assert_eq!(
+        f.request("GET", &format!("{COLLECTION}?detail=true"), None, &[])
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+}
+#[tokio::test]
+async fn a_note_can_be_filed_under_folders_that_do_not_exist_yet() {
+    let f = Fixture::new(&all());
+    let create = |path: &'static str, parents: bool| {
+        let f = &f;
+        async move {
+            f.request(
+                "POST",
+                COLLECTION,
+                Some(json!({"path":path,"text":"x","parents":parents})),
+                &[("if-none-match", "*")],
+            )
+            .await
+        }
+    };
+    // Without the flag a missing parent is still refused, and nothing is made.
+    assert_ne!(
+        create("allowed/new/deep/a.md", false).await.0,
+        StatusCode::CREATED
+    );
+    assert!(!f.data.join("workspaces/home/allowed/new").exists());
+    let made = create("allowed/new/deep/a.md", true).await;
+    assert_eq!(made.0, StatusCode::CREATED);
+    assert!(made.1.contains_key("etag"));
+    assert_eq!(
+        fs::read_to_string(f.data.join("workspaces/home/allowed/new/deep/a.md")).unwrap(),
+        "x"
+    );
+    // Existing folders are reused.
+    assert_eq!(
+        create("allowed/new/b.md", true).await.0,
+        StatusCode::CREATED
+    );
+    // Outside the scope, hidden, traversing or unportable: refused, nothing made.
+    assert_eq!(create("other/a.md", true).await.0, StatusCode::FORBIDDEN);
+    assert!(!f.data.join("workspaces/home/other").exists());
+    assert_eq!(
+        create("allowed/.git/a.md", true).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert!(!f.data.join("workspaces/home/allowed/.git").exists());
+    assert_eq!(
+        create("allowed/con/a.md", true).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert!(!f.data.join("workspaces/home/allowed/con").exists());
+    // A file where a folder is needed.
+    fs::write(f.data.join("workspaces/home/allowed/plain"), "file").unwrap();
+    assert_eq!(
+        create("allowed/plain/a.md", true).await.0,
+        StatusCode::BAD_REQUEST
+    );
+}
+#[tokio::test]
+async fn folders_are_not_made_without_create() {
+    let f = Fixture::new(&[Permission::Read, Permission::Update]);
+    let made = f
+        .request(
+            "POST",
+            COLLECTION,
+            Some(json!({"path":"allowed/new/a.md","text":"x","parents":true})),
+            &[("if-none-match", "*")],
+        )
+        .await;
+    assert_eq!(made.0, StatusCode::FORBIDDEN);
+    assert!(!f.data.join("workspaces/home/allowed/new").exists());
+}

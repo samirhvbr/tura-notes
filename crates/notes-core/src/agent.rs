@@ -44,6 +44,13 @@ pub struct AgentArgs {
     /// Offset within the authorized, sorted result set.
     pub offset: Option<usize>,
 }
+/// One note of `list_revisions`: its size on disk and, when it can be read,
+/// the revision a read of it would answer with.
+pub struct ListedRevision {
+    pub path: RelPath,
+    pub size: u64,
+    pub rev: Option<BaseRev>,
+}
 pub struct AgentService {
     service: WorkspaceService,
     config: AgentConfig,
@@ -149,6 +156,98 @@ impl AgentService {
         }
         paths.sort();
         Ok(paths)
+    }
+    /// One page of the notes list with each note's revision: what `notes_read`
+    /// would answer as `base_rev`, without reading the note through it.
+    ///
+    /// A client that shows a whole remote tree and marks which notes match its
+    /// own copy needs every hash, and one read per note is out of reach of the
+    /// server's rate limit on any real workspace. `None` for a note over the
+    /// 8 MiB read limit: `notes_read` refuses it, so there is no revision a
+    /// write could be conditioned on.
+    pub fn list_revisions(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<(Vec<ListedRevision>, bool)> {
+        if !self.config.permissions.contains(&Permission::Read) {
+            return Err(denied());
+        }
+        let limit = limit.clamp(1, 200);
+        if offset > 1_000_000 {
+            return Err(invalid("offset exceeds limit"));
+        }
+        let paths = self.paths()?;
+        let truncated = paths.len() > offset.saturating_add(limit);
+        let open = self.service.open()?;
+        let mut page = vec![];
+        for path in paths.into_iter().skip(offset).take(limit) {
+            let stat = open.fs.stat(&path)?;
+            let rev = if stat.size > 8 * 1024 * 1024 {
+                None
+            } else {
+                // Read, then stat again: the revision pairs these bytes with
+                // the metadata they were read under. A write in between makes
+                // the pair disagree with the next read, and a save conditioned
+                // on it is refused (412) rather than accepted on a stale base.
+                let bytes = open.fs.read(&path)?;
+                let after = open.fs.stat(&path)?;
+                Some(BaseRev {
+                    size: after.size,
+                    mtime_ns: after.mtime_ns,
+                    hash: notes_fs::hash(&bytes),
+                })
+            };
+            page.push(ListedRevision {
+                path,
+                size: stat.size,
+                rev,
+            });
+        }
+        Ok((page, truncated))
+    }
+
+    /// Create the missing folders above a note that is about to be created,
+    /// under the same rules the note itself is held to: inside the scope (and
+    /// under `proposals` in review), no hidden segment, portable names, and no
+    /// symlink on the way. Folders that already exist are left alone.
+    ///
+    /// This is what lets a client file a new note under a new folder, the way
+    /// a category works in other notes applications, without the API growing
+    /// a folder surface of its own.
+    pub fn create_parents(&mut self, path: &RelPath) -> Result<()> {
+        if !self.config.permissions.contains(&Permission::Create) {
+            return Err(denied());
+        }
+        self.authorize(path, true)?;
+        let mut missing = vec![];
+        let mut dir = path.parent();
+        while let Some(d) = dir {
+            if d.is_root() || d == self.config.scope {
+                break;
+            }
+            match self.service.open()?.fs.stat(&d) {
+                Ok(stat) if stat.kind == EntryKind::Dir => break,
+                Ok(_) => return Err(invalid("a parent of the note is not a folder")),
+                Err(CoreError::NotFound { .. }) => {}
+                Err(CoreError::Io {
+                    kind: notes_model::IoKind::NotFound,
+                    ..
+                }) => {}
+                Err(e) => return Err(e),
+            }
+            dir = d.parent();
+            missing.push(d);
+        }
+        for d in missing.into_iter().rev() {
+            self.service.check_name(d.file_name(), &d)?;
+            match self.service.open()?.fs.create_dir(&d) {
+                Ok(()) | Err(CoreError::AlreadyExists { .. }) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        self.service.invalidate_paths();
+        Ok(())
     }
     pub fn call(&mut self, tool: &str, args: AgentArgs) -> Result<Value> {
         // `truncated` promised a continuation the catalogue could not ask for:

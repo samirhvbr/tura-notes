@@ -288,13 +288,23 @@ fn reply(mut value: Value, status: StatusCode) -> Response {
     });
     let mut response = (status, Json(value)).into_response();
     if let Some(rev) = rev {
-        let tag = format!(
-            "\"{}\"",
-            URL_SAFE_NO_PAD.encode(serde_json::to_vec(&rev).unwrap())
-        );
-        response.headers_mut().insert("etag", tag.parse().unwrap());
+        response
+            .headers_mut()
+            .insert("etag", etag(&rev).parse().unwrap());
     }
     response
+}
+/// The entity tag of a revision: the quoted, unpadded base64url of its JSON.
+/// One function, because `GET …/notes?detail=true` promises each listed tag is
+/// byte for byte the one a read of that note answers with. Through a `Value`
+/// on purpose: its map orders the keys, while a struct serialises them in
+/// declaration order, and the same revision would get two different tags.
+fn etag(rev: &impl serde::Serialize) -> String {
+    let canonical = serde_json::to_value(rev).unwrap();
+    format!(
+        "\"{}\"",
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&canonical).unwrap())
+    )
 }
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -302,12 +312,17 @@ struct Query {
     limit: Option<usize>,
     cursor: Option<usize>,
     q: Option<String>,
+    /// `GET …/notes` only: list each note with its size and entity tag.
+    detail: Option<bool>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Create {
     path: RelPath,
     text: String,
+    /// Create missing folders above the note, inside the credential's scope.
+    #[serde(default)]
+    parents: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -657,6 +672,10 @@ fn dispatch(
     if route.0 != credential.workspace {
         return Err(err(StatusCode::FORBIDDEN, "forbidden"));
     }
+    let detailed = method == "GET" && route.1 == "notes";
+    if query.detail.is_some() && !detailed {
+        return Err(err(StatusCode::BAD_REQUEST, "invalid_query"));
+    }
     if route.1 == "sync/acknowledgments"
         || route.1 == "sync/capacity"
         || route.1 == "sync/devices"
@@ -673,6 +692,17 @@ fn dispatch(
         review: credential.review,
     };
     let mut service = AgentService::with_data_dir(config, &server.data.join("state"))?;
+    if detailed && query.detail == Some(true) {
+        let (page, truncated) = service.list_revisions(offset, limit)?;
+        let notes: Vec<Value> = page
+            .iter()
+            .map(|n| json!({"path":n.path,"size":n.size,"etag":n.rev.as_ref().map(etag)}))
+            .collect();
+        return Ok(reply(
+            json!({"notes":notes,"truncated":truncated,"next_cursor":if truncated { json!(offset + limit) } else { Value::Null }}),
+            StatusCode::OK,
+        ));
+    }
     let mut args = AgentArgs {
         limit: Some(limit),
         offset: Some(offset),
@@ -692,6 +722,9 @@ fn dispatch(
                 ));
             }
             let input: Create = body(bytes, &parts.headers)?;
+            if input.parents {
+                service.create_parents(&input.path)?;
+            }
             args.path = Some(input.path);
             args.text = Some(input.text);
             ("notes_create", StatusCode::CREATED)

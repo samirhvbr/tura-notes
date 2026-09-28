@@ -206,7 +206,7 @@
     "/v1/workspaces/{workspace}/notes": {
       "get": {
         "operationId": "listNotes",
-        "description": "Requires read. Sorted authorized paths only.",
+        "description": "Requires read. Sorted authorized paths only. With detail=true, each note is listed with its size and ETag.",
         "parameters": [
           {
             "name": "workspace",
@@ -237,6 +237,15 @@
               "default": 0
             },
             "description": "Offset in current authorized results. Follow next_cursor; concurrent edits can shift pages."
+          },
+          {
+            "name": "detail",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "true lists {path, size, etag} per note (DetailedPage) so a client can compare content without reading every note. Refused on any other route."
           }
         ],
         "responses": {
@@ -288,7 +297,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Page"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Page"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DetailedPage"
+                    }
+                  ]
                 }
               }
             }
@@ -297,7 +313,7 @@
       },
       "post": {
         "operationId": "createNote",
-        "description": "Requires create. Exclusive creation; parent directory must exist.",
+        "description": "Requires create. Exclusive creation; the parent directory must exist unless parents is true.",
         "parameters": [
           {
             "name": "workspace",
@@ -393,7 +409,7 @@
     "/v1/workspaces/{workspace}/notes/{path}": {
       "get": {
         "operationId": "readNote",
-        "description": "Requires read. Unsupported encodings return read_only and null text.",
+        "description": "Requires read. Unsupported encodings return read_only and an empty text.",
         "parameters": [
           {
             "name": "workspace",
@@ -1416,6 +1432,11 @@
           "text": {
             "type": "string",
             "maxLength": 8388608
+          },
+          "parents": {
+            "type": "boolean",
+            "default": false,
+            "description": "Create missing folders above the note, under the same scope, hidden-name and portable-name rules as the note."
           }
         },
         "required": [
@@ -1549,6 +1570,11 @@
               "null"
             ],
             "minimum": 0
+          },
+          "next_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Present only when truncated; equal to next_cursor. Prefer next_cursor."
           }
         },
         "required": [
@@ -1955,6 +1981,60 @@
             "type": "boolean"
           }
         }
+      },
+      "DetailedPage": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/ListedNote"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "notes",
+          "truncated",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "ListedNote": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Bytes on disk."
+          },
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Exactly the ETag a read of this note returns, usable as If-Match. Null for a note over the 8 MiB read limit."
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "etag"
+        ],
+        "additionalProperties": false
       }
     },
     "responses": {
