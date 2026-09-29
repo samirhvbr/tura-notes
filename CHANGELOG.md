@@ -7,6 +7,16 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.13 - the remote-folder configuration test reads the saved file as JSON, so a Windows path matches
+
+With 1.9.12 green on Linux and macOS, Windows CI failed on the next remote
+folder test: the one checking that `remote-notes.json` holds the credential's
+path and never its bytes. It searched the file's text for the path. On Windows
+the path has backslashes, which JSON escapes, so the path is never in the file
+verbatim, although the saved value is exactly right. The test now parses the
+file and compares the `token_file` field. It still checks that no `nt_` secret
+appears in the text. The code did not change.
+
 ## 1.9.12 - the remote folder's local comparison treats a folder as no note on Windows too
 
 CI on Windows failed from 1.9.9 on, in the new test that `local_hash` answers

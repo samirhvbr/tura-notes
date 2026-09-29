@@ -194,8 +194,11 @@ fn the_folder_keeps_its_configuration_and_forgets_it() {
     folder.configure(Some(s.config.clone())).unwrap();
     assert!(folder.with(|r| r.list()).unwrap().is_empty());
     // Persisted, holding the credential's path and never its bytes.
+    // Compared as JSON, not as text: a Windows path's backslashes are escaped
+    // in the file, so the path never appears in it verbatim.
     let saved = fs::read_to_string(data.path().join("remote-notes.json")).unwrap();
-    assert!(saved.contains(&s.config.token_file));
+    let value: serde_json::Value = serde_json::from_str(&saved).unwrap();
+    assert_eq!(value["token_file"], s.config.token_file.as_str());
     assert!(!saved.contains("nt_"));
     assert_eq!(
         RemoteFolder::new(data.path()).config(),
