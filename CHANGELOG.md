@@ -7,6 +7,50 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.10 - a cloud icon on the rail shows the server's notes as a tree, each marked against the local folder
+
+This is the third block of the remote folder (ADR-099), and it is the icon the
+owner asked for on 28/09. It sits next to Files: Files is still the local
+folder, and the cloud is the server's.
+
+**Not configured, the panel is the connection form.** It asks for the server
+address, the credential file (with a picker), the workspace and the
+allow-private checkbox, and has the same "Test connection" the device-sync form
+uses (`remote_probe`, the same outcomes and sentences). A granted test fills an
+empty workspace field with the credential's workspace and never overwrites a
+different one. "Connect" saves the configuration and lists at once. The
+connection can be changed or disconnected later from the panel header.
+
+**Configured, it is a tree.**
+- **The list.** The server lists notes, not folders, so the folders are built
+  from path prefixes: folders first, then notes, each by name, as in the local
+  tree.
+- **Marks.** Each note carries its mark as an icon and a word: only on the
+  server, the same as the local copy, different from it, or not compared.
+  Colour alone would say nothing to a screen reader, and nothing to someone who
+  cannot tell the two greens apart. A line on top counts the notes, the ones
+  only on the server and the ones that differ.
+- **When it asks.** The tree is fetched when the panel opens and on the
+  refresh button, and never on a timer. The server allows a credential 60
+  requests a minute, and a panel that polls spends them while nobody is
+  looking. Pressing refresh while a request is in flight does not send a
+  second one.
+- **What is remembered.** Only the expanded folders, per viewer, in
+  `localStorage`, guarded. The list itself is not kept, because a tree
+  remembered from yesterday shows notes somebody has deleted.
+- **Errors.** They read in the remote folder's own words: offline, denied,
+  rate-limited, too large, not understood, invalid. The device-sync sentences
+  talk about pending revisions and pairing, which mean nothing here.
+
+Opening a note from the tree is the next block. Until then its rows are shown
+but disabled.
+
+`stores/remote.test.ts` covers the tree built from paths, the single request
+behind repeated refreshes, a refusal kept for display, and configure and
+forget. `remote/RemoteBrowser.test.tsx` covers the form through a granted test
+to an empty tree, the tree with its marks in words and the count, a folder
+opening, a note row handing its path on, and the offline sentence.
+
 ## 1.9.9 - the app can list, read, save, create, rename and delete notes on the server
 
 This is the second block of the remote folder (ADR-099, recorded in this

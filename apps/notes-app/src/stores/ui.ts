@@ -11,9 +11,10 @@ const MODES: ViewMode[] = ["source", "preview", "split"];
  *
  * The rail's icons toggle this, and clicking the icon of the panel already
  * showing collapses the sidebar (`.continue/0.1d-interface.md` §4.1). Graph
- * uses the main area and shares the knowledge index with backlinks.
+ * uses the main area and shares the knowledge index with backlinks. Remote is
+ * the server's notes workspace (ADR-099), shown in the sidebar.
  */
-export type Panel = "files" | "search" | "graph";
+export type Panel = "files" | "search" | "graph" | "remote";
 
 /**
  * The one width at which the sidebar stops being a column and becomes a drawer.

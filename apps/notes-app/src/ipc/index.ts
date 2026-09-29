@@ -327,3 +327,23 @@ export const deviceExport = (id: string, attachment: string | null = null) => in
 export const deviceRecapture = () => invoke<void>("sync_control_recapture");
 
 export const devicePause = () => invoke<void>("sync_control_pause");
+
+// ── The remote folder (ADR-099) ───────────────────────────────────────────────
+// The server's notes workspace, edited in place through its REST API. None of
+// these writes a local file.
+export type { RemoteConfig } from "./generated/RemoteConfig";
+export type { RemoteEntry } from "./generated/RemoteEntry";
+export type { RemoteNote } from "./generated/RemoteNote";
+export type { RemoteSave } from "./generated/RemoteSave";
+export type { LocalMark } from "./generated/LocalMark";
+export type { SyncCause } from "./generated/SyncCause";
+export const remoteConfigGet = () => invoke<import("./generated/RemoteConfig").RemoteConfig | null>("remote_config_get");
+export const remoteConfigSet = (config: import("./generated/RemoteConfig").RemoteConfig | null) => invoke<void>("remote_config_set", {config});
+export const remoteProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("remote_probe", {origin,allowPrivate,tokenFile});
+export const remoteList = () => invoke<import("./generated/RemoteEntry").RemoteEntry[]>("remote_list");
+export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path});
+export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag});
+export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text});
+export const remoteRename = (from: string, to: string, etag: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_rename", {from,to,etag});
+export const remoteDelete = (path: string, etag: string) => invoke<void>("remote_delete", {path,etag});
+export const remoteRender = (path: string, text: string) => invoke<Rendered>("remote_render", {path,text});

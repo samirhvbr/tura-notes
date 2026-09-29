@@ -1,4 +1,4 @@
-import { Files, Network, Search, Settings } from "lucide-react";
+import { Cloud, Files, Network, Search, Settings } from "lucide-react";
 import { t } from "../i18n";
 import { useUi, type Panel } from "../stores/ui";
 
@@ -25,6 +25,9 @@ export function Rail({ onSettings }: { onSettings: () => void }) {
   return (
     <nav className="rail" aria-label={t("rail.label")}>
       {entry("files", t("rail.files"), <Files size={18} aria-hidden="true" />)}
+      {/* The server's notes (ADR-099), beside the local ones rather than inside
+          them: the two are independent, and one icon each says so. */}
+      {entry("remote", t("rail.remote"), <Cloud size={18} aria-hidden="true" />)}
       {entry("search", t("rail.search"), <Search size={18} aria-hidden="true" />)}
       {entry("graph", t("rail.graph"), <Network size={18} aria-hidden="true" />)}
 

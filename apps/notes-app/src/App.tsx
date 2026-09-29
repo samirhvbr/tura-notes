@@ -1,6 +1,7 @@
 import { isSyncLocked } from "./ipc/barrier";
 import {Graph,WikiDialog} from "./app/Knowledge";
 import { ReferenceReview } from "./app/ReferenceReview";
+import { RemoteBrowser } from "./remote/RemoteBrowser";
 import { WorkspaceBrowser } from "./explorer/WorkspaceBrowser";
 import { IndexControls } from "./app/IndexControls";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -229,7 +230,9 @@ export default function App() {
         )}
         {panel && (
           <aside className="side">
-            {panel !== "search" ? (
+            {panel === "remote" ? (
+              <RemoteBrowser />
+            ) : panel !== "search" ? (
               <>
                 <WorkspaceBrowser />
               </>

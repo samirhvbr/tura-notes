@@ -1075,3 +1075,26 @@ code { font-family: var(--font-mono); }
 .update-banner button, .update-manual button { color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font: inherit; cursor: pointer; }
 .update-banner button:focus-visible, .update-manual button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .update-manual button:disabled { opacity: .55; cursor: default; }
+
+/* ── The remote folder (ADR-099) ─────────────────────────────────────────── */
+.remote-head { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.remote-where { flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-dim); font-size: .85em; }
+.remote-pad { margin: 6px 10px; font-size: .85em; }
+.link-btn { background: none; border: 0; padding: 2px 4px; color: var(--accent); font: inherit; font-size: .85em; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.tree .remote-mark { margin-left: auto; padding-left: 6px; display: inline-flex; align-items: center; flex: 0 0 auto; }
+.remote-mark.absent { color: var(--accent); }
+.remote-mark.same { color: var(--good); }
+.remote-mark.differs { color: var(--warn); }
+.remote-mark.unknown { color: var(--fg-dim); }
+.remote-connect { border: 1px solid var(--line); border-radius: 6px; margin: 10px; padding: 10px; }
+.remote-connect label { display: block; margin: 6px 0; font-size: .9em; }
+.remote-connect label > span { display: flex; gap: 4px; }
+.remote-connect input:not([type=checkbox]) { min-width: 0; width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--field); color: var(--fg); font: inherit; }
+.remote-connect button { color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; font: inherit; cursor: pointer; }
+.remote-connect button:disabled { opacity: .55; cursor: default; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@keyframes remote-spin { to { transform: rotate(360deg); } }
+.spin { animation: remote-spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
