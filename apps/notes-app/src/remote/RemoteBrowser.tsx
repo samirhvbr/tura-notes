@@ -10,12 +10,16 @@ import {
   Folder,
   FolderOpen,
   Minus,
+  Plus,
   RefreshCw,
 } from "lucide-react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { errorText } from "../app/StatusBar";
 import { buildTree, useRemote, type RemoteDir } from "../stores/remote";
+import { useRemoteDoc } from "../stores/remoteDoc";
+import { useUi } from "../stores/ui";
+import { askText } from "../app/dialog";
 
 /**
  * The remote folder's panel (ADR-099): the server's notes workspace as a tree,
@@ -32,6 +36,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
   const loading = useRemote((s) => s.loading);
   const error = useRemote((s) => s.error);
   const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const s = useRemote.getState();
@@ -75,6 +80,15 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
         >
           <RefreshCw size={14} aria-hidden="true" className={loading ? "spin" : undefined} />
         </button>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t("remote.new")}
+          title={t("remote.new")}
+          onClick={() => void newNote(setMessage)}
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
         <button type="button" className="link-btn" onClick={() => setEditing(true)}>
           {t("remote.change")}
         </button>
@@ -86,6 +100,11 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
             absent: count("absent"),
             differs: count("differs"),
           })}
+        </p>
+      )}
+      {!!message && (
+        <p role="status" className="remote-pad">
+          {message}
         </p>
       )}
       {error && (
@@ -116,6 +135,8 @@ function Level({
   onOpen?: (entry: ipc.RemoteEntry) => void;
 }) {
   const expanded = useRemote((s) => s.expanded);
+  const mainView = useUi((s) => s.mainView);
+  const current = useRemoteDoc((s) => s.doc?.path);
   return (
     <>
       {dir.dirs.map((d) => {
@@ -149,9 +170,13 @@ function Level({
       })}
       {dir.notes.map((n) => (
         <li key={n.path}>
-          <div className="row-wrap" style={{ "--depth": depth } as CSSProperties}>
+          <div
+            className={mainView === "remote" && current === n.path ? "row-wrap on" : "row-wrap"}
+            style={{ "--depth": depth } as CSSProperties}
+          >
             <button
               className="row"
+              aria-current={(mainView === "remote" && current === n.path) || undefined}
               style={{ paddingLeft: 8 + depth * 14 }}
               title={n.path}
               disabled={!onOpen}
@@ -169,6 +194,25 @@ function Level({
       ))}
     </>
   );
+}
+
+/** A new note on the server, under folders that need not exist yet: the
+ *  server makes them (`parents`, 1.9.8). */
+async function newNote(say: (m: string) => void) {
+  const path = await askText({
+    title: t("remote.new"),
+    label: t("remote.newPath"),
+    initial: "",
+    confirmLabel: t("remote.create"),
+    validate: (v) => (/\.(md|markdown)$/i.test(v.trim()) ? null : t("remote.mdOnly")),
+  });
+  if (!path) return;
+  say("");
+  try {
+    await useRemoteDoc.getState().create(path.trim());
+  } catch (e) {
+    say(remoteErrorText(ipc.asCoreError(e)));
+  }
 }
 
 /** An icon **and** a name for it: a colour alone says nothing to a screen

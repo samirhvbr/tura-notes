@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
+import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 
@@ -18,9 +19,17 @@ import { useWorkspace } from "../stores/workspace";
  * Rendering is debounced 300 ms and **skipped while the pane is hidden**, so
  * typing in Source mode costs nothing (§13).
  */
-export function Preview() {
-  const doc = useEditor((s) => s.doc);
-  const open = useEditor((s) => s.open);
+/**
+ * `remote` renders a note of the remote folder (ADR-099) through
+ * `remote_render` instead: no raw HTML, no local images, and a relative link
+ * opens the remote note it names. It is this component rather than a second
+ * one because this is the one place allowed to assign `innerHTML`.
+ */
+export function Preview({
+  remote,
+}: { remote?: { path: string; text: string; openNote: (path: string) => void } } = {}) {
+  const local = useEditor((s) => s.doc);
+  const doc = remote ?? local;
   const view = useUi((s) => s.view);
   const fail = useWorkspace((s) => s.fail);
   const host = useRef<HTMLDivElement | null>(null);
@@ -32,13 +41,14 @@ export function Preview() {
   const visible = view !== "source";
   const text = doc?.text ?? "";
   const path = doc?.path;
+  const render = remote ? ipc.remoteRender : ipc.markdownRender;
+  const openNote = remote?.openNote;
 
   useEffect(() => {
     if (!visible || !path) return;
     let live = true;
     const id = setTimeout(() => {
-      ipc
-        .markdownRender(path, text)
+      render(path, text)
         .then((r) => {
           if (!live) return;
           setHtml(r.html);
@@ -52,7 +62,7 @@ export function Preview() {
       live = false;
       clearTimeout(id);
     };
-  }, [visible, path, text]);
+  }, [visible, path, text, render]);
 
   // The rendered HTML is trusted because of where it came from, and for no
   // other reason. See the note on this component.
@@ -75,10 +85,15 @@ export function Preview() {
       e.preventDefault();
 
       const wiki=anchor.getAttribute("data-wiki-target");
-      if(wiki){void openWiki(wiki);return;}
+      // Wiki links resolve through the local index, which knows nothing of
+      // the server's notes.
+      if(wiki){if(!openNote)void openWiki(wiki);return;}
       const notePath = anchor.getAttribute("data-note-path");
       if (notePath) {
-        void open(notePath as ipc.RelPath).catch(fail);
+        // Through the tabs, not the editor directly: a direct open skipped the
+        // flush of a dirty buffer, its tab and the history.
+        if (openNote) openNote(notePath);
+        else void useTabs.getState().openPath(notePath as ipc.RelPath).catch(fail);
         return;
       }
       const href = anchor.getAttribute("href") ?? "";
@@ -89,7 +104,7 @@ export function Preview() {
       }
       if (/^https?:/i.test(href)) void ipc.shellOpen(href).catch(fail);
     },
-    [open, fail],
+    [openNote, fail],
   );
 
   // Both directions are offered where the images are, because that is the
@@ -101,7 +116,7 @@ export function Preview() {
       try {
         await ipc.markdownRemoteImagesSet(allow);
         if (path) {
-          const r = await ipc.markdownRender(path, text);
+          const r = await render(path, text);
           setHtml(r.html);
           setBlocked(r.blocked_remote);
           setShown(r.shown_remote);
@@ -110,14 +125,14 @@ export function Preview() {
         fail(e);
       }
     },
-    [path, text, fail],
+    [path, text, fail, render],
   );
 
   if (!doc) return null;
 
   return (
     <div className="preview-pane">
-      {blocked.length > 0 && (
+      {!remote && blocked.length > 0 && (
         <div className="banner">
           <span>{t("preview.blocked", { count: blocked.length })}</span>
           <button onClick={() => void setRemote(true)}>
@@ -125,7 +140,7 @@ export function Preview() {
           </button>
         </div>
       )}
-      {shown.length > 0 && (
+      {!remote && shown.length > 0 && (
         <div className="banner">
           <span>{t("preview.remote", { count: shown.length })}</span>
           <button onClick={() => void setRemote(false)}>

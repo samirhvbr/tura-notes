@@ -1,9 +1,11 @@
 import type { KeyboardEvent } from "react";
-import { Columns2, Plus, X } from "lucide-react";
+import { Cloud, Columns2, Plus, X } from "lucide-react";
 import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
+import { dirty as remoteDirty, useRemoteDoc } from "../stores/remoteDoc";
+import { askConfirm } from "./dialog";
 
 /**
  * The tab strip.
@@ -25,6 +27,10 @@ export function Tabs({ onNew }: { onNew: () => void }) {
   const setView = useUi((s) => s.setView);
 
   const split = view === "split";
+  const mainView = useUi((s) => s.mainView);
+  const remoteTabs = useRemoteDoc((s) => s.tabs);
+  const remoteDoc = useRemoteDoc((s) => s.doc);
+  const onRemote = mainView === "remote";
 
   // The keyboard half of the pattern `role="tablist"` announces (R6-40): one
   // stop in the Tab order, the arrows and Home/End move between tabs and open
@@ -59,7 +65,7 @@ export function Tabs({ onNew }: { onNew: () => void }) {
           "tab, selected" instead of "tab 2 of 4". */}
       <div className="tabs" role="tablist" aria-label={t("tabs.label")} onKeyDown={onKeyDown}>
         {tabs.map((tab) => {
-          const active = tab.noteId === activeId;
+          const active = !onRemote && tab.noteId === activeId;
           const dirty = active && doc ? doc.bufferVersion !== doc.savedVersion : false;
           const name = tab.path.split("/").pop() ?? tab.path;
           return (
@@ -68,7 +74,7 @@ export function Tabs({ onNew }: { onNew: () => void }) {
                 role="tab"
                 aria-selected={active}
                 aria-controls="note-panel"
-                tabIndex={active || (!activeId && tab === tabs[0]) ? 0 : -1}
+                tabIndex={active || (!onRemote && !activeId && tab === tabs[0]) ? 0 : -1}
                 data-note-id={tab.noteId}
                 className="tab-label"
                 onClick={() => void activate(tab.noteId)}
@@ -85,6 +91,52 @@ export function Tabs({ onNew }: { onNew: () => void }) {
                 onClick={(e) => {
                   e.stopPropagation();
                   void close(tab.noteId);
+                }}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </div>
+          );
+        })}
+        {/* The remote folder's notes (ADR-099), after the local ones and
+            marked with the cloud: the same strip, never the same store. */}
+        {remoteTabs.map((path) => {
+          const active = onRemote && remoteDoc?.path === path;
+          const unsent = active && remoteDirty(remoteDoc);
+          const name = path.split("/").pop() ?? path;
+          return (
+            <div key={`remote:${path}`} role="presentation" className={active ? "tab on remote" : "tab remote"} title={path}>
+              <button
+                role="tab"
+                aria-selected={active}
+                aria-controls="note-panel"
+                tabIndex={active ? 0 : -1}
+                className="tab-label"
+                onClick={() => void useRemoteDoc.getState().open(path).catch(() => {})}
+              >
+                <span className="tab-dirty" aria-hidden="true">
+                  {unsent ? "●" : ""}
+                </span>
+                <Cloud size={11} aria-label={t("remote.title")} />
+                {name}
+              </button>
+              <button
+                className="tab-close"
+                tabIndex={-1}
+                aria-label={t("tabs.close", { name })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void (async () => {
+                    const closed = await useRemoteDoc.getState().close(path);
+                    if (closed) return;
+                    const discard = await askConfirm({
+                      title: t("remote.unsent.title", { name }),
+                      body: t("remote.unsent.body"),
+                      confirmLabel: t("remote.unsent.discard"),
+                      danger: true,
+                    });
+                    if (discard) await useRemoteDoc.getState().close(path, true);
+                  })();
                 }}
               >
                 <X size={12} aria-hidden="true" />

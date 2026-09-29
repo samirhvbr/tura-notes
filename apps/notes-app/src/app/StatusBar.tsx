@@ -2,6 +2,9 @@ import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
 import { useSync } from "../stores/sync";
 import { useWorkspace } from "../stores/workspace";
+import { useUi } from "../stores/ui";
+import { useRemote } from "../stores/remote";
+import { useRemoteDoc, type RemoteStatus } from "../stores/remoteDoc";
 import type { CoreError, DocStatus, WatchStatus } from "../ipc";
 
 /**
@@ -21,8 +24,59 @@ const GLYPH: Record<DocStatus, string> = {
   unavailable: "⊘",
 };
 
+/** The remote folder's states (ADR-099), each with its own glyph and word, as
+ *  the local ones: `offline` and `gone` are what a server adds to a disk. */
+const REMOTE_GLYPH: Record<RemoteStatus, string> = {
+  saved: "✓",
+  pending: "●",
+  writing: "◌",
+  offline: "⊘",
+  conflict: "⚠",
+  gone: "✕",
+  read_only: "🔒",
+  error: "✕",
+};
+
 export function StatusBar() {
-  const doc = useEditor((s) => s.doc);
+  const mainView = useUi((s) => s.mainView);
+  const remote = useRemoteDoc((s) => s.doc);
+  const config = useRemote((s) => s.config);
+  const local = useEditor((s) => s.doc);
+  if (mainView === "remote" && remote) {
+    const counts = measure(remote.text);
+    const said: Record<RemoteStatus, string> = {
+      saved: t("remote.status.saved"),
+      pending: t("remote.status.pending"),
+      writing: t("remote.status.writing"),
+      offline: t("remote.status.offline"),
+      conflict: t("remote.status.conflict"),
+      gone: t("remote.status.gone"),
+      read_only: t("remote.status.read_only"),
+      error: t("remote.status.error"),
+    };
+    return (
+      <footer className="statusbar">
+        {remote.lastError && remote.status === "error" && (
+          <span className="message">{errorText(remote.lastError)}</span>
+        )}
+        <span className="spacer" />
+        {config && (
+          <span className="muted root" title={config.origin}>
+            {t("remote.statusRoot", { workspace: config.workspace })}
+          </span>
+        )}
+        <span className="muted count">{t("status.words", { count: counts.words })}</span>
+        <span className="muted count">{t("status.chars", { count: counts.chars })}</span>
+        <span className={`status remote-status-${remote.status}`}>
+          <span aria-hidden="true">{REMOTE_GLYPH[remote.status]}</span> {said[remote.status]}
+        </span>
+      </footer>
+    );
+  }
+  return <LocalStatusBar doc={local} />;
+}
+
+function LocalStatusBar({ doc }: { doc: ReturnType<typeof useEditor.getState>["doc"] }) {
   const info = useWorkspace((s) => s.info);
   const wsError = useWorkspace((s) => s.error);
   const watch = useSync((s) => s.watch);

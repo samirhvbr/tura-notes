@@ -1,5 +1,6 @@
 import { isSyncLocked } from "../ipc/barrier";
 import * as ipc from "../ipc";
+import type { NoteId } from "../ipc";
 import {useWorkspace} from "../stores/workspace";
 import { useEffect, useRef } from "react";
 import { Annotation, EditorState } from "@codemirror/state";
@@ -28,14 +29,38 @@ import { t } from "../i18n";
 /** Marks a transaction the *application* made, not the user. */
 const External = Annotation.define<boolean>();
 
-export function Editor() {
-  const doc = useEditor((s) => s.doc);
-  const edit = useEditor((s) => s.edit);
+/**
+ * What the editor edits, when it is not the local note (ADR-099): a note of the
+ * remote folder. The view is the same; only where the text comes from and where
+ * a keystroke goes differ. Pasting an image is off, because the server takes
+ * no attachments, and the cursor is not remembered per tab.
+ */
+export interface EditorSource {
+  id: string;
+  text: string;
+  readOnly: boolean;
+  savedVersion: number;
+  externalRev: number;
+  edit: (text: string) => void;
+}
+
+export function Editor({ source }: { source?: EditorSource } = {}) {
+  const local = useEditor((s) => s.doc);
+  const localEdit = useEditor((s) => s.edit);
+  // One shape for both: the local note keeps every path it had before a
+  // source existed, and the remote one takes the same view.
+  const doc = source
+    ? { noteId: source.id, text: source.text, readOnly: source.readOnly, savedVersion: source.savedVersion, externalRev: source.externalRev }
+    : local;
+  const edit = source ? source.edit : localEdit;
+  const remote = !!source;
+  const remoteRef = useRef(remote);
+  remoteRef.current = remote;
   const noteIdRef = useRef(doc?.noteId);
   noteIdRef.current = doc?.noteId;
   const reportCursor = useRef((line: number, col: number, scrollTop: number) => {
     const id = noteIdRef.current;
-    if (id) useTabs.getState().noteCursor(id, line, col, scrollTop);
+    if (id && !remoteRef.current) useTabs.getState().noteCursor(id as NoteId, line, col, scrollTop);
   }).current;
   const host = useRef<HTMLDivElement | null>(null);
   const view = useRef<EditorView | null>(null);
@@ -84,6 +109,8 @@ export function Editor() {
         EditorView.domEventHandlers({paste(event,editor){
           const file=Array.from(event.clipboardData?.files??[]).find(f=>f.type.startsWith("image/"));
           if(isSyncLocked())return true;
+          // A remote note has nowhere to put an image: the server takes none.
+          if(remoteRef.current)return !!file;
           if(!file || readOnly)return false;
           event.preventDefault();
           const current=useEditor.getState().doc;
@@ -130,7 +157,7 @@ export function Editor() {
 
     // Put the caret back where the tab left it. After creation, because the
     // document has to exist before a position in it means anything.
-    const want = pendingCursor(noteIdRef.current);
+    const want = remoteRef.current ? undefined : pendingCursor(noteIdRef.current as NoteId | undefined);
     if (want) {
       const lines = created.state.doc.lines;
       const line = created.state.doc.line(Math.min(Math.max(want.line, 1), lines));
@@ -154,7 +181,7 @@ export function Editor() {
   useEffect(() => {
     if (!gotoRev) return;
     const v = view.current;
-    const want = pendingCursor(noteIdRef.current);
+    const want = remoteRef.current ? undefined : pendingCursor(noteIdRef.current as NoteId | undefined);
     if (!v || !want) return;
     const lines = v.state.doc.lines;
     const line = v.state.doc.line(Math.min(Math.max(want.line, 1), lines));
@@ -181,7 +208,7 @@ function EditorBody({
   view,
   externalRev,
 }: {
-  doc: ReturnType<typeof useEditor.getState>["doc"];
+  doc: { text: string } | null;
   host: React.MutableRefObject<HTMLDivElement | null>;
   view: React.MutableRefObject<EditorView | null>;
   externalRev: number;

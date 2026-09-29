@@ -7,6 +7,78 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.11 - remote notes open in tabs and are edited in place, with conflicts resolved and no edit ever dropped
+
+This is the fourth and last block of the remote folder (ADR-099). A note in the
+cloud panel opens in the main area and is edited there, with the local editor's
+autosave. Each save carries the ETag the text was read at, so a note changed on
+the server is never overwritten.
+
+**A store of its own, `stores/remoteDoc.ts`.** The local editor's document is
+keyed by a local note id and read by session restore, reconcile, drafts,
+received-sync application and backlinks. A remote note placed there would have
+been handed to every one of them as a local file. The new store keeps the
+local one's rules: the stale-save guard (only a save of the current version
+marks the buffer clean), one save at a time, and the autosave delay from
+settings.
+
+**The editor and the preview take a source instead of being copied.**
+- `Editor` accepts an optional `source`. With none it builds exactly the local
+  one, and the existing editor tests pass unchanged. A remote source does not
+  paste images, because the server takes no attachments.
+- `Preview` accepts an optional `remote`. It still assigns `innerHTML` in its
+  one sanctioned place, rendering through `remote_render`, and a relative link
+  opens the remote note it names.
+- In passing, a relative link in a local note now opens through the tabs. The
+  old direct `useEditor.open` skipped the flush of a dirty buffer, its tab and
+  its history.
+
+**The states the local editor does not have:**
+- **Changed on the server.** A banner offers Compare (the same side-by-side
+  diff, now shared from `conflict/Compare.tsx`), Keep mine (saved over the
+  server's version the user has now seen), Use the server's (taken into the
+  buffer from outside the editor, so the cursor stays), and Save mine as a copy
+  (`name (conflict).md` beside it, under a free name).
+- **Gone from the server.** The text stays, read-only, with Put it back and
+  Save a copy to the local folder.
+- **Offline.** The edit stays and is retried at 5 s doubling to a minute. The
+  server allows a credential 60 requests a minute, and a retry loop must not be
+  what spends them.
+
+**An unsent edit is never dropped, and nothing writes a hidden copy of one.**
+- Switching to another remote note flushes first and stays if the flush fails.
+- Closing a tab over an unsent edit asks.
+- Closing the window over one asks. `onCloseRequested` holds the close, and
+  after the user confirms, `core:window:allow-destroy`, added to the
+  capabilities with its reason, lets the window close itself.
+- The way out is **Save a copy to the local folder**: an ordinary note, created
+  through the same command a PDF import uses to save text as a note.
+
+**Also in this block:**
+- Remote tabs sit in the tab strip after the local ones, marked with the cloud.
+- The status bar shows the remote note's own states in words and glyphs
+  (saved on the server, not sent yet, sending, offline, changed on the server,
+  not on the server).
+- Ctrl+S sends the remote note when one is in front.
+- The panel gains New note on the server, which creates the folders it needs
+  through 1.9.8's `parents`.
+- The note's menu has rename or move, and delete, on the server.
+
+**Documentation:** `product.md` §15a, the frontend note in `ARCHITECTURE.md`
+§13, a remote-folder section in `SELF-HOSTING.md`, and
+`ACCEPTANCE-remote.md` (PROPOSED: the owner's walk against the deployed server,
+not yet done).
+
+**Tests:**
+- `stores/remoteDoc.test.ts` (10): open, the stale-save guard across a save in
+  flight, conflict and each resolution, the copy's free name, offline backoff,
+  gone and recreate, a tab refusing to close over an unsent edit, the local
+  copy's free name, and a switch that stays when the flush fails.
+- `remote/RemoteEditor.test.tsx` (3), reading CodeMirror's own document: the
+  remote note edits in the same editor and never the local one, the conflict
+  banner and comparison, and the gone state.
+- All 33 earlier frontend files pass unchanged.
+
 ## 1.9.10 - a cloud icon on the rail shows the server's notes as a tree, each marked against the local folder
 
 This is the third block of the remote folder (ADR-099), and it is the icon the

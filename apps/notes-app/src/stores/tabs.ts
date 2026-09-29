@@ -76,6 +76,8 @@ export const useTabs = create<TabsState>((set, get) => ({
   },
 
   async openPath(path) {
+    // A local note goes in the main area, over any remote one (ADR-099).
+    useUi.setState({ mainView: "local" });
     const existing = get().tabs.find((t) => t.path === path);
     if (existing) return get().activate(existing.noteId);
 
@@ -119,6 +121,7 @@ export const useTabs = create<TabsState>((set, get) => ({
   },
 
   async activate(noteId) {
+    useUi.setState({ mainView: "local" });
     if (get().activeId === noteId && useEditor.getState().doc?.noteId === noteId) return;
     const tab = get().tabs.find((t) => t.noteId === noteId);
     if (!tab) return;

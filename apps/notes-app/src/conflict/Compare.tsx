@@ -95,16 +95,37 @@ export function Compare() {
 
       <p className="compare-note muted">{t("conflict.compare.kept")}</p>
 
-      {diff?.coarse && <p className="banner warn">{t("conflict.compare.coarse")}</p>}
+      <DiffColumns
+        diff={diff}
+        label={t("conflict.compare.title", { name: doc.path })}
+        theirs={t("conflict.theirs")}
+      />
+    </div>
+  );
+}
 
-      <div className="compare-cols" role="table" aria-label={t("conflict.compare.title", { name: doc.path })}>
+/** The two versions side by side. Shared with the remote folder's comparison
+ *  (ADR-099), which has the server where this screen has the disk. */
+export function DiffColumns({
+  diff,
+  label,
+  theirs,
+}: {
+  diff: ReturnType<typeof diffLines> | null;
+  label: string;
+  theirs: string;
+}) {
+  return (
+    <>
+      {diff?.coarse && <p className="banner warn">{t("conflict.compare.coarse")}</p>}
+      <div className="compare-cols" role="table" aria-label={label}>
         <div className="compare-col-head">{t("conflict.mine")}</div>
-        <div className="compare-col-head">{t("conflict.theirs")}</div>
+        <div className="compare-col-head">{theirs}</div>
         {diff?.rows.map((row, i) => (
           <Line key={i} row={row} />
         ))}
       </div>
-    </div>
+    </>
   );
 }
 

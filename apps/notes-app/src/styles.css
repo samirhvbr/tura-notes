@@ -1097,4 +1097,7 @@ code { font-family: var(--font-mono); }
 @keyframes remote-spin { to { transform: rotate(360deg); } }
 .spin { animation: remote-spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+.remote-badge { display: inline-flex; align-items: center; color: var(--accent); padding: 0 6px; }
+.tab.remote .tab-label svg { margin-right: 4px; color: var(--accent); vertical-align: -1px; }
+.remote-status-offline, .remote-status-conflict, .remote-status-gone, .remote-status-error { color: var(--warn); }
 

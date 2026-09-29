@@ -2,6 +2,8 @@ import { isSyncLocked } from "./ipc/barrier";
 import {Graph,WikiDialog} from "./app/Knowledge";
 import { ReferenceReview } from "./app/ReferenceReview";
 import { RemoteBrowser } from "./remote/RemoteBrowser";
+import { RemoteEditor } from "./remote/RemoteEditor";
+import { dirty as remoteDirty, useRemoteDoc } from "./stores/remoteDoc";
 import { WorkspaceBrowser } from "./explorer/WorkspaceBrowser";
 import { IndexControls } from "./app/IndexControls";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -21,7 +23,7 @@ import { AboutDialog, useAboutMenu } from "./app/About";
 import { SearchPanel } from "./search/SearchPanel";
 import { useTabs } from "./stores/tabs";
 import { useSettings } from "./stores/settings";
-import { askText } from "./app/dialog";
+import { askConfirm, askText } from "./app/dialog";
 import { Preview } from "./preview/Preview";
 import { Compare } from "./conflict/Compare";
 import { t } from "./i18n";
@@ -47,6 +49,7 @@ export default function App() {
   const setAutosave = useEditor((s) => s.setAutosave);
   const view = useUi((s) => s.view);
   const panel = useUi((s) => s.panel);
+  const mainView = useUi((s) => s.mainView);
   const togglePanel = useUi((s) => s.togglePanel);
   const cycleView = useUi((s) => s.cycleView);
   const comparing = useUi((s) => s.comparing);
@@ -112,7 +115,8 @@ export default function App() {
       const key = e.key.toLowerCase();
       if (key === "s") {
         e.preventDefault();
-        void save(true);
+        if (useUi.getState().mainView === "remote") void useRemoteDoc.getState().save();
+        else void save(true);
       } else if (key === "e") {
         e.preventDefault();
         cycleView();
@@ -148,6 +152,46 @@ export default function App() {
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [keepDraft]);
+
+  // A remote note's unsent edit exists only in its buffer: there is no draft
+  // for it (ADR-099). The window asks before it closes over one, and says the
+  // way out is a copy in the local folder.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let live = true;
+    void import("@tauri-apps/api/window")
+      .then(({ getCurrentWindow }) => {
+        const win = getCurrentWindow();
+        return win.onCloseRequested(async (event) => {
+          const d = useRemoteDoc.getState().doc;
+          if (!remoteDirty(d)) return;
+          event.preventDefault();
+          await useRemoteDoc.getState().save();
+          if (!remoteDirty(useRemoteDoc.getState().doc)) {
+            await win.destroy();
+            return;
+          }
+          const leave = await askConfirm({
+            title: t("remote.unsent.title", { name: d!.path }),
+            body: t("remote.unsent.window"),
+            confirmLabel: t("remote.unsent.quit"),
+            danger: true,
+          });
+          if (leave) await win.destroy();
+        });
+      })
+      .then((u) => {
+        if (live) unlisten = u;
+        else u?.();
+      })
+      .catch(() => {
+        /* Outside Tauri (tests, a browser preview): nothing to guard. */
+      });
+    return () => {
+      live = false;
+      unlisten?.();
+    };
+  }, []);
 
   // A note that leaves conflict has nothing left to compare.
   useEffect(() => {
@@ -231,7 +275,15 @@ export default function App() {
         {panel && (
           <aside className="side">
             {panel === "remote" ? (
-              <RemoteBrowser />
+              <RemoteBrowser
+                onOpen={(e) =>
+                  void useRemoteDoc
+                    .getState()
+                    .open(e.path)
+                    .then(() => useUi.getState().collapseOnNarrow())
+                    .catch(fail)
+                }
+              />
             ) : panel !== "search" ? (
               <>
                 <WorkspaceBrowser />
@@ -248,7 +300,10 @@ export default function App() {
         )}
 
         <main className="main">
-          {panel === "graph" ? <Graph/> : <>
+          {panel === "graph" ? <Graph/> : mainView === "remote" ? <>
+          <Tabs onNew={newNote} />
+          <RemoteEditor />
+          </> : <>
           <Tabs onNew={newNote} />
           <NoteHeader />
           {/* A backend that cannot replace a file atomically is a backend where

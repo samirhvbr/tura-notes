@@ -30,6 +30,9 @@ interface UiState {
   view: ViewMode;
   /** `null` means the sidebar is collapsed. */
   panel: Panel | null;
+  /** Whose note the main area shows: the local folder's, or the remote
+   *  folder's (ADR-099). Opening a note of either switches it. */
+  mainView: "local" | "remote";
   /** The conflict comparison screen. Not a command — it changes nothing on
    *  disk and reads two strings this frontend already holds
    *  (docs/ARCHITECTURE.md §17.1). */
@@ -80,6 +83,7 @@ function remember(view: ViewMode) {
 export const useUi = create<UiState>((set, get) => ({
   view: "source",
   panel: "files",
+  mainView: "local",
   comparing: false,
 
   togglePanel(p) {
