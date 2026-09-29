@@ -80,7 +80,7 @@ fn allowed_ip(ip: IpAddr, private: bool) -> bool {
 /// Split out of `Endpoint::validate` for the connection test, which has to be
 /// able to say *this address is not usable* before it has a workspace name —
 /// discovering that name from the credential is most of what the test is for.
-fn address(origin: &str, allow_private: bool) -> Result<Url> {
+pub(crate) fn address(origin: &str, allow_private: bool) -> Result<Url> {
     let url = Url::parse(origin).map_err(|_| Error::Invalid)?;
     if url.username() != ""
         || url.password().is_some()
@@ -114,7 +114,7 @@ pub(crate) enum CredentialProblem {
     Shape,
 }
 
-fn credential(token_file: &Path) -> std::result::Result<String, CredentialProblem> {
+pub(crate) fn credential(token_file: &Path) -> std::result::Result<String, CredentialProblem> {
     let meta = std::fs::symlink_metadata(token_file).map_err(|_| CredentialProblem::File)?;
     if !token_file.is_absolute() || !meta.is_file() || meta.len() > 200 {
         return Err(CredentialProblem::File);
@@ -138,7 +138,7 @@ fn credential(token_file: &Path) -> std::result::Result<String, CredentialProble
 
 /// Resolve the host under the address policy: at most sixteen addresses, none
 /// of them private unless the owner permitted it for this server.
-fn resolved(url: &Url, allow_private: bool) -> Result<(String, Vec<SocketAddr>)> {
+pub(crate) fn resolved(url: &Url, allow_private: bool) -> Result<(String, Vec<SocketAddr>)> {
     let host = url
         .host_str()
         .ok_or(Error::Invalid)?
@@ -163,7 +163,11 @@ fn resolved(url: &Url, allow_private: bool) -> Result<(String, Vec<SocketAddr>)>
     Ok((host, addresses))
 }
 
-fn client(host: &str, addresses: &[SocketAddr], ca_file: Option<&Path>) -> Result<Client> {
+pub(crate) fn client(
+    host: &str,
+    addresses: &[SocketAddr],
+    ca_file: Option<&Path>,
+) -> Result<Client> {
     // rustls-no-provider requires explicit process initialization. A provider
     // already selected by the embedding process is left intact.
     let _ = rustls::crypto::ring::default_provider().install_default();

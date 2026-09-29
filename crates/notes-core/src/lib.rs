@@ -1508,6 +1508,24 @@ impl WorkspaceService {
         })
     }
 
+    /// The content hash of the file at `path` in the open workspace, or `None`
+    /// when there is no such file. The same BLAKE3 over the raw bytes the
+    /// server puts in a note's revision, so the remote folder (ADR-099) can say
+    /// whether a remote note is the same as the local one without reading it.
+    /// Read-only, through the root jail like every other read.
+    pub fn local_hash(&self, path: &RelPath) -> Result<Option<notes_model::ContentHash>> {
+        let open = self.open()?;
+        match open.fs.read(path) {
+            Ok(bytes) => Ok(Some(notes_fs::hash(&bytes))),
+            Err(CoreError::NotFound { .. }) => Ok(None),
+            Err(CoreError::Io {
+                kind: notes_model::IoKind::NotFound | notes_model::IoKind::IsADirectory,
+                ..
+            }) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn create_dir(&mut self, dir: &RelPath, name: &str) -> Result<Entry> {
         // The tree is about to change shape; quick open must not offer a
         // path that is no longer there.

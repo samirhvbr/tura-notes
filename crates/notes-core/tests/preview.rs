@@ -238,3 +238,49 @@ fn trust_is_remembered_for_this_workspace_and_not_for_another() {
         "another workspace does not inherit this one's trust"
     );
 }
+
+// ---------------------------------------------------------------------------
+// A note of the remote folder (ADR-099) is rendered detached
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_remote_note_renders_without_raw_html_or_local_images() {
+    let mut f = setup();
+    // Trusting this local folder says nothing about the server.
+    f.svc.set_raw_html(Some(true)).unwrap();
+    let out = f
+        .svc
+        .render_detached(&rel("nota.md"), "<b>negrito</b>\n\n![x](imagem.png)\n");
+    assert!(!out.html.contains("<b>negrito</b>"), "{}", out.html);
+    // A relative image points at no workspace, so the local file that shares
+    // its name is never what the preview shows.
+    let id = f.svc.workspace_id().unwrap().to_string();
+    assert!(!out.html.contains(&id), "{}", out.html);
+    // And no workspace is needed at all.
+    let data = tempfile::tempdir().unwrap();
+    let bare = WorkspaceService::with_data_dir(data.path()).unwrap();
+    assert!(bare
+        .render_detached(&rel("a.md"), "# t\n")
+        .html
+        .contains("<h1"));
+}
+
+#[test]
+fn the_local_hash_is_the_hash_of_the_raw_bytes_or_nothing() {
+    let f = setup();
+    assert_eq!(
+        f.svc.local_hash(&rel("nota.md")).unwrap(),
+        Some(notes_fs::hash(b"# nota\n"))
+    );
+    assert_eq!(f.svc.local_hash(&rel("missing.md")).unwrap(), None);
+    assert_eq!(f.svc.local_hash(&rel("sub")).unwrap(), None);
+    // A symlink out of the root is refused by the jail, not hashed.
+    #[cfg(unix)]
+    {
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("x.md"), b"outside").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("x.md"), f.work.path().join("link.md"))
+            .unwrap();
+        assert!(f.svc.local_hash(&rel("link.md")).is_err());
+    }
+}

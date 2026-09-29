@@ -7,6 +7,62 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.9 - the app can list, read, save, create, rename and delete notes on the server
+
+This is the second block of the remote folder (ADR-099, recorded in this
+version). The owner chose on 28/09 that the remote folder is the server's
+notes workspace, edited through its REST API, and that the local folder stays
+independent and is only compared with it.
+
+**`notes-sync-client` gains `notes.rs`.** It holds a `RemoteNotes` client and a
+`RemoteFolder` that owns its configuration and keeps its connection open.
+- **Transport.** It is the sync client's, reused rather than copied: `address`,
+  `credential`, `resolved` and `client` became `pub(crate)`, so the address
+  policy, DNS pinning, credential file rules, no proxy and no redirects are one
+  implementation. The reading of a response is its own. The sync decoder
+  accepts only 200 and discards headers; here 201, 404, 409 and 412 are
+  ordinary answers and the ETag is what matters.
+- **Conflicts.** A save on a stale tag reads the note again and comes back as a
+  conflict carrying the server's current text. A note gone from the server
+  comes back as gone, not as an error.
+- **Paths** are relative to the credential's scope, which is the folder's root
+  as the user sees it.
+- **Older servers.** One older than 1.9.8 refuses `detail`. The list then falls
+  back to paths, and every mark reads as unknown rather than as a guess.
+- **Connection.** It is kept, because connecting costs a request against 60 a
+  minute, and dropped after a refusal that may mean the credential or the
+  address changed.
+- **Configuration** is `<data>/remote-notes.json`, validated and written
+  atomically. It holds the credential's path and never its bytes.
+
+**Ten Tauri commands** follow the device-list pattern: off the UI thread, no
+workspace lock, no local write. They are `remote_config_get`/`_set`,
+`remote_probe`, `remote_list`, `remote_open`, `remote_save`, `remote_create`,
+`remote_rename`, `remote_delete` and `remote_render`.
+- `remote_list` marks each note `absent`, `same`, `differs` or `unknown`
+  against the open local folder. It uses a new read-only
+  `WorkspaceService::local_hash`, which is BLAKE3 over the raw bytes through
+  the root jail. A file the jail refuses is `unknown`, not absent.
+- `remote_render` is a new `render_detached`. Raw HTML is off whatever the
+  local setting says, relative images resolve against no workspace, and it
+  needs no workspace open.
+- The capability description names the credential read.
+
+**Tests.** The client is tested end to end against this repository's own
+server over a loopback socket (`server/notes-server/tests/remote_folder.rs`,
+with the client as a dev-dependency):
+- a create under a new folder, a list relative to the scope with the read's
+  tag, a save, a rename and a delete;
+- a stale save coming back as a conflict with the server's text and nothing
+  overwritten, then gone after a delete on the server;
+- two pages of 206 notes and the four marks;
+- denied, missing, wrong workspace and nothing listening, each named;
+- the configuration persisted without the secret and forgotten.
+
+In `notes-core`, `render_detached` refuses raw HTML the local folder trusts
+and needs no workspace, and `local_hash` hashes raw bytes, answers `None` for
+a missing file or a folder, and refuses a symlink out of the root.
+
 ## 1.9.8 - the notes list can carry each note's ETag, and a note can be created with its folders
 
 This is the first block of the remote folder the owner asked for on 28/09: a

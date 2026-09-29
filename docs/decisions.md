@@ -3176,3 +3176,76 @@ key, now held on a machine that also runs agents. The owner should back the
 key up outside the repository. The old private half, wherever it is, can be
 deleted.
 
+---
+
+## ADR-099 — The remote folder edits the server's notes workspace through the REST API
+
+**Status:** `ACCEPTED` · 28/09/2026, the owner's answers in the session that asked for it · server half in 1.9.8, client and commands in 1.9.9, interface from 1.9.10
+
+**Context.** The owner asked for a rail icon beside Files that shows the
+**remote** folder, and for editing it in place: "like Nextcloud Notes; I
+literally want to replace that app". The server holds two different things
+under one workspace name. One is the filesystem notes workspace
+(`workspaces/<name>`), a folder of `.md` files with a REST API: list, read,
+create, save, move and delete, with an ETag a write must present. The other
+is the device-sync vault, an immutable inbox of revisions that ADR-055 and
+ADR-058 keep from ever being applied on its own. Asked which one is the remote
+folder, the owner chose the first. Asked how it relates to the local folder,
+the owner chose that the two stay independent and are compared.
+
+**Decision.**
+
+- **The remote folder is the server's notes workspace, reached through the
+  REST API.** Every write carries the revision the user last saw (`If-Match`),
+  so a note changed on the server in between is a conflict the user resolves.
+  It is never an overwrite. The sync vault is untouched, and ADR-055/058 stand
+  as written: this is not synchronization.
+- **Local and remote are independent.** The remote tree shows the whole
+  server workspace, relative to the credential's scope. Each note is marked
+  **only on the server**, **same** or **different**, by comparing the BLAKE3
+  of the raw bytes. The server lists that hash inside each note's ETag
+  (`GET …/notes?detail=true`, 1.9.8), and the app hashes the local file at the
+  same path. **Nothing is copied in either direction on its own.**
+- **The server's `.md` files are the notes there**, as the local folder's are
+  here. ADR-001 holds on both sides. The app keeps no hidden copy of a remote
+  note in `.notes/` or its data directory (ADR-004). An edit that cannot reach
+  the server stays in the open buffer, the window refuses to close over it, and
+  the one way out offered is **saving a copy into the local folder** as an
+  ordinary `.md`.
+- **The configuration** is `<data>/remote-notes.json`, with origin, workspace,
+  the credential file's **path** and allow-private. It is written atomically
+  and validated, like `sync-control.json`. The credential's bytes are read only
+  in Rust, per connection, under the same file rules as the sync client's.
+- **The transport is the sync client's**, reused and not copied: the address
+  policy, DNS pinning, no proxy, no redirects, timeouts. Only the reading of a
+  response differs, because here 201, 404, 409 and 412 are ordinary answers and
+  the ETag header is what matters. The client lives in `notes-sync-client` as a
+  module (`notes.rs`), not a new crate.
+- **A new note can be filed under a new folder**, through `parents: true` on
+  create (1.9.8). The API still has no route that creates, moves or deletes a
+  folder on its own.
+
+**What this does not do, and is deliberately left for later:**
+
+- Offline editing with an upload queue. The owner's option was to make the
+  local folder a cache of the remote; that is its own design, with its own
+  conflicts.
+- Using the remote folder with no local folder open. The app shows Welcome
+  until one is.
+- Remote images and attachments, since the API carries none.
+- Folder rename and delete.
+- Mobile.
+
+**Consequences.**
+
+- The app has a second document source. Its buffers live in their own store
+  and never enter the local editor's. Session restore, reconcile, drafts,
+  received-sync application and backlinks cannot mistake a remote note for a
+  local one, because none of them ever sees it.
+- A remote note's preview has raw HTML off whatever the local setting says,
+  and resolves relative images against no workspace. Trusting a local folder
+  says nothing about a server.
+- The recommended credential for the remote folder is
+  `read,create,update,move,delete,search`, one per device, scoped as the owner
+  wants the folder to appear.
+

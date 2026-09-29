@@ -1,4 +1,5 @@
 pub mod control;
+pub mod notes;
 pub mod remote;
 pub mod state;
 
@@ -37,6 +38,12 @@ pub enum Error {
     Receiving { received: usize },
     #[error("a device cannot revoke its own credential; revoke it on the server's host or from another device")]
     OwnDevice,
+    /// The remote folder (ADR-099): the note is not on the server (404).
+    #[error("the note is not on the server")]
+    Missing,
+    /// The remote folder: the name is taken on the server (409).
+    #[error("a note with that name already exists on the server")]
+    Exists,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -57,6 +64,18 @@ impl From<Error> for notes_model::CoreError {
             Error::Limit => (C::Limit, None),
             Error::Protocol => (C::Protocol, None),
             Error::OwnDevice => (C::OwnDevice, None),
+            // The path is the caller's to name; the remote-folder commands
+            // replace these with one that carries it.
+            Error::Missing => {
+                return notes_model::CoreError::NotFound {
+                    path: String::new(),
+                }
+            }
+            Error::Exists => {
+                return notes_model::CoreError::AlreadyExists {
+                    path: String::new(),
+                }
+            }
             Error::Receiving { received } => (
                 C::Receiving,
                 Some(u32::try_from(received).unwrap_or(u32::MAX)),

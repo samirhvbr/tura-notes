@@ -25,6 +25,9 @@ pub fn run() {
     // yields defaults, and the default is `auto` — never `off`.
     let service = WorkspaceService::new().expect("resolve the data directory");
     let network = notes_sync_client::control::Controller::new(service.data_dir());
+    let remote = std::sync::Arc::new(notes_sync_client::notes::RemoteFolder::new(
+        service.data_dir(),
+    ));
     let setting = service.settings().linux.webkit_dmabuf_workaround.clone();
 
     // Before `tauri::Builder`, and therefore before any WebView: WebKit reads
@@ -114,6 +117,7 @@ pub fn run() {
             svc: Mutex::new(service),
             received: Mutex::new(None),
             network,
+            remote,
             dmabuf: DmabufReport {
                 applied: decision.applied,
                 explanation: decision.explanation,
@@ -126,6 +130,16 @@ pub fn run() {
         .register_uri_scheme_protocol("notes-asset", asset::serve)
         .invoke_handler(tauri::generate_handler![
             commands::env_report,
+            commands::remote_config_get,
+            commands::remote_config_set,
+            commands::remote_probe,
+            commands::remote_list,
+            commands::remote_open,
+            commands::remote_save,
+            commands::remote_create,
+            commands::remote_rename,
+            commands::remote_delete,
+            commands::remote_render,
             updater::update_check,
             updater::update_install,
             commands::sync_control_status,

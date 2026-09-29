@@ -2661,6 +2661,7 @@ dependencies = [
  "notes-mcp",
  "notes-model",
  "notes-sync",
+ "notes-sync-client",
  "percent-encoding",
  "serde",
  "serde_json",

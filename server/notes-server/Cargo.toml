@@ -28,3 +28,6 @@ flate2 = "1"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+# The remote folder's client, tested end to end against this server (ADR-099).
+notes-sync-client = { path = "../../crates/notes-sync-client" }
+tokio = { version = "1", features = ["sync"] }

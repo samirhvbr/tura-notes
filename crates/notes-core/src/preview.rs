@@ -77,6 +77,22 @@ impl super::WorkspaceService {
         Ok(notes_markdown::render_html(text, &opts))
     }
 
+    /// Sanitized HTML for a note that is **not in the open workspace**: a note
+    /// of the remote folder (ADR-099). Raw HTML is always off, whatever the
+    /// settings say, because trusting a local folder says nothing about a
+    /// server. Relative images resolve against no workspace (the nil id), so
+    /// the asset handler serves none of them rather than a local file that
+    /// happens to share the path. Needs no open workspace.
+    pub fn render_detached(&self, path: &RelPath, text: &str) -> Rendered {
+        let opts = RenderOpts {
+            base: path.parent().unwrap_or_else(RelPath::root),
+            raw_html: false,
+            remote_images: self.settings.markdown.remote_images,
+            workspace_id: notes_model::WorkspaceId::from_uuid(uuid::Uuid::nil()),
+        };
+        notes_markdown::render_html(text, &opts)
+    }
+
     /// The outline, links and front-matter span, with no HTML rendered.
     pub fn outline(&self, text: &str) -> super::Result<Document> {
         // A workspace has to be open for the same reason `render_markdown`
