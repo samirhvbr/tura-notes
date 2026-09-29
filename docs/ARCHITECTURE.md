@@ -973,6 +973,20 @@ version/notes/status only; it cannot choose an update URL or verification key.
   hidden.
 - i18n: `i18n/en.json`, `i18n/pt-BR.json`; every user-visible string is a key;
   a CI check fails on a key missing from either file.
+- The remote folder (ADR-099, 1.9.10–1.9.11) is a **second document source**
+  that the local stores never see:
+  - `stores/remote.ts` holds the configuration and the tree;
+    `stores/remoteDoc.ts` holds the open remote notes, their tabs and their
+    save queue;
+  - `ui.mainView` says whose note the main area shows;
+  - `Editor` takes an optional `source`, and `Preview` an optional `remote`,
+    so the view and the one `innerHTML` assignment stay single;
+  - the `remote_*` commands (`src-tauri/src/commands.rs`) call
+    `notes-sync-client`'s `notes.rs` off the UI thread and write no local
+    file;
+  - `remote_list` hashes the local note at the same path through the root
+    jail (`WorkspaceService::local_hash`), and `remote_render` renders with
+    raw HTML off and no local images (`render_detached`).
 
 ---
 

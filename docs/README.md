@@ -97,3 +97,7 @@ and the fleet adopted it the same day.
 
 - [MCP-0.7.md](MCP-0.7.md) — remote MCP as a second envelope over the server's existing call path, and what it deliberately does not open.
 - [ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md) — the walk from a real MCP client, which is the only part the suite cannot stand in for.
+
+## The remote folder
+
+- [ACCEPTANCE-remote.md](ACCEPTANCE-remote.md) — the owner's walk of the remote folder (ADR-099): editing the server's notes in place, against a real server.

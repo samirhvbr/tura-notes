@@ -351,6 +351,33 @@ opt-in, off by default, and goes to a server the user runs. The two neighbours i
 used to sit beside — **user accounts and an official cloud server** — did not come
 with it, and are the two on this list that §1 will not give up.
 
+## 15a. The remote folder
+
+**The server's notes, edited on the server** (1.9.8–1.9.11,
+[ADR-099](decisions.md#adr-099--the-remote-folder-edits-the-servers-notes-workspace-through-the-rest-api)).
+The owner asked for it on 28/09/2026 as a replacement for a hosted notes app:
+a cloud icon on the rail beside Files, showing the notes of a server the user
+runs, openable and editable in place.
+
+- **Files is the local folder; the cloud is the server's.** The two are
+  independent. Nothing is copied in either direction on its own, and nothing in
+  the local folder changes because of the remote one.
+- **Each remote note is marked** against the local note at the same path, in an
+  icon and a word: *only on the server*, *same as the local copy*, *different
+  from it*, or *not compared*. The comparison is the hash of the raw bytes, so
+  "same" means the same file.
+- **Editing is the local editor's**, with autosave and the same stale-save
+  guard. Every save carries the revision the text was read at. A note changed
+  on the server in the meantime is a conflict the user resolves: compare, keep
+  mine, use the server's, or save mine as a copy. It is never overwritten.
+- **An unsent edit is never dropped.** Offline, it waits and retries. A tab and
+  the window ask before closing over it. The one way out when the server will
+  not take it is *Save a copy to the local folder*, which writes an ordinary
+  note there. There is no hidden cache and no draft of a remote note anywhere.
+- **Not in this version:** editing offline with an upload queue, the remote
+  folder with no local folder open, images and attachments on the server,
+  renaming or deleting folders, and mobile.
+
 ## 16. Git
 
 **The app does not depend on Git** — see

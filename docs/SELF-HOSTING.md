@@ -153,6 +153,24 @@ the whole reason the two are separate.
 
 ---
 
+### Or edit the server's notes directly
+
+The steps above synchronize a local folder through the server's inbox. The
+**Remote folder** is the other way to use the same server
+([ADR-099](decisions.md#adr-099--the-remote-folder-edits-the-servers-notes-workspace-through-the-rest-api)):
+the cloud icon on the rail opens the workspace's notes as they are on the
+server, and edits them there. Nothing is copied to or from your local folder.
+Each note is only marked as the same as, or different from, the local note at
+the same path.
+
+Give it its own credential, with `search` added, for example
+`notes-server token create laptop-remote personal . read,create,update,move,delete,search /tmp/laptop-remote.secret`.
+Then, in the panel, fill in **Server address**, **Credential file (outside notes)**
+and **Server workspace**, press **Test connection**, and then **Connect**. The
+folder is asked for when the panel opens and when you refresh it, never in the
+background. A note changed on the server while you had it open comes back as a
+conflict for you to settle, never as an overwrite.
+
 ## Keeping it
 
 **Back it up, and back up the whole data tree** — not just the notes directory
