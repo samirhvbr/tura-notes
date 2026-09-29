@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.12 - the remote folder's local comparison treats a folder as no note on Windows too
+
+CI on Windows failed from 1.9.9 on, in the new test that `local_hash` answers
+`None` for a folder: reading a directory is "is a directory" on Unix and
+"access denied" on Windows, so there a folder at a note's path came back as an
+error, and the remote tree would have marked that note *not compared* instead
+of *only on the server*. `local_hash` now looks at the entry's kind first and
+reads only a file. The jail still refuses a symlink out of the root before
+anything is read. Linux, macOS and the gate were green throughout, because
+only Windows gives that error for a folder.
+
 ## 1.9.11 - remote notes open in tabs and are edited in place, with conflicts resolved and no edit ever dropped
 
 This is the fourth and last block of the remote folder (ADR-099). A note in the

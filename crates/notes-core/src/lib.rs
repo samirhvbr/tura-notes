@@ -1515,13 +1515,22 @@ impl WorkspaceService {
     /// Read-only, through the root jail like every other read.
     pub fn local_hash(&self, path: &RelPath) -> Result<Option<notes_model::ContentHash>> {
         let open = self.open()?;
+        // The kind first, then the bytes. Reading a folder is "is a directory"
+        // on Unix and "access denied" on Windows, and the second would turn a
+        // folder that shares a note's name into an unreadable file.
+        match open.fs.stat(path) {
+            Ok(stat) if stat.kind == notes_model::EntryKind::File => {}
+            Ok(_) => return Ok(None),
+            Err(CoreError::NotFound { .. })
+            | Err(CoreError::Io {
+                kind: notes_model::IoKind::NotFound,
+                ..
+            }) => return Ok(None),
+            Err(e) => return Err(e),
+        }
         match open.fs.read(path) {
             Ok(bytes) => Ok(Some(notes_fs::hash(&bytes))),
             Err(CoreError::NotFound { .. }) => Ok(None),
-            Err(CoreError::Io {
-                kind: notes_model::IoKind::NotFound | notes_model::IoKind::IsADirectory,
-                ..
-            }) => Ok(None),
             Err(e) => Err(e),
         }
     }
