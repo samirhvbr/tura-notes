@@ -3249,3 +3249,45 @@ the owner chose that the two stay independent and are compared.
   `read,create,update,move,delete,search`, one per device, scoped as the owner
   wants the folder to appear.
 
+## ADR-100 — An opt-in AI assistant calls the provider from Rust, keeps the key in the system keychain, and edits the open note through the editor
+
+**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · not yet built (`.continue/assistente-ia.md`)
+
+**Context.** The owner wants an AI to help write documents, used through a
+provider's API with keys entered in Settings, and a chat to drive it. Three
+standing rules shape it. ADR-007 says the app makes no outbound connection
+for its basic operation and every external integration is enabled by the
+user. The desktop CSP allows the webview no `connect-src` beyond IPC.
+`settings.json` is plain text in the data directory.
+
+**Decision.** The assistant is off by default and enabled in Settings, next to
+the sentence that what is sent leaves the machine.
+
+- *Providers:* Anthropic (Messages API, streaming; default model
+  `claude-opus-5-5`) and any OpenAI-compatible endpoint by base URL (OpenAI,
+  OpenRouter, Ollama, LM Studio). `http://` is accepted only for loopback.
+- *Where the calls run:* from a new crate, `notes-ai`, in Rust. The webview
+  never contacts a provider, and the CSP does not change.
+- *The key:* API keys live in the system keychain (`keyring`), keyed by
+  provider. Settings keep only the provider's type, URL, model and whether a
+  key is configured. A key crosses IPC once, inward, when it is set, and is
+  never returned. Where no keychain exists, the assistant is unavailable, with
+  no fallback to a file.
+- *What is sent:* the chat sends the current note (and the selection) plus
+  notes the owner attaches. They are listed before sending, and read by the
+  core from paths under the usual root guard.
+- *How notes change:* the model edits notes directly through two tools,
+  `edit_note` and `create_note`. An edit to a note is applied as one editor
+  transaction, so a single undo reverts the turn, and it is saved by the
+  ordinary save path. A new note goes through the core's create. `notes-ai`
+  writes no file.
+- *What is kept:* no conversation is written to disk in the first version, and
+  nothing is written into a note that the user did not ask for.
+
+**Consequences.** It is a new crate, so a Y bump when it lands. A new
+dependency, `keyring` (Secret Service over D-Bus on Linux), and a new outbound
+surface to list in `security.md` §2. Direct edits trade the "propose, then
+apply" safety for speed, which the owner chose. Undo and the "Edited" card are
+what make that acceptable, and the edit never bypasses the BaseRev check or the
+draft and conflict paths. Android is out of the first version.
+

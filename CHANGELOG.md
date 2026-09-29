@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.14 - an AI writing assistant is decided and specified, to be built in six blocks
+
+The owner wants an AI to help write documents, through a provider's API, with
+the API keys entered in Settings, and a chat to drive it. On 29/09 the owner
+answered the four questions that shape it: Anthropic and any
+OpenAI-compatible endpoint; keys in the system keychain; the chat sees the
+current note plus notes the owner attaches; the AI edits directly and the owner
+undoes. This records the decision as ADR-100 and the unbuilt work as a queue
+specification. No code yet.
+
+The decision follows from rules already in force. ADR-007 keeps every outbound
+connection opt-in, so the assistant is off by default and enabled next to the
+sentence that what is sent leaves the machine. The desktop CSP gives the
+webview no network, so calls run in Rust, in a new `notes-ai` crate, and the
+CSP does not change. `settings.json` is plain text, so a key goes to the system
+keychain, crosses IPC once, inward, and is never returned; where there is no
+keychain the assistant is unavailable, with no fallback to a file. Direct edits
+arrive as one editor transaction, so one undo reverts a turn, and they are saved
+by the ordinary save path. `notes-ai` writes no file.
+
+`.continue/assistente-ia.md` specifies what the owner sees and how it works,
+and splits the build into six blocks, R9-01 to R9-06 in `.loop/QUEUE.md`,
+beside R9-00 for the ten Dependabot pull requests waiting. The queue index has a
+row for it and is restamped. The number is 100 because a concurrent session
+took 99 for the remote folder while this was being written.
+
 ## 1.9.13 - the remote-folder configuration test reads the saved file as JSON, so a Windows path matches
 
 With 1.9.12 green on Linux and macOS, Windows CI failed on the next remote
