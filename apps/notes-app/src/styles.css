@@ -1126,6 +1126,9 @@ code { font-family: var(--font-mono); }
 .ai-msg { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
 .ai-msg.mine { background: var(--accent-soft); }
 .ai-msg h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-dim); }
+.ai-edit { margin-top: 8px; padding: 6px 8px; border: 1px dashed var(--line); border-radius: 6px; font-size: 12px; }
+.ai-edit.applied { border-style: solid; border-color: var(--accent); }
+.ai-edit p { margin: 0 0 4px; }
 .ai-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; user-select: text; }
 .ai-context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .ai-chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 12px; padding: 1px 6px; font-size: 12px; color: var(--fg-dim); }

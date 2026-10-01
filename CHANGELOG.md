@@ -7,6 +7,48 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.4 - the AI assistant edits the open note through the editor, and one undo takes the turn back
+
+The fifth block of the AI assistant (R9-05). Until now the assistant only talked;
+now it can write. The model is offered two tools, `edit_note` and `create_note`,
+and the rule that shapes everything below is that nothing in `notes-ai` or the
+shell changes a note: the model asks, the page makes the change through the
+editor, and the editor is where it can be undone.
+
+How a call reaches the page. Both providers now assemble a tool call from its
+fragments (Anthropic's `input_json_delta` until the block closes, OpenAI's
+`tool_calls` by index until the reply ends) and hand it over whole, so a call
+that was cut off is not a call, an argument that is not a JSON object is a
+protocol error, and a runaway one stops at 1 MiB or sixteen calls. The shell then
+checks every call again, because a schema is a request to the model and not a
+guarantee: the path must parse under the core's rules and name a note, the
+operation must be one of the three, the text is bounded, and a reply may make
+eight calls at most. What fails the check is sent as a rejection with its reason,
+and the user sees it as a card. The turn ends at the call: nothing is sent back to
+the model, and what it did is remembered for the next question as a short bracket
+line.
+
+How it is applied. The page waits until the reply has finished, then applies all
+the edits to one note as a single CodeMirror transaction with its own undo step,
+so one Ctrl+Z takes the turn back and does not merge with what the user typed a
+moment before. The change is not marked as an external reload, so the ordinary
+save path sees what looks like typing and saves it as it saves anything. Only a
+note the user shared in that turn may be edited, plus any note the assistant
+created in the same reply. `replace_selection` acts on the selection that was
+sent, and only while it is still the one selected, because the model wrote its
+replacement for those words. After Stop or a failure nothing is applied, and each
+change says it was not. A new note goes through the core's `create_note`, which
+refuses an existing name; its undo removes the text and leaves the empty note,
+since deleting a file is the destructive act and the user did not ask for it.
+
+Each change is a card on the chat naming the note, with an Undo that works while
+that transaction is still the last thing done in the editor and says to use the
+note's own Ctrl+Z once it is not. Tests: four in each provider for assembled,
+unfinished, malformed and absent tools, four in the shell for checking calls, seven
+for the pure editing logic, eleven for the store, four against a real CodeMirror
+(one transaction, one undo, refusal of an undo that would take back something else,
+a read-only note, the selection) and four for the cards.
+
 ## 1.10.3 - the AI assistant has a chat that shows what it sends and streams the reply
 
 The fourth block of the AI assistant (R9-04): the chat. With the assistant on,

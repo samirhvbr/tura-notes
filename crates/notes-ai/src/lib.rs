@@ -122,6 +122,17 @@ impl Effort {
     }
 }
 
+/// A tool the model may call. The schema is JSON Schema for its one object
+/// argument. Calls are not run here: this crate hands the call back, whole, and
+/// the caller decides what it does (ADR-100 has the model edit through the
+/// editor, never through this crate).
+#[derive(Debug, Clone)]
+pub struct ToolSpec {
+    pub name: String,
+    pub description: String,
+    pub schema: serde_json::Value,
+}
+
 #[derive(Debug, Clone)]
 pub struct ChatRequest {
     pub model: String,
@@ -129,6 +140,8 @@ pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
     pub max_tokens: u32,
     pub effort: Option<Effort>,
+    /// Empty for a plain conversation.
+    pub tools: Vec<ToolSpec>,
 }
 
 /// Why the model stopped. `Refusal` and `MaxTokens` are results the interface
@@ -136,14 +149,22 @@ pub struct ChatRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StopReason {
     EndTurn,
+    /// The model stopped to call tools. The calls have been handed back already.
+    ToolUse,
     MaxTokens,
     Refusal,
     Other(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StreamEvent {
     Text(String),
+    /// One complete tool call, delivered when the model has finished writing its
+    /// argument: never a fragment of one.
+    ToolCall {
+        name: String,
+        input: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

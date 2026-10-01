@@ -212,7 +212,61 @@ pub enum AiStop {
     Cancelled,
 }
 
-/// The payloads of the three events a running chat emits: `ai:delta`,
+/// What an edit does to the note it names. The first two act on the editor's
+/// selection and cursor, which only the page knows; Rust says what was asked and
+/// the page decides whether it still applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiEditOp {
+    ReplaceSelection,
+    InsertAtCursor,
+    ReplaceAll,
+}
+
+/// Why a tool call was not passed on. The model is never told: the turn ends
+/// with the call, so this is for the user, who sees it on the chat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiRejection {
+    UnknownTool,
+    BadArguments,
+    TooLarge,
+    TooMany,
+}
+
+/// A change the model asked for, checked in Rust. Nothing here has touched a
+/// note: the page applies it through the editor, so it is one undo and goes
+/// through the ordinary save path (ADR-100).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiTool {
+    Edit {
+        path: String,
+        operation: AiEditOp,
+        text: String,
+    },
+    Create {
+        path: String,
+        text: String,
+    },
+    Rejected {
+        name: String,
+        reason: AiRejection,
+    },
+}
+
+/// `ai:tool`: one tool call, delivered whole, before the chat's terminal event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiToolCall {
+    pub chat: String,
+    pub tool: AiTool,
+}
+
+/// The payloads of the events a running chat emits: `ai:delta`, `ai:tool`,
 /// `ai:done` and `ai:error`. A chat ends with exactly one of the last two.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]

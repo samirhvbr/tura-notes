@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Applied, EditOp } from "./aiEdits";
 
 /**
  * What the editor has selected, for the AI assistant's chat (ADR-100).
@@ -31,4 +32,34 @@ export function readSelection(): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * The editor's side of the assistant's edits (ADR-100). The view is private to
+ * `Editor.tsx`, so the chat reaches it through what the editor registers: apply
+ * a turn's operations to the note it holds, as one transaction, and undo that
+ * transaction if nothing has been typed since.
+ */
+export interface EditorBridge {
+  /** The note the view holds. An edit is only ever applied to the note it names. */
+  noteId: string;
+  /**
+   * Apply the operations as one transaction. `token` identifies that
+   * transaction for [`undo`], and is null when nothing changed.
+   */
+  apply: (ops: EditOp[], shared: string | null) => Applied;
+  /** Undo the transaction `token` names, only if it is still the last thing
+   *  done in this editor. Returns whether it undid anything. */
+  undo: (token: number) => boolean;
+}
+
+let bridge: EditorBridge | null = null;
+
+export function registerEditorBridge(next: EditorBridge | null, owner?: EditorBridge): void {
+  if (next === null && owner && bridge !== owner) return;
+  bridge = next;
+}
+
+export function editorBridge(): EditorBridge | null {
+  return bridge;
 }

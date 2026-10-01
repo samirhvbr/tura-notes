@@ -117,3 +117,64 @@ it("every buffer replacement moves externalRev forward", async () => {
 
   expect(useEditor.getState().doc?.externalRev).toBe(8);
 });
+
+// ---- the assistant's edits go in as one undoable step -----------------------
+
+it("the assistant's edits are one transaction: one undo takes back the whole turn and nothing typed before it", async () => {
+  const { editorBridge } = await import("./selection");
+  onScreen("um dois três");
+  render(<Editor />);
+  const bridge = editorBridge();
+  expect(bridge?.noteId).toBe("note");
+
+  const done = bridge!.apply(
+    [
+      { op: "replace_all", text: "novo texto" },
+      { op: "insert_at_cursor", text: "!" },
+    ],
+    null,
+  );
+  expect(done).toMatchObject({ applied: 2, readOnly: false });
+  expect(shown()).toBe("novo texto!");
+  // It reached the store as a keystroke would: the ordinary save path will see it.
+  expect(useEditor.getState().doc?.text).toBe("novo texto!");
+
+  expect(bridge!.undo(done.token as number)).toBe(true);
+  expect(shown()).toBe("um dois três");
+  expect(useEditor.getState().doc?.text).toBe("um dois três");
+});
+
+it("an undo that would take back something other than the assistant's turn is refused", async () => {
+  const { editorBridge } = await import("./selection");
+  onScreen("abc");
+  render(<Editor />);
+  const bridge = editorBridge()!;
+  const first = bridge.apply([{ op: "insert_at_cursor", text: "X" }], null);
+  const second = bridge.apply([{ op: "insert_at_cursor", text: "Y" }], null);
+  // The first turn's step is no longer the last one done.
+  expect(bridge.undo(first.token as number)).toBe(false);
+  expect(shown()).toBe("XYabc");
+  expect(bridge.undo(second.token as number)).toBe(true);
+  expect(shown()).toBe("Xabc");
+});
+
+it("a read-only note is never edited by the assistant", async () => {
+  const { editorBridge } = await import("./selection");
+  onScreen("fixo", { readOnly: { reason: "x" } as never });
+  render(<Editor />);
+  const result = editorBridge()!.apply([{ op: "replace_all", text: "outro" }], null);
+  expect(result).toMatchObject({ applied: 0, readOnly: true, token: null });
+  expect(shown()).toBe("fixo");
+});
+
+it("replace_selection replaces the selected text when it is still what was shared", async () => {
+  const { editorBridge } = await import("./selection");
+  onScreen("um dois três");
+  render(<Editor />);
+  const { EditorView } = await import("@codemirror/view");
+  const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)!;
+  view.dispatch({ selection: { anchor: 3, head: 7 } });
+  const ok = editorBridge()!.apply([{ op: "replace_selection", text: "2" }], "dois");
+  expect(ok.applied).toBe(1);
+  expect(shown()).toBe("um 2 três");
+});

@@ -87,9 +87,15 @@ impl OpenAiProvider {
     }
 }
 
+/// The most one tool call's argument may carry.
+const MAX_TOOL_INPUT: usize = 1024 * 1024;
+/// The most tool calls one reply may make.
+const MAX_TOOL_CALLS: usize = 16;
+
 fn stop_reason(reason: &str) -> StopReason {
     match reason {
         "stop" => StopReason::EndTurn,
+        "tool_calls" | "function_call" => StopReason::ToolUse,
         "length" => StopReason::MaxTokens,
         "content_filter" => StopReason::Refusal,
         other => StopReason::Other(tidy(other)),
@@ -151,6 +157,23 @@ impl Provider for OpenAiProvider {
             "stream": true,
         });
         body[self.limit.field()] = request.max_tokens.into();
+        if !request.tools.is_empty() {
+            body["tools"] = request
+                .tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.schema,
+                        },
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into();
+        }
         let post = self
             .authorize(self.clients.stream.post(self.url("chat/completions")?))
             .header("content-type", "application/json")
@@ -159,6 +182,10 @@ impl Provider for OpenAiProvider {
 
         let mut stop = None;
         let mut refused = false;
+        // A call's name arrives once and its argument in fragments, keyed by an
+        // index. They are handed back together when the reply is over, never
+        // while the argument is still being written.
+        let mut calls: std::collections::BTreeMap<u64, (String, String)> = Default::default();
         let done = transport::drive(post, cancel, |frame| {
             if frame.data.trim() == "[DONE]" {
                 return Ok(Flow::Done);
@@ -186,11 +213,38 @@ impl Provider for OpenAiProvider {
                 refused = true;
                 on_event(StreamEvent::Text(text.to_owned()));
             }
+            if let Some(parts) = choice["delta"]["tool_calls"].as_array() {
+                for part in parts {
+                    let index = part["index"].as_u64().unwrap_or(0);
+                    if calls.len() >= MAX_TOOL_CALLS && !calls.contains_key(&index) {
+                        return Err(Error::Protocol);
+                    }
+                    let call = calls.entry(index).or_default();
+                    if let Some(name) = part["function"]["name"].as_str() {
+                        call.0.push_str(name);
+                    }
+                    if let Some(args) = part["function"]["arguments"].as_str() {
+                        if call.1.len() + args.len() > MAX_TOOL_INPUT {
+                            return Err(Error::Protocol);
+                        }
+                        call.1.push_str(args);
+                    }
+                }
+            }
             if let Some(reason) = choice["finish_reason"].as_str() {
                 stop = Some(stop_reason(reason));
             }
             Ok(Flow::Continue)
         })?;
+        for (_, (name, json)) in calls {
+            if name.is_empty() {
+                return Err(Error::Protocol);
+            }
+            on_event(StreamEvent::ToolCall {
+                name,
+                input: crate::anthropic::parse_input(&json)?,
+            });
+        }
         // OpenAI ends with `[DONE]`. A server that closes the stream after a
         // finish reason without it has still finished; one that closes with no
         // finish reason at all has been cut off.

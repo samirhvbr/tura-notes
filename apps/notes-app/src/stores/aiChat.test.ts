@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as ipc from "../ipc";
 import { useAiChat } from "./aiChat";
-import { registerSelection } from "../editor/selection";
+import { registerEditorBridge, registerSelection, type EditorBridge } from "../editor/selection";
+import { useEditor } from "./editor";
+import { useTabs } from "./tabs";
+import { useWorkspace } from "./workspace";
 
 // The events are the Tauri ones; the test plays them by hand.
 type Handler = (e: { payload: unknown }) => void;
@@ -16,6 +19,7 @@ vi.mock("../ipc", async (original) => ({
   ...(await original<typeof import("../ipc")>()),
   aiChatStart: vi.fn(),
   aiChatCancel: vi.fn(async () => {}),
+  noteCreate: vi.fn(),
 }));
 
 const fire = (name: string, payload: unknown) => handlers[name]({ payload });
@@ -164,4 +168,167 @@ it("stop asks Rust to cancel the running chat, and clear ends it and empties the
   expect(useAiChat.getState()).toMatchObject({ turns: [], busy: false, chat: null });
   fire("ai:delta", { chat: "c1", text: "tarde demais" });
   expect(useAiChat.getState().turns).toEqual([]);
+});
+
+// ---- the assistant's edits --------------------------------------------------
+
+const shownDoc = (path: string, noteId = "n1") =>
+  useEditor.setState({ doc: { noteId, path } as never });
+
+/** An editor that records what it was asked to do and answers as scripted. */
+function fakeEditor(noteId: string, answer: Partial<ReturnType<EditorBridge["apply"]>> = {}) {
+  const bridge = {
+    noteId,
+    apply: vi.fn(() => ({ applied: 1, skipped: [], readOnly: false, token: 7, ...answer })),
+    undo: vi.fn(() => true),
+  } satisfies EditorBridge;
+  registerEditorBridge(bridge);
+  return bridge;
+}
+
+const settle = () => new Promise((r) => setTimeout(r, 0));
+const edit = (path: string, operation: ipc.AiEditOp, text: string): ipc.AiTool => ({ kind: "edit", path, operation, text });
+
+async function turnWith(tools: ipc.AiTool[], stop: ipc.AiStop = "end_turn", sent: ipc.AiSentItem[] = [{ label: "a.md", chars: 5, truncated: false }]) {
+  started("c1", sent);
+  await useAiChat.getState().send("reescreve", "a.md");
+  fire("ai:delta", { chat: "c1", text: "Feito." });
+  for (const tool of tools) fire("ai:tool", { chat: "c1", tool });
+  fire("ai:done", { chat: "c1", stop });
+  await settle();
+  return last();
+}
+
+afterEach(() => {
+  registerEditorBridge(null);
+  useEditor.setState({ doc: null });
+});
+
+it("edits to the open note go to the editor together, as one transaction, with a card that can undo it", async () => {
+  shownDoc("a.md");
+  const bridge = fakeEditor("n1");
+  const reply = await turnWith([edit("a.md", "replace_all", "novo"), edit("a.md", "insert_at_cursor", "!")]);
+  expect(bridge.apply).toHaveBeenCalledTimes(1);
+  expect(bridge.apply).toHaveBeenCalledWith(
+    [{ op: "replace_all", text: "novo" }, { op: "insert_at_cursor", text: "!" }],
+    null,
+  );
+  expect(reply.edits).toEqual([
+    { id: 1, kind: "edit", path: "a.md", state: "applied", undo: { noteId: "n1", token: 7 } },
+  ]);
+  expect(reply.tools).toBeUndefined();
+
+  expect(useAiChat.getState().undoEdit(reply.id, 1)).toBe(true);
+  expect(bridge.undo).toHaveBeenCalledWith(7);
+  expect(last().edits?.[0].state).toBe("undone");
+});
+
+it("a card cannot undo once the editor has moved on, and says so instead of undoing something else", async () => {
+  shownDoc("a.md");
+  const bridge = fakeEditor("n1");
+  const reply = await turnWith([edit("a.md", "replace_all", "novo")]);
+  bridge.undo.mockReturnValue(false);
+  expect(useAiChat.getState().undoEdit(reply.id, 1)).toBe(false);
+  expect(last().edits?.[0]).toMatchObject({ state: "applied", undoBlocked: true });
+  // Another note on screen: the editor is not the one the card names.
+  registerEditorBridge(null);
+  fakeEditor("n2");
+  expect(useAiChat.getState().undoEdit(reply.id, 1)).toBe(false);
+});
+
+it("replace_selection acts on the text that was sent, only for the note it came from", async () => {
+  shownDoc("a.md");
+  registerSelection(() => "trecho");
+  const bridge = fakeEditor("n1");
+  await turnWith([edit("a.md", "replace_selection", "x")]);
+  expect(bridge.apply).toHaveBeenCalledWith([{ op: "replace_selection", text: "x" }], "trecho");
+  registerSelection(null);
+});
+
+it("a note the user did not share is left alone, and the card says why", async () => {
+  shownDoc("a.md");
+  const bridge = fakeEditor("n1");
+  const reply = await turnWith([edit("secret.md", "replace_all", "x")]);
+  expect(bridge.apply).not.toHaveBeenCalled();
+  expect(reply.edits).toEqual([{ id: 1, kind: "edit", path: "secret.md", state: "not_applied", why: "not_shared" }]);
+});
+
+it("after Stop or a failure nothing is applied, and each change says it was not", async () => {
+  shownDoc("a.md");
+  const bridge = fakeEditor("n1");
+  const stopped = await turnWith([edit("a.md", "replace_all", "x")], "cancelled");
+  expect(bridge.apply).not.toHaveBeenCalled();
+  expect(stopped.edits?.[0]).toMatchObject({ state: "not_applied", why: "interrupted" });
+
+  reset();
+  started("c2");
+  await useAiChat.getState().send("outra", "a.md");
+  fire("ai:tool", { chat: "c2", tool: edit("a.md", "replace_all", "x") });
+  fire("ai:error", { chat: "c2", error: { code: "offline", detail: null } });
+  await settle();
+  expect(bridge.apply).not.toHaveBeenCalled();
+  expect(last()).toMatchObject({ state: "error", edits: [{ why: "interrupted" }] });
+});
+
+it("a refusal from the editor becomes a card with its reason", async () => {
+  shownDoc("a.md");
+  fakeEditor("n1", { applied: 0, skipped: ["selection_changed"], token: null });
+  const moved = await turnWith([edit("a.md", "replace_selection", "x")]);
+  expect(moved.edits?.[0]).toMatchObject({ state: "not_applied", why: "selection_changed" });
+
+  reset();
+  shownDoc("a.md");
+  fakeEditor("n1", { applied: 0, skipped: [], readOnly: true, token: null });
+  const locked = await turnWith([edit("a.md", "replace_all", "x")]);
+  expect(locked.edits?.[0]).toMatchObject({ state: "not_applied", why: "read_only" });
+});
+
+it("a part of a turn that could not be applied is mentioned on the card that was applied", async () => {
+  shownDoc("a.md");
+  fakeEditor("n1", { applied: 1, skipped: ["no_selection"], token: 3 });
+  const reply = await turnWith([edit("a.md", "replace_all", "x")]);
+  expect(reply.edits?.[0]).toMatchObject({ state: "applied", why: "no_selection" });
+});
+
+it("calls the model got wrong show as ignored requests, never as edits", async () => {
+  shownDoc("a.md");
+  const bridge = fakeEditor("n1");
+  const reply = await turnWith([{ kind: "rejected", name: "rm_rf", reason: "unknown_tool" }]);
+  expect(bridge.apply).not.toHaveBeenCalled();
+  expect(reply.edits).toEqual([{ id: 1, kind: "rejected", path: "rm_rf", state: "not_applied", why: "unknown_tool" }]);
+});
+
+it("create_note makes the note through the core, opens it, writes its text and may undo that", async () => {
+  shownDoc("a.md");
+  vi.mocked(ipc.noteCreate).mockResolvedValue({ path: "ideas/plan.md", name: "plan.md" } as ipc.Entry);
+  const refresh = vi.fn(async () => {});
+  useWorkspace.setState({ refresh } as never);
+  const bridge = fakeEditor("n2");
+  const open = vi.fn(async () => shownDoc("ideas/plan.md", "n2"));
+  useTabs.setState({ openPath: open } as never);
+  const reply = await turnWith([{ kind: "create", path: "ideas/plan.md", text: "# Plano" }]);
+  expect(ipc.noteCreate).toHaveBeenCalledWith("ideas", "plan.md");
+  expect(refresh).toHaveBeenCalledWith("ideas");
+  expect(open).toHaveBeenCalledWith("ideas/plan.md");
+  expect(bridge.apply).toHaveBeenCalledWith([{ op: "replace_all", text: "# Plano" }], null);
+  expect(reply.edits?.[0]).toMatchObject({ kind: "create", path: "ideas/plan.md", state: "applied", undo: { noteId: "n2", token: 7 } });
+});
+
+it("create_note that the core refuses is a card, and no editor is touched", async () => {
+  shownDoc("a.md");
+  vi.mocked(ipc.noteCreate).mockRejectedValue({ code: "already_exists" });
+  const bridge = fakeEditor("n1");
+  const reply = await turnWith([{ kind: "create", path: "a.md", text: "x" }]);
+  expect(bridge.apply).not.toHaveBeenCalled();
+  expect(reply.edits?.[0]).toMatchObject({ kind: "create", state: "not_applied", why: "failed", detail: "already_exists" });
+});
+
+it("what the assistant changed is remembered for the next question, and what it did not change is not", async () => {
+  shownDoc("a.md");
+  fakeEditor("n1");
+  await turnWith([edit("a.md", "replace_all", "x"), { kind: "rejected", name: "x", reason: "unknown_tool" }]);
+  started("c3");
+  await useAiChat.getState().send("e agora?", "a.md");
+  const messages = (vi.mocked(ipc.aiChatStart).mock.calls[vi.mocked(ipc.aiChatStart).mock.calls.length - 1]?.[0].messages ?? []);
+  expect(messages.map((m) => m.content)).toEqual(["reescreve", "Feito.\n\n[edited a.md]", "e agora?"]);
 });

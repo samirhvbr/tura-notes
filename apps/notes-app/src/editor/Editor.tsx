@@ -4,9 +4,10 @@ import type { NoteId } from "../ipc";
 import {useWorkspace} from "../stores/workspace";
 import { useEffect, useRef } from "react";
 import { Annotation, EditorState } from "@codemirror/state";
-import { registerSelection, setSelectionSize } from "./selection";
+import { registerEditorBridge, registerSelection, setSelectionSize, type EditorBridge } from "./selection";
+import { minimalChange, simulate } from "./aiEdits";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, isolateHistory, undo, undoDepth } from "@codemirror/commands";
 import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -165,6 +166,49 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
     };
     registerSelection(reader);
 
+    // The AI assistant's edits (ADR-100) go in through the editor, as one
+    // transaction of their own: `isolateHistory` keeps it from merging with
+    // what the user typed just before, so a single undo takes back exactly
+    // the assistant's turn and nothing else. It is not marked External, so the
+    // ordinary save path sees a keystroke and autosaves it.
+    const bridge: EditorBridge | null = remoteRef.current
+      ? null
+      : {
+          noteId: noteIdRef.current ?? "",
+          apply: (ops, shared) => {
+            if (readOnly) return { applied: 0, skipped: [], readOnly: true, token: null };
+            const before = created.state.doc.toString();
+            const range = created.state.selection.main;
+            const next = simulate(before, { from: range.from, to: range.to }, ops, shared);
+            if (next.applied === 0 || next.text === before) {
+              return { applied: next.applied, skipped: next.skipped, readOnly: false, token: null };
+            }
+            created.dispatch({
+              changes: minimalChange(before, next.text),
+              selection: { anchor: next.sel.to },
+              annotations: isolateHistory.of("full"),
+              userEvent: "input.ai",
+              scrollIntoView: true,
+            });
+            // The sync barrier drops a change silently (the filter above), and
+            // an edit that did not land must not be reported as one that did.
+            if (created.state.doc.toString() !== next.text) {
+              return { applied: 0, skipped: [], readOnly: false, token: null };
+            }
+            return {
+              applied: next.applied,
+              skipped: next.skipped,
+              readOnly: false,
+              token: undoDepth(created.state),
+            };
+          },
+          undo: (token) => {
+            if (undoDepth(created.state) !== token) return false;
+            return undo(created);
+          },
+        };
+    registerEditorBridge(bridge);
+
     // Put the caret back where the tab left it. After creation, because the
     // document has to exist before a position in it means anything.
     const want = remoteRef.current ? undefined : pendingCursor(noteIdRef.current as NoteId | undefined);
@@ -176,6 +220,7 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
     }
     return () => {
       registerSelection(null, reader);
+      if (bridge) registerEditorBridge(null, bridge);
       created.destroy();
       if (view.current === created) view.current = null;
     };

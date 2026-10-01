@@ -3,7 +3,7 @@
 
 use notes_ai::{
     AnthropicProvider, ApiKey, ChatMessage, ChatRequest, Effort, Error, Provider, Role, StopReason,
-    StreamEvent,
+    StreamEvent, ToolSpec,
 };
 use serde_json::{json, Value};
 
@@ -54,13 +54,16 @@ fn request() -> ChatRequest {
         }],
         max_tokens: 1024,
         effort: Some(Effort::Medium),
+        tools: vec![],
     }
 }
 
 fn collect(p: &AnthropicProvider, r: &ChatRequest) -> (Result<StopReason, Error>, String) {
     let mut got = String::new();
-    let result = p.stream(r, &AtomicBool::new(false), &mut |StreamEvent::Text(t)| {
-        got.push_str(&t)
+    let result = p.stream(r, &AtomicBool::new(false), &mut |e| {
+        if let StreamEvent::Text(t) = e {
+            got.push_str(&t)
+        }
     });
     (result, got)
 }
@@ -258,8 +261,10 @@ fn stop_is_prompt_even_while_the_provider_is_quiet() {
     let cancel = AtomicBool::new(false);
     let mut got = String::new();
     let started = Instant::now();
-    let result = provider(&base).stream(&request(), &cancel, &mut |StreamEvent::Text(t)| {
-        got.push_str(&t);
+    let result = provider(&base).stream(&request(), &cancel, &mut |e| {
+        if let StreamEvent::Text(t) = e {
+            got.push_str(&t);
+        }
         cancel.store(true, Ordering::Relaxed);
     });
     assert!(matches!(result, Err(Error::Cancelled)), "{result:?}");
@@ -309,4 +314,102 @@ fn a_key_is_never_printable_and_an_endpoint_is_checked_before_any_request() {
     assert!(
         AnthropicProvider::new(AnthropicProvider::DEFAULT_BASE, ApiKey::new(KEY).unwrap()).is_ok()
     );
+}
+
+fn edit_tool() -> ToolSpec {
+    ToolSpec {
+        name: "edit_note".into(),
+        description: "Replace the text of the open note".into(),
+        schema: json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}),
+    }
+}
+
+fn calls(
+    p: &AnthropicProvider,
+    r: &ChatRequest,
+) -> (Result<StopReason, Error>, String, Vec<(String, Value)>) {
+    let (mut text, mut found) = (String::new(), vec![]);
+    let result = p.stream(r, &AtomicBool::new(false), &mut |e| match e {
+        StreamEvent::Text(t) => text.push_str(&t),
+        StreamEvent::ToolCall { name, input } => found.push((name, input)),
+    });
+    (result, text, found)
+}
+
+#[test]
+fn a_tool_call_is_handed_back_whole_after_its_argument_has_been_streamed() {
+    let whole = sse(&[
+        start(),
+        json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}),
+        text("Vou editar."),
+        json!({"type":"content_block_stop","index":0}),
+        json!({"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"edit_note","input":{}}}),
+        json!({"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"te"}}),
+        json!({"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"xt\": \"olá\\n"}}),
+        json!({"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"mundo\"}"}}),
+        json!({"type":"content_block_stop","index":1}),
+        stop("tool_use"),
+        end(),
+    ]);
+    let chunks = whole.chunks(11).map(<[u8]>::to_vec).collect();
+    let (base, server) = serve(vec![Canned::ok(chunks)]);
+    let mut r = request();
+    r.tools = vec![edit_tool()];
+    let (result, said, found) = calls(&provider(&base), &r);
+    assert_eq!(result.unwrap(), StopReason::ToolUse);
+    assert_eq!(said, "Vou editar.");
+    assert_eq!(
+        found,
+        vec![("edit_note".to_owned(), json!({"text": "olá\nmundo"}))]
+    );
+    let body: Value = serde_json::from_slice(&server.join().unwrap()[0].body).unwrap();
+    assert_eq!(body["tools"][0]["name"], "edit_note");
+    assert_eq!(body["tools"][0]["input_schema"]["required"][0], "text");
+}
+
+#[test]
+fn a_call_that_never_closed_is_not_a_call() {
+    let (base, server) = serve(vec![Canned::ok(vec![sse(&[
+        start(),
+        json!({"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t","name":"edit_note","input":{}}}),
+        json!({"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"text\": \"meio"}}),
+        stop("max_tokens"),
+        end(),
+    ])])]);
+    let mut r = request();
+    r.tools = vec![edit_tool()];
+    let (result, _, found) = calls(&provider(&base), &r);
+    assert_eq!(result.unwrap(), StopReason::MaxTokens);
+    assert!(found.is_empty(), "{found:?}");
+    server.join().unwrap();
+}
+
+#[test]
+fn an_argument_that_is_not_an_object_is_a_protocol_error() {
+    let (base, server) = serve(vec![Canned::ok(vec![sse(&[
+        start(),
+        json!({"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t","name":"edit_note","input":{}}}),
+        json!({"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"[1,2]"}}),
+        json!({"type":"content_block_stop","index":0}),
+        stop("tool_use"),
+        end(),
+    ])])]);
+    let mut r = request();
+    r.tools = vec![edit_tool()];
+    let (result, _, found) = calls(&provider(&base), &r);
+    assert!(matches!(result, Err(Error::Protocol)), "{result:?}");
+    assert!(found.is_empty());
+    server.join().unwrap();
+}
+
+#[test]
+fn no_tools_field_is_sent_when_there_are_none() {
+    let (base, server) = serve(vec![Canned::ok(vec![sse(&[
+        start(),
+        stop("end_turn"),
+        end(),
+    ])])]);
+    let _ = collect(&provider(&base), &request());
+    let body: Value = serde_json::from_slice(&server.join().unwrap()[0].body).unwrap();
+    assert!(body.get("tools").is_none());
 }

@@ -2,7 +2,7 @@
 
 > Especificação de trabalho **não construído**. Sai da fila quando o chat existir
 > e funcionar num release instalado. Decisão: [ADR-100](../docs/decisions.md#adr-100--an-opt-in-ai-assistant-calls-the-provider-from-rust-keeps-the-key-in-the-system-keychain-and-edits-the-open-note-through-the-editor).
-> **Estado em 01/10: os blocos 1 a 4 estão construídos (1.10.0 a 1.10.3).** Faltam os blocos 5 e 6.
+> **Estado em 01/10: os blocos 1 a 5 estão construídos (1.10.0 a 1.10.4).** Falta o bloco 6.
 >
 > Respostas do dono em 29/09: Anthropic **e** compatível com OpenAI; chave no
 > chaveiro do sistema; contexto = nota atual + o que ele anexar; a IA edita

@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { useAi, usable } from "../stores/ai";
-import { useAiChat, type Turn } from "../stores/aiChat";
+import { useAiChat, type EditCard, type Turn } from "../stores/aiChat";
 import { useEditor } from "../stores/editor";
 import { useUi } from "../stores/ui";
 import { useSelection } from "../editor/selection";
@@ -268,6 +268,9 @@ function Message({ turn }: { turn: Turn }) {
         <p className="note">{t("ai.chat.sent", { items: items.join(", ") })}</p>
       )}
       {ending[turn.state] && <p className="note">{ending[turn.state]}</p>}
+      {turn.edits?.map((card) => (
+        <EditCardView key={card.id} turn={turn.id} card={card} />
+      ))}
       {turn.state === "error" && turn.error && (
         <p role="alert" className="bad">
           {t(`ai.error.${turn.error.code}`, { detail: turn.error.detail ?? "" })}
@@ -285,5 +288,42 @@ function Message({ turn }: { turn: Turn }) {
         </button>
       )}
     </article>
+  );
+}
+
+/**
+ * One change the assistant made, or was asked to make and did not. Every card
+ * names the note, so what happened to the user's files is never implied, and an
+ * applied one can be undone from here while that is still safe: after the user
+ * has typed in the note, or opened another, the note's own Ctrl+Z is the way.
+ */
+function EditCardView({ turn, card }: { turn: number; card: EditCard }) {
+  const undoEdit = useAiChat((s) => s.undoEdit);
+  const name = card.path.split("/").pop() ?? card.path;
+  const applied = card.state === "applied";
+  const headline =
+    card.state === "undone"
+      ? t("ai.edit.undone", { name })
+      : applied
+        ? t(card.kind === "create" ? "ai.edit.created" : "ai.edit.edited", { name })
+        : card.kind === "rejected"
+          ? t("ai.edit.rejected", { name })
+          : t("ai.edit.notApplied", { name });
+  return (
+    <div className={applied ? "ai-edit applied" : "ai-edit"} role="group" aria-label={headline}>
+      <p>{headline}</p>
+      {card.why && (
+        <p className="note">
+          {t(`ai.edit.why.${card.why}`, { name })}
+          {card.detail ? ` ${card.detail}` : ""}
+        </p>
+      )}
+      {applied && card.undo && (
+        <button type="button" onClick={() => undoEdit(turn, card.id)}>
+          {t("ai.edit.undo")}
+        </button>
+      )}
+      {card.undoBlocked && <p className="note">{t("ai.edit.undoBlocked")}</p>}
+    </div>
   );
 }

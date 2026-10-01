@@ -41,8 +41,25 @@ impl AnthropicProvider {
     }
 }
 
+/// The most one tool call's argument may carry.
+const MAX_TOOL_INPUT: usize = 1024 * 1024;
+
+/// A tool call's argument. An empty one is `{}`, as the API sends for a tool with
+/// no required fields; anything that is not a JSON object is a reply this
+/// application cannot read, and says so instead of guessing.
+pub(crate) fn parse_input(json: &str) -> Result<serde_json::Value> {
+    if json.trim().is_empty() {
+        return Ok(serde_json::json!({}));
+    }
+    match serde_json::from_str::<serde_json::Value>(json) {
+        Ok(value) if value.is_object() => Ok(value),
+        _ => Err(Error::Protocol),
+    }
+}
+
 fn stop_reason(reason: &str) -> StopReason {
     match reason {
+        "tool_use" => StopReason::ToolUse,
         "end_turn" | "stop_sequence" => StopReason::EndTurn,
         "max_tokens" => StopReason::MaxTokens,
         "refusal" => StopReason::Refusal,
@@ -108,6 +125,20 @@ impl Provider for AnthropicProvider {
         if let Some(effort) = request.effort {
             body["output_config"] = serde_json::json!({"effort": effort.as_str()});
         }
+        if !request.tools.is_empty() {
+            body["tools"] = request
+                .tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.schema,
+                    })
+                })
+                .collect::<Vec<_>>()
+                .into();
+        }
         let post = self
             .clients
             .stream
@@ -118,6 +149,9 @@ impl Provider for AnthropicProvider {
             .header("accept", "text/event-stream")
             .body(serde_json::to_vec(&body).map_err(|_| Error::Protocol)?);
         let mut stop = None;
+        // A tool call arrives as a block that opens with its name, streams its
+        // argument as JSON fragments, and closes. Only a closed block is a call.
+        let mut open: std::collections::BTreeMap<u64, (String, String)> = Default::default();
         let done = transport::drive(post, cancel, |frame| {
             let value: serde_json::Value =
                 serde_json::from_str(&frame.data).map_err(|_| Error::Protocol)?;
@@ -125,6 +159,36 @@ impl Provider for AnthropicProvider {
                 Some("content_block_delta") if value["delta"]["type"] == "text_delta" => {
                     if let Some(text) = value["delta"]["text"].as_str() {
                         on_event(StreamEvent::Text(text.to_owned()));
+                    }
+                }
+                Some("content_block_start") if value["content_block"]["type"] == "tool_use" => {
+                    let index = value["index"].as_u64().ok_or(Error::Protocol)?;
+                    let name = value["content_block"]["name"]
+                        .as_str()
+                        .ok_or(Error::Protocol)?;
+                    open.insert(index, (name.to_owned(), String::new()));
+                }
+                Some("content_block_delta") if value["delta"]["type"] == "input_json_delta" => {
+                    let index = value["index"].as_u64().ok_or(Error::Protocol)?;
+                    if let (Some((_, json)), Some(part)) = (
+                        open.get_mut(&index),
+                        value["delta"]["partial_json"].as_str(),
+                    ) {
+                        // A model cannot make this buffer grow without bound.
+                        if json.len() + part.len() > MAX_TOOL_INPUT {
+                            return Err(Error::Protocol);
+                        }
+                        json.push_str(part);
+                    }
+                }
+                Some("content_block_stop") => {
+                    if let Some(index) = value["index"].as_u64() {
+                        if let Some((name, json)) = open.remove(&index) {
+                            on_event(StreamEvent::ToolCall {
+                                name,
+                                input: parse_input(&json)?,
+                            });
+                        }
                     }
                 }
                 Some("message_delta") => {

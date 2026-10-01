@@ -118,6 +118,17 @@ it is larger, and the answer to the start command lists exactly what was sent.
 The reply streams back as `ai:delta` events and ends with exactly one of `ai:done`
 and `ai:error`.
 
+The assistant changes a note only by asking: the model is offered two tools,
+`edit_note` and `create_note`, and `notes-ai` hands each call back whole, never as
+a fragment. The shell checks every call again (a schema is a request, not a
+guarantee) and sends the page an `ai:tool` event, still not a change. The page
+makes it, when the reply has finished and not before: all the edits to one note
+become a single CodeMirror transaction with its own undo step, through a bridge
+the editor registers, so one Ctrl+Z takes back the turn and the ordinary save path
+sees what looks like typing. Only a note the user shared in that turn may be
+edited, and nothing is applied after Stop or a failure. A new note goes through
+the core's `create_note`. No file is written by `notes-ai`, and none by the shell.
+
 `notes-server` is the only consumer that takes both `notes-core` and `notes-mcp`,
 which is the shape 0.7 argued for: one catalogue, two transports, no second
 implementation over the notes.

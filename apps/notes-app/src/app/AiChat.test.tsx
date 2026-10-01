@@ -5,10 +5,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { AiChat } from "./AiChat";
 import * as ipc from "../ipc";
 import { useAi } from "../stores/ai";
-import { useAiChat } from "../stores/aiChat";
+import { useAiChat, type EditCard, type NotApplied } from "../stores/aiChat";
 import { useEditor } from "../stores/editor";
 import { useUi } from "../stores/ui";
-import { registerSelection, setSelectionSize } from "../editor/selection";
+import { registerEditorBridge, registerSelection, setSelectionSize } from "../editor/selection";
+import en from "../i18n/en.json";
+import ptBR from "../i18n/pt-BR.json";
 
 type Handler = (e: { payload: unknown }) => void;
 const handlers: Record<string, Handler> = {};
@@ -151,4 +153,72 @@ it("lets the user choose the provider when there are several", () => {
   open();
   fireEvent.change(screen.getByLabelText("Provider"), { target: { value: "p2" } });
   expect(useAiChat.getState().provider).toBe("p2");
+});
+
+// ---- the cards of what the assistant did --------------------------------------
+
+const withCards = (edits: EditCard[]) =>
+  useAiChat.setState({
+    turns: [
+      { id: 1, role: "user", content: "reescreve", state: "done" },
+      { id: 2, role: "assistant", content: "Feito.", state: "done", edits },
+    ],
+  });
+
+it("shows what was edited, by name, with an Undo that takes it back while the editor still can", () => {
+  const undo = vi.fn(() => true);
+  registerEditorBridge({ noteId: "n1", apply: vi.fn(), undo } as never);
+  withCards([{ id: 1, kind: "edit", path: "notas/ideia.md", state: "applied", undo: { noteId: "n1", token: 4 } }]);
+  open();
+  expect(screen.getByRole("group", { name: "Edited ideia.md" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(undo).toHaveBeenCalledWith(4);
+  expect(screen.getByRole("group", { name: "Undid the change to ideia.md" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  registerEditorBridge(null);
+});
+
+it("says so, and points at Ctrl+Z, when the card can no longer undo", () => {
+  registerEditorBridge({ noteId: "n9", apply: vi.fn(), undo: vi.fn(() => true) } as never);
+  withCards([{ id: 1, kind: "edit", path: "a.md", state: "applied", undo: { noteId: "n1", token: 4 } }]);
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getByText(/Use Ctrl\+Z in the note/)).toBeInTheDocument();
+  registerEditorBridge(null);
+});
+
+it("a change that was not made says which note and why, with no Undo", () => {
+  withCards([
+    { id: 1, kind: "edit", path: "secret.md", state: "not_applied", why: "not_shared" },
+    { id: 2, kind: "create", path: "x.md", state: "not_applied", why: "failed", detail: "already_exists" },
+  ]);
+  open();
+  expect(screen.getByRole("group", { name: "Did not change secret.md" })).toBeInTheDocument();
+  expect(screen.getByText(/was not shared with the assistant/)).toBeInTheDocument();
+  expect(screen.getByText(/It failed\. already_exists/)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+});
+
+// A `Record` over the union: a reason added in code fails to compile until it is
+// listed here, and then fails below until it has words in both languages.
+const reasons: Record<NotApplied, true> = {
+  no_selection: true,
+  selection_changed: true,
+  not_shared: true,
+  read_only: true,
+  busy: true,
+  interrupted: true,
+  open_failed: true,
+  failed: true,
+  unknown_tool: true,
+  bad_arguments: true,
+  too_large: true,
+  too_many: true,
+};
+
+it("every reason a change may not be made has its words in both languages", () => {
+  for (const reason of Object.keys(reasons)) {
+    expect(en, reason).toHaveProperty([`ai.edit.why.${reason}`]);
+    expect(ptBR, reason).toHaveProperty([`ai.edit.why.${reason}`]);
+  }
 });
