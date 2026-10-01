@@ -88,7 +88,9 @@ class UpdaterReleaseTests(unittest.TestCase):
         updater.verify(self.artifact, '1.1.0')
 
     def test_the_signer_is_told_the_version_and_the_verifier_checks_it(self):
-        with patch.object(updater.subprocess, 'run') as run:
+        # `signing_env` looks for the owner's key under the home directory, which a
+        # CI machine has not got; nothing here signs, so it is replaced too.
+        with patch.object(updater.subprocess, 'run') as run, patch.object(updater, 'signing_env', return_value={}):
             run.return_value.returncode = 0
             updater.sign(self.artifact, '1.1.0')
         signing, verifying = run.call_args_list[0].args[0], run.call_args_list[1].args[0]

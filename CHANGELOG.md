@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.7 - the test of the version-bound signer no longer needs the owner's key to exist
+
+The 1.10.6 push turned the `contracts` job red, and it was my test. The new test of
+`sign()` replaces `subprocess.run` so that nothing is signed, but `sign()` first asks
+`signing_env()` for the environment, and that looks for the updater key under the
+home directory and refuses when it is missing. On this machine the key is there, so
+the whole gate passed; on a CI runner it is not, and the test died with the
+publisher's own refusal. Replacing `signing_env` too is the fix, and the failure was
+reproduced the way CI sees it, with `HOME` pointing at nowhere: red before the
+change, green after. The gate cannot tell these two machines apart, which is the
+reason the CI jobs are checked after every push and not only the gate before it.
+
 ## 1.10.6 - the updater signs the version into every release and the app refuses an update that does not name it
 
 The feed an installed application reads is fetched over TLS but is not signed
