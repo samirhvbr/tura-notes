@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.15 - the Debian runtime image digest in the server Dockerfile
+
+Dependabot #30. The runtime image in `server/Dockerfile`, `debian:bookworm-slim`,
+moves its pinned digest from `8820086` to `3783cc0`; the tag is unchanged. The
+digest is the one Dependabot resolved, not one derived here, and nothing else
+in the repository carried the old one.
+
 ## 1.9.15 - the Rust builder image digest in the server Dockerfile
 
 Dependabot #31. The Rust builder image in `server/Dockerfile` keeps its tag,
