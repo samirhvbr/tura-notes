@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.16 - @tauri-apps/cli 2.11.4 to 2.11.5
+
+Dependabot #39. The Tauri command-line tool, a development dependency. The range in `package.json` moves from ^2.1.0, the floor this repository had carried since it was created, to ^2.11.5, as Dependabot proposed, so a fresh install can no longer resolve an older CLI than the one the lockfile was tested with.
+
 ## 1.9.16 - @codemirror/view 6.43.12 to 6.43.13
 
 Dependabot #37. The editor's view layer, a runtime dependency of the editor itself: `THIRD-PARTY-NOTICES.md` is regenerated after `npm ci`. It is the package every keystroke goes through, so the editor and component tests in the gate are what vouch for it.
