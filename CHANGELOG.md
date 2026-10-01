@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.0 - the queue records the ten dependency updates as landed and the two new ones
+
+R9-00 is closed in the queue: the ten dependency updates landed in 1.9.15 to
+1.9.19, each green on all four operating systems. The three that CI had failed
+all failed for one reason, a stale `THIRD-PARTY-NOTICES.md` after a Cargo bump,
+and each bump now regenerates it. Dependabot closed eight of its pull requests
+by itself when their bumps reached master, and reopened the other two for newer
+versions, tauri 2.12.0 and the updater plugin 2.13.0. They are R9-08, with the
+same method: read the crate's source and not only its changelog, since the
+updater's 2.12.0 changelog left out the change that mattered.
+
 ## 1.10.0 - the notes-ai crate streams Anthropic replies, the first block of the AI assistant
 
 The first block of the AI assistant (ADR-100): a new crate, `notes-ai`, with
