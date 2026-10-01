@@ -425,7 +425,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tauri-plugin-dialog` | 2.7.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-fs` | 2.5.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-shell` | 2.3.6 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
-| Rust: `tauri-plugin-updater` | 2.11.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| Rust: `tauri-plugin-updater` | 2.12.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-runtime` | 2.11.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-runtime-wry` | 2.11.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-utils` | 2.9.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
@@ -7227,7 +7227,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.11.6, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.11.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.11.1
+### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.11.6, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.12.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.11.1
 
 ```text
 Apache License
@@ -15517,7 +15517,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tauri 2.11.6, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.11.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, @tauri-apps/api 2.11.1
+### tauri 2.11.6, tauri-codegen 2.6.3, tauri-macros 2.6.3, tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.12.0, tauri-runtime 2.11.3, tauri-runtime-wry 2.11.4, tauri-utils 2.9.3, @tauri-apps/api 2.11.1
 
 ```text
 MIT License
@@ -15543,7 +15543,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.11.0, @tauri-apps/plugin-dialog 2.7.3
+### tauri-plugin-dialog 2.7.3, tauri-plugin-fs 2.5.2, tauri-plugin-shell 2.3.6, tauri-plugin-updater 2.12.0, @tauri-apps/plugin-dialog 2.7.3
 
 ```text
 SPDXVersion: SPDX-2.1

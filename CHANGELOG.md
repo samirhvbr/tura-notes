@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.19 - tauri-plugin-updater 2.11.0 to 2.12.0, which now checks a signed version
+
+Dependabot #32, the last of the three that failed CI's `contracts` job, and the
+one that gets the most care because this plugin is what downloads, verifies and
+installs an update. The failure was the same as the other two Cargo bumps:
+`THIRD-PARTY-NOTICES.md` names the exact version of every runtime crate, so it
+is regenerated here (one row, 2.11.0 to 2.12.0). The lockfile change is
+Dependabot's, version and checksum only, with no new dependency.
+
+What 2.12.0 changes, read from the two crates' sources rather than from its
+changelog, which lists only the first item. First, the `allowDowngrades` option
+leaves the webview's `check` command and moves to plugin configuration, so
+code in the webview can no longer relax "newer" to "different". This
+application checks from Rust, not through that command, and does not set the
+option, so nothing here is affected. Second, and not in the changelog,
+`verify_signature` now also reads a `version:` field from the signature's signed
+trusted comment and refuses an update whose signed version differs from the one
+the endpoint announced. That field is optional unless `require_signed_version`
+is set, and it defaults to off. Our signatures carry no `version:` (the comment
+is `timestamp:… file:…`, seen on the published 1.8.58 package), so they pass
+exactly as before, and the install path, `install_deb` and its `pkexec`
+chain, is untouched. The plugin's own source says what leaving the flag off
+costs: a signature without a version can be served in place of one with it. That
+hardening is not part of this bump and is queued as R9-07, since it needs the
+publisher to write the version into the comment first.
+
+Vouched for by the full local gate (which builds and lints the shell that calls
+the updater and runs the updater publication tests), the Rust tests on the CI
+server, and CI on all four operating systems. The owner's installed copy
+updating itself to the next release remains the real acceptance.
+
 ## 1.9.18 - tauri 2.11.5 to 2.11.6 with its notice regenerated
 
 Dependabot #36. The Tauri framework crate, 2.11.5 to 2.11.6, a runtime
