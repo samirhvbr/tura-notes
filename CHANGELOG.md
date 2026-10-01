@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.10 - @tauri-apps/api 2.11.1 to 2.12.1, so the Tauri CLI stops refusing to build against the 2.12 crate
+
+`./build-local.sh --publish` aborted in step 3 of 4, seven seconds into the build,
+with the CLI's own refusal: `tauri (v2.12.0) : @tauri-apps/api (v2.11.1)`, "Make sure
+the NPM package and Rust crate versions are on the same major/minor releases". The
+cause is 1.10.8, which moved the `tauri` crate to 2.12.0 and left the JavaScript side
+where it was. `package.json` asks for `^2.1.1`, which already allows 2.12, so nothing
+in it needed to change; it was the lockfile that pinned 2.11.1, and `npm ci` installs
+exactly what the lockfile says. `npm update @tauri-apps/api` moved that one package
+to 2.12.1 and nothing else in the lockfile.
+
+Why the gate did not see it: the check lives inside `tauri build` and `tauri dev`,
+and the gate runs neither. The Rust build, both clippy runs, the Rust tests and the
+front-end lint and tests all passed on 1.10.8 and 1.10.9, truthfully, and none of
+them compares the two sides. After the change `tauri info` lists `tauri 2.12.0` next
+to `@tauri-apps/api 2.12.1` with no mismatch line, and the front-end lint and the 267
+tests pass. `@tauri-apps/plugin-dialog` was checked against its crate in the same
+pass and already agrees (2.7.3 on both sides), so it is left alone. The bundling
+itself was not re-run here, since `--publish` ships a release to the download
+server and that is the owner's to start.
+
 ## 1.10.9 - tauri-plugin-updater 2.12.0 to 2.13.0, which no longer sets certificate paths for the whole process
 
 The second Dependabot bump of the pair (#32), and it had to come after the
