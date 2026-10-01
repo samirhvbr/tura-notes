@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.17 - thiserror 2.0.20 to 2.0.21 with its notices regenerated
+
+Dependabot #34. The error-derive macro every crate here uses, 2.0.20 to
+2.0.21, a runtime dependency (the macro and its `thiserror-impl`). This is one
+of the three pull requests that failed CI's `contracts` job, and it failed for
+the reason the other two Cargo bumps would have: `THIRD-PARTY-NOTICES.md` lists
+the exact version of every runtime Rust crate, so a lockfile bump makes it
+stale until `tools/third-party.py` regenerates it. It is regenerated here, and
+the two rows and the grouped licence headings that name 2.0.20 move to 2.0.21.
+The Rust tests, run on the CI server as well as locally, are what vouch for it.
+
 ## 1.9.16 - @tauri-apps/cli 2.11.4 to 2.11.5
 
 Dependabot #39. The Tauri command-line tool, a development dependency. The range in `package.json` moves from ^2.1.0, the floor this repository had carried since it was created, to ^2.11.5, as Dependabot proposed, so a fresh install can no longer resolve an older CLI than the one the lockfile was tested with.
