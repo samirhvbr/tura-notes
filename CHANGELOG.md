@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.18 - tauri 2.11.5 to 2.11.6 with its notice regenerated
+
+Dependabot #36. The Tauri framework crate, 2.11.5 to 2.11.6, a runtime
+dependency: it is the desktop shell. Like thiserror before it, it failed CI's
+`contracts` job only because `THIRD-PARTY-NOTICES.md` names the exact version
+of every runtime crate, and a lockfile bump makes that file stale until
+`tools/third-party.py` regenerates it. The one row that named 2.11.5 moves to
+2.11.6. The lockfile change is Dependabot's, applied with a no-commit
+cherry-pick on top of the thiserror bump. The desktop crate is the one this
+bump touches, and the CI server cannot build it (no GTK or webkit headers), so
+this version is vouched for by the whole local gate, which builds and lints it,
+and by CI on all four operating systems.
+
 ## 1.9.17 - thiserror 2.0.20 to 2.0.21 with its notices regenerated
 
 Dependabot #34. The error-derive macro every crate here uses, 2.0.20 to
