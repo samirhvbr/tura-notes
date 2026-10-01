@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.8 - tauri 2.11.6 to 2.12.0 with its transitive crates and its notice regenerated
+
+The framework's own minor, landed by hand like the other Dependabot bumps (it is
+#36). The release notes list three additions, so before taking it the source of the
+two versions was diffed rather than the notes trusted, as was done for the updater
+plugin, whose notes had left out the change that mattered. The additions are
+`limitNavigationsToAppBoundDomains` (a WebKit option, off unless configured),
+`app > appDirectoriesOverride` (a config key that moves the `app_*_dir` answers,
+unset here) and a `plugin:app|exit` command behind a new `core:app:allow-exit`
+permission. The last one is the only thing that touches the webview's reach, and it
+is not part of `core:default`, which is what this application's capability file
+grants, so the page still cannot quit the application by itself; the permission set
+was read in the crate. The rest of the diff is formatting and the move to edition
+2024 inside the crate.
+
+The lockfile moves a good deal more than one crate: `wry` 0.55 to 0.57, the
+runtime, `tray-icon`, `muda`, `window-vibrancy`, `webview2-com`, and a number of
+parsers under the tauri tooling (`cssparser`, `html5ever`, `toml` 1, `brotli` 9),
+which is why the notice file moves by 369 lines. It was regenerated and the check
+passes, and the license set did not grow beyond what the allowlist already names
+(the MPL-2.0 lines are the same eight, with `cssparser` now present at two versions). The
+transitive crates that were removed include the old Windows crate family. Native
+build, both clippy runs, the Rust tests and the front-end gate pass here; the
+desktop shell on macOS and Windows is what the CI jobs check, and they are the
+reason this is pushed alone.
+
 ## 1.10.7 - the test of the version-bound signer no longer needs the owner's key to exist
 
 The 1.10.6 push turned the `contracts` job red, and it was my test. The new test of
