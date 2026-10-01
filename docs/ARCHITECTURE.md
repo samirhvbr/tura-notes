@@ -61,7 +61,8 @@ notes/
 │   ├── notes-index/                [0.2] SQLite, FTS5, parsed links; tags at 0.3
 │   ├── notes-mcp/                  [0.3] the tool catalogue and JSON-RPC envelope (lib) + the stdio server (bin)
 │   ├── notes-sync/                 [0.6] causal revisions, hashes, tombstones, conflict plans — no I/O
-│   └── notes-sync-client/          [0.6] durable transfer queues over notes-core
+│   ├── notes-sync-client/          [0.6] durable transfer queues over notes-core
+│   └── notes-ai/                   [ADR-100] provider clients for the opt-in AI assistant — no note, no file
 ├── server/
 │   └── notes-server/               [0.5] the standalone REST process, and [0.7] POST /v1/mcp
 ├── fixtures/
@@ -98,6 +99,15 @@ notes-model ← notes-sync ─────┘         ↑
 domain that cannot be reasoned about without a filesystem is one nobody can test.
 `notes-sync-client` is the half that does the I/O, and it is above `notes-core`.
 
+`notes-ai` depends on no other crate of this workspace, on purpose
+([ADR-100](decisions.md#adr-100--an-opt-in-ai-assistant-calls-the-provider-from-rust-keeps-the-key-in-the-system-keychain-and-edits-the-open-note-through-the-editor)).
+It speaks to a provider's API and parses the stream, and it is handed text. What
+goes into a request is chosen and read by the caller through `notes-core`, and
+what comes back is applied by the editor, so this crate can neither read a note
+nor write a file. It is the only code in the application, apart from
+`notes-sync-client`, that opens an outbound connection, and it does so only when
+the assistant has been switched on.
+
 `notes-server` is the only consumer that takes both `notes-core` and `notes-mcp`,
 which is the shape 0.7 argued for: one catalogue, two transports, no second
 implementation over the notes.
@@ -123,6 +133,7 @@ schema change that forces a migration or reindex is a **Y** bump.
 | `notes-mcp` `[0.3]` | the tool catalogue, argument schemas and JSON-RPC envelope in `lib.rs`; the stdio server in `main.rs`; permission scopes; base-rev enforcement | contain any note logic not in `notes-core`; hold a second description of a tool — `tools()` moved into the library at `1.6.4` so both transports answer `tools/list` from one place, and a schema cannot drift between them |
 | `notes-sync` `[0.6]` | causal revision histories, content hashes, tombstones, conflict detection and plans | do I/O; know about a server, a queue or a filesystem |
 | `notes-sync-client` `[0.6]` | durable transfer queues, resumable passes, receipts, and applying a prepared queue through `notes-core` | decide a conflict; apply anything with a workspace open |
+| `notes-ai` `[ADR-100]` | `Provider` (`models`, `stream`), the Anthropic Messages client, SSE parsing, endpoint validation (https, or http for loopback only), an `ApiKey` that cannot be printed | depend on a workspace crate; read a note; write a file; log a key, a prompt or a reply; follow a redirect; hold a key anywhere but in memory |
 
 `notes-core` is the only public API. `src-tauri` and `notes-mcp` are clients of
 it and contain no policy of their own.

@@ -7,6 +7,54 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.0 - the notes-ai crate streams Anthropic replies, the first block of the AI assistant
+
+The first block of the AI assistant (ADR-100): a new crate, `notes-ai`, with
+the Anthropic provider and the machinery under it. It is a minor version because
+a new crate under `crates/` is one. It is not wired to the application yet, so
+nothing in the app changes and no connection can be opened: the assistant
+arrives block by block (R9-02 to R9-06), off by default (ADR-007).
+
+What is in it. A `Provider` trait with two calls: `models`, which lists what a
+key can use and doubles as the key test, and `stream`, which hands back text as
+it arrives. `AnthropicProvider` sends the Messages API request
+(`x-api-key`, `anthropic-version: 2023-06-01`, `stream: true`) and reads the
+event stream. It sends `output_config.effort` only when the caller sets one, and
+leaves thinking to the model's default, because an explicit thinking setting is
+a 400 on Opus 5.5 and an older model rejects effort. The SSE parser is
+incremental: a network read can end inside an event or inside a multi-byte
+character, so it splits on newlines before decoding, and a test cuts the same
+stream at every byte offset and requires the same frames. A stream that ends
+without `message_stop` is a protocol error and not a success; `max_tokens` and
+`refusal` are results the interface must say aloud, and the text delivered before
+them is kept; an error event in the middle of a stream keeps what came before it.
+
+What it refuses. The base URL must be `https`, or `http` for a loopback host
+only, which is how a local Ollama is reached, because a key over plain http to a
+remote host crosses the network readable; it may not carry a user, password,
+query or fragment. Redirects are never followed, so a key cannot be forwarded to
+another host. `ApiKey` has no `Display` and a `Debug` that prints nothing of it,
+rejects anything a header cannot carry, and no key, prompt or reply is logged. An
+error's text is the provider's own sentence, shortened and stripped of control
+characters; for 401 and 403 it is a fixed message, so nothing the provider
+echoes can carry the key out.
+
+The one structural choice. `reqwest`'s blocking client has no per-read timeout,
+and a stream can sit quiet while a model thinks and must still stop at once when
+the user presses Stop. The request runs on a worker thread that forwards what it
+reads, and the caller polls every 250 ms for the cancel flag and for 120 seconds
+without a byte, with a 600-second ceiling on the client so the thread always ends.
+
+Twenty tests, nine unit and eleven against a fake server on loopback that plays
+back canned replies: no real key and no spend. They cover text across seven-byte
+reads, the exact headers and body, effort and system omitted when unset, every
+stop reason, a mid-stream error, a truncated stream, each status, the redirect,
+the model list and the key test, a prompt Stop while the provider is quiet, and
+the key never appearing in a body, an error or a debug string. The timing tests
+were run fifteen times in a row without a failure. The architecture page, the
+`CLAUDE.md` and `AGENTS.md` layout line, the queue and ADR-100 say the crate
+exists.
+
 ## 1.9.19 - tauri-plugin-updater 2.11.0 to 2.12.0, which now checks a signed version
 
 Dependabot #32, the last of the three that failed CI's `contracts` job, and the
