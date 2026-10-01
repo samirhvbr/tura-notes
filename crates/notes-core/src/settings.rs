@@ -60,6 +60,42 @@ pub struct LinuxSettings {
     pub webkit_dmabuf_workaround: String,
 }
 
+/// What kind of server a provider is (ADR-100).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiProviderKind {
+    Anthropic,
+    /// OpenAI, OpenRouter, or a local Ollama or LM Studio. Named explicitly:
+    /// the derived name would be `open_ai_compatible`.
+    #[serde(rename = "openai_compatible")]
+    #[ts(rename = "openai_compatible")]
+    OpenAiCompatible,
+}
+
+/// One configured AI provider. **No secret is here.** The API key lives in the
+/// system keychain under this `id`, and whether one is set is asked of the
+/// keychain each time rather than stored, so it cannot drift from the truth.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiProviderSettings {
+    pub id: String,
+    pub kind: AiProviderKind,
+    pub name: String,
+    pub base_url: String,
+    pub model: String,
+}
+
+/// The opt-in AI assistant (ADR-100). Off by default: until `enabled` is set,
+/// the application opens no connection for it (ADR-007).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiSettings {
+    pub enabled: bool,
+    pub default_provider: Option<String>,
+    pub providers: Vec<AiProviderSettings>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Settings {
@@ -69,6 +105,10 @@ pub struct Settings {
     pub markdown: MarkdownSettings,
     pub ui: UiSettings,
     pub linux: LinuxSettings,
+    /// Absent from a file written before the assistant existed, which then
+    /// reads as off. An older build reading a newer file ignores it.
+    #[serde(default)]
+    pub ai: AiSettings,
 }
 
 impl Default for Settings {
@@ -98,6 +138,7 @@ impl Default for Settings {
             linux: LinuxSettings {
                 webkit_dmabuf_workaround: "auto".into(),
             },
+            ai: AiSettings::default(),
         }
     }
 }
@@ -166,5 +207,56 @@ impl Schemad for Session {
     const NAME: &'static str = "session.json";
     fn schema(&self) -> u32 {
         self.schema
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_written_before_the_assistant_reads_as_off() {
+        let mut v = serde_json::to_value(Settings::default()).unwrap();
+        v.as_object_mut().unwrap().remove("ai");
+        let s: Settings = serde_json::from_value(v).unwrap();
+        assert_eq!(s.ai, AiSettings::default());
+        assert!(!s.ai.enabled && s.ai.providers.is_empty() && s.ai.default_provider.is_none());
+    }
+
+    #[test]
+    fn the_assistant_settings_round_trip_and_hold_no_secret() {
+        let s = Settings {
+            ai: AiSettings {
+                enabled: true,
+                default_provider: Some("p1".into()),
+                providers: vec![AiProviderSettings {
+                    id: "p1".into(),
+                    kind: AiProviderKind::OpenAiCompatible,
+                    name: "Ollama".into(),
+                    base_url: "http://localhost:11434/v1".into(),
+                    model: "llama3.1".into(),
+                }],
+            },
+            ..Settings::default()
+        };
+        let text = serde_json::to_string(&s).unwrap();
+        assert!(text.contains(r#""kind":"openai_compatible""#), "{text}");
+        // Only the assistant's own section is looked at: a field elsewhere
+        // may have "key" in its name for reasons of its own.
+        let ai = serde_json::to_string(&serde_json::to_value(&s).unwrap()["ai"]).unwrap();
+        assert!(
+            !ai.to_ascii_lowercase().contains("key"),
+            "a provider has no key field: {ai}"
+        );
+        let back: Settings = serde_json::from_str(&text).unwrap();
+        assert_eq!(back.ai, s.ai);
+    }
+
+    #[test]
+    fn a_newer_file_with_fields_this_build_does_not_know_still_loads() {
+        let mut v = serde_json::to_value(Settings::default()).unwrap();
+        v["ai"]["from_the_future"] = serde_json::json!(true);
+        v["something_new"] = serde_json::json!(1);
+        assert!(serde_json::from_value::<Settings>(v).is_ok());
     }
 }

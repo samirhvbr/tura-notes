@@ -719,6 +719,21 @@ code { font-family: var(--font-mono); }
 }
 .dialog.settings label.check input { width: auto; margin: 0; }
 
+/* The AI assistant's section (ADR-100). Text fields take the same look as the
+   number and select above; the dialog widens a little for a provider's row. */
+.dialog.settings input[type="text"], .dialog.settings input[type="url"],
+.dialog.settings input[type="password"], .dialog.settings input:not([type]) {
+  width: 100%; font: inherit; color: var(--fg); background: var(--field);
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px;
+  margin-bottom: 10px;
+}
+.ai-settings .note { font-size: 12px; color: var(--fg-dim); margin: 0 0 10px; }
+.ai-settings fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 10px 0; padding: 10px; }
+.ai-settings fieldset label { display: block; margin: 4px 0; font-size: 13px; }
+.ai-providers { list-style: none; padding: 0; margin: 0 0 10px; }
+.ai-providers li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ai-providers li > span:first-child { flex: 1 0 100%; font-size: 13px; }
+
 
 /* ---------------------------------------------------------------- menus --- */
 /* One popup for the workspace selector, the note header's `⋮` and the

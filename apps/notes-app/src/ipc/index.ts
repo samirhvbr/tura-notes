@@ -107,6 +107,40 @@ export function asCoreError(e: unknown): CoreError {
   return { code: "internal", message: String(e) };
 }
 
+// ---- the AI assistant (ADR-100) ------------------------------------------
+export type { AiError } from "./generated/AiError";
+export type { AiErrorCode } from "./generated/AiErrorCode";
+export type { AiKeychainState } from "./generated/AiKeychainState";
+export type { AiModel } from "./generated/AiModel";
+export type { AiOverview } from "./generated/AiOverview";
+export type { AiProviderInput } from "./generated/AiProviderInput";
+export type { AiProviderKind } from "./generated/AiProviderKind";
+export type { AiProviderView } from "./generated/AiProviderView";
+export type { AiTest } from "./generated/AiTest";
+
+/** An assistant command's rejection. Like `asCoreError`, never read for its
+ *  message: `code` maps to a sentence of the interface's own. */
+export function asAiError(e: unknown): import("./generated/AiError").AiError {
+  if (e && typeof e === "object" && "code" in e) return e as import("./generated/AiError").AiError;
+  return { code: "internal", detail: null };
+}
+export const aiOverview = () => invoke<import("./generated/AiOverview").AiOverview>("ai_overview");
+export const aiSetEnabled = (enabled: boolean) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_set_enabled", { enabled });
+export const aiProviderSave = (provider: import("./generated/AiProviderInput").AiProviderInput) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_provider_save", { provider });
+export const aiProviderRemove = (id: string) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_provider_remove", { id });
+export const aiSetDefault = (id: string) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_set_default", { id });
+/** The one place a key goes in. It is stored in the system keychain and never
+ *  comes back: the answer only says that one is configured. */
+export const aiKeySet = (id: string, key: string) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_key_set", { id, key });
+export const aiKeyClear = (id: string) =>
+  invoke<import("./generated/AiOverview").AiOverview>("ai_key_clear", { id });
+export const aiTest = (id: string) => invoke<import("./generated/AiTest").AiTest>("ai_test", { id });
+
 export const envReport = () => invoke<EnvReport>("env_report");
 
 export const workspaceOpen = (root: string) =>

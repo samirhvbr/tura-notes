@@ -18,6 +18,8 @@ tauri-build = { version = "2", features = [] }
 notes-model = { workspace = true }
 notes-core = { workspace = true }
 notes-sync-client = { path = "../../../crates/notes-sync-client" }
+notes-ai = { path = "../../../crates/notes-ai" }
+uuid = { workspace = true }
 notes-markdown = { workspace = true }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

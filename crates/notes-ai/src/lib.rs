@@ -11,12 +11,14 @@
 
 mod anthropic;
 mod endpoint;
+mod keychain;
 mod openai;
 mod sse;
 mod transport;
 
 pub use anthropic::AnthropicProvider;
 pub use endpoint::validate_base;
+pub use keychain::{KeyStore, KeychainError, MemoryKeyStore, SystemKeychain, SERVICE};
 pub use openai::{OpenAiProvider, TokenLimit};
 
 use std::sync::atomic::AtomicBool;

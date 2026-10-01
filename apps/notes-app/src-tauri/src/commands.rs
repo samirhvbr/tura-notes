@@ -532,7 +532,11 @@ pub fn settings_get(app: State<'_, App>) -> R<Settings> {
 
 #[tauri::command]
 pub fn settings_set(app: State<'_, App>, settings: Settings) -> R<()> {
-    svc(&app)?.set_settings(settings)
+    let mut svc = svc(&app)?;
+    // The assistant's section is changed only by its own commands, which
+    // validate it (ADR-100); a whole-settings write cannot slip around them.
+    let settings = crate::ai::keep_ai(settings, svc.settings());
+    svc.set_settings(settings)
 }
 
 #[tauri::command]

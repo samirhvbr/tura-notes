@@ -1,4 +1,5 @@
 import { UpdateButton } from "./Updater";
+import { AiSettingsSection } from "./AiSettings";
 import { useModalSurface } from "./modal";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
@@ -134,6 +135,8 @@ export function SettingsPanel({
           <option value="en">English</option>
           <option value="pt-BR">Português (Brasil)</option>
         </select>
+
+        <AiSettingsSection />
 
         {/* Diagnostics. They used to sit in the window's top bar, where they
             were the first thing anyone saw and almost never what anyone

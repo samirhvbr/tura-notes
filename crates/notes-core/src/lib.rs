@@ -7,6 +7,7 @@
 
 mod activity;
 pub mod agent;
+pub mod assistant;
 pub mod attachments;
 pub mod conflicts;
 pub mod content_index;

@@ -1,6 +1,7 @@
 //! The Tauri shell. Thin by rule (ADR-003): it wires commands to `notes-core`
 //! and holds no policy of its own.
 
+mod ai;
 mod asset;
 mod commands;
 pub mod linux;
@@ -215,6 +216,14 @@ pub fn run() {
             commands::session_save,
             commands::settings_get,
             commands::settings_set,
+            ai::ai_overview,
+            ai::ai_set_enabled,
+            ai::ai_provider_save,
+            ai::ai_provider_remove,
+            ai::ai_set_default,
+            ai::ai_key_set,
+            ai::ai_key_clear,
+            ai::ai_test,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

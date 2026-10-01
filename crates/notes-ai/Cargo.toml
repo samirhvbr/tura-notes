@@ -12,3 +12,7 @@ thiserror.workspace = true
 # platform proxy surprises (ADR-100 keeps every call in Rust).
 reqwest = { version = "=0.13.5", default-features = false, features = ["blocking", "json", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# The system keychain: Keychain on macOS, Credential Manager on Windows, the
+# Secret Service on Linux (over D-Bus in pure Rust, so no system library is
+# needed to build). ADR-100: a key is never written to a file.
+keyring = "4"

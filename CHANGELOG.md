@@ -7,6 +7,53 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.2 - the AI assistant has a settings section, keys in the system keychain, and a provider test
+
+The third block of the AI assistant (R9-03): where a provider is configured and
+where its key lives. There is now a section, "AI assistant", in Settings. It is
+off until the user turns it on, and it always shows the sentence that says what
+turning it on means: the text sent leaves this computer for the provider chosen.
+A provider is a type (Anthropic, or OpenAI-compatible), a name, a server
+address, a model, and an optional key. Nothing yet sends a note anywhere: the
+chat is block 4.
+
+The key goes to the system keychain and nowhere else. Its field is write-only
+and password-typed, it is sent once through its own command, and the field is
+emptied as soon as the call returns whether or not it worked. Nothing returns a
+key, so nothing can show one, and a test searches the whole rendered page for
+the typed key after saving and finds none. The screen shows only "key saved" or
+"no key", asked of the keychain each time. The stored settings hold no key and
+no such flag, so what is shown cannot drift from what is stored. There is no
+fallback to a file: where the system has no keychain the section says so, a
+provider that needs a key cannot be used, and a local server such as Ollama,
+which needs none, still works.
+
+Every edit is validated in Rust and never trusted from the page: a name of up to
+60 characters, a model id from a small alphabet, and a server address that is
+`https`, or `http` for this machine only. An Anthropic provider may leave the
+address empty for the official API; the others must name a server. Twelve
+providers at most. Nothing that opens a connection can be built while the
+assistant is off, which is where ADR-007's promise is kept, and a test holds
+it. The generic whole-settings command now puts the assistant's section back as
+it was, so no page can get around the checks by writing the file's shape.
+Testing a provider lists its models through the same call that tests the key,
+and a key the provider refuses is an error and not an empty list.
+
+The settings gain an optional `ai` section. A file written before it reads as
+off, and an older build reading a newer file ignores it, both tested. The
+commands and their types are in `notes-core` (data only) and the shell, with the
+logic as small functions that are tested without a window or a keychain: twelve
+shell tests, three on the settings, nine on the component.
+
+What it cost, measured: `keyring` 4 brings 60 new crates, nearly all of them the
+pure-Rust D-Bus stack that reaches the Secret Service on Linux, so no system
+library is needed to build. The third-party notices are regenerated and both the
+licence check and the advisory scan pass over them. The keychain is reached on a
+thread of its own, because on Linux it is a D-Bus round trip that may wait on an
+unlock prompt. One test is ignored on purpose: a round trip against the real
+keychain of the machine, which CI has no session for, kept for the owner's
+acceptance of the assistant.
+
 ## 1.10.1 - the notes-ai crate speaks OpenAI-compatible servers, with an optional key for local ones
 
 The second block of the AI assistant (R9-02): the OpenAI-compatible provider.

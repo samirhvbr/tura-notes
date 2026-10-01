@@ -3251,7 +3251,7 @@ the owner chose that the two stay independent and are compared.
 
 ## ADR-100 — An opt-in AI assistant calls the provider from Rust, keeps the key in the system keychain, and edits the open note through the editor
 
-**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · block 1 of 6 built in 1.10.0 (the `notes-ai` crate and the Anthropic provider); the rest is in `.continue/assistente-ia.md`
+**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · blocks 1 to 3 of 6 built in 1.10.0 to 1.10.2 (the `notes-ai` crate with both providers, and the keychain and the settings section); the rest is in `.continue/assistente-ia.md`
 
 **Context.** The owner wants an AI to help write documents, used through a
 provider's API with keys entered in Settings, and a chat to drive it. Three
@@ -3290,4 +3290,14 @@ surface to list in `security.md` §2. Direct edits trade the "propose, then
 apply" safety for speed, which the owner chose. Undo and the "Edited" card are
 what make that acceptable, and the edit never bypasses the BaseRev check or the
 draft and conflict paths. Android is out of the first version.
+
+**Measured at block 3.** `keyring` 4 on its default features brings 60 new
+crates into the build, almost all of them the pure-Rust D-Bus stack that talks
+to the Secret Service on Linux (`zbus` and the `async-*` crates under it). That
+is the price of needing no system library to build, and the reason the licence
+check and the advisory scan both run over it. The keychain is reached on a
+thread of its own, because a Linux call is a D-Bus round trip and may wait on an
+unlock prompt. The assistant's stored settings hold no key and no "key
+configured" flag: the screen asks the keychain each time, so what it shows
+cannot drift from what is stored.
 
