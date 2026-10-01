@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.16 - vite 8.3.0 to 8.3.1
+
+Dependabot #33. The build tool and dev server, a development dependency: it ships in nothing, so `THIRD-PARTY-NOTICES.md` does not move. The lockfile change is Dependabot's, applied with a cherry-pick that does not commit and re-resolved by `npm ci`. The frontend build, tests and advisories are the gate's.
+
 ## 1.9.15 - the Debian runtime image digest in the server Dockerfile
 
 Dependabot #30. The runtime image in `server/Dockerfile`, `debian:bookworm-slim`,
