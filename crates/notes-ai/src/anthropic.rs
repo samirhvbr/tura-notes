@@ -1,7 +1,7 @@
 use crate::{
     endpoint::validate_base,
-    sse, tidy,
-    transport::{self, status_error, Clients},
+    tidy,
+    transport::{self, status_error, Clients, Flow},
     ApiKey, ChatRequest, Error, ModelInfo, Provider, Result, StopReason, StreamEvent,
 };
 use reqwest::Url;
@@ -117,40 +117,38 @@ impl Provider for AnthropicProvider {
             .header("content-type", "application/json")
             .header("accept", "text/event-stream")
             .body(serde_json::to_vec(&body).map_err(|_| Error::Protocol)?);
-        let mut reply = transport::open(post, cancel)?;
-        if !(200..300).contains(&reply.status) {
-            let body = reply.rest(cancel)?;
-            return Err(status_error(reply.status, &body));
-        }
-        let mut parser = sse::Parser::default();
         let mut stop = None;
-        while let Some(chunk) = reply.next(cancel)? {
-            for frame in parser.push(&chunk)? {
-                let value: serde_json::Value =
-                    serde_json::from_str(&frame.data).map_err(|_| Error::Protocol)?;
-                match value["type"].as_str() {
-                    Some("content_block_delta") if value["delta"]["type"] == "text_delta" => {
-                        if let Some(text) = value["delta"]["text"].as_str() {
-                            on_event(StreamEvent::Text(text.to_owned()));
-                        }
+        let done = transport::drive(post, cancel, |frame| {
+            let value: serde_json::Value =
+                serde_json::from_str(&frame.data).map_err(|_| Error::Protocol)?;
+            match value["type"].as_str() {
+                Some("content_block_delta") if value["delta"]["type"] == "text_delta" => {
+                    if let Some(text) = value["delta"]["text"].as_str() {
+                        on_event(StreamEvent::Text(text.to_owned()));
                     }
-                    Some("message_delta") => {
-                        if let Some(reason) = value["delta"]["stop_reason"].as_str() {
-                            stop = Some(stop_reason(reason));
-                        }
-                    }
-                    Some("message_stop") => return Ok(stop.unwrap_or(StopReason::EndTurn)),
-                    Some("error") => {
-                        let message = value["error"]["message"]
-                            .as_str()
-                            .unwrap_or("unknown error");
-                        return Err(Error::Provider(tidy(message)));
-                    }
-                    _ => {} // message_start, content_block_start/stop, thinking_delta, ping
                 }
+                Some("message_delta") => {
+                    if let Some(reason) = value["delta"]["stop_reason"].as_str() {
+                        stop = Some(stop_reason(reason));
+                    }
+                }
+                Some("message_stop") => return Ok(Flow::Done),
+                Some("error") => {
+                    let message = value["error"]["message"]
+                        .as_str()
+                        .unwrap_or("unknown error");
+                    return Err(Error::Provider(tidy(message)));
+                }
+                _ => {} // message_start, content_block_start/stop, thinking_delta, ping
             }
+            Ok(Flow::Continue)
+        })?;
+        // A body that ends before `message_stop` is a truncated reply, not a
+        // finished one.
+        if done {
+            Ok(stop.unwrap_or(StopReason::EndTurn))
+        } else {
+            Err(Error::Protocol)
         }
-        // The body ended and the provider never said it was done.
-        Err(Error::Protocol)
     }
 }

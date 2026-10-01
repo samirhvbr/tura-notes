@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.1 - the notes-ai crate speaks OpenAI-compatible servers, with an optional key for local ones
+
+The second block of the AI assistant (R9-02): the OpenAI-compatible provider.
+`OpenAiProvider` speaks the chat-completions protocol, so one provider covers
+OpenAI itself, OpenRouter, and a local Ollama or LM Studio. Like the Anthropic
+one it is not wired to the application yet, so nothing visible changes.
+
+The key is optional. A local server asks for none, and for it no
+`authorization` header is sent at all, which a test checks. The reply's length
+limit goes in `max_completion_tokens` for `api.openai.com`, whose current models
+reject `max_tokens`, and in `max_tokens` for every other host, which are
+imitations that take it; `with_token_limit` flips it for a server that wants the
+other. `effort` is not sent, because it is an Anthropic control with no portable
+spelling here and a server that does not know a field may refuse the request.
+
+The stream ends the way OpenAI's does, with `data: [DONE]`. A server that closes
+after a finish reason without it has still finished, and one that closes with no
+finish reason has been cut off and is a protocol error, so a truncated reply is
+never reported as a complete one. `finish_reason` maps to the same stop reasons
+as the Anthropic provider (`stop`, `length`, `content_filter`), and OpenAI's
+refusal, which arrives in its own `delta.refusal` field and finishes with
+`stop`, is reported as a refusal with the text the model said. Role chunks, null
+content and the reasoning a model streams aloud add nothing to the reply.
+
+The streaming loop that both providers share moved into the transport as
+`drive`, which hands each event to the provider and returns whether it said it
+was done. The twenty tests written for block 1 passed unchanged through that
+move, which is what it was checked by. The fake server they use is now a module
+the tests share. Twelve new tests cover text across seven-byte reads, the
+request with its bearer key and the system message first, no header without a
+key, the length-field switch, every finish reason and the refusal, an error in
+the middle of a stream, the two kinds of early close, each status without the
+key in any message, the model list in order, a prompt Stop and the redirect. The
+timing tests ran fifteen times in a row without a failure.
+
 ## 1.10.0 - the queue records the ten dependency updates as landed and the two new ones
 
 R9-00 is closed in the queue: the ten dependency updates landed in 1.9.15 to

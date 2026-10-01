@@ -11,11 +11,13 @@
 
 mod anthropic;
 mod endpoint;
+mod openai;
 mod sse;
 mod transport;
 
 pub use anthropic::AnthropicProvider;
 pub use endpoint::validate_base;
+pub use openai::{OpenAiProvider, TokenLimit};
 
 use std::sync::atomic::AtomicBool;
 

@@ -8,7 +8,7 @@
 //! hard ceiling on the whole request, set on the client, guarantees the worker
 //! ends even if nobody is listening any more.
 
-use crate::{tidy, Error, Result};
+use crate::{sse, tidy, Error, Result};
 use reqwest::blocking::{Client, RequestBuilder};
 use std::{
     io::Read,
@@ -175,4 +175,35 @@ pub(crate) fn status_error(status: u16, body: &[u8]) -> Error {
             Error::Provider(said.unwrap_or_else(|| format!("HTTP {status}")))
         }
     }
+}
+
+pub(crate) enum Flow {
+    Continue,
+    Done,
+}
+
+/// Send a streaming request and hand each server-sent event to `handle`, which
+/// says when the reply is complete. A non-success status becomes its error
+/// before any event is read. Returns whether the handler said `Done`: a body
+/// that ends first returns `false`, and it is for the provider to decide whether
+/// that is an error, since some servers end a finished stream without a marker.
+pub(crate) fn drive(
+    request: RequestBuilder,
+    cancel: &AtomicBool,
+    mut handle: impl FnMut(sse::Frame) -> Result<Flow>,
+) -> Result<bool> {
+    let mut reply = open(request, cancel)?;
+    if !(200..300).contains(&reply.status) {
+        let body = reply.rest(cancel)?;
+        return Err(status_error(reply.status, &body));
+    }
+    let mut parser = sse::Parser::default();
+    while let Some(chunk) = reply.next(cancel)? {
+        for frame in parser.push(&chunk)? {
+            if let Flow::Done = handle(frame)? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
