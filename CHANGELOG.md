@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.9 - tauri-plugin-updater 2.12.0 to 2.13.0, which no longer sets certificate paths for the whole process
+
+The second Dependabot bump of the pair (#32), and it had to come after the
+framework's (1.10.8) because the plugin now asks for `tauri` 2.12. The source of
+the two versions was diffed, not the notes read. Almost all of it is the move to
+edition 2024 (a minimum Rust of 1.90, which the stable toolchain here and in CI is
+well past), reformatting, and documentation on items that had none. Two things are
+not that. The plugin now ships its JavaScript against the framework's own `Resource`
+and `Channel` instead of copies of them, which this application does not use, since
+the updater is driven from Rust. And it no longer sets `SSL_CERT_FILE` and
+`SSL_CERT_DIR` to the Debian locations on Linux when they are unset.
+
+That second change is the one worth a sentence, because it touches the thing the
+update depends on. The old code wrote two environment variables for the whole
+process from inside an `async` check, which edition 2024 makes `unsafe` for the good
+reason that other threads may be reading the environment, and it pointed them at a
+path that only Debian-family systems have. With the plugin's default `rustls-tls`
+feature, the certificate roots come from the operating system, which is what a
+Fedora or Arch machine wants and what a Debian machine already has. So the change
+removes a wrong default for some distributions rather than a right one for any. What
+cannot be seen from here is a real update check on each distribution, and that is
+the owner's updater acceptance, which was already open.
+
+The signed-version check added in 2.12.0 and turned on in 1.10.6 is unchanged in
+this release: the diff has no edit in `verify_signed_version` or in the config that
+reads `requireSignedVersion`.
+
 ## 1.10.8 - tauri 2.11.6 to 2.12.0 with its transitive crates and its notice regenerated
 
 The framework's own minor, landed by hand like the other Dependabot bumps (it is
