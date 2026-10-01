@@ -7,6 +7,14 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.15 - the Rust builder image digest in the server Dockerfile
+
+Dependabot #31. The Rust builder image in `server/Dockerfile` keeps its tag,
+`rust:1.98.1-bookworm`, and its digest moves from `9a73a50` to `93ce27a`:
+the same tag now names different bytes, and the pin records which bytes this
+build uses. Nothing else in the repository carried the old digest. The
+contract checks that read the Dockerfile and the self-hosting guide pass.
+
 ## 1.9.14 - an AI writing assistant is decided and specified, to be built in six blocks
 
 The owner wants an AI to help write documents, through a provider's API, with
