@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.11 - the remote folder uses Device sync's server and credential instead of asking for them again
+
+The owner opened the cloud panel on 01/10 with Device sync already set up for
+`personal` on `tura.samirhv.com.br`, and the panel asked for the server,
+workspace and credential file again. That was the panel's first question and
+it had already been answered once. ADR-099 put the remote folder on the same
+server and the same workspace as sync, and the panel did not look there.
+
+Now, with no remote configuration saved, the panel takes Device sync's
+**paired** endpoint (origin, workspace, allow-private) and the credential path
+of its connection. It saves them as the remote folder's configuration and lists
+straight away, with a line that says the connection was taken from Device
+sync. A Device sync form that was filled in but never paired is only used to
+pre-fill the connection form, because nobody confirmed it. A saved remote
+configuration always wins, and Device sync is not asked at all. The credential
+is still read only in Rust, from its path. Its bytes never reach the panel.
+
+`stores/remote.test.ts` adds three cases: the saved configuration wins, a
+paired Device sync is adopted and announced, and an unpaired draft only
+pre-fills. `SELF-HOSTING.md` now says there is nothing to fill in when sync is
+paired.
+
+A second commit under this version regenerates `THIRD-PARTY-NOTICES.md`. 1.10.10
+moved `@tauri-apps/api` to 2.12.1 in the lockfile, and the notices still named
+2.11.1. The gate caught it on a fresh `npm ci`. CI did not, because it passed
+on 1.10.10.
+
 ## 1.10.10 - @tauri-apps/api 2.11.1 to 2.12.1, so the Tauri CLI stops refusing to build against the 2.12 crate
 
 `./build-local.sh --publish` aborted in step 3 of 4, seven seconds into the build,

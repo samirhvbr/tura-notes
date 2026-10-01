@@ -13,6 +13,11 @@ import * as ipc from "../ipc";
 export interface RemoteState {
   /** `undefined` until the saved configuration has been read. */
   config: ipc.RemoteConfig | null | undefined;
+  /** The connection was taken from Device sync rather than typed here. */
+  adopted: boolean;
+  /** Not configured, but Device sync's half-filled form names a server: what
+   *  the connection form starts from, so nothing is typed twice. */
+  suggestion: ipc.RemoteConfig | null;
   entries: ipc.RemoteEntry[] | null;
   loading: boolean;
   error: ipc.CoreError | null;
@@ -47,6 +52,8 @@ let inflight: Promise<void> | null = null;
 
 export const useRemote = create<RemoteState>((set, get) => ({
   config: undefined,
+  adopted: false,
+  suggestion: null,
   entries: null,
   loading: false,
   error: null,
@@ -54,7 +61,25 @@ export const useRemote = create<RemoteState>((set, get) => ({
 
   async hydrate() {
     try {
-      set({ config: await ipc.remoteConfigGet() });
+      const config = await ipc.remoteConfigGet();
+      if (config) {
+        set({ config });
+        return;
+      }
+      // The same server, the same workspace, the same credential file that
+      // Device sync already holds: asking for them again was the panel's first
+      // question, and the owner had answered it once already.
+      const { paired, draft } = await fromDeviceSync();
+      if (paired) {
+        try {
+          await ipc.remoteConfigSet(paired);
+          set({ config: paired, adopted: true });
+          return;
+        } catch {
+          /* Refused (a path the folder rules reject): fall back to the form. */
+        }
+      }
+      set({ config: null, suggestion: paired ?? draft });
     } catch (e) {
       set({ config: null, error: ipc.asCoreError(e) });
     }
@@ -62,7 +87,7 @@ export const useRemote = create<RemoteState>((set, get) => ({
 
   async configure(config) {
     await ipc.remoteConfigSet(config);
-    set({ config, entries: null, error: null });
+    set({ config, entries: null, error: null, adopted: false });
     if (config) await get().refresh();
   },
 
@@ -86,6 +111,46 @@ export const useRemote = create<RemoteState>((set, get) => ({
     remember(expanded);
   },
 }));
+
+/**
+ * What Device sync knows about the server. `paired` comes from a real pairing
+ * (the snapshot's endpoint and the credential path of its connection) and is
+ * used as is. `draft` is the pairing form as the user left it, kept only to
+ * pre-fill: nobody confirmed it.
+ */
+export async function fromDeviceSync(): Promise<{
+  paired: ipc.RemoteConfig | null;
+  draft: ipc.RemoteConfig | null;
+}> {
+  let paired: ipc.RemoteConfig | null = null;
+  try {
+    const s = await ipc.deviceStatus();
+    if (s.paired && s.connection?.token_file)
+      paired = {
+        origin: s.paired.origin,
+        workspace: s.paired.workspace,
+        token_file: s.connection.token_file,
+        allow_private: s.paired.allow_private,
+      };
+  } catch {
+    /* No device sync, or it cannot be read: there is simply nothing to adopt. */
+  }
+  let draft: ipc.RemoteConfig | null = null;
+  try {
+    const raw = localStorage.getItem("tura-pair-draft");
+    const d = raw ? (JSON.parse(raw) as Partial<ipc.SyncPairRequest>) : null;
+    if (d?.origin && d.token_file)
+      draft = {
+        origin: d.origin,
+        workspace: d.workspace ?? "",
+        token_file: d.token_file,
+        allow_private: !!d.allow_private,
+      };
+  } catch {
+    /* A draft is a convenience. */
+  }
+  return { paired, draft };
+}
 
 /** A folder of the remote tree, built from the flat list of note paths. */
 export interface RemoteDir {

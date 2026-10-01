@@ -5,12 +5,14 @@ vi.mock("../ipc", async (original) => ({
   remoteConfigGet: vi.fn(),
   remoteConfigSet: vi.fn(),
   remoteList: vi.fn(),
+  deviceStatus: vi.fn(),
 }));
 const { buildTree, useRemote } = await import("./remote");
 const initial = useRemote.getState();
 afterEach(() => {
   useRemote.setState(initial, true);
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const entry = (path: string, local: ipc.LocalMark = "absent"): ipc.RemoteEntry => ({
@@ -58,4 +60,38 @@ it("saves a configuration and lists at once; forgetting it clears the list", asy
   await useRemote.getState().configure(null);
   expect(useRemote.getState().config).toBeNull();
   expect(useRemote.getState().entries).toBeNull();
+});
+
+const config = { origin: "https://tura.example", workspace: "personal", token_file: "/home/me/t.secret", allow_private: true };
+const pairedSnapshot = {
+  paired: { source: "/notes", mode: "reconcile", origin: config.origin, workspace: "personal", scope: null, allow_private: true },
+  connection: { token_file: config.token_file },
+} as unknown as ipc.DeviceSnapshot;
+
+it("a saved configuration wins, and Device sync is not even asked", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  await useRemote.getState().hydrate();
+  expect(useRemote.getState().config).toEqual(config);
+  expect(ipc.deviceStatus).not.toHaveBeenCalled();
+});
+
+it("with nothing saved, it takes Device sync's paired server and credential, and says so", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(null);
+  vi.mocked(ipc.deviceStatus).mockResolvedValue(pairedSnapshot);
+  vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
+  await useRemote.getState().hydrate();
+  expect(ipc.remoteConfigSet).toHaveBeenCalledWith(config);
+  expect(useRemote.getState().config).toEqual(config);
+  expect(useRemote.getState().adopted).toBe(true);
+});
+
+it("an unpaired Device sync form only pre-fills, because nobody confirmed it", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(null);
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({ paired: null, connection: null } as unknown as ipc.DeviceSnapshot);
+  const store = new Map([["tura-pair-draft", JSON.stringify({ origin: config.origin, workspace: "personal", token_file: config.token_file, allow_private: true, source: "/x" })]]);
+  vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: () => {} });
+  await useRemote.getState().hydrate();
+  expect(ipc.remoteConfigSet).not.toHaveBeenCalled();
+  expect(useRemote.getState().config).toBeNull();
+  expect(useRemote.getState().suggestion).toEqual(config);
 });

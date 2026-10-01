@@ -35,6 +35,8 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
   const entries = useRemote((s) => s.entries);
   const loading = useRemote((s) => s.loading);
   const error = useRemote((s) => s.error);
+  const adopted = useRemote((s) => s.adopted);
+  const suggestion = useRemote((s) => s.suggestion);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -51,7 +53,11 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
   if (!config || editing)
     return (
       <div className="side-scroll">
-        <RemoteConnect initial={config} onDone={() => setEditing(false)} cancellable={!!config} />
+        <RemoteConnect
+          initial={config ?? suggestion}
+          onDone={() => setEditing(false)}
+          cancellable={!!config}
+        />
       </div>
     );
 
@@ -93,6 +99,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
           {t("remote.change")}
         </button>
       </div>
+      {adopted && <p className="muted remote-pad">{t("remote.adopted")}</p>}
       {entries && (
         <p className="muted remote-pad" role="status">
           {t("remote.summary", {

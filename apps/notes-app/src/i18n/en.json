@@ -552,5 +552,6 @@
   "workspace.open": "Open folder…",
   "workspace.readOnly.identityLost": "This workspace is open read-only: the record that ties its notes to their identities is missing, and saving now could lose them. Restore it from a backup, or forget this workspace from the start screen to begin again.",
   "workspace.readOnly.schemaAhead": "This workspace is open read-only: its state was written by a newer version of Tura Notes (format {found}). Open it with that version to edit.",
-  "workspace.recent": "recent"
+  "workspace.recent": "recent",
+  "remote.adopted": "Using Device sync's server and credential."
 }

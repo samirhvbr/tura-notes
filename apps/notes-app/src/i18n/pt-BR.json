@@ -552,5 +552,6 @@
   "workspace.open": "Abrir pasta…",
   "workspace.readOnly.identityLost": "Este workspace está aberto somente leitura: o registro que liga as notas às identidades delas sumiu, e gravar agora poderia perdê-las. Restaure-o de um backup, ou esqueça este workspace na tela inicial para começar de novo.",
   "workspace.readOnly.schemaAhead": "Este workspace está aberto somente leitura: o estado dele foi gravado por uma versão mais nova do Tura Notes (formato {found}). Abra-o com essa versão para editar.",
-  "workspace.recent": "recentes"
+  "workspace.recent": "recentes",
+  "remote.adopted": "Usando o servidor e a credencial do Device sync."
 }

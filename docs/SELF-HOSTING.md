@@ -163,10 +163,13 @@ server, and edits them there. Nothing is copied to or from your local folder.
 Each note is only marked as the same as, or different from, the local note at
 the same path.
 
-Give it its own credential, with `search` added, for example
-`notes-server token create laptop-remote personal . read,create,update,move,delete,search /tmp/laptop-remote.secret`.
-Then, in the panel, fill in **Server address**, **Credential file (outside notes)**
-and **Server workspace**, press **Test connection**, and then **Connect**. The
+**If Device sync is already paired, there is nothing to fill in** (1.10.11):
+the panel takes the same server, workspace and credential file, and says so.
+Its credential needs `read`, `create`, `update`, `move` and `delete`, which is
+what the pairing credential above already has. Otherwise, fill in
+**Server address**, **Credential file (outside notes)** and **Server workspace**
+(they start from whatever the Device sync form holds), press
+**Test connection**, and then **Connect**. The
 folder is asked for when the panel opens and when you refresh it, never in the
 background. A note changed on the server while you had it open comes back as a
 conflict for you to settle, never as an overwrite.
