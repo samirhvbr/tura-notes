@@ -14,7 +14,7 @@ const MODES: ViewMode[] = ["source", "preview", "split"];
  * uses the main area and shares the knowledge index with backlinks. Remote is
  * the server's notes workspace (ADR-099), shown in the sidebar.
  */
-export type Panel = "files" | "search" | "graph" | "remote";
+export type Panel = "files" | "search" | "graph" | "remote" | "ai";
 
 /**
  * The one width at which the sidebar stops being a column and becomes a drawer.

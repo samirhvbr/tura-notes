@@ -141,6 +141,22 @@ export const aiKeyClear = (id: string) =>
   invoke<import("./generated/AiOverview").AiOverview>("ai_key_clear", { id });
 export const aiTest = (id: string) => invoke<import("./generated/AiTest").AiTest>("ai_test", { id });
 
+export type { AiChatMessage } from "./generated/AiChatMessage";
+export type { AiChatRequest } from "./generated/AiChatRequest";
+export type { AiChatStarted } from "./generated/AiChatStarted";
+export type { AiDelta } from "./generated/AiDelta";
+export type { AiDone } from "./generated/AiDone";
+export type { AiFailed } from "./generated/AiFailed";
+export type { AiRole } from "./generated/AiRole";
+export type { AiSelection } from "./generated/AiSelection";
+export type { AiSentItem } from "./generated/AiSentItem";
+export type { AiStop } from "./generated/AiStop";
+/** Start one chat turn. Returns at once with what is being sent; the reply
+ *  arrives as `ai:delta` events and ends with `ai:done` or `ai:error`. */
+export const aiChatStart = (request: import("./generated/AiChatRequest").AiChatRequest) =>
+  invoke<import("./generated/AiChatStarted").AiChatStarted>("ai_chat_start", { request });
+export const aiChatCancel = (chat: string) => invoke<void>("ai_chat_cancel", { chat });
+
 export const envReport = () => invoke<EnvReport>("env_report");
 
 export const workspaceOpen = (root: string) =>

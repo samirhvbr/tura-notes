@@ -108,6 +108,16 @@ nor write a file. It is the only code in the application, apart from
 `notes-sync-client`, that opens an outbound connection, and it does so only when
 the assistant has been switched on.
 
+The chat that uses it lives in the shell (`ai_chat.rs`), which joins the two. The
+page names notes by path, the core reads them through `WorkspaceService::read_text`
+(read-only, `&self`, notes only, under the root jail, so reading a note for the
+assistant gives it no identity and records no visit), and the one text the page
+may supply is the editor's selection. A turn is bounded before anything is built
+from it (60 000 characters a note, 200 000 a turn, 40 messages), refused whole if
+it is larger, and the answer to the start command lists exactly what was sent.
+The reply streams back as `ai:delta` events and ends with exactly one of `ai:done`
+and `ai:error`.
+
 `notes-server` is the only consumer that takes both `notes-core` and `notes-mcp`,
 which is the shape 0.7 argued for: one catalogue, two transports, no second
 implementation over the notes.

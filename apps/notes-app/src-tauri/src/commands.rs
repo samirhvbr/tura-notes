@@ -25,6 +25,10 @@ pub struct App {
     pub remote: std::sync::Arc<notes_sync_client::notes::RemoteFolder>,
     pub received: Mutex<Option<Received>>,
     pub dmabuf: DmabufReport,
+    /// The assistant's chats that are streaming, each with the flag that stops
+    /// it (ADR-100).
+    pub ai_chats:
+        Mutex<std::collections::HashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 /// A received workspace opened for editing, **with the workspace it was opened

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
+import { useAi } from "../stores/ai";
 
 /**
  * The AI assistant's section of the settings (ADR-100).
@@ -25,7 +26,13 @@ export function AiSettingsSection() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    ipc.aiOverview().then(setView).catch((e) => setMessage(say(e)));
+    ipc
+      .aiOverview()
+      .then((v) => {
+        setView(v);
+        useAi.getState().set(v);
+      })
+      .catch((e) => setMessage(say(e)));
   }, []);
 
   if (!view) return message ? <p role="alert" className="bad">{message}</p> : null;
@@ -36,7 +43,10 @@ export function AiSettingsSection() {
     setBusy(true);
     setMessage("");
     try {
-      setView(await work());
+      const next = await work();
+      setView(next);
+      // The rail and the chat read the same answer, so they follow a change at once.
+      useAi.getState().set(next);
       setMessage(done);
       return true;
     } catch (e) {

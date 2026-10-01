@@ -5,4 +5,4 @@
  * a sentence of its own, never one it shows verbatim (the provider's own words
  * travel in `detail`, shortened).
  */
-export type AiErrorCode = "disabled" | "keychain_unavailable" | "keychain_failed" | "unknown_provider" | "invalid_name" | "invalid_endpoint" | "invalid_model" | "invalid_key" | "no_key" | "too_many_providers" | "unauthorized" | "rate_limited" | "offline" | "protocol" | "provider" | "internal";
+export type AiErrorCode = "disabled" | "keychain_unavailable" | "keychain_failed" | "unknown_provider" | "invalid_name" | "invalid_endpoint" | "invalid_model" | "invalid_key" | "no_key" | "too_many_providers" | "unauthorized" | "rate_limited" | "offline" | "protocol" | "provider" | "internal" | "invalid_request" | "no_provider" | "too_large" | "unreadable_note";

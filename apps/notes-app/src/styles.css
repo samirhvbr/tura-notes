@@ -1116,3 +1116,26 @@ code { font-family: var(--font-mono); }
 .tab.remote .tab-label svg { margin-right: 4px; color: var(--accent); vertical-align: -1px; }
 .remote-status-offline, .remote-status-conflict, .remote-status-gone, .remote-status-error { color: var(--warn); }
 
+/* ---- the AI assistant's chat (ADR-100) ----------------------------------- */
+
+.ai-chat { display: flex; flex-direction: column; gap: 8px; padding: 10px; min-height: 0; flex: 1; }
+.ai-chat header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ai-chat h3 { margin: 0; font-size: 14px; flex: 1; }
+.ai-chat .note { font-size: 12px; color: var(--fg-dim); margin: 0; }
+.ai-log { flex: 1; min-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.ai-msg.mine { background: var(--accent-soft); }
+.ai-msg h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-dim); }
+.ai-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; user-select: text; }
+.ai-context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ai-chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: 12px; padding: 1px 6px; font-size: 12px; color: var(--fg-dim); }
+.ai-chip.on { color: var(--fg); border-color: var(--accent); }
+.ai-chip label { display: inline-flex; align-items: center; gap: 4px; }
+.ai-chip-x { border: 0; background: transparent; padding: 0 2px; line-height: 1; color: inherit; cursor: pointer; }
+.ai-finder { flex: 1 0 100%; }
+.ai-finder input { width: 100%; font: inherit; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; margin-bottom: 4px; }
+.ai-finder ul { list-style: none; padding: 0; margin: 0; max-height: 160px; overflow-y: auto; }
+.ai-finder li button { width: 100%; text-align: left; }
+.ai-composer { display: flex; flex-direction: column; gap: 6px; }
+.ai-composer textarea { font: inherit; font-size: 13px; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; resize: vertical; }
+

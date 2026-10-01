@@ -44,7 +44,7 @@ fn keychain_error(error: KeychainError) -> AiError {
 
 /// A provider's failure as a code. The provider's own sentence is carried in
 /// `detail`, already shortened by `notes-ai`; the key is never in it.
-fn provider_error(error: AiFailure) -> AiError {
+pub(crate) fn provider_error(error: AiFailure) -> AiError {
     match error {
         AiFailure::Unauthorized => AiError::new(AiErrorCode::Unauthorized),
         AiFailure::RateLimited => AiError::new(AiErrorCode::RateLimited),
@@ -130,7 +130,7 @@ fn clean_base(kind: AiProviderKind, base: &str) -> Result<String, AiError> {
         .map_err(provider_error)
 }
 
-fn position(ai: &AiSettings, id: &str) -> Result<usize, AiError> {
+pub(crate) fn position(ai: &AiSettings, id: &str) -> Result<usize, AiError> {
     ai.providers
         .iter()
         .position(|p| p.id == id)
@@ -273,7 +273,7 @@ pub(crate) fn keep_ai(mut incoming: Settings, current: &Settings) -> Settings {
 
 // ---- commands -------------------------------------------------------------
 
-fn read_ai(app: &State<'_, App>) -> Result<AiSettings, AiError> {
+pub(crate) fn read_ai(app: &State<'_, App>) -> Result<AiSettings, AiError> {
     let svc = app.svc.lock().map_err(|_| internal())?;
     Ok(svc.settings().ai.clone())
 }

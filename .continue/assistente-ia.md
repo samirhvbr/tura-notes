@@ -2,7 +2,7 @@
 
 > Especificação de trabalho **não construído**. Sai da fila quando o chat existir
 > e funcionar num release instalado. Decisão: [ADR-100](../docs/decisions.md#adr-100--an-opt-in-ai-assistant-calls-the-provider-from-rust-keeps-the-key-in-the-system-keychain-and-edits-the-open-note-through-the-editor).
-> **Estado em 01/10: os blocos 1, 2 e 3 estão construídos (1.10.0, 1.10.1 e 1.10.2).** Faltam os blocos 4 a 6.
+> **Estado em 01/10: os blocos 1 a 4 estão construídos (1.10.0 a 1.10.3).** Faltam os blocos 5 e 6.
 >
 > Respostas do dono em 29/09: Anthropic **e** compatível com OpenAI; chave no
 > chaveiro do sistema; contexto = nota atual + o que ele anexar; a IA edita
@@ -66,8 +66,10 @@
   Comando `ai_chat_start(conversation, context)` → eventos Tauri
   `ai:delta` / `ai:done` / `ai:error`; `ai_chat_cancel(id)`.
 - **Contexto montado no Rust** a partir de caminhos (nota atual, anexadas), lido
-  pelo core com a mesma guarda de raiz de sempre. O frontend manda caminhos, não
-  conteúdo. Limite de tamanho por nota e total, dito na tela quando corta.
+  pelo core com a mesma guarda de raiz de sempre (`WorkspaceService::read_text`,
+  só leitura, só notas). O frontend manda caminhos, e um único texto: a **seleção**,
+  que só existe no editor e que o usuário escolheu. Limite de tamanho por nota e
+  total, dito na tela quando corta (construído no bloco 4, 1.10.3).
 - **Edição direta, pelo editor**: o modelo recebe duas ferramentas,
   `edit_note(path, operation, text)` (substituir seleção, inserir no cursor,
   substituir a nota inteira) e `create_note(path, text)`.

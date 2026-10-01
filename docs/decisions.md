@@ -3251,7 +3251,7 @@ the owner chose that the two stay independent and are compared.
 
 ## ADR-100 — An opt-in AI assistant calls the provider from Rust, keeps the key in the system keychain, and edits the open note through the editor
 
-**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · blocks 1 to 3 of 6 built in 1.10.0 to 1.10.2 (the `notes-ai` crate with both providers, and the keychain and the settings section); the rest is in `.continue/assistente-ia.md`
+**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · blocks 1 to 4 of 6 built in 1.10.0 to 1.10.3 (the `notes-ai` crate with both providers, the keychain and the settings section, and the chat); the rest is in `.continue/assistente-ia.md`
 
 **Context.** The owner wants an AI to help write documents, used through a
 provider's API with keys entered in Settings, and a chat to drive it. Three

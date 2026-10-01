@@ -101,6 +101,15 @@ pub struct OpenedNote {
     pub draft: Option<DraftInfo>,
 }
 
+/// What [`WorkspaceService::read_text`] returns.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoteText {
+    pub text: String,
+    /// The note's length in characters, whole, even when `text` was cut.
+    pub chars: usize,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(tag = "result", rename_all = "snake_case")]
 #[ts(export)]
@@ -1506,6 +1515,50 @@ impl WorkspaceService {
             kind: notes_model::EntryKind::File,
             size: Some(0),
             path,
+        })
+    }
+
+    /// A note's text for a reader that is not the editor, the AI assistant
+    /// (ADR-100): at most `max_chars` characters, with `truncated` saying whether
+    /// there was more.
+    ///
+    /// **It takes `&self` and changes nothing.** `open_note` is the call for a
+    /// note the user is working in: it gives the note an identity, records the
+    /// visit and may write the registry. A note that is only being *attached* to
+    /// a chat needs none of that, and a note read for it must leave the workspace
+    /// as it found it. Only notes (`.md`, `.markdown`), only through the root jail
+    /// like every other read, only what decodes as text, and nothing larger than
+    /// 16 MiB is even read. Line endings are returned as `\n`: the file is not
+    /// being edited, so its profile does not matter here.
+    pub fn read_text(&self, path: &RelPath, max_chars: usize) -> Result<NoteText> {
+        if !path.is_note() {
+            return Err(CoreError::Unsupported {
+                cap: "only notes can be read for the assistant".into(),
+            });
+        }
+        let open = self.open()?;
+        let stat = open.fs.stat(path)?;
+        if stat.kind != notes_model::EntryKind::File || stat.size > 16 * 1024 * 1024 {
+            return Err(CoreError::Unsupported {
+                cap: "not a readable note".into(),
+            });
+        }
+        let bytes = open.fs.read(path)?;
+        let (_, text) = TextProfile::detect(&bytes);
+        let text = text.ok_or_else(|| CoreError::Unsupported {
+            cap: "the note is not text this application can read".into(),
+        })?;
+        let text = text.replace("\r\n", "\n");
+        let total = text.chars().count();
+        let truncated = total > max_chars;
+        Ok(NoteText {
+            text: if truncated {
+                text.chars().take(max_chars).collect()
+            } else {
+                text
+            },
+            chars: total,
+            truncated,
         })
     }
 

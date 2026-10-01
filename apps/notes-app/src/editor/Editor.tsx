@@ -4,6 +4,7 @@ import type { NoteId } from "../ipc";
 import {useWorkspace} from "../stores/workspace";
 import { useEffect, useRef } from "react";
 import { Annotation, EditorState } from "@codemirror/state";
+import { registerSelection, setSelectionSize } from "./selection";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
@@ -132,6 +133,10 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
         // document: the 0.1c criterion is that reopening the application puts
         // them back (`stores/tabs.ts`).
         EditorView.updateListener.of((u) => {
+          if (u.selectionSet || u.docChanged) {
+            const range = u.state.selection.main;
+            setSelectionSize(range.to - range.from);
+          }
           if (u.docChanged || u.selectionSet || u.geometryChanged) {
             const head = u.state.selection.main.head;
             const line = u.state.doc.lineAt(head);
@@ -154,6 +159,11 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
     });
     const created = new EditorView({ state, parent: host.current });
     view.current = created;
+    const reader = () => {
+      const range = created.state.selection.main;
+      return created.state.sliceDoc(range.from, range.to);
+    };
+    registerSelection(reader);
 
     // Put the caret back where the tab left it. After creation, because the
     // document has to exist before a position in it means anything.
@@ -165,6 +175,7 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
       created.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
     }
     return () => {
+      registerSelection(null, reader);
       created.destroy();
       if (view.current === created) view.current = null;
     };

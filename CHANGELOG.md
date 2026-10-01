@@ -7,6 +7,49 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.3 - the AI assistant has a chat that shows what it sends and streams the reply
+
+The fourth block of the AI assistant (R9-04): the chat. With the assistant on,
+the rail gains an icon, and Ctrl+Shift+A opens a conversation in the sidebar.
+Nothing is sent without being shown first: above the composer, the current
+note, the selection and every attached note are chips the user can switch off,
+and under each question the chat says what was sent and whether any of it was
+cut.
+
+How a turn goes out. The page names notes by path and the core reads them, so
+the assistant can read nothing the core would not read for it. For that there
+is a new `WorkspaceService::read_text`, which takes `&self` and changes
+nothing. `open_note` is the call for a note being worked on: it gives the note
+an identity, records the visit and may write the registry, and none of that
+belongs to a note that is only being attached. `read_text` reads only notes, only
+text, only inside the root jail (a symlink out of it is refused, tested), and
+returns the text with line endings as `\n` and a flag when it was cut. The one
+text the page may supply is the editor's selection, which exists only in the
+editor and which the user chose. The turn is bounded before anything is built:
+60 000 characters a note, cut at the start and reported, 200 000 a turn, 40
+messages. A turn over the total is refused whole, because silently dropping half
+of what the user chose to send would answer a question nobody asked. The notes
+are put in front of the user's last message in `<notes>` markup, and the system
+prompt says that text inside it is reference material and not instructions, so a
+note that contains instructions does not give them.
+
+How a reply comes back. `ai_chat_start` returns at once with the list of what is
+being sent, and the reply arrives as `ai:delta` events, ending with exactly one
+of `ai:done` and `ai:error`; a test holds that for every way a reply can end. The
+text delivered before a failure stays delivered. A length limit and a refusal are
+results the chat says aloud, with their own sentence, and Stop is a result and not
+an error. The worker starts before the page has the chat's id, so an event can
+arrive first; the store holds those and replays them in order, and ignores any
+event of another chat. The effort setting is sent only to the models that have
+it, since an older one rejects the field.
+
+What it does not do yet. The assistant does not change a note: that is block 5.
+Replies are shown as plain text and not rendered as Markdown, a surface this
+version does not open. A note on the server cannot be sent, and the chat says so.
+The conversation is held in memory and ends with the window; nothing is written
+to disk. Tests: eleven in the shell for composing a turn and ending a reply, five
+for the core reader, eleven for the store and nine for the panel.
+
 ## 1.10.2 - the AI assistant has a settings section, keys in the system keychain, and a provider test
 
 The third block of the AI assistant (R9-03): where a provider is configured and

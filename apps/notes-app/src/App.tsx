@@ -21,6 +21,8 @@ import { Palette, type Command, type PaletteMode } from "./app/Palette";
 import { SettingsPanel } from "./app/Settings";
 import { AboutDialog, useAboutMenu } from "./app/About";
 import { SearchPanel } from "./search/SearchPanel";
+import { AiChat } from "./app/AiChat";
+import { useAi } from "./stores/ai";
 import { useTabs } from "./stores/tabs";
 import { useSettings } from "./stores/settings";
 import { askConfirm, askText } from "./app/dialog";
@@ -66,6 +68,12 @@ export default function App() {
   useAboutMenu(setAboutOpen);
   const applySettings = useSettings((s) => s.apply);
   const loadSettings = useSettings((s) => s.load);
+  const aiOn = useAi((s) => s.overview?.enabled === true);
+  // Whether the assistant is on decides if its icon and shortcut exist; Rust
+  // answers, and the settings section keeps the answer fresh.
+  useEffect(() => {
+    void useAi.getState().load();
+  }, []);
   const restoreTabs = useTabs((s) => s.restore);
   const closeActiveTab = useTabs((s) => s.closeActive);
   const resetTabs = useTabs((s) => s.reset);
@@ -131,6 +139,13 @@ export default function App() {
         // search is the shifted one, exactly as scope §34 lists them.
         e.preventDefault();
         showPanel("search");
+      } else if (key === "a" && e.shiftKey) {
+        // The assistant's chat, only while the assistant is on: a shortcut for
+        // something switched off should do nothing rather than open an empty panel.
+        if (useAi.getState().overview?.enabled) {
+          e.preventDefault();
+          showPanel("ai");
+        }
       } else if (key === "w") {
         e.preventDefault();
         void closeActiveTab();
@@ -235,7 +250,7 @@ export default function App() {
   // search" is "show that panel" — and never *toggles* it, because a shortcut
   // that closes what it is asked to open is a shortcut people stop pressing.
   const showPanel = useCallback(
-    (p: "files" | "search") => {
+    (p: "files" | "search" | "ai") => {
       if (useUi.getState().panel !== p) togglePanel(p);
     },
     [togglePanel],
@@ -244,6 +259,7 @@ export default function App() {
   const commands: Command[] = [
     { id: "quick-open", label: "command.quickOpen", hint: "Ctrl+P", run: () => setPalette("files") },
     { id: "search", label: "command.searchWorkspace", hint: "Ctrl+Shift+F", run: () => showPanel("search") },
+    ...(aiOn ? [{ id: "ask-ai", label: "command.askAi", hint: "Ctrl+Shift+A", run: () => showPanel("ai") }] : []),
     { id: "new-note", label: "command.newNote", hint: "Ctrl+N", run: newNote },
     { id: "new-folder", label: "command.newFolder", run: newFolder },
     { id: "close-tab", label: "command.closeTab", hint: "Ctrl+W", run: () => void closeActiveTab() },
@@ -284,6 +300,8 @@ export default function App() {
                     .catch(fail)
                 }
               />
+            ) : panel === "ai" ? (
+              <AiChat onOpenSettings={() => setSettingsOpen(true)} />
             ) : panel !== "search" ? (
               <>
                 <WorkspaceBrowser />

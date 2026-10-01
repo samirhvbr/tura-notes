@@ -95,6 +95,16 @@ pub enum AiErrorCode {
     /// The provider's own explanation is in `detail`.
     Provider,
     Internal,
+    /// The request itself is malformed: no message, no last user message, an
+    /// empty message, or too many of them.
+    InvalidRequest,
+    /// There is no provider to ask: none configured, or the one named is gone.
+    NoProvider,
+    /// What was to be sent is larger than a chat may carry; nothing was sent.
+    TooLarge,
+    /// A note to attach could not be read (`detail` is its path): it is not a
+    /// note, not text, outside the workspace, or the workspace is closed.
+    UnreadableNote,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -127,3 +137,100 @@ impl std::fmt::Display for AiError {
 }
 
 impl std::error::Error for AiError {}
+
+// ---- the chat ---------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiRole {
+    User,
+    Assistant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiChatMessage {
+    pub role: AiRole,
+    pub content: String,
+}
+
+/// Text the user selected, to be sent with the question. It is the one piece of
+/// content that comes from the page and not from a file: a selection exists
+/// only in the editor, and the user chose it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiSelection {
+    /// The note it came from, for the model's benefit.
+    pub path: Option<String>,
+    pub text: String,
+}
+
+/// One chat turn. `notes` are workspace paths, read by the core and not sent by
+/// the page, so the page cannot make the assistant read anything the core would
+/// not read for it. `provider` is `None` for the default.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiChatRequest {
+    pub provider: Option<String>,
+    pub messages: Vec<AiChatMessage>,
+    pub notes: Vec<String>,
+    pub selection: Option<AiSelection>,
+}
+
+/// One thing that left the machine with the question, so the chat can say
+/// exactly what was sent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiSentItem {
+    /// A note's path, or `selection`.
+    pub label: String,
+    /// The whole length, in characters.
+    pub chars: u32,
+    /// Whether only the start of it was sent.
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiChatStarted {
+    pub chat: String,
+    pub sent: Vec<AiSentItem>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum AiStop {
+    EndTurn,
+    /// The reply hit its length limit: what came is real, and incomplete.
+    MaxTokens,
+    /// The model declined. What it said, if anything, was delivered.
+    Refusal,
+    Other,
+    /// The user pressed Stop.
+    Cancelled,
+}
+
+/// The payloads of the three events a running chat emits: `ai:delta`,
+/// `ai:done` and `ai:error`. A chat ends with exactly one of the last two.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiDelta {
+    pub chat: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiDone {
+    pub chat: String,
+    pub stop: AiStop,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiFailed {
+    pub chat: String,
+    pub error: AiError,
+}

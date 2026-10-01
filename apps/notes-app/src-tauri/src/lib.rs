@@ -2,6 +2,7 @@
 //! and holds no policy of its own.
 
 mod ai;
+mod ai_chat;
 mod asset;
 mod commands;
 pub mod linux;
@@ -117,6 +118,7 @@ pub fn run() {
         .manage(App {
             svc: Mutex::new(service),
             received: Mutex::new(None),
+            ai_chats: Mutex::new(std::collections::HashMap::new()),
             network,
             remote,
             dmabuf: DmabufReport {
@@ -224,6 +226,8 @@ pub fn run() {
             ai::ai_key_set,
             ai::ai_key_clear,
             ai::ai_test,
+            ai_chat::ai_chat_start,
+            ai_chat::ai_chat_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -157,6 +157,10 @@ const codes: Record<ipc.AiErrorCode, true> = {
   protocol: true,
   provider: true,
   internal: true,
+  invalid_request: true,
+  no_provider: true,
+  too_large: true,
+  unreadable_note: true,
 };
 const states: Record<Exclude<ipc.AiKeychainState, "available">, true> = { unavailable: true, failed: true };
 const kinds: Record<ipc.AiProviderKind, true> = { anthropic: true, openai_compatible: true };
