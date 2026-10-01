@@ -97,6 +97,8 @@ and the fleet adopted it the same day.
 
 - [MCP-0.7.md](MCP-0.7.md) — remote MCP as a second envelope over the server's existing call path, and what it deliberately does not open.
 - [ACCEPTANCE-0.7.md](ACCEPTANCE-0.7.md) — the walk from a real MCP client, which is the only part the suite cannot stand in for.
+- [AI.md](AI.md) — the AI assistant: what leaves the machine, where the key lives, and how a note is changed only through the editor, with one undo.
+- [ACCEPTANCE-AI.md](ACCEPTANCE-AI.md) — the owner's walk with a real provider and a real key, which no fake server can stand in for.
 
 ## The remote folder
 

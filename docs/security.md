@@ -3,11 +3,16 @@
 > **Status:** `ACTIVE` — normative. In a conflict with any other document, this
 > one wins.
 >
-> **Version:** 1.1 · **Date:** 18/09/2026 · 1.0 was 07/09/2026
+> **Version:** 1.2 · **Date:** 01/10/2026 · 1.1 was 18/09/2026, 1.0 was 07/09/2026
 > **1.1 adds the two MCP surfaces to §2**, the consequence of §4.9 for this
 > project's own agent surface, and the sibling of §8's `HTTP 200` rule. None of
 > it changes a rule; all of it was already true of the code and absent from the
 > document that wins conflicts.
+> **1.2 adds the AI assistant to §2**: the one place the desktop application
+> sends the user's text to a third party, the key that lets it, and the only
+> thing that lets a model change a note. It changes no rule: ADR-007 already said
+> the desktop opens no port, and this opens a connection only when the user turns
+> it on.
 > **Supersedes:** nothing. Inherited from the fleet standard at
 > [samirhvbr/repodocs](https://github.com/samirhvbr/repodocs/blob/master/docs/security.md).
 > **Purpose:** make **security the top priority at all times**, even when that
@@ -74,6 +79,9 @@ credential disclosure are the concrete failures the core and transports prevent.
 | Desktop installation | Tampered updates or restart during edits | Pinned Tura updater public key, HTTPS, signature verification before install, explicit user action and closed-workspace checks (ADR-074). Private signing key stays outside Git |
 | Server audit | Content/token disclosure or unbounded retention | Redacted structured events and five bounded segments |
 | Local MCP tool surface | An agent with a config file acting on notes beyond what its operator intended | `AgentConfig` confines it to one workspace and a scope; every tool sits behind a permission — **six permissions for eight tools**, because `Read` admits `notes_list` as well as `notes_read` and `Update` admits `notes_append` as well as `notes_update`, so granting either grants both — and `notes_delete` needs one of its own; review mode turns writes into proposals; the catalogue is **filtered**, so a tool the credential cannot use is not advertised to it. Asserted against a real child process in `notes-mcp/tests/stdio.rs` (0.3) |
+| AI provider API key | Read by another process, by the page, by a log, by a backup of the settings, or sent to a host the user did not name | The system keychain only (service `br.com.samirhv.notes`, account `ai:<id>`), with **no fallback to a file**. It crosses IPC once, inward, and nothing returns it; the type that holds it has no `Display` and a redacted `Debug`; it is in no error, event or log (tested against a fake server). An address must be `https` (plain `http` only for this machine) with no user name, password or query, and **a redirect is never followed**, so a key cannot be handed to another host (ADR-100, [AI.md](AI.md)) |
+| Notes sent to an AI provider | Text leaving the machine without the user knowing, or more than they chose | **Off by default**; turning it on states that the text goes to the provider. The page names notes by path and the **core** reads them, as text, only notes, under the root jail; the one text the page supplies is the selection. Every chip is visible and removable before sending, and the chat lists what was sent and whether it was cut. Bounded per note, per turn and per message before anything is built, and a turn over the bound is refused whole. Only `notes-ai` opens the connection, never the webview (the CSP stays `connect-src ipc:`) |
+| Notes changed by a model | Injected text in a note argues for an edit nobody asked for | The model can only call two tools, and **a call is a request**: it is checked again in Rust, applied by the editor as one transaction after the reply has finished, and never after Stop or a failure. Only a note shared in that turn can be edited, nothing is deleted, the save path is the ordinary one (BaseRev, draft, conflict), and one `Ctrl+Z` undoes the turn. The bound is what the tools admit, not what the model decides, per §4.9 |
 | Remote MCP tool surface | A second authorization path appearing beside the REST one, or a browser reaching it | `POST /v1/mcp` (1.6.5) is an **envelope over `dispatch`, not a second implementation**: the same bearer credential, the same `AgentConfig`, the same `AgentService`, the same catalogue filter. Everything the API enforces before `dispatch` applies unchanged — loopback-or-trusted-proxy, refusal of any request carrying `Origin`, per-IP and per-credential limits, the redacted audit. It opens no SSE stream, so there is no long-lived connection to bound. A change to any of that is an ADR against ADR-043, not a detail (docs/MCP-0.7.md) |
 
 ## 3. General rules (mandatory)

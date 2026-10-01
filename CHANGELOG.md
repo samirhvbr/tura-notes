@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.5 - the AI assistant has its page, its threat-model rows and an acceptance walk for a real key
+
+The sixth block of the AI assistant (R9-06), and the only one with no code in it.
+`docs/AI.md` is the contract for what the assistant does: what the user sees,
+which providers and endpoints it speaks to, where the key lives and what it is
+never in, exactly what leaves the machine and under which bounds, and the path a
+change takes from a model's tool call to a note. It also says where the first
+version stops, so the page does not promise what the code does not do.
+
+`docs/security.md` goes to 1.2 and its threat model gains three rows, because the
+assistant is the first place the desktop application sends the user's text to a
+third party and the first place a model can cause a note to change: the API key
+(keychain only, no fallback, never in an error, never followed through a
+redirect), the notes sent (off by default, read by the core, listed and removable
+before sending, bounded and refused whole when over), and the notes changed
+(a call is a request, checked again, applied by the editor after the reply has
+finished, one undo). None of them changes a rule; each was already true of the
+code and absent from the document that wins conflicts.
+
+`docs/ACCEPTANCE-AI.md` is the owner's walk, fourteen rows, and it exists because
+nothing in the suite has spoken to a real model: the providers were tested against
+a fake server that plays back canned streams, so whether a real provider accepts
+the request, whether the stream is read the way it is sent, and whether a real
+model calls the edit tools as the code expects can only be seen with a real key.
+`docs/OWNER-ACTS.md` gets a section that points at it and says why an agent cannot
+do it. Nothing is ticked. The assistant stays in the queue as built but not
+accepted, which is what the queue's rule asks for.
+
 ## 1.10.4 - the AI assistant edits the open note through the editor, and one undo takes the turn back
 
 The fifth block of the AI assistant (R9-05). Until now the assistant only talked;

@@ -369,6 +369,23 @@ installed helper is byte-identical to the repository's.
 
 ---
 
+## 8. Try the AI assistant with your own key
+
+Added at `1.10.4`. Every test of the assistant ran against a fake server, so
+nothing has spoken to a real model, and an agent cannot do this for you: it would
+need your key, and the key is the one thing that must stay in your keychain.
+
+Install a release at `1.10.4` or later, then **Settings → AI assistant**: turn it
+on, add a provider with your key, press **Test**, and open the chat with
+`Ctrl+Shift+A`. The rows to walk, and what to look for in each, are in
+[ACCEPTANCE-AI.md](ACCEPTANCE-AI.md); it costs a few cents. Rows A7 to A11 matter
+most, because they depend on a real model calling the two edit tools the way the
+code expects. If one fails, send the provider, the model and what the card said.
+To undo: turn the assistant off in the settings, or remove the provider, which
+removes its key from the keychain.
+
+---
+
 ## What none of these is
 
 None is acceptance. A signed binary, a recovered attachment and a booting
