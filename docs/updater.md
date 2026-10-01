@@ -119,6 +119,17 @@ Examples: `darwin-aarch64-app.json`, `linux-x86_64-deb.json`,
 notes, HTTPS payload URL and signature. Payload names include version, platform
 and a content hash so a newly published feed cannot change an in-flight download.
 
+**The signature names the version, and the application insists on it** (ADR-101,
+1.10.6). The publisher signs with `--app-version`, so the trusted comment, which
+the signature covers, carries `version:X.Y.Z`; `tools/updater-verify` checks that
+before anything is published, and a payload signed without it is signed again
+rather than reused. The application sets `requireSignedVersion`, so a feed that
+announces one version beside the artifact of another is refused instead of
+installed. A feed signed before 1.10.6 carries no version and would be refused
+by a build that requires one, but only a feed newer than the build is ever
+considered, so the only way to meet this is to publish from an old checkout; the
+plugin's message then says to re-sign and re-publish.
+
 **Publishing is two independent steps, and conflating them is how six releases
 went out believing they had shipped.** One files the artifact with the download
 service, which is what puts a row on `/p/tura-notes`; the other writes the

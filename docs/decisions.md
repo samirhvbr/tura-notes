@@ -3251,7 +3251,7 @@ the owner chose that the two stay independent and are compared.
 
 ## ADR-100 — An opt-in AI assistant calls the provider from Rust, keeps the key in the system keychain, and edits the open note through the editor
 
-**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · blocks 1 to 5 of 6 built in 1.10.0 to 1.10.4 (the `notes-ai` crate with both providers, the keychain and the settings section, the chat, and the edit tools); the rest is in `.continue/assistente-ia.md`
+**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · built in 1.10.0 to 1.10.5 (the `notes-ai` crate with both providers, the keychain and the settings section, the chat, the edit tools, and the pages); the owner's walk with a real key is open (`.continue/assistente-ia.md`, `ACCEPTANCE-AI.md`)
 
 **Context.** The owner wants an AI to help write documents, used through a
 provider's API with keys entered in Settings, and a chat to drive it. Three
@@ -3301,3 +3301,38 @@ unlock prompt. The assistant's stored settings hold no key and no "key
 configured" flag: the screen asks the keychain each time, so what it shows
 cannot drift from what is stored.
 
+## ADR-101 — The updater refuses an update whose signature does not name the version the feed announced
+
+**Status:** `ACCEPTED` · 01/10/2026, the loop, within its standing remit: a hardening that changes nothing the user sees when the feed is honest · built in 1.10.6
+
+**Context.** The feed is fetched over TLS but is not itself signed, and the
+signature covers only the downloaded artifact. Anyone able to answer the feed
+could pair a newer `version` with the `url` and `signature` of an older release,
+which carries a valid signature, and have the application install a genuine but
+outdated build. Version 2.12.0 of the Tauri updater plugin can close that: the
+signer records the version in the signature's trusted comment, which the
+signature covers, and an app that sets `requireSignedVersion` refuses an update
+whose announced version differs. It is off by default, and while it is off an
+attacker can bypass the check by serving any signature that carries no version,
+which every signature published before this change is.
+
+**Decision.** The publisher signs with `--app-version`, and the verifier it runs
+afterwards checks that the trusted comment names that version. A payload signed
+earlier is not reused: it is signed again. The application ships
+`"requireSignedVersion": true`, and a test reads the shipped `tauri.conf.json`
+through the plugin's own `Config` type, because an unknown key is ignored without
+a word and only the type that enforces it can say it is on.
+
+**Order, and why it is safe in one commit.** The requirement is read by the
+build that carries it, and a build only acts on feeds that announce a *newer*
+version than its own. Every such feed is published after the build exists, from
+a checkout that has the publisher change. A feed published before this change
+(the macOS feed at 1.9.4, the Linux one at 1.10.0) announces a version no
+build with the requirement is older than, so none is offered to it. If a feed is
+ever published from an older checkout, the update fails with the plugin's own
+message, *re-sign and re-publish*, and nothing is installed.
+
+**Consequences.** Builds before this one do not require it and keep updating as
+before; the protection starts with the first build that carries it, and is only
+as wide as the feeds that were signed with the version. An update that fails for
+this reason is a publishing mistake, never a user's.

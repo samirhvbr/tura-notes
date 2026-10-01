@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Transport failure and signed-payload regression checks (no remote writes)."""
+import base64
 import importlib.util
 import io
 import json
@@ -15,6 +16,14 @@ updater = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(updater)
 
 
+def signature_for(version):
+    """What the signer writes: the base64 of minisign's text, whose trusted comment
+    carries the version when one was given."""
+    fields = 'timestamp:1\tfile:Tura Notes.deb' + (f'\tversion:{version}' if version else '')
+    text = f'untrusted comment: signature\nAAAA\ntrusted comment: {fields}\nBBBB\n'
+    return base64.b64encode(text.encode()).decode()
+
+
 class UpdaterReleaseTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -27,8 +36,8 @@ class UpdaterReleaseTests(unittest.TestCase):
         self.config = patch.object(updater, 'CONFIG', config)
         self.config.start()
         self.addCleanup(self.config.stop)
-        def sign(path):
-            Path(str(path) + '.sig').write_text('test signature')
+        def sign(path, version):
+            Path(str(path) + '.sig').write_text(signature_for(version))
         with patch.object(updater, 'sign', side_effect=sign):
             updater.prepare(self.artifact, '1.1.0', 'linux-aarch64-deb')
 
@@ -44,7 +53,7 @@ class UpdaterReleaseTests(unittest.TestCase):
         signature.write_text('different signature')
         with self.assertRaises(ValueError):
             updater.verify(self.artifact, '1.1.0')
-        signature.write_text('test signature')
+        signature.write_text(signature_for('1.1.0'))
         self.artifact.write_bytes(b'tampered')
         with self.assertRaises(ValueError):
             updater.verify(self.artifact, '1.1.0')
@@ -52,6 +61,39 @@ class UpdaterReleaseTests(unittest.TestCase):
         updater.CONFIG.write_text(json.dumps({'plugins': {'updater': {'pubkey': 'wrong key'}}}))
         with self.assertRaises(ValueError):
             updater.verify(self.artifact, '1.1.0')
+
+    def test_the_signature_carries_the_version_and_a_payload_without_it_is_signed_again(self):
+        # What the app's `requireSignedVersion` reads: the trusted comment, which
+        # the signature covers.
+        self.assertEqual(updater.signed_version(signature_for('1.1.0')), '1.1.0')
+        self.assertIsNone(updater.signed_version(signature_for(None)))
+        self.assertIsNone(updater.signed_version('not base64 \u00e9'))
+        # A payload signed before the version went into the comment is refused as
+        # reusable, so `prepare` signs it again instead of publishing it.
+        signature = Path(str(self.artifact) + '.sig')
+        signature.write_text(signature_for(None))
+        record = Path(str(self.artifact) + '.updater.json')
+        data = json.loads(record.read_text())
+        data['signature'] = signature_for(None)
+        record.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):
+            updater.verify(self.artifact, '1.1.0')
+        called = []
+        def sign(path, version):
+            called.append(version)
+            Path(str(path) + '.sig').write_text(signature_for(version))
+        with patch.object(updater, 'sign', side_effect=sign):
+            updater.prepare(self.artifact, '1.1.0', 'linux-aarch64-deb')
+        self.assertEqual(called, ['1.1.0'])
+        updater.verify(self.artifact, '1.1.0')
+
+    def test_the_signer_is_told_the_version_and_the_verifier_checks_it(self):
+        with patch.object(updater.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            updater.sign(self.artifact, '1.1.0')
+        signing, verifying = run.call_args_list[0].args[0], run.call_args_list[1].args[0]
+        self.assertEqual(signing[signing.index('--app-version') + 1], '1.1.0')
+        self.assertEqual(verifying[-1], '1.1.0', 'the verifier is told which version it must find')
 
     def test_linux_reuse_checks_signed_sidecars(self):
         cache = Path(__file__).parents[1] / 'build-cache.py'

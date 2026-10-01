@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.6 - the updater signs the version into every release and the app refuses an update that does not name it
+
+The feed an installed application reads is fetched over TLS but is not signed
+itself, and the signature covers only the artifact. Anyone able to answer the feed
+could therefore pair a newer version number with the URL and signature of an older
+release, which carries a valid signature, and the application would install a
+genuine but outdated build. Version 2.12.0 of the updater plugin, which landed in
+1.9.19, has the check: the signer writes the version into the signature's trusted
+comment, which the signature covers, and an app that sets `requireSignedVersion`
+refuses an update whose announced version differs. It is off by default, and while
+it is off a signature that carries no version bypasses the check outright, which
+describes every signature we have published (the comment of the 1.8.58 package is
+only a timestamp and a file name).
+
+The publisher now signs with `--app-version`, and the verifier it runs afterwards
+checks that the comment names the version it was told, and fails with both
+versions when it does not. A payload signed earlier is no longer reused: reading
+the version out of the stored signature is what decides, so a cache from before
+this change is signed again instead of published. This was proved end to end with
+the real signer and the real verifier on a throwaway key: the right version
+passes, another is refused, and no version asked is the old behaviour. The
+application ships `"requireSignedVersion": true`, and a Rust test deserializes the
+shipped `tauri.conf.json` through the plugin's own `Config`, because an unknown key
+is ignored without a word; it was seen to fail with the flag off.
+
+Why this is safe in one commit and not two: a build acts only on a feed that
+announces a version newer than its own, and every such feed is published after
+the build exists, from a checkout that has this change. The macOS feed (1.9.4) and
+the Linux one (1.10.0) predate it and are older than any build that requires the
+version. Builds before this one do not require it and are unaffected. ADR-101
+records the decision and the order.
+
 ## 1.10.5 - the AI assistant has its page, its threat-model rows and an acceptance walk for a real key
 
 The sixth block of the AI assistant (R9-06), and the only one with no code in it.

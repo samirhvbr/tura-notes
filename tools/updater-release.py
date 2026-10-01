@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Sign updater payloads, record them durably, and publish each feed last."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -37,14 +38,37 @@ def signing_env():
     return env
 
 
-def sign(path):
-    # Never echo signer stdout: some CLI versions include key-related diagnostics.
-    result = subprocess.run([str(CLI), 'signer', 'sign', str(path)], env=signing_env(),
+def sign(path, version):
+    # The version goes into the signature's trusted comment, which the signature
+    # covers. The app (`requireSignedVersion`) refuses an update whose announced
+    # version differs from it, so a tampered feed cannot pair a new number with an
+    # older artifact. Never echo signer stdout: some CLI versions include
+    # key-related diagnostics.
+    result = subprocess.run([str(CLI), 'signer', 'sign', '--app-version', version, str(path)], env=signing_env(),
                             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     if result.returncode:
         raise ValueError('Updater signing failed. Check the configured key and password.')
     subprocess.run(['cargo', 'run', '--locked', '--quiet', '--manifest-path', str(ROOT / 'tools/updater-verify/Cargo.toml'),
-                    '--', str(path), str(path) + '.sig', str(CONFIG)], check=True)
+                    '--', str(path), str(path) + '.sig', str(CONFIG), version], check=True)
+
+
+def signed_version(signature):
+    """The version in a signature's trusted comment, or None.
+
+    The signature is the base64 of minisign's text; its trusted comment is a line
+    of tab-separated `key:value` pairs. Read only to decide whether a payload
+    signed earlier can be reused: the cryptographic check is `updater-verify`'s.
+    """
+    try:
+        text = base64.b64decode(signature).decode()
+    except (ValueError, UnicodeDecodeError):
+        return None
+    for line in text.splitlines():
+        if line.startswith('trusted comment:'):
+            for field in line[len('trusted comment:'):].strip().split('\t'):
+                if field.startswith('version:'):
+                    return field[len('version:'):]
+    return None
 
 
 def record_path(artifact):
@@ -58,6 +82,10 @@ def verify(artifact, version):
     signature = Path(str(artifact) + '.sig').read_text().strip()
     if signature != data['signature']:
         raise ValueError('Updater signature changed after build')
+    # A payload signed before the version went into the comment is signed again,
+    # because an app that requires it would refuse the update.
+    if signed_version(signature) != version:
+        raise ValueError('Updater signature does not carry this version')
     pubkey = json.loads(CONFIG.read_text())['plugins']['updater']['pubkey']
     if data['pubkey'] != pubkey:
         raise ValueError('Updater key changed; rebuild the payload')
@@ -98,7 +126,7 @@ def prepare(artifact, version, platform):
             return
     except (OSError, ValueError, KeyError):
         pass
-    sign(artifact)
+    sign(artifact, version)
     data = dict(version=version, platform=platform, sha256=sha(artifact),
                 signature=Path(str(artifact) + '.sig').read_text().strip(),
                 pubkey=json.loads(CONFIG.read_text())['plugins']['updater']['pubkey'])
@@ -192,7 +220,7 @@ def main():
         with tempfile.TemporaryDirectory() as directory:
             probe = Path(directory) / 'probe'
             probe.write_bytes(b'Tura Notes updater signing preflight\n')
-            sign(probe)
+            sign(probe, '0.0.0')
     elif args.command == 'prepare':
         prepare(args.artifact, args.version, args.platform)
     elif args.command == 'verify':

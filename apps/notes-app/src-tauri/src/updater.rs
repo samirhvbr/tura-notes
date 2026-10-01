@@ -38,6 +38,27 @@ mod tests {
     use super::misplaced_path;
     use std::path::Path;
 
+    /// The updater's own reading of the configuration the application ships:
+    /// the plugin's `Config`, deserialized from the real `tauri.conf.json`, and
+    /// not a grep. A key it does not know is ignored without a word, so the
+    /// only way to know the requirement is on is to ask the type that enforces it.
+    #[test]
+    fn the_shipped_config_requires_the_signed_version() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let config: tauri_plugin_updater::Config =
+            serde_json::from_value(conf["plugins"]["updater"].clone()).unwrap();
+        assert!(
+            config.require_signed_version,
+            "an update must be refused unless its signature names the version announced for it"
+        );
+        assert_eq!(config.endpoints.len(), 1);
+        assert!(
+            !config.dangerous_insecure_transport_protocol && !config.dangerous_accept_invalid_certs,
+            "nothing that weakens the transport is on"
+        );
+    }
+
     #[test]
     fn a_disk_image_or_a_translocated_copy_cannot_update_itself() {
         for p in [
