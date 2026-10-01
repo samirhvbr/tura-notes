@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.9.16 - vitest 5.0.0 to 5.0.2
+
+Dependabot #38. The frontend test runner, a development dependency, so `THIRD-PARTY-NOTICES.md` does not move. The same bump Dependabot proposed (the range moves to ^5.0.2), applied with npm because its patch conflicts with the vite one on adjacent lines of `package.json`; the lockfile is the one npm resolves.
+
 ## 1.9.16 - vite 8.3.0 to 8.3.1
 
 Dependabot #33. The build tool and dev server, a development dependency: it ships in nothing, so `THIRD-PARTY-NOTICES.md` does not move. The lockfile change is Dependabot's, applied with a cherry-pick that does not commit and re-resolved by `npm ci`. The frontend build, tests and advisories are the gate's.
