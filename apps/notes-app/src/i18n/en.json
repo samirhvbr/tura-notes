@@ -409,9 +409,8 @@
   "remote.mark.differs": "Different from the local copy",
   "remote.mark.same": "Same as the local copy",
   "remote.mark.unknown": "Not compared",
-  "remote.mdOnly": "The name must end in .md",
   "remote.new": "New note on the server",
-  "remote.newPath": "Path on the server, e.g. ideas/today.md",
+  "remote.newPath": "Name or path on the server, e.g. ideas/today",
   "remote.offline": "The server cannot be reached. Your edit is kept here and will be sent when it can.",
   "remote.pick": "Open a note from the remote folder.",
   "remote.readOnly": "The server will not rewrite this note (its encoding or line endings), so it opens read-only.",
@@ -553,5 +552,6 @@
   "workspace.readOnly.identityLost": "This workspace is open read-only: the record that ties its notes to their identities is missing, and saving now could lose them. Restore it from a backup, or forget this workspace from the start screen to begin again.",
   "workspace.readOnly.schemaAhead": "This workspace is open read-only: its state was written by a newer version of Tura Notes (format {found}). Open it with that version to edit.",
   "workspace.recent": "recent",
-  "remote.adopted": "Using Device sync's server and credential."
+  "remote.adopted": "Using Device sync's server and credential.",
+  "remote.nameInvalid": "Type a note name, not a folder (no trailing /, no . or .. parts)."
 }

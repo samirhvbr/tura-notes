@@ -14,6 +14,7 @@ import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 import { remoteErrorText } from "./RemoteBrowser";
+import { remoteNotePath } from "./names";
 
 /**
  * A note of the remote folder, open in the main area (ADR-099).
@@ -70,9 +71,10 @@ export function RemoteEditor() {
           label: t("remote.newPath"),
           initial: doc.path,
           confirmLabel: t("remote.rename"),
-          validate: (v) => (/\.(md|markdown)$/i.test(v.trim()) ? null : t("remote.mdOnly")),
+          validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
         });
-        if (to && to.trim() !== doc.path) await run(() => useRemoteDoc.getState().rename(to.trim()));
+        const target = to ? remoteNotePath(to) : null;
+        if (target && target !== doc.path) await run(() => useRemoteDoc.getState().rename(target));
       },
     },
     {

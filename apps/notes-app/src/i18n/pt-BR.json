@@ -409,9 +409,8 @@
   "remote.mark.differs": "Diferente da cópia local",
   "remote.mark.same": "Igual à cópia local",
   "remote.mark.unknown": "Não comparado",
-  "remote.mdOnly": "O nome precisa terminar em .md",
   "remote.new": "Nova nota no servidor",
-  "remote.newPath": "Caminho no servidor, ex.: ideias/hoje.md",
+  "remote.newPath": "Nome ou caminho no servidor, ex.: ideias/hoje",
   "remote.offline": "Não foi possível alcançar o servidor. Sua edição fica guardada aqui e será enviada quando der.",
   "remote.pick": "Abra uma nota da pasta remota.",
   "remote.readOnly": "O servidor não regrava esta nota (codificação ou quebras de linha), então ela abre só para leitura.",
@@ -553,5 +552,6 @@
   "workspace.readOnly.identityLost": "Este workspace está aberto somente leitura: o registro que liga as notas às identidades delas sumiu, e gravar agora poderia perdê-las. Restaure-o de um backup, ou esqueça este workspace na tela inicial para começar de novo.",
   "workspace.readOnly.schemaAhead": "Este workspace está aberto somente leitura: o estado dele foi gravado por uma versão mais nova do Tura Notes (formato {found}). Abra-o com essa versão para editar.",
   "workspace.recent": "recentes",
-  "remote.adopted": "Usando o servidor e a credencial do Device sync."
+  "remote.adopted": "Usando o servidor e a credencial do Device sync.",
+  "remote.nameInvalid": "Digite o nome de uma nota, não de uma pasta (sem / no final, sem partes . ou ..)."
 }

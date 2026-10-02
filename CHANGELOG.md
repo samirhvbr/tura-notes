@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.12 - a remote note named without .md gets it added instead of a warning
+
+The owner created a note in the remote folder on 02/10, typed its name, and
+was told the name must end in `.md`. That warning asked the person to do
+something the application could do itself. Now
+`remote/names.ts::remoteNotePath` adds the extension: `ideas/today` becomes
+`ideas/today.md`. A name already ending in `.md` or `.markdown`, in any case,
+is left as it is. A dot inside a name is not an extension the server takes,
+so `v1.2 notes` becomes `v1.2 notes.md`, and a leading `/` is dropped.
+
+What is still refused, with its own sentence, is what has no right answer:
+nothing typed, a name ending in `/` (a folder, not a note), an empty segment,
+and `.` or `..` segments. The server checks the rest, such as names that are
+illegal on another platform, and says so. The same rule applies to New note on
+the server and to Rename or move. The field's hint no longer shows `.md`, and
+the warning `remote.mdOnly` is gone from both catalogues.
+
+`remote/names.test.ts` covers the additions and the refusals, and
+`RemoteBrowser.test.tsx` covers the panel button, where typing `ideas/today`
+creates `ideas/today.md`.
+
 ## 1.10.11 - the remote folder uses Device sync's server and credential instead of asking for them again
 
 The owner opened the cloud panel on 01/10 with Device sync already set up for

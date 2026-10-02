@@ -11,6 +11,10 @@ vi.mock("../ipc", async (original) => ({
   remoteProbe: vi.fn(),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+vi.mock("../app/dialog", async (original) => ({
+  ...(await original<typeof import("../app/dialog")>()),
+  askText: vi.fn(),
+}));
 const { RemoteBrowser } = await import("./RemoteBrowser");
 const { useRemote } = await import("../stores/remote");
 const initial = useRemote.getState();
@@ -81,4 +85,19 @@ it("says what is wrong in the remote folder's own words", async () => {
   vi.mocked(ipc.remoteList).mockRejectedValue({ code: "sync", cause: "offline" });
   render(<RemoteBrowser />);
   expect(await screen.findByRole("alert")).toHaveTextContent("The server could not be reached");
+});
+
+it("a new note typed without .md is created with it", async () => {
+  const { askText } = await import("../app/dialog");
+  const { useRemoteDoc } = await import("../stores/remoteDoc");
+  const create = vi.fn(async () => {});
+  const old = useRemoteDoc.getState().create;
+  useRemoteDoc.setState({ create });
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(askText).mockResolvedValue("ideas/today");
+  render(<RemoteBrowser />);
+  fireEvent.click(await screen.findByRole("button", { name: "New note on the server" }));
+  await waitFor(() => expect(create).toHaveBeenCalledWith("ideas/today.md"));
+  useRemoteDoc.setState({ create: old });
 });

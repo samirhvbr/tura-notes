@@ -20,6 +20,7 @@ import { buildTree, useRemote, type RemoteDir } from "../stores/remote";
 import { useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { askText } from "../app/dialog";
+import { remoteNotePath } from "./names";
 
 /**
  * The remote folder's panel (ADR-099): the server's notes workspace as a tree,
@@ -211,12 +212,13 @@ async function newNote(say: (m: string) => void) {
     label: t("remote.newPath"),
     initial: "",
     confirmLabel: t("remote.create"),
-    validate: (v) => (/\.(md|markdown)$/i.test(v.trim()) ? null : t("remote.mdOnly")),
+    validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
   });
-  if (!path) return;
+  const note = path ? remoteNotePath(path) : null;
+  if (!note) return;
   say("");
   try {
-    await useRemoteDoc.getState().create(path.trim());
+    await useRemoteDoc.getState().create(note);
   } catch (e) {
     say(remoteErrorText(ipc.asCoreError(e)));
   }
