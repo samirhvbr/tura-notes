@@ -23,6 +23,7 @@ import { Menu, type MenuRow } from "../app/Menu";
 import { useUi } from "../stores/ui";
 import { askText } from "../app/dialog";
 import { remoteNotePath } from "./names";
+import { useRemoteListSync } from "./useRemoteSync";
 
 /**
  * The remote folder's panel (ADR-099): the server's notes workspace as a tree,
@@ -42,6 +43,8 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
   const suggestion = useRemote((s) => s.suggestion);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState("");
+  // The tree follows the server while it is on screen; see useRemoteSync.
+  useRemoteListSync(!!config);
 
   useEffect(() => {
     const s = useRemote.getState();

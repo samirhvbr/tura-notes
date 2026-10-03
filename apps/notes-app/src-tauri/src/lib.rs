@@ -142,6 +142,7 @@ pub fn run() {
             commands::remote_create,
             commands::remote_rename,
             commands::remote_delete,
+            commands::remote_merge,
             commands::remote_render,
             updater::update_check,
             updater::update_install,

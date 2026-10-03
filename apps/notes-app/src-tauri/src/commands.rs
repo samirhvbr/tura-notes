@@ -1018,6 +1018,18 @@ pub async fn remote_delete(app: State<'_, App>, path: RelPath, etag: String) -> 
     let p = path.clone();
     remote_call(&app, Some(path), move |f| f.with(|r| r.delete(&p, &etag))).await
 }
+/// Join this app's unsent edit of a remote note with the server's newer copy,
+/// when they started from the same text and did not touch the same lines. `text`
+/// is absent on a conflict, and then nothing is changed anywhere: the page shows
+/// both versions. `async` so a large diff runs off the webview's thread.
+#[tauri::command]
+pub async fn remote_merge(
+    base: String,
+    mine: String,
+    theirs: String,
+) -> R<notes_core::merge::Merged> {
+    Ok(notes_core::merge::merge3(&base, &mine, &theirs))
+}
 /// The preview of a remote note: no local folder, no raw HTML, no local images.
 #[tauri::command]
 pub fn remote_render(app: State<'_, App>, path: RelPath, text: String) -> R<Rendered> {

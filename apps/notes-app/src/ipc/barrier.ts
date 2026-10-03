@@ -5,6 +5,7 @@ let claiming = false;
 let pending = 0;
 let composing = false;
 export const setComposing = (value: boolean) => { composing = value; };
+export const isComposing = () => composing;
 const listeners = new Set<() => void>();
 export const isSyncLocked = () => locked;
 export const subscribeBarrier = (listener: () => void) => {

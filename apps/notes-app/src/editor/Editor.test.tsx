@@ -178,3 +178,33 @@ it("replace_selection replaces the selected text when it is still what was share
   expect(ok.applied).toBe(1);
   expect(shown()).toBe("um 2 três");
 });
+
+// ---- a replacement from outside keeps the person's place ---------------------
+
+it("a change from outside, above the cursor, moves the cursor with the words and not to the same offset", async () => {
+  const { EditorView } = await import("@codemirror/view");
+  onScreen("one\ntwo\nthree\nfour\n");
+  render(<Editor />);
+  const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)!;
+  const at = "one\ntwo\nthree\nfo".length; // inside "four"
+  act(() => view.dispatch({ selection: { anchor: at } }));
+  // The first line grows by nine characters on the server.
+  act(() =>
+    useEditor.setState((s) => ({
+      doc: s.doc && { ...s.doc, text: "one, and a lot more\ntwo\nthree\nfour\n", externalRev: s.doc.externalRev + 1 },
+    })),
+  );
+  expect(shown()).toBe("one, and a lot more\ntwo\nthree\nfour\n");
+  expect(view.state.selection.main.head).toBe(at + "one, and a lot more".length - "one".length);
+  expect(view.state.doc.sliceString(view.state.selection.main.head - 2, view.state.selection.main.head)).toBe("fo");
+});
+
+it("a change from outside does not mark the buffer unsaved", async () => {
+  onScreen("alpha\nbeta\n");
+  render(<Editor />);
+  act(() =>
+    useEditor.setState((s) => ({ doc: s.doc && { ...s.doc, text: "alpha\nBETA\n", externalRev: s.doc.externalRev + 1 } })),
+  );
+  expect(shown()).toBe("alpha\nBETA\n");
+  expect(useEditor.getState().doc!.bufferVersion).toBe(0);
+});

@@ -398,6 +398,7 @@ export const remoteList = () => invoke<import("./generated/RemoteEntry").RemoteE
 export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path});
 export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag});
 export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text});
+export const remoteMerge = (base: string, mine: string, theirs: string) => invoke<import("./generated/Merged").Merged>("remote_merge", {base,mine,theirs});
 export const remoteRename = (from: string, to: string, etag: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_rename", {from,to,etag});
 export const remoteDelete = (path: string, etag: string) => invoke<void>("remote_delete", {path,etag});
 export const remoteRender = (path: string, text: string) => invoke<Rendered>("remote_render", {path,text});

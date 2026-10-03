@@ -3336,3 +3336,60 @@ message, *re-sign and re-publish*, and nothing is installed.
 before; the protection starts with the first build that carries it, and is only
 as wide as the feeds that were signed with the version. An update that fails for
 this reason is a publishing mistake, never a user's.
+
+## ADR-102 — An open remote note follows the server every ten seconds, and edits that did not collide are joined
+
+**Status:** `ACCEPTED` · 03/10/2026, the owner's answers on the interval, the merge and the tree refresh · built in 1.10.14
+
+**Context.** ADR-099 lets a note of the server's workspace be edited in place, and
+settles what happens when two copies diverge: every save carries the tag the text
+was read at, a stale one is refused, and the person resolves it with both
+versions in front of them. That is safe and it is slow. Two apps with the same
+note open learn of each other only when one of them saves and is refused, which
+the person experiences as having to reload, and which asks them to compare two
+versions even when the two edits were a paragraph apart. The owner asked for the
+behaviour of a notes application that keeps its copies in step, not keystroke by
+keystroke.
+
+**Decision.**
+
+- *Reading.* While a remote note is on screen and the window is visible (not
+  necessarily focused: two windows side by side is the case), it is read from the
+  server every ten seconds, and once when the window is looked at again. After a
+  failure the wait doubles to a minute and returns to ten seconds on the first
+  good read. The tree of notes is read once a minute on the same terms. A read
+  is dropped if anything happened to the note while it was on the wire: a save
+  that finished, an edit, a conflict, a word being composed.
+- *Reconciling,* for the server's note when its tag is not the buffer's:
+  - same text under a new tag: take the tag;
+  - nothing unsent in the buffer: take the server's text, as one change that
+    keeps the cursor and is not an edit;
+  - unsent text: a **three-way merge, line by line, against the text the buffer
+    was read at** (`base`, kept in memory). If the two edits did not touch the
+    same lines or lines next to each other, the joined text replaces the buffer
+    and is saved at the server's tag; if they did, the buffer is untouched and
+    the conflict screen of ADR-099 appears. A merge that cannot run, or a note
+    beyond 2 MiB, is a conflict.
+  - A save the server refuses as stale goes through the same reconciliation
+    with the note it answered with.
+- *What stays true from ADR-099.* Nothing the person typed is replaced by a guess:
+  text is replaced only when there was nothing unsent or when the merge joined
+  without a collision, and the status bar says which happened. Conflict markers
+  never enter a note. No second copy of a note is kept on disk (ADR-004); `base`
+  is the buffer's own history in memory.
+
+**Alternatives set aside.** *A stream from the server (SSE or long-poll):* instant,
+but the server holds no connection open by design (remote MCP opens no stream
+either), and one would have to pass the proxy and enter the connection limits;
+it can replace the timer later without changing the reconciliation. *Editing at
+the keystroke with a CRDT:* needs state kept inside or beside the note, against
+ADR-001 and the byte-exact promise.
+
+**Consequences.** One open note costs six requests a minute of a credential's
+sixty, and the tree one more. Two apps using one credential share its sixty;
+devices have a credential each (ADR-086), so two devices do not. A read returns the whole note,
+because the server answers no conditional request; an older or newer server needs
+no change, and a conditional read is a later saving. The merge is by lines, so a
+paragraph edited in two places at once is a conflict, as it is in version
+control, and the way out is the screen that already existed. Adds the `diffy`
+crate (MIT or Apache-2.0) to `notes-core`.

@@ -553,5 +553,7 @@
   "workspace.readOnly.schemaAhead": "This workspace is open read-only: its state was written by a newer version of Tura Notes (format {found}). Open it with that version to edit.",
   "workspace.recent": "recent",
   "remote.adopted": "Using Device sync's server and credential.",
-  "remote.nameInvalid": "Type a note name, not a folder (no trailing /, no . or .. parts)."
+  "remote.nameInvalid": "Type a note name, not a folder (no trailing /, no . or .. parts).",
+  "remote.synced.updated": "Updated from another device",
+  "remote.synced.merged": "Your changes were joined with those from another device"
 }

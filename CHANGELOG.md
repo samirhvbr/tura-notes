@@ -7,6 +7,56 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.14 - an open remote note follows the server every ten seconds, and edits that did not collide are joined
+
+Two apps with the same remote note open used to learn of each other only when one
+of them saved and the server refused the save, which is what made it feel like
+the screen needed a reload, and which asked for a comparison even when the two
+edits were a paragraph apart. The open note is now read from the server every ten
+seconds while its window is visible, and the reading reconciles with the buffer.
+
+What it does with a newer copy on the server depends on what the buffer holds. If
+nothing is unsent, the server's text replaces it, as one change that keeps the
+cursor where it was in the words (it moves by as much as the change above it took
+or gave) and is not an edit, so it is not sent back. If there is unsent text, the
+two edits are joined by a three-way merge, line by line, against the text the
+buffer was read at, which the store now keeps as `base`; if they did not touch
+the same lines or lines next to each other, the joined text replaces the buffer
+and is saved at the server's tag, and if they did, the buffer is untouched and the
+conflict screen that already existed appears. A save the server refuses as stale
+takes the same road with the note it answered with, so it, too, joins where it
+can instead of stopping. The status bar says for a few seconds which of the two
+happened. The tree of notes is read again once a minute, and when the window is
+looked at again.
+
+The merge is a new function in `notes-core` over the `diffy` crate, and it only
+says yes when sure: conflict markers never enter a note, a note beyond 2 MiB or a
+merge that cannot run is a conflict, and when only one side changed its bytes come
+back exactly. It lives in Rust and not in the page because that is where the text
+logic of this application lives, and it runs off the webview's thread. The read is
+the whole note, because the server answers no conditional request; that is a saving
+for later and needs no change in an older server.
+
+The care is in the races. A read is dropped if anything happened to the note while
+it was on the wire: a save of ours that finished meanwhile would look, from an
+older answer, like a change on the server and regress the note; text typed while
+the merge ran would be replaced by a merge of the text from before the last
+keystroke; a word being composed would be broken. Each of those has a test of its own. A save that triggers a reconciliation does not wait for the save it
+queues, since a save queued behind itself would wait for itself. After a failure
+the wait doubles to a minute and returns to ten seconds on the first good read; a
+hidden window asks nothing and asks once when it is shown again; a window that is
+visible but not focused keeps asking, because two windows side by side is the case
+this is for. One open note costs six requests a minute of the credential's sixty.
+
+Tests: ten for the merge (distant edits, both ends, the same line, adjacent lines,
+exact bytes when one side did nothing, no final newline, empty base, no markers,
+the size limit, swapped sides), thirteen for the store (each outcome, each race,
+the delay), seven for the timers, two for the editor's cursor and one end to end
+through a real CodeMirror. The walk for the owner has four new rows
+(`ACCEPTANCE-remote.md` 11 to 14), because two real apps against a real server
+is the one thing none of this stands in for. ADR-102 records the decision and
+what was set aside (a stream from the server, and a CRDT).
+
 ## 1.10.13 - a note in the server's tree can be renamed with a right-click, without opening it
 
 Renaming a file by right-click already worked in the local tree. The server's

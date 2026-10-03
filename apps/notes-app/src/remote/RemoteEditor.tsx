@@ -14,6 +14,7 @@ import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 import { askRemoteName, remoteErrorText } from "./RemoteBrowser";
+import { useRemoteSync } from "./useRemoteSync";
 
 /**
  * A note of the remote folder, open in the main area (ADR-099).
@@ -34,6 +35,8 @@ export function RemoteEditor() {
   const [comparing, setComparing] = useState(false);
   const [message, setMessage] = useState("");
   const trigger = useRef<HTMLButtonElement | null>(null);
+  // The note on screen is read again every ten seconds; see useRemoteSync.
+  useRemoteSync(!!doc?.path);
 
   if (!doc) {
     return (

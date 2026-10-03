@@ -1,3 +1,4 @@
+import { useEffect, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
 import { useSync } from "../stores/sync";
@@ -37,6 +38,19 @@ const REMOTE_GLYPH: Record<RemoteStatus, string> = {
   error: "✕",
 };
 
+/** A line that says what just happened and then goes away by itself, so the
+ *  bar is not left claiming "updated" about something minutes old. */
+const FRESH_MS = 6000;
+function Fresh({ stamp, children }: { stamp: number; children: ReactNode }) {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    setShown(true);
+    const timer = setTimeout(() => setShown(false), FRESH_MS);
+    return () => clearTimeout(timer);
+  }, [stamp]);
+  return shown ? <>{children}</> : null;
+}
+
 export function StatusBar() {
   const mainView = useUi((s) => s.mainView);
   const remote = useRemoteDoc((s) => s.doc);
@@ -58,6 +72,13 @@ export function StatusBar() {
       <footer className="statusbar">
         {remote.lastError && remote.status === "error" && (
           <span className="message">{errorText(remote.lastError)}</span>
+        )}
+        {remote.synced && (
+          <Fresh stamp={remote.synced.at}>
+            <span className="message" role="status">
+              {t(remote.synced.kind === "merged" ? "remote.synced.merged" : "remote.synced.updated")}
+            </span>
+          </Fresh>
         )}
         <span className="spacer" />
         {config && (

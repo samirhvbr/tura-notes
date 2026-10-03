@@ -17,6 +17,7 @@ pub mod ignore;
 pub mod index;
 pub mod knowledge;
 mod lock;
+pub mod merge;
 pub mod paths;
 pub mod preview;
 pub mod recent;

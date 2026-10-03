@@ -276,10 +276,13 @@ function EditorBody({
     const v = view.current;
     if (!v || !doc) return;
     if (v.state.doc.toString() === doc.text) return;
-    const at = Math.min(v.state.selection.main.head, doc.text.length);
+    // Only what differs is replaced, and the selection is carried through it by
+    // the editor: a note changed on the server three screens above the cursor
+    // must not move the cursor, and a change that touches it moves it by as much
+    // as the change took or gave. Replacing the whole text and clamping the
+    // caret, as this once did, put it at the same offset in different words.
     v.dispatch({
-      changes: { from: 0, to: v.state.doc.length, insert: doc.text },
-      selection: { anchor: at },
+      changes: minimalChange(v.state.doc.toString(), doc.text),
       // Not an edit by the user: the update listener checks this flag so the
       // reload does not mark the buffer dirty and start an autosave.
       annotations: External.of(true),

@@ -1018,7 +1018,15 @@ version/notes/status only; it cannot choose an update URL or verification key.
     file;
   - `remote_list` hashes the local note at the same path through the root
     jail (`WorkspaceService::local_hash`), and `remote_render` renders with
-    raw HTML off and no local images (`render_detached`).
+    raw HTML off and no local images (`render_detached`);
+  - the open note **follows the server** (ADR-102): `useRemoteSync` reads it
+    every ten seconds while the window is visible, and a save the server
+    refuses as stale takes the same road. `remoteDoc.reconcile` replaces a
+    buffer with nothing unsent, joins one with unsent text through
+    `remote_merge` (`notes_core::merge`, a line-based three-way merge against
+    `base`, the server's text at the tag the buffer was read at), and leaves
+    the conflict screen for edits that touched the same lines. The tree is
+    read again once a minute.
 
 ---
 

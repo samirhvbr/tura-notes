@@ -6,9 +6,12 @@ import { EditorView } from "@codemirror/view";
 vi.mock("../ipc", async (original) => ({
   ...(await original<typeof import("../ipc")>()),
   remoteSave: vi.fn(),
+  remoteOpen: vi.fn(),
+  remoteMerge: vi.fn(),
   remoteRender: vi.fn(async () => ({ html: "", blocked_remote: [], shown_remote: [] })),
   remoteList: vi.fn(async () => []),
 }));
+const ipcMod = await import("../ipc");
 const { RemoteEditor } = await import("./RemoteEditor");
 const { useRemoteDoc, resetRemoteDocTimers } = await import("../stores/remoteDoc");
 const { useEditor } = await import("../stores/editor");
@@ -24,6 +27,8 @@ const base = {
   path: "work/plan.md",
   text: "remote text\n",
   etag: '"e1"',
+  base: "remote text\n",
+  synced: null,
   readOnly: null,
   bufferVersion: 0,
   savedVersion: 0,
@@ -78,4 +83,37 @@ it("a note gone from the server keeps its text, read-only, with a way back", () 
   expect(screen.getByRole("button", { name: "Put it back on the server" })).toBeInTheDocument();
   expect(screen.getAllByRole("button", { name: "Save a copy to the local folder" }).length).toBeGreaterThan(0);
   expect(shown()).toBe("remote text\n");
+});
+
+it("a note changed on the server shows the new text on screen without a reload, and the other app's words join the ones typed here", async () => {
+  useEditor.setState({ doc: null });
+  useRemoteDoc.setState({ doc: { ...base, text: "a\nb\nc\nd\ne\nf\ng\n", base: "a\nb\nc\nd\ne\nf\ng\n" }, tabs: [base.path] });
+  vi.mocked(ipcMod.remoteOpen).mockResolvedValue({
+    path: base.path,
+    text: "A\nb\nc\nd\ne\nf\ng\n",
+    etag: '"s2"',
+    read_only: null,
+  });
+  render(<RemoteEditor />);
+  // Mounting reads the note at once; the text on screen follows the server's.
+  await vi.waitFor(() => expect(shown()).toBe("A\nb\nc\nd\ne\nf\ng\n"));
+  expect(useRemoteDoc.getState().doc!.synced?.kind).toBe("updated");
+  expect(ipcMod.remoteSave).not.toHaveBeenCalled();
+
+  // Now something typed here and not sent, and another change over there.
+  const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)!;
+  act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "h\n" } }));
+  vi.mocked(ipcMod.remoteOpen).mockResolvedValue({
+    path: base.path,
+    text: "A\nB\nc\nd\ne\nf\ng\n",
+    etag: '"s3"',
+    read_only: null,
+  });
+  vi.mocked(ipcMod.remoteMerge).mockResolvedValue({ text: "A\nB\nc\nd\ne\nf\ng\nh\n" });
+  vi.mocked(ipcMod.remoteSave).mockResolvedValue({ outcome: "saved", etag: '"s4"' } as never);
+  await act(async () => {
+    await useRemoteDoc.getState().sync();
+  });
+  await vi.waitFor(() => expect(shown()).toBe("A\nB\nc\nd\ne\nf\ng\nh\n"));
+  await vi.waitFor(() => expect(ipcMod.remoteSave).toHaveBeenCalledWith(base.path, "A\nB\nc\nd\ne\nf\ng\nh\n", '"s3"'));
 });
