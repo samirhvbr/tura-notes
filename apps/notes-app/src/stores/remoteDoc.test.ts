@@ -5,6 +5,7 @@ vi.mock("../ipc", async (original) => ({
   remoteOpen: vi.fn(),
   remoteSave: vi.fn(),
   remoteCreate: vi.fn(),
+  remoteRename: vi.fn(),
   remoteList: vi.fn(),
   pdfSave: vi.fn(),
 }));
@@ -181,4 +182,47 @@ it("switching to another remote note flushes this one first, and stays when it c
   await expect(useRemoteDoc.getState().open("b.md")).rejects.toBeTruthy();
   expect(useRemoteDoc.getState().doc!.path).toBe("a.md");
   expect(useRemote.getState()).toBeTruthy();
+});
+
+// ---- renaming from the tree --------------------------------------------------
+
+it("renames a note that is not open, at the tag the listing showed, and follows it in the tabs", async () => {
+  await opened();
+  useRemoteDoc.setState({ tabs: ["a.md", "b.md"] });
+  vi.mocked(ipc.remoteRename).mockResolvedValue(note("ideas/b.md", "two\n", '"e9"'));
+  expect(await useRemoteDoc.getState().renameNote("b.md", "ideas/b.md", '"e2"')).toBe(true);
+  expect(ipc.remoteRename).toHaveBeenCalledWith("b.md", "ideas/b.md", '"e2"');
+  expect(ipc.remoteOpen).toHaveBeenCalledTimes(1); // only the open of a.md
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md", "ideas/b.md"]);
+  expect(useRemoteDoc.getState().doc?.path, "the open note was not touched").toBe("a.md");
+  expect(ipc.remoteList).toHaveBeenCalled();
+});
+
+it("asks the note for its tag when the listing carried none", async () => {
+  vi.mocked(ipc.remoteOpen).mockResolvedValue(note("b.md", "x", '"fresh"'));
+  vi.mocked(ipc.remoteRename).mockResolvedValue(note("c.md", "x", '"e3"'));
+  await useRemoteDoc.getState().renameNote("b.md", "c.md", null);
+  expect(ipc.remoteRename).toHaveBeenCalledWith("b.md", "c.md", '"fresh"');
+});
+
+it("renaming the open note keeps its buffer, and refuses while text is unsent", async () => {
+  await opened();
+  vi.mocked(ipc.remoteRename).mockResolvedValue(note("renamed.md", "one\n", '"e5"'));
+  expect(await useRemoteDoc.getState().renameNote("a.md", "renamed.md", '"stale"')).toBe(true);
+  // The open note is renamed at the tag it was saved at, not the listing's.
+  expect(ipc.remoteRename).toHaveBeenCalledWith("a.md", "renamed.md", '"e1"');
+  expect(useRemoteDoc.getState().doc?.path).toBe("renamed.md");
+
+  vi.clearAllMocks();
+  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  useRemoteDoc.setState((s) => ({ doc: s.doc && { ...s.doc, bufferVersion: s.doc.savedVersion + 1 } }));
+  expect(await useRemoteDoc.getState().renameNote("renamed.md", "again.md", null)).toBe(false);
+  expect(ipc.remoteRename).not.toHaveBeenCalled();
+});
+
+it("a refusal from the server reaches the caller and leaves the tabs as they were", async () => {
+  vi.mocked(ipc.remoteRename).mockRejectedValue({ code: "sync", cause: "invalid" });
+  useRemoteDoc.setState({ tabs: ["b.md"] });
+  await expect(useRemoteDoc.getState().renameNote("b.md", "c.md", '"e2"')).rejects.toBeTruthy();
+  expect(useRemoteDoc.getState().tabs).toEqual(["b.md"]);
 });

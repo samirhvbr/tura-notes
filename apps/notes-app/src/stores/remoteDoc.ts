@@ -72,6 +72,14 @@ interface RemoteDocState {
   copyToLocal(): Promise<string>;
   create(path: string): Promise<void>;
   rename(to: string): Promise<void>;
+  /**
+   * Rename or move a note of the server's tree, open or not. The open note
+   * goes through [`rename`], which leaves the buffer alone; any other is
+   * renamed at the revision the listing showed, and a stale one is refused by
+   * the server and says so. Returns false when nothing was done because the
+   * note is open with text not yet sent: that text would be left behind.
+   */
+  renameNote(from: string, to: string, etag: string | null): Promise<boolean>;
   remove(): Promise<void>;
 }
 
@@ -301,6 +309,22 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         tabs: s.tabs.map((p) => (p === d.path ? note.path : p)),
       }));
       void useRemote.getState().refresh();
+    },
+
+    async renameNote(from, to, etag) {
+      const d = get().doc;
+      if (d && d.path === from) {
+        if (dirty(d)) return false;
+        await get().rename(to);
+        return true;
+      }
+      // A listing from an older server carries no tag; the note then says
+      // which revision it is.
+      const tag = etag ?? (await ipc.remoteOpen(from)).etag;
+      const note = await ipc.remoteRename(from, to, tag);
+      set((s) => ({ tabs: s.tabs.map((p) => (p === from ? note.path : p)) }));
+      void useRemote.getState().refresh();
+      return true;
     },
 
     async remove() {

@@ -24,3 +24,4 @@ open on the desktop. That is this walk.
 | 7 | Close the window with an edit the server cannot take | The window asks; *Save a copy to the local folder* puts it in the local folder | ☐ |
 | 8 | **New note on the server** as `new-folder/today.md` | It is created with its folder and opens | ☐ |
 | 9 | Rename it, then delete it, from the note's `⋮` menu | Both happen on the server; the local folder is untouched | ☐ |
+| 10 | In the server's tree, **right-click a note that is not open** (or use its `⋮`), choose *Rename or move on the server*, and give it a new name or `folder/name` | It moves on the server, the tree shows it at the new path, and nothing was opened. A name without `.md` gets it. Try a name that is taken: the tree says so and stays as it was. The note that is open with unsent text has the row greyed out | ☐ |

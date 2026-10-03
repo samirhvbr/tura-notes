@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Check,
@@ -10,6 +10,7 @@ import {
   Folder,
   FolderOpen,
   Minus,
+  MoreVertical,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -17,7 +18,8 @@ import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { errorText } from "../app/StatusBar";
 import { buildTree, useRemote, type RemoteDir } from "../stores/remote";
-import { useRemoteDoc } from "../stores/remoteDoc";
+import { dirty, useRemoteDoc } from "../stores/remoteDoc";
+import { Menu, type MenuRow } from "../app/Menu";
 import { useUi } from "../stores/ui";
 import { askText } from "../app/dialog";
 import { remoteNotePath } from "./names";
@@ -125,7 +127,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
         {entries && !entries.length && <p className="muted remote-pad">{t("remote.empty")}</p>}
         {root && (
           <ul className="tree" aria-label={t("remote.title")}>
-            <Level dir={root} depth={0} onOpen={onOpen} />
+            <Level dir={root} depth={0} onOpen={onOpen} say={setMessage} />
           </ul>
         )}
       </div>
@@ -137,14 +139,14 @@ function Level({
   dir,
   depth,
   onOpen,
+  say,
 }: {
   dir: RemoteDir;
   depth: number;
   onOpen?: (entry: ipc.RemoteEntry) => void;
+  say: (message: string) => void;
 }) {
   const expanded = useRemote((s) => s.expanded);
-  const mainView = useUi((s) => s.mainView);
-  const current = useRemoteDoc((s) => s.doc?.path);
   return (
     <>
       {dir.dirs.map((d) => {
@@ -170,38 +172,122 @@ function Level({
             </div>
             {isOpen && (
               <ul className="tree">
-                <Level dir={d} depth={depth + 1} onOpen={onOpen} />
+                <Level dir={d} depth={depth + 1} onOpen={onOpen} say={say} />
               </ul>
             )}
           </li>
         );
       })}
       {dir.notes.map((n) => (
-        <li key={n.path}>
-          <div
-            className={mainView === "remote" && current === n.path ? "row-wrap on" : "row-wrap"}
-            style={{ "--depth": depth } as CSSProperties}
-          >
-            <button
-              className="row"
-              aria-current={(mainView === "remote" && current === n.path) || undefined}
-              style={{ paddingLeft: 8 + depth * 14 }}
-              title={n.path}
-              disabled={!onOpen}
-              onClick={() => onOpen?.(n)}
-            >
-              <span className="twist" aria-hidden="true" />
-              <span className="glyph" aria-hidden="true">
-                <FileText size={14} />
-              </span>
-              <span className="label">{n.path.split("/").pop()}</span>
-              <Mark mark={n.local} />
-            </button>
-          </div>
-        </li>
+        <RemoteNoteRow key={n.path} note={n} depth={depth} onOpen={onOpen} say={say} />
       ))}
     </>
   );
+}
+
+/**
+ * One note of the server's tree. Right-click, or the ⋮ button for whoever has no
+ * right button, opens its actions; for now that is renaming, which the server
+ * does as a move (`POST /moves`) and which needs no folder of its own.
+ */
+function RemoteNoteRow({
+  note,
+  depth,
+  onOpen,
+  say,
+}: {
+  note: ipc.RemoteEntry;
+  depth: number;
+  onOpen?: (entry: ipc.RemoteEntry) => void;
+  say: (message: string) => void;
+}) {
+  const mainView = useUi((s) => s.mainView);
+  const open = useRemoteDoc((s) => s.doc);
+  const [menu, setMenu] = useState(false);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const current = mainView === "remote" && open?.path === note.path;
+  // Text not yet sent would be left behind at the old path.
+  const unsent = open?.path === note.path && dirty(open);
+  const rows: MenuRow[] = [
+    {
+      id: "remote-rename",
+      label: t("remote.rename"),
+      disabled: unsent,
+      run: async () => {
+        const to = await askRemoteName(note.path);
+        if (!to || to === note.path) return;
+        say("");
+        try {
+          await useRemoteDoc.getState().renameNote(note.path, to, note.etag);
+        } catch (e) {
+          say(remoteErrorText(ipc.asCoreError(e)));
+        }
+      },
+    },
+  ];
+  return (
+    <li>
+      <div
+        className={current ? "row-wrap on" : "row-wrap"}
+        style={{ "--depth": depth } as CSSProperties}
+        onContextMenu={(ev) => {
+          ev.preventDefault();
+          setMenu(true);
+        }}
+      >
+        <button
+          className="row"
+          aria-current={current || undefined}
+          style={{ paddingLeft: 8 + depth * 14 }}
+          title={note.path}
+          disabled={!onOpen}
+          onClick={() => onOpen?.(note)}
+        >
+          <span className="twist" aria-hidden="true" />
+          <span className="glyph" aria-hidden="true">
+            <FileText size={14} />
+          </span>
+          <span className="label">{note.path.split("/").pop()}</span>
+          <Mark mark={note.local} />
+        </button>
+        <button
+          ref={trigger}
+          type="button"
+          className="row-more"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          aria-label={t("tree.actions.hint", { path: note.path })}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenu((m) => !m);
+          }}
+        >
+          <MoreVertical size={14} aria-hidden="true" />
+        </button>
+        <Menu
+          rows={rows}
+          open={menu}
+          onClose={() => setMenu(false)}
+          label={t("tree.actions.hint", { path: note.path })}
+          align="end"
+          trigger={trigger}
+        />
+      </div>
+    </li>
+  );
+}
+
+/** Ask for a note's new name or path on the server. Null when the person
+ *  cancelled, or typed what is not a note. */
+export async function askRemoteName(path: string): Promise<string | null> {
+  const to = await askText({
+    title: t("remote.rename"),
+    label: t("remote.newPath"),
+    initial: path,
+    confirmLabel: t("remote.rename"),
+    validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
+  });
+  return to ? remoteNotePath(to) : null;
 }
 
 /** A new note on the server, under folders that need not exist yet: the

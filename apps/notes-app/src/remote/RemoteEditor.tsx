@@ -6,15 +6,14 @@ import { Editor } from "../editor/Editor";
 import { Preview } from "../preview/Preview";
 import { Divider } from "../app/Divider";
 import { Menu, type MenuRow } from "../app/Menu";
-import { askConfirm, askText } from "../app/dialog";
+import { askConfirm } from "../app/dialog";
 import { diffLines } from "../conflict/diff";
 import { DiffColumns } from "../conflict/Compare";
 import { useRemote } from "../stores/remote";
 import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
-import { remoteErrorText } from "./RemoteBrowser";
-import { remoteNotePath } from "./names";
+import { askRemoteName, remoteErrorText } from "./RemoteBrowser";
 
 /**
  * A note of the remote folder, open in the main area (ADR-099).
@@ -66,14 +65,7 @@ export function RemoteEditor() {
       // left behind at the old path.
       disabled: unsent,
       run: async () => {
-        const to = await askText({
-          title: t("remote.rename"),
-          label: t("remote.newPath"),
-          initial: doc.path,
-          confirmLabel: t("remote.rename"),
-          validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
-        });
-        const target = to ? remoteNotePath(to) : null;
+        const target = await askRemoteName(doc.path);
         if (target && target !== doc.path) await run(() => useRemoteDoc.getState().rename(target));
       },
     },

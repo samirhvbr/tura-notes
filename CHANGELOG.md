@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.13 - a note in the server's tree can be renamed with a right-click, without opening it
+
+Renaming a file by right-click already worked in the local tree. The server's
+tree had no menu at all: a remote note could be renamed only after opening it, from
+the `⋮` menu of the editor, which meant opening a note you did not want to read in
+order to change its name. Each note in the server's tree now has the same two
+doors as a local one, a right-click and a `⋮` button for whoever has no right
+button, and the menu has the action the editor's has, *Rename or move on the
+server*. It asks for the new name with the same prompt, completes `.md` the way the
+new-note prompt does, and does the rename as the server's move at the revision the
+listing showed. Nothing is opened, the tree is read again afterwards, and a tab
+that was open on the old path follows to the new one.
+
+Two cases are decided rather than left to chance. The note that is open with text
+not yet sent has its row greyed out, because the rename carries the revision the
+note was last saved at and unsent text would be left behind at the old path; the
+editor's own menu already did this. And a listing from a server that gave no
+revision for a note makes the application ask the note for it first, instead of
+sending nothing and being refused. When the server refuses (the name is taken, the
+note changed since the listing, the connection is down) the sentence appears under
+the title of the panel and the tree stays as it was. The prompt moved to one
+function that the editor's menu and the tree share, so the two cannot drift.
+
+Folders cannot be renamed on the server: its API has no route that moves a
+folder, and ADR-099 left that out on purpose, so the menu is on notes only. The
+walk for the owner has a new row for this (`ACCEPTANCE-remote.md` row 10). Tests: four
+for the store, and five for the tree (the right-click, the `⋮` button, cancelling
+or keeping the name, a refusal, and the unsent note).
+
 ## 1.10.12 - a remote note named without .md gets it added instead of a warning
 
 The owner created a note in the remote folder on 02/10, typed its name, and

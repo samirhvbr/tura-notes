@@ -9,6 +9,7 @@ vi.mock("../ipc", async (original) => ({
   remoteConfigSet: vi.fn(),
   remoteList: vi.fn(),
   remoteProbe: vi.fn(),
+  remoteRename: vi.fn(),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("../app/dialog", async (original) => ({
@@ -17,10 +18,13 @@ vi.mock("../app/dialog", async (original) => ({
 }));
 const { RemoteBrowser } = await import("./RemoteBrowser");
 const { useRemote } = await import("../stores/remote");
+const { useRemoteDoc } = await import("../stores/remoteDoc");
+const { askText } = await import("../app/dialog");
 const initial = useRemote.getState();
 afterEach(() => {
   cleanup();
   useRemote.setState(initial, true);
+  useRemoteDoc.setState({ doc: null, tabs: [] });
   vi.clearAllMocks();
 });
 
@@ -100,4 +104,73 @@ it("a new note typed without .md is created with it", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "New note on the server" }));
   await waitFor(() => expect(create).toHaveBeenCalledWith("ideas/today.md"));
   useRemoteDoc.setState({ create: old });
+});
+
+// ---- right-click on a note ---------------------------------------------------
+
+const listed = [
+  { path: "only.md", size: 1, etag: '"a"', local: "absent" },
+  { path: "work/other.md", size: 1, etag: '"b"', local: "same" },
+] as ipc.RemoteEntry[];
+
+it("a right-click on a note offers Rename, and renaming works without opening the note", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(askText).mockResolvedValue("ideas/first");
+  vi.mocked(ipc.remoteRename).mockResolvedValue({ path: "ideas/first.md", text: "", etag: '"z"', read_only: null });
+  const opened: string[] = [];
+  render(<RemoteBrowser onOpen={(e) => opened.push(e.path)} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Rename or move on the server" }));
+  // The name is completed the way the new-note prompt completes it.
+  await waitFor(() => expect(ipc.remoteRename).toHaveBeenCalledWith("only.md", "ideas/first.md", '"a"'));
+  expect(opened).toEqual([]);
+  await waitFor(() => expect(ipc.remoteList).toHaveBeenCalledTimes(2));
+});
+
+it("the ⋮ button opens the same menu for whoever has no right button", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  render(<RemoteBrowser onOpen={() => {}} />);
+  await screen.findByText("only.md");
+  fireEvent.click(screen.getByRole("button", { name: /only\.md/, expanded: false, haspopup: "menu" } as never));
+  expect(await screen.findByRole("menuitem", { name: "Rename or move on the server" })).toBeInTheDocument();
+});
+
+it("cancelling the prompt, or keeping the same name, renames nothing", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  render(<RemoteBrowser onOpen={() => {}} />);
+  const row = await screen.findByText("only.md");
+  for (const answer of [null, "only"]) {
+    vi.mocked(askText).mockResolvedValue(answer);
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename or move on the server" }));
+    await waitFor(() => expect(askText).toHaveBeenCalled());
+    vi.mocked(askText).mockClear();
+  }
+  expect(ipc.remoteRename).not.toHaveBeenCalled();
+});
+
+it("a refusal is said in words under the title bar, and the tree is left as it was", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(askText).mockResolvedValue("taken");
+  vi.mocked(ipc.remoteRename).mockRejectedValue({ code: "sync", cause: "invalid" });
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Rename or move on the server" }));
+  expect(await screen.findByText("The connection settings are not valid, or the server refused that name.")).toBeInTheDocument();
+  expect(ipc.remoteList).toHaveBeenCalledTimes(1);
+});
+
+it("the note that is open with unsent text cannot be renamed from the tree", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  useRemoteDoc.setState({
+    doc: { path: "only.md", text: "x", etag: '"a"', bufferVersion: 2, savedVersion: 1 } as never,
+  });
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  expect(await screen.findByRole("menuitem", { name: "Rename or move on the server" })).toHaveAttribute("aria-disabled", "true");
 });
