@@ -226,10 +226,20 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
     };
     // Keyed by the document, not its text: rebuilding on every keystroke would
     // destroy the undo history and the IME composition.
+    //
+    // **By the document's whole id.** This list used to start with
+    // `key.split(":")[0]` — `key` with its `:<savedVersion>` suffix cut off. A
+    // local id is a UUID, which has no colon, so that left the whole id and
+    // looked right. A remote id is `remote:<path>`, so it left the word
+    // `remote`: the same for every note in the server's folder, and the view
+    // was never rebuilt when one remote note was opened over another. The
+    // second note opened on the first one's text, with its own text in the
+    // store, the status bar and the preview — and the first keystroke sent the
+    // first note's words to the server as the second note's content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // Settings are in the dependency list because each of them is an extension:
     // there is no way to change them on a live view without rebuilding it.
-  }, [key === null ? null : key.split(":")[0], readOnly, lineNumbersOn, wrapOn, tabSize, fontSize]);
+  }, [doc?.noteId ?? null, readOnly, lineNumbersOn, wrapOn, tabSize, fontSize]);
 
   // A jump into the note already on screen: the view will not rebuild, so the
   // caret is moved directly. Clicking a search hit is the case (C8).

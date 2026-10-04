@@ -7,6 +7,52 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.15 - the second remote note opened on the first one's text
+
+Reported from use, with three screenshots: `IP-Server.md` open and correct, then
+`teste.md` opened over it. The editor still showed IP-Server's twelve addresses.
+The status bar said **0 words, 0 characters**, the preview was empty, and the
+header said *Saved on the server*. Four places reading one note and disagreeing
+with the fifth. The local editor never did this, which was the owner's own
+observation and the one that pointed at the right place.
+
+**The store was right and the view was stale.** `teste.md` really was empty, and
+the status bar and the preview are built from the store. Only the editor held
+other words, because its view was never rebuilt.
+
+The view is rebuilt when a dependency list changes, and that list started with
+`key.split(":")[0]` — the document id with its `:<savedVersion>` suffix cut off.
+The line is from 0.6.1 (07/09), when every id was a UUID: no colon, so the split left the
+whole id and looked right. ADR-099 then gave remote notes the id `remote:<path>`
+(1.9.11, 29/09), and the split left the word `remote` — **identical for every note in the server's
+folder**. Opening one remote note over another changed nothing the list could
+see, so the view stayed on the first note's text. Measured, not guessed: the two
+ids reduce to the same string, and the three switching tests below fail on the
+old line and pass on the new.
+
+**It was worse than a wrong picture.** With the first note's text still in the
+view, the first keystroke handed the store *that text plus the character* as the
+second note's content, and the save carried a valid tag. Nothing is refused
+there, because the server has no way to know the text is the wrong note's. An
+empty note would have become a copy of the one before it, which is merely
+untidy. **A note with words, opened after a different note, would have been
+overwritten with the previous note's text** — and the write route keeps no earlier
+copy (read in `api.rs`: no trash, no history; only the operator's offline backup,
+if one was run, is a way back). Nothing on screen says it happened.
+
+The list now keys on the document's whole id. A rename changes a remote note's id
+(a path is its identity), so the view is rebuilt there too, and a test pins that
+the text survives it. Local notes are untouched: their id never had a colon, so
+the dependency is the same value it always was.
+
+**Why no test caught it in the days since the remote editor shipped:** every test
+of the remote editor opens *one* note. The bug needs two. The new tests switch A to B,
+type in B and read what the store holds, and go back to A.
+
+`ACCEPTANCE-remote.md` gains row 15, the owner's version of the same: two notes
+one after the other, one of them empty, in both orders, then read the first on
+the server. It is the step that would have shown this on the first day.
+
 ## 1.10.14 - an open remote note follows the server every ten seconds, and edits that did not collide are joined
 
 Two apps with the same remote note open used to learn of each other only when one
