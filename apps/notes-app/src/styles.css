@@ -393,12 +393,26 @@ code { font-family: var(--font-mono); }
 
 .panes { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .panes > * { min-width: 0; }
-.pane-source .editor,
+.pane-source .editor-wrap,
 .pane-preview .preview-pane { flex: 1 1 100%; }
 /* `--split` is the left pane's share, moved by dragging the divider (D-04:
-   horizontal only, two panes). */
-.pane-split .editor { flex: 0 0 var(--split, 50%); }
-.pane-split .preview-pane { flex: 1 1 auto; }
+   horizontal only, two panes).
+
+   It sizes `.editor-wrap`, **not** `.editor`. The editor sits inside that
+   wrapper, which is the element that is actually a flex child of `.panes` — and
+   the rule used to name `.editor`, which since 1.6.15 is a grandchild. On a
+   grandchild the declaration did nothing the divider could see (and, being the
+   child of a *column* flex box, its basis would have been a height anyway), and
+   `.editor-wrap > .editor { flex: 1 1 auto }` further down beat it on order. So
+   the divider wrote a variable that no rule read, for sixteen days, and each
+   pane was as wide as its own content: 139px for the note beside a long
+   preview, 154px for the preview beside a long note.
+
+   The 2.5px is half the divider, so 50% is exactly even. The preview takes what
+   is left from a zero basis — an `auto` basis would size it by its content
+   again, which is the same bug from the other side. */
+.pane-split .editor-wrap { flex: 0 0 calc(var(--split, 50%) - 2.5px); }
+.pane-split .preview-pane { flex: 1 1 0; }
 
 /* The divider is a real control: it has a role, it takes focus, and the arrow
    keys move it. A drag handle reachable only by mouse is a control half the

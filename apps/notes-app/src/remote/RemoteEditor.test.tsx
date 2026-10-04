@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { EditorView } from "@codemirror/view";
+import stylesheet from "../styles.css?raw";
 vi.mock("../ipc", async (original) => ({
   ...(await original<typeof import("../ipc")>()),
   remoteSave: vi.fn(),
@@ -16,6 +17,7 @@ const ipcMod = await import("../ipc");
 const { RemoteEditor } = await import("./RemoteEditor");
 const { useRemoteDoc, resetRemoteDocTimers } = await import("../stores/remoteDoc");
 const { useEditor } = await import("../stores/editor");
+const { useUi } = await import("../stores/ui");
 const initial = useRemoteDoc.getState();
 afterEach(() => {
   cleanup();
@@ -198,4 +200,43 @@ it("a note renamed on the server keeps its text on screen", async () => {
   });
   await vi.waitFor(() => expect(shown()).toBe("kept\n"));
   expect(useRemoteDoc.getState().doc!.path).toBe("new.md");
+});
+
+/**
+ * The split, as the stylesheet reads it.
+ *
+ * The divider writes `--split` on `.panes`, and a rule in `styles.css` turns it
+ * into a width. That rule named `.editor`, which sat directly under `.panes`
+ * until 1.6.15 wrapped it in `.editor-wrap` for the Markdown row. From then on
+ * the rule pointed at a grandchild, did nothing, and the divider wrote a
+ * variable no rule read. Every test passed throughout: the divider's own tests
+ * check the variable, and nothing checked that the stylesheet *uses* it on an
+ * element the layout will honour.
+ *
+ * jsdom has no layout, so this does not measure a width. It checks the thing
+ * that went wrong and can be checked here: every rule that reads `--split` must
+ * select an element that exists in the rendered panes and is a direct child of
+ * `.panes`, because only a flex child is sized by `flex`.
+ */
+it("every rule that reads --split sizes a direct child of .panes", () => {
+  useEditor.setState({ doc: null });
+  useUi.setState({ view: "split" });
+  useRemoteDoc.setState({ doc: base, tabs: [base.path] });
+  render(<RemoteEditor />);
+  const panes = document.querySelector(".panes.pane-split");
+  expect(panes, "the split view renders .panes.pane-split").not.toBeNull();
+
+  const css = stylesheet.replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*var\(--split[^{}]*)\}/g)];
+  expect(rules.length, "something reads --split at all").toBeGreaterThan(0);
+  for (const [, selectors] of rules) {
+    for (const selector of selectors.split(",").map((x) => x.trim()).filter(Boolean)) {
+      const el = document.querySelector(selector);
+      expect(el, `"${selector}" matches an element in the rendered split`).not.toBeNull();
+      expect(
+        el!.parentElement,
+        `"${selector}" is a direct child of .panes, so flex sizes it`,
+      ).toBe(panes);
+    }
+  }
 });

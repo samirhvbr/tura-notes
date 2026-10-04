@@ -27,7 +27,7 @@ The ten interface areas, in the order the eye meets them.
 | I5 | **Tabs** | The active tab is distinguishable **by background**, not by weight; the dirty dot appears; `×` closes; `+` makes a note; the split button toggles | ☐ |
 | I6 | **Note header** | Back and forward move through the notes visited, and grey out at the ends; the title is the file name without `.md`; the toggle swaps Source and Preview; `⋮` opens | ☐ |
 | I7 | **The column** | The text sits in a centred column with margins that grow with the window; switching Source ↔ Preview does **not** move the text under your eye | ☐ |
-| I8 | **The split divider** | Dragging resizes; double click and `Enter` even it up; **`Tab` reaches it and the arrows move it** | ☐ |
+| I8 | **The split divider** | Dragging resizes, **in both directions and up to a fifth of the width from either edge**; double click and `Enter` even it up; **`Tab` reaches it and the arrows move it**. With the divider untouched the two sides are **the same width whatever the note holds** — a long preview must not squeeze the editor, nor a long note the preview. Check it on a local note **and** on a note of the server's folder | ☐ |
 | I9 | **Status bar** | The state, the words and the characters — **and nothing else**. No backlink count | ☐ |
 | I10 | **Focus** | Every menu and modal returns focus to the control that opened it; the focus ring is visible on every control, on every surface | ☐ |
 
@@ -79,7 +79,7 @@ Automated behavioral coverage complements the owner walk; it does not replace it
 | Modal keyboard behavior | `src/app/DialogHost.test.tsx`, 6 DOM tests | Enter activates the focused button, including Cancel; Tab wraps in both directions; text selection and submission; Escape restores focus; confirmation opens without an input-method exception; modal keystrokes do not invoke background shortcuts |
 | Welcome creation | `Welcome.test.tsx` | Initial workspace naming modal is mounted and usable; cancellation makes no create call |
 | Settings/palette focus and asynchronous results | `modal.test.tsx`, `Palette.test.tsx` | Modal Tab trapping/restoration; Quick Open refreshes while its path cache builds |
-| Divider lifecycle | `Divider.test.tsx` | Keyboard bounds/reset and drag cursor cleanup on unmount |
+| Divider, and the stylesheet it depends on | `Divider.test.tsx`, `remote/RemoteEditor.test.tsx` | Keyboard bounds/reset, the mouse drag writing `--split` and stopping at the limits, drag cursor cleanup on unmount; and that **every rule in `styles.css` that reads `--split` selects a direct child of `.panes` in the rendered split** — the contract 1.6.15 broke and nothing checked. jsdom has no layout, so no width is asserted: that was measured in a browser engine (1.10.16) |
 | The drawer's one decision | `src/stores/ui.narrow.test.ts`, 4 tests | Collapses only when narrow; leaves a wide window alone; asks `matchMedia` for the **same query string** the stylesheet opens its mobile block with; does nothing where there is no `window` to measure |
 | One drawer breakpoint | `tools/check.sh`, step `one drawer breakpoint` | Reads the query out of `stores/ui.ts` and fails unless `styles.css` opens its mobile block with that exact query. CSS cannot read a TypeScript constant, so this is what keeps the number single |
 | About states four facts | `About.test.tsx`, 4 tests | Version, engine, data directory and open workspace; *none open* rather than a blank row; `Copy` copies the same lines it shows; the engine is read from the user agent and never calls WebView2 WebKit |

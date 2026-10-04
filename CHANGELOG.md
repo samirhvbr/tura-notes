@@ -7,6 +7,76 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.16 - the divider wrote a variable no rule read, for sixteen days
+
+Reported from use: *"the pointer changes to drag, and holding the left button
+does nothing."* The pointer was right and so was the drag. What was dead was
+what the drag was supposed to move.
+
+`Divider` writes `--split` on `.panes`, and one rule in `styles.css` turns it
+into a width. That rule was written on 08/09 (0.12.3) as
+`.pane-split .editor { flex: 0 0 var(--split) }`, when `.editor` was a direct
+child of `.panes`. On 17/09 (1.6.15, the Markdown row for the touch keyboard)
+the editor went inside an `.editor-wrap`, and the rule kept naming `.editor`:
+now a grandchild. A flex declaration on a grandchild is not what lays out the
+panes, and `.editor-wrap > .editor { flex: 1 1 auto }`, of equal specificity and
+later in the file, would have beaten it anyway. The variable was written and no
+rule read it. Nothing failed: the divider's own tests check the variable, and
+nothing checked that the stylesheet *uses* it on an element the layout honours.
+
+**Measured, with the real stylesheet in a browser engine** and the DOM the
+components render, class for class (`Editor.tsx:310`, `Preview.tsx:134`):
+
+| | editor | preview |
+|---|---|---|
+| old CSS, `--split` set to 30% or to 70% | 768 | 827 (both times, identical) |
+| old CSS, short note beside a long preview | **139** | 1456 |
+| old CSS, long note beside an empty preview | 1441 | **154** |
+| new CSS, `--split` at 20 / 30 / 50 / 70 / 80% | 318 / 478 / 798 / 1118 / 1278 | the rest |
+| new CSS, divider untouched, any of the three contents | 798 | 798 |
+
+**That also corrects something said one commit earlier.** The three screenshots
+of 1.10.15 showed the divider at about 50%, 35% and 55%, and the reading offered
+was that the owner had dragged it. It had not, and could not have: each pane was
+as wide as its own content, which is the table above. A guess about a cause,
+labelled as a reading, was wrong, and the first measurement is what showed it.
+
+The rule now names `.editor-wrap`, the element that is a flex child of `.panes`.
+The 2.5px is half the divider, so 50% is exactly even, and the preview takes the
+rest from a zero basis: an `auto` basis would size it by its content again, the
+same bug from the other side. The dead `.pane-source .editor` selector had the
+same mistake and is corrected with it.
+
+**The narrow layout was checked too**, because the media query turns `.panes`
+into a column and the basis changed under it. At 375px, with the query matching
+and the direction `column`, the old CSS gave the editor **63px** of height beside
+a 437px preview — the same content-driven squeeze, vertically — and the new one
+gives 248 / 253. The divider has no height in that layout, so there is nothing
+there to drag; not changed here.
+
+**The regression net is a contract test, not a width.** jsdom has no layout, so
+nothing in the suite can assert a pixel. What went wrong can be asserted: every
+rule that reads `--split` must select an element that exists in the rendered
+split and is a direct child of `.panes`. It fails on the old stylesheet with
+*`".pane-split .editor" is a direct child of .panes … expected <div
+class="editor-wrap">`*, and passes on the new one. A second test pins the
+mouse half of the drag — `mousedown`, a move to 40%, the 80% limit, release —
+which worked all along; it is there because it is the half the report was about.
+
+**Two mistakes of my own on the way, both worth the line.** The contract test
+first read the stylesheet with `node:fs`, which passed in the test runner and
+broke `tsc` — the frontend has no Node types — and `tsc` runs inside `npm run
+build`, so it would have broken the release build. I read the success off a
+`head`, which swallowed the exit code, and caught it only by reading the error
+text. Then `?raw` turned out to hand the test an **empty string**, because
+Vitest blanks every `.css`; a loop over zero rules passes, so the test opens by
+asserting that something reads `--split` at all, and that assertion is what said
+so. `vite.config.ts` lets exactly that one import through.
+
+`ACCEPTANCE-0.1d.md` row I8 now says what the defect would have shown on the
+first day — the same width whatever the note holds — and to check it on a note
+of the server's folder as well.
+
 ## 1.10.15 - the second remote note opened on the first one's text
 
 Reported from use, with three screenshots: `IP-Server.md` open and correct, then

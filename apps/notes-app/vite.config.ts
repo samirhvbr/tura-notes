@@ -25,6 +25,13 @@ export default defineConfig({
     environment: "node",
     globals: false,
     setupFiles: ["./vitest.setup.ts"],
+    // Vitest replaces every `.css` with an empty string, `?raw` included, so a
+    // test that imports the stylesheet *as text* reads nothing — and a loop over
+    // zero rules passes. This lets exactly that one import through, which is how
+    // `RemoteEditor.test.tsx` checks that the rule reading `--split` names an
+    // element the rendered DOM really has. Nothing else is affected: no test
+    // renders with the stylesheet applied, jsdom has no layout.
+    css: { include: [/styles\.css\?raw/] },
   },
   build: {
     target: ["es2021", "chrome100", "safari15"],
