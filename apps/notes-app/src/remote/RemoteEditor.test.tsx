@@ -240,3 +240,39 @@ it("every rule that reads --split sizes a direct child of .panes", () => {
     }
   }
 });
+
+/**
+ * A note the server will not take.
+ *
+ * The status bar said "Not saved" and, beside it, a sentence about the sync
+ * settings; the note itself said nothing, and the way out was in a menu. The
+ * app also refuses to leave such a note (its text is the only copy), and that
+ * refusal reached the screen as "This storage does not support that" — the
+ * generic sentence for `unsupported`, which has no idea what was refused.
+ */
+it("the refusal to leave a note with unsent changes is explained, not blamed on the storage", async () => {
+  const { errorText } = await import("../app/StatusBar");
+  const said = errorText({ code: "unsupported", cap: "remote note has unsent changes" } as never);
+  expect(said).not.toMatch(/storage/i);
+  expect(said).toMatch(/server did not take/);
+  expect(said).toMatch(/Save a copy to the local folder/);
+  // Any other refusal keeps the sentence it always had.
+  expect(errorText({ code: "unsupported", cap: "something else" } as never)).toBe("This storage does not support that.");
+});
+
+it("a note the server will not take says so, keeps its text, and offers the two ways out", async () => {
+  useEditor.setState({ doc: null });
+  useRemoteDoc.setState({
+    doc: { ...base, bufferVersion: 1, status: "error", lastError: { code: "sync", cause: "invalid" } as never },
+    tabs: [base.path],
+  });
+  render(<RemoteEditor />);
+  expect(screen.getByText("“plan.md” was not saved to the server")).toBeInTheDocument();
+  expect(screen.getByText(/kept here until it is saved or discarded/)).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Save a copy to the local folder" }).length).toBeGreaterThan(0);
+  expect(shown()).toBe("remote text\n");
+  // And trying again is one click, not a menu.
+  vi.mocked(ipcMod.remoteSave).mockResolvedValue({ outcome: "saved", etag: '"e2"' } as never);
+  fireEvent.click(screen.getByRole("button", { name: "Try now" }));
+  await vi.waitFor(() => expect(ipcMod.remoteSave).toHaveBeenCalledWith(base.path, "remote text\n", base.etag));
+});

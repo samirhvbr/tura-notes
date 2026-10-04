@@ -177,6 +177,29 @@ export function RemoteEditor() {
           </button>
         </div>
       )}
+      {/* A note the server refused for a reason that is not "unreachable". The
+          status bar already said "Not saved", but a state that blocks leaving the
+          note belongs on the note: what stopped it, that the text is kept, and
+          the two ways out. Offline has its own banner because it fixes itself;
+          this one does not. */}
+      {doc.status === "error" && (
+        <div className="banner warn" role="status">
+          <strong>{t("remote.notSaved.title", { name })}</strong>
+          <span>{doc.lastError ? remoteErrorText(doc.lastError) : ""}</span>
+          <span>{t("remote.notSaved.kept")}</span>
+          <button onClick={() => void useRemoteDoc.getState().save()}>{t("remote.retry")}</button>
+          <button
+            onClick={() =>
+              void run(async () => {
+                const path = await useRemoteDoc.getState().copyToLocal();
+                note(t("remote.copiedToLocal", { path }));
+              })
+            }
+          >
+            {t("remote.copyToLocal")}
+          </button>
+        </div>
+      )}
       {doc.status === "offline" && (
         <div className="banner">
           <span>{t("remote.offline")}</span>

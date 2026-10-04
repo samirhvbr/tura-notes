@@ -7,6 +7,62 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.17 - a note the server will not take said nothing, and the way out said something false
+
+Reported from use, with two screenshots and an offer to send a log: the owner
+could not open `teste.md`. The screenshots had the answer, and it is not in a log.
+
+`IP-Server.md` was open with an edit the server had not taken: an amber dot on its
+tab, *Not saved* on the right of the status bar, and on the left *"The sync
+settings or the saved sync state are not valid."* The application refuses to leave
+such a note, deliberately — its text is the only copy, and `remoteDoc.open` throws
+rather than drop it. That is right. What reached the owner was wrong in three
+separate places, and each one on its own would have made this undiagnosable:
+
+- **The refusal was shown as *"This storage does not support that."*** The error
+  is `unsupported` with `cap: "remote note has unsent changes"`, and `errorText`
+  rendered every `unsupported` with one generic sentence that never reads `cap`.
+  A refusal about *leaving a note* was reported as a fact about the disk. It now
+  says the note has changes the server did not take, that it stays open, and the
+  two ways out. The `cap` string is one exported constant, because it was compared
+  in two files, and a string compared in two files is how this happens.
+- **Clicking a remote tab swallowed the refusal.** `Tabs.tsx` ended that click in
+  `.catch(() => {})`: the tab was pressed and nothing happened, with no way to tell
+  a refusal from a broken button. It reports through the same banner the tree does.
+- **The note itself said nothing.** Offline has a banner because it fixes itself;
+  conflict has one; gone has one. A note the server *refused* — the state that
+  blocks leaving it — had none. It has one now: which note, why, that the text is
+  kept, *Try now*, and *Save a copy to the local folder*.
+
+Three tests, and each was run both ways. Two failed on the old code for the right
+reason. The third, on the tab, first failed for a wrong one — my selector matched a
+local tab of the same name — so that red proved nothing; with the selector fixed it
+fails on `expected null to deeply equal { code: 'unsupported' … }` when the empty
+`.catch` is put back, and passes with the fix.
+
+**What this does not fix, and the entry should not blur it.** The edit was refused
+by the server, and *why* is open. What is established: `remote-notes.json` is valid
+(origin, workspace, a credential file at `0600`, 104 bytes, regular); this
+repository's client and server **save that exact text** over loopback with an
+unscoped credential; and the client's `refusal()` maps HTTP `400` to `Error::Invalid`
+— so a `400` from the server reads as *"your settings are not valid"*, and the
+server's own error code in the body (`invalid_etag`, `invalid_json`) is discarded.
+That is the defect of 1.6.10 and 1.6.69 again, in a third place. What is not
+established is what the production server answered. Cloudflare and Apache sit in
+front of it, and a mangled `If-Match` would produce exactly this `400`; but the
+client asks for no compression, which is what would make Cloudflare weaken a tag,
+so that is a candidate, not a finding. The datum that decides it is the headers of
+a read of that note through the real proxy chain (the `etag:` is not a secret).
+
+**It is deliberately not in the queue yet.** `tools/queue-stamp.sh` makes any edit
+to `.continue/README.md` restamp its status line, and that line certifies *every
+row checked against what it names*. Adding one row would have meant certifying
+twenty I had not reviewed — the exact thing that script exists to stop. The open
+question lives here until it can go in with a review that earns the stamp.
+
+`ACCEPTANCE-remote.md` row 16 provokes the state with a credential that can only
+read, which needs no broken server.
+
 ## 1.10.16 - the divider wrote a variable no rule read, for sixteen days
 
 Reported from use: *"the pointer changes to drag, and holding the left button

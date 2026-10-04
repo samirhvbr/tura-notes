@@ -5,6 +5,7 @@ import { useEditor } from "../stores/editor";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
 import { dirty as remoteDirty, useRemoteDoc } from "../stores/remoteDoc";
+import { useWorkspace } from "../stores/workspace";
 import { askConfirm } from "./dialog";
 
 /**
@@ -112,7 +113,7 @@ export function Tabs({ onNew }: { onNew: () => void }) {
                 aria-controls="note-panel"
                 tabIndex={active ? 0 : -1}
                 className="tab-label"
-                onClick={() => void useRemoteDoc.getState().open(path).catch(() => {})}
+                onClick={() => void useRemoteDoc.getState().open(path).catch(useWorkspace.getState().fail)}
               >
                 <span className="tab-dirty" aria-hidden="true">
                   {unsent ? "●" : ""}

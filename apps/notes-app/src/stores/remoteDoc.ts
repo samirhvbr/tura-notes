@@ -41,6 +41,12 @@ import { useUi } from "./ui";
  * - the way out when the server will not take it is "save a copy to the local
  *   folder", as an ordinary note.
  */
+/** The `cap` of the refusal to leave a note whose text the server has not taken.
+ *  Named once because two places must agree on it: the throw below, and
+ *  `errorText`, which turns it into a sentence. A string compared in two files
+ *  is how a refusal ends up shown as "this storage does not support that". */
+export const REMOTE_UNSENT = "remote note has unsent changes";
+
 export type RemoteStatus =
   | "saved"
   | "pending"
@@ -298,7 +304,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       if (current?.path === path) return;
       if (current && !(await leave())) {
         // Stay on the note whose edit has not reached the server.
-        throw { code: "unsupported", cap: "remote note has unsent changes" } as ipc.CoreError;
+        throw { code: "unsupported", cap: REMOTE_UNSENT } as ipc.CoreError;
       }
       const note = await ipc.remoteOpen(path);
       set((s) => ({

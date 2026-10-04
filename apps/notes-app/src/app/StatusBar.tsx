@@ -5,7 +5,7 @@ import { useSync } from "../stores/sync";
 import { useWorkspace } from "../stores/workspace";
 import { useUi } from "../stores/ui";
 import { useRemote } from "../stores/remote";
-import { useRemoteDoc, type RemoteStatus } from "../stores/remoteDoc";
+import { REMOTE_UNSENT, useRemoteDoc, type RemoteStatus } from "../stores/remoteDoc";
 import type { CoreError, DocStatus, WatchStatus } from "../ipc";
 
 /**
@@ -187,5 +187,10 @@ export function errorText(e: CoreError): string {
   if (e.code === "dirty_buffers") return t("error.dirty_buffers", { count: e.count });
   if (e.code === "drafts_pending") return t("error.drafts_pending", { count: e.count });
   if (e.code === "sync") return t(`error.sync.${e.cause}`, { received: e.received ?? 0 });
+  // `unsupported` is the generic "this storage cannot do that", and one refusal
+  // is not about storage at all: leaving a remote note whose text the server has
+  // not taken. It carries its reason in `cap`, which the generic sentence cannot
+  // read.
+  if (e.code === "unsupported" && e.cap === REMOTE_UNSENT) return t("error.remote.unsent");
   return t(`error.${e.code}`);
 }
