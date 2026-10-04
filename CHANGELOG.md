@@ -7,6 +7,70 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.18 - Cloudflare turns the server's ETag into a weak one, and every write failed
+
+The owner ran one command, at the end of the previous entry: the headers of a
+read of `IP-Server.md` through the real proxy chain. This is what that bought.
+
+**What is measured.** The read answered `200`, `server: cloudflare`,
+`vary: Accept-Encoding`. The `etag:` line is the one line the tool masked, because
+it looks like key material, and the mask kept the punctuation:
+
+    ••••: ••"••••…••"
+
+`etag` is the four bullets. A strong tag would put the quote straight after the
+colon; here **two characters stand in front of the opening quote**, and the only
+two that fit are `W/`. That is an inference from the shape of a masked line, not a
+reading of the value, and it is held as one.
+
+**What is reproduced.** A proxy in the test that does what Cloudflare does — puts
+`W/` in front of the tag of every answer — and nothing else. Through it, the same
+client against this repository's own server:
+
+    the save was not accepted: Err(Invalid)
+
+`Invalid` is the sentence on the owner's screen. With the fix, the same test saves,
+renames and deletes. A second test reads the header the client would see through
+that proxy, so a proxy that did nothing could not make the first one pass.
+
+**Why only writes broke, which is why it took so long to see.** The server's tag is
+the revision itself, base64url of its JSON, and `if-match` is accepted only as
+`"…"`. Reads need no tag from the client; the listing carries its tags in the JSON
+body, which no CDN rewrites; only the header does. So the tree filled, notes opened,
+the marks said *same* and *different* — and the first `PUT`, `POST …/moves` or
+`DELETE` sent `W/"…"` back and got `400 invalid_etag`. The client's `refusal()`
+turns every `400` into `Invalid`, and `Invalid` is worded as *the settings are not
+valid*. Nobody had saved through the proxy: the loopback tests talk to the server
+directly, which is the one path production does not have.
+
+**The fix is one function at the one place the header is read.** `strong()` drops a
+leading `W/` where `read()` takes the ETag, so everything built on a tag sees the
+form the server speaks: the buffer's `If-Match`, the `etag_hash` that marks a row,
+and the string comparison that notices another device's change. There is one reader
+of an etag header and one sender of `if-match` in the whole tree, both in
+`notes.rs`; that was checked rather than assumed. The payload inside the quotes is
+the origin's and is not touched.
+
+**A reasoning mistake, corrected where it was made.** The previous entry held the
+Cloudflare explanation weak because the client sends no `Accept-Encoding`, so
+nothing asks for compression, and compression was what I believed made Cloudflare
+weaken a tag. The owner's `curl` asked for none either, and the tag came back weak.
+The observation beat the argument.
+
+**What this does not do, stated so it is not read as done.**
+
+- **Not verified against production.** The proof is a proxy that imitates the
+  mechanism. Whether a save now works through the real Cloudflare is
+  `ACCEPTANCE-remote.md` row 17, and only the owner can walk it.
+- **The server is unchanged.** It could accept `W/"…"` too, which would make it
+  indifferent to this for any client. That ships only with a minor release, because
+  `deploy-server.sh` derives `X.Y.0` and a signed binary per minor; so it is a
+  deliberate follow-up, not an omission.
+- **A `400` still reads as bad settings.** `refusal(400)` returning `Invalid`, and
+  discarding the server's own error code, is what made this look like a
+  configuration problem for a day. It is the same defect as 1.6.10 and 1.6.69 in a
+  third place, and it is still there.
+
 ## 1.10.17 - a note the server will not take said nothing, and the way out said something false
 
 Reported from use, with two screenshots and an offer to send a log: the owner

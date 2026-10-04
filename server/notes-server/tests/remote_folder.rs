@@ -8,7 +8,13 @@ use notes_sync_client::notes::{
     etag_hash, mark, LocalMark, RemoteConfig, RemoteFolder, RemoteNotes, RemoteSave,
 };
 use notes_sync_client::Error;
-use std::{fs, net::SocketAddr, path::PathBuf};
+use std::{
+    fs,
+    io::{Read, Write},
+    net::{SocketAddr, TcpListener, TcpStream},
+    path::PathBuf,
+    time::Duration,
+};
 
 struct Served {
     _dir: tempfile::TempDir,
@@ -211,4 +217,152 @@ fn the_folder_keeps_its_configuration_and_forgets_it() {
     folder.configure(None).unwrap();
     assert!(!data.path().join("remote-notes.json").exists());
     assert!(RemoteFolder::new(data.path()).config().is_none());
+}
+
+/// What a CDN does to a strong ETag, and nothing else: puts `W/` in front of it.
+///
+/// Cloudflare does this to answers it may transform, and `tura.samirhv.com.br`
+/// is behind it. A plain forwarder, one upstream connection per request, that
+/// rewrites the `etag:` line of the response head and passes every other byte
+/// through. It exists because the loopback tests above talk to the server
+/// directly, which is the one path production does not have.
+fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
+    fn head(stream: &mut TcpStream) -> std::io::Result<Option<Vec<u8>>> {
+        let mut bytes = Vec::new();
+        let mut one = [0u8; 1];
+        while !bytes.ends_with(b"\r\n\r\n") {
+            if stream.read(&mut one)? == 0 {
+                return Ok(None);
+            }
+            bytes.push(one[0]);
+        }
+        Ok(Some(bytes))
+    }
+    fn length(head: &[u8]) -> usize {
+        String::from_utf8_lossy(head)
+            .lines()
+            .find_map(|l| {
+                l.to_ascii_lowercase()
+                    .strip_prefix("content-length:")
+                    .map(|v| v.trim().parse().unwrap_or(0))
+            })
+            .unwrap_or(0)
+    }
+    fn relay(client: &mut TcpStream, upstream: SocketAddr) -> std::io::Result<()> {
+        // One exchange per client connection: the answer carries `connection: close`
+        // (the upstream saw it asked for), so a client reconnects for the next one.
+        if let Some(request) = head(client)? {
+            let mut body = vec![0u8; length(&request)];
+            client.read_exact(&mut body)?;
+            // One request per upstream connection, so its end is the end of the answer.
+            let text = String::from_utf8_lossy(&request).into_owned();
+            let (line, rest) = text.split_once("\r\n").unwrap();
+            let mut up = TcpStream::connect(upstream)?;
+            up.write_all(format!("{line}\r\nconnection: close\r\n{rest}").as_bytes())?;
+            up.write_all(&body)?;
+            let mut answer = Vec::new();
+            up.read_to_end(&mut answer)?;
+            let split = answer
+                .windows(4)
+                .position(|w| w == b"\r\n\r\n")
+                .map_or(answer.len(), |i| i + 4);
+            let weakened: String = String::from_utf8_lossy(&answer[..split])
+                .split("\r\n")
+                .map(|l| match l.split_once(": ") {
+                    Some((k, v)) if k.eq_ignore_ascii_case("etag") && v.starts_with('"') => {
+                        format!("{k}: W/{v}")
+                    }
+                    _ => l.to_owned(),
+                })
+                .collect::<Vec<_>>()
+                .join("\r\n");
+            client.write_all(weakened.as_bytes())?;
+            client.write_all(&answer[split..])?;
+        }
+        Ok(())
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    std::thread::spawn(move || {
+        for client in listener.incoming().flatten() {
+            let _ = client.set_read_timeout(Some(Duration::from_secs(10)));
+            std::thread::spawn(move || {
+                let mut client = client;
+                let _ = relay(&mut client, upstream);
+            });
+        }
+    });
+    address
+}
+
+fn behind_a_weakening_proxy(mut served: Served) -> Served {
+    let upstream: SocketAddr = served
+        .config
+        .origin
+        .trim_start_matches("http://")
+        .parse()
+        .unwrap();
+    served.config.origin = format!("http://{}", weakening_proxy(upstream));
+    served
+}
+
+#[test]
+fn the_proxy_really_weakens_the_tag() {
+    // The guard on the test below: a save that passes through a proxy which does
+    // nothing proves nothing, so this reads the header the client would see.
+    let s = behind_a_weakening_proxy(serve("", &all()));
+    let token = fs::read_to_string(&s.config.token_file).unwrap();
+    RemoteNotes::connect(&s.config)
+        .unwrap()
+        .create(&p("a.md"), "x\n")
+        .unwrap();
+    let address = s.config.origin.trim_start_matches("http://").to_owned();
+    let mut raw = TcpStream::connect(&address).unwrap();
+    raw.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+    write!(
+        raw,
+        "GET /v1/workspaces/home/notes/a.md HTTP/1.1\r\nhost: {address}\r\nauthorization: Bearer {}\r\nconnection: close\r\n\r\n",
+        token.trim()
+    )
+    .unwrap();
+    let mut answer = String::new();
+    raw.read_to_string(&mut answer).unwrap();
+    let tag = answer
+        .lines()
+        .find(|l| l.to_ascii_lowercase().starts_with("etag:"))
+        .expect("an etag header");
+    assert!(
+        tag.split_once(": ").unwrap().1.starts_with("W/\""),
+        "the proxy weakens the tag"
+    );
+}
+
+#[test]
+fn a_cdn_that_weakens_the_tag_does_not_stop_a_save() {
+    // `tura.samirhv.com.br` is behind Cloudflare, which answers `etag: W/"…"`.
+    // The server accepts `If-Match` only in its own quoted form, so a client that
+    // sent the tag back as received got `400 invalid_etag` — which the client
+    // reports as "the sync settings are not valid". Reading and listing worked;
+    // every write failed, which is what the owner saw.
+    let s = behind_a_weakening_proxy(serve("", &all()));
+    let r = RemoteNotes::connect(&s.config).unwrap();
+    r.create(&p("IP-Server.md"), "one\n").unwrap();
+    let read = r.read(&p("IP-Server.md")).unwrap();
+    let saved = match r.save(&p("IP-Server.md"), "two\n", &read.etag) {
+        Ok(RemoteSave::Saved { etag }) => etag,
+        other => panic!("the save was not accepted: {other:?}"),
+    };
+    // A rename and a delete carry the tag the same way.
+    let moved = r
+        .rename(&p("IP-Server.md"), &p("renamed.md"), &saved)
+        .unwrap();
+    assert_eq!(moved.text, "two\n");
+    r.delete(&p("renamed.md"), &moved.etag).unwrap();
+    // And what the list says about a note is still the tag a read answers with:
+    // `etag_hash` is what marks a row *same* or *different*.
+    r.create(&p("b.md"), "bee\n").unwrap();
+    let list = r.list().unwrap();
+    let read = r.read(&p("b.md")).unwrap();
+    assert_eq!(list[0].etag.as_deref(), Some(read.etag.as_str()));
+    assert_eq!(etag_hash(&read.etag), Some(notes_fs::hash(b"bee\n")));
 }

@@ -381,6 +381,25 @@ fn send(request: RequestBuilder) -> Result<Response> {
     request.send().map_err(|_| Error::Offline)
 }
 
+/// A tag as this API means it: the quoted value, never its weak form.
+///
+/// The server answers `etag: "…"` and accepts `if-match: "…"` in exactly that
+/// shape — the tag *is* the revision, base64url of its JSON, so it has no weak
+/// and strong form. A CDN has one: Cloudflare rewrites the answers it may
+/// transform and turns `"x"` into `W/"x"`, and `tura.samirhv.com.br` is behind
+/// it. Sent back as received, that tag is `400 invalid_etag`, which `refusal`
+/// reports as *"the sync settings are not valid"*. Reads and listings worked and
+/// every write failed, which is why it went undiagnosed: the part that broke was
+/// the part nobody had tried.
+///
+/// The `W/` is dropped where the header is read, once, so that everything built
+/// on a tag — the buffer's `If-Match`, the *same*/*different* marks that decode
+/// it, the comparison that notices another device's change — sees the form the
+/// server speaks. The payload inside the quotes is the origin's and is untouched.
+fn strong(tag: &str) -> &str {
+    tag.strip_prefix("W/").unwrap_or(tag)
+}
+
 /// Status, ETag and JSON body. Every answer this API gives is JSON, errors
 /// included (`{"error": code}`), so a body that is not is a protocol error
 /// whatever its status.
@@ -391,7 +410,7 @@ fn read(response: Response) -> Result<(u16, Option<String>, serde_json::Value)> 
         .get("etag")
         .and_then(|v| v.to_str().ok())
         .filter(|v| v.len() <= 1024)
-        .map(str::to_owned);
+        .map(|v| strong(v).to_owned());
     if response
         .headers()
         .get("content-type")
