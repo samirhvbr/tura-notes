@@ -12,9 +12,26 @@ on:
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      linux:
+        description: 'runs-on for the Linux jobs, as JSON, e.g. ["self-hosted","tura-ci"] (empty: the CI_LINUX variable)'
+        required: false
+        default: ''
 
 env:
   CARGO_TERM_COLOR: always
+
+# WHERE THE LINUX JOBS RUN (ADR-103). `runs-on` of `contracts`, `frontend`,
+# `advisories` and the Linux leg of `rust` reads the repository variable
+# `CI_LINUX`, a JSON value: unset, they run on GitHub's `ubuntu-latest`; set to
+# `["self-hosted","tura-ci"]` they run on the owner's CI server, in the container
+# `tools/ci-runner/` builds. Deleting the variable is the whole of going back.
+# A pull request from a fork never reads it: its code runs on GitHub's machines,
+# not the owner's. A manual run can try a runner without changing the variable
+# (the `linux` input). What stays on GitHub whatever the variable says: Arch and
+# the server container (they need Docker), the Android core (it needs the NDK the
+# hosted image ships), the macOS and Windows legs, and `disk` below (a container
+# cannot mount a filesystem of its own, which the full-disk test does).
 
 jobs:
   # Which operating systems this run uses (ADR-103). Linux runs on every push.
@@ -55,7 +72,7 @@ jobs:
   # The two checks that catch a whole class of mistake without building the app.
   contracts:
     name: contracts
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
     steps:
       # `fetch-depth: 0`, and only on this job. `tools/changelog-versions.py`
       # asks whether some commit ever carried each version in `CHANGELOG.md`,
@@ -247,7 +264,7 @@ jobs:
   rust:
     name: rust (${{ matrix.os }})
     needs: plan
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -274,17 +291,30 @@ jobs:
       - run: tools/byte-preservation.sh
         shell: bash
 
+  # The two Linux-only checks that need the machine itself and not only a
+  # toolchain, so they stay on GitHub's hosted runner whatever `CI_LINUX` says
+  # (ADR-103): a container cannot mount a filesystem of its own, which the
+  # full-disk test does, and the one-second rule watches ~21 000 directories
+  # against the host's inotify limits. Both build `notes-core` alone, which needs
+  # no system library.
+  disk:
+    name: disk (hosted Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
       # The one-second rule (ADR-034), against the corpus it was measured on
       # rather than the smaller one the ordinary suite builds for itself.
       # `fixtures/deep` is ~21 000 directories with a mode-000 directory and a
       # symlink loop in it, and it is generated rather than committed (ADR-011).
       #
-      # Linux only: the per-directory walk, the watch table and the unreadable
+      # The per-directory walk, the watch table and the unreadable
       # count are inotify's (docs/DECISIONS-0.1c.md D-10), and this runner is
       # the only one in the matrix that is not root — root reads a mode-000
       # directory anyway, which is what the Arch job taught at 0.11.3.
       - name: the one-second rule on ~21 000 directories
-        if: runner.os == 'Linux'
         run: |
           tools/gen-deep.sh
           cargo test -p notes-core --test deep -- --ignored --nocapture \
@@ -301,7 +331,6 @@ jobs:
       # runner that lost both would skip in silence, which is the failure mode
       # D-01 exists to refuse.
       - name: full disk (ENOSPC)
-        if: runner.os == 'Linux'
         env:
           NOTES_REQUIRE_ENOSPC: "1"
         run: tools/enospc.sh
@@ -323,7 +352,7 @@ jobs:
 
   frontend:
     name: frontend
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/notes-app
@@ -363,7 +392,7 @@ jobs:
   # of this file.
   advisories:
     name: dependency advisories
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.20 - the Linux CI jobs can run on the owner's CI server, off by default, and the disk tests have a job of their own
+
+The second step of ADR-103. The image for a GitHub Actions runner that holds the
+Linux jobs is defined in `tools/ci-runner/` (Ubuntu 22.04 with the Tauri system
+libraries, the runner release pinned by version and checked against its published
+checksum, which was also compared with the copy already on the server), and it was
+built there. A container and not the host's own user, because this repository is
+public and the jobs run code that a Dependabot pull request brings in; `sudo` in
+that container is root of the container only.
+
+`ci.yml` now reads a repository variable, `CI_LINUX`, for the `runs-on` of
+`contracts`, `frontend`, `dependency advisories` and the Linux leg of `rust`. Unset,
+nothing changes: they run on GitHub as before. Set to the runner's labels, they run
+on the server. A pull request from a fork never reads the variable, so its code runs
+on GitHub's machines and not on the owner's; a manual run can try the runner without
+setting anything (`gh workflow run ci.yml -f linux=...`); deleting the variable goes
+back.
+
+The full-disk test and the one-second rule moved out of the `rust` job into a job of
+their own that always runs on GitHub's hosted Linux. They need the machine itself:
+the full-disk test mounts a filesystem of its own in a user namespace, which was
+tried inside the container with seccomp, AppArmor and the masked system paths each
+lifted in turn and still refused, and lifting more than that is more than a public
+repository's runner should be given; and the one-second rule watches 21 000
+directories against the host's inotify limits. Everything they check is still
+checked on every push.
+
+**The runner is not registered.** Registering a self-hosted runner on a public
+repository is the owner's act, and the attempt to do it from this session was
+refused, which is the right outcome and not one to route around. The commands, the
+trial run and the way back are in `tools/ci-runner/README.md`. Until the owner runs
+them the repository behaves as it did, plus the new `disk` job.
+
 ## 1.10.19 - the macOS and Windows jobs run on a minor and every night, and the Linux ones on every push
 
 Every push ran fourteen jobs on GitHub's hosted machines, and the owner found the
