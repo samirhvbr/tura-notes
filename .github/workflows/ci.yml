@@ -4,18 +4,54 @@ on:
   push:
     branches: [master]
   pull_request:
-  # Weekly, for the advisories job below: an advisory is published against code
+  # Every night, and by hand. Two reasons. An advisory is published against code
   # that has not changed, so a check that runs only on our commits learns about
-  # it whenever we happen to commit next. The rest of the workflow coming along
-  # is not waste — a suite that has not run in a fortnight is a suite nobody
-  # knows the state of.
+  # it whenever we happen to commit next; and the macOS and Windows jobs run only
+  # here and on a minor (see `plan`), so this is what keeps them from going a
+  # fortnight without anybody knowing the state of the suite.
   schedule:
-    - cron: "17 6 * * 1"
+    - cron: "17 6 * * *"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Which operating systems this run uses (ADR-103). Linux runs on every push.
+  # macOS and Windows run on a minor (`X.Y.0`), every night, by hand, and on a
+  # pull request labelled `full-ci`: they are the slowest jobs by far (Windows
+  # alone takes ten minutes) and what they catch is rare enough to be found by the
+  # next night's run. The jobs below read `os` and `full` and do nothing else
+  # with the decision, so the rule lives in one place.
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.pick.outputs.os }}
+      full: ${{ steps.pick.outputs.full }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+        run: |
+          full=false
+          case "$EVENT" in
+            schedule|workflow_dispatch) full=true ;;
+            # The version is the first semver in version.md; a minor ends in .0.
+            push) v=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' version.md | head -1)
+                  case "$v" in *.0) full=true ;; esac ;;
+            pull_request) [ "$LABELLED" = true ] && full=true ;;
+          esac
+          if [ "$full" = true ]; then
+            echo 'os=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+          fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "full=$full (event $EVENT)"
+
   # The two checks that catch a whole class of mistake without building the app.
   contracts:
     name: contracts
@@ -210,11 +246,12 @@ jobs:
 
   rust:
     name: rust (${{ matrix.os }})
+    needs: plan
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.plan.outputs.os) }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -312,8 +349,11 @@ jobs:
   # learn to skip.
   # Four platforms, defined once in `crash.yml`, which also runs nightly.
   crash:
+    needs: plan
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'run-crash-loop')
     uses: ./.github/workflows/crash.yml
+    with:
+      os: ${{ needs.plan.outputs.os }}
 
   # Dependabot opens pull requests for new versions; it does not say whether the
   # version we are pinned to has a known vulnerability. `security.md` §10 names
@@ -391,6 +431,8 @@ jobs:
 
   ios-core:
     name: iOS simulator core
+    needs: plan
+    if: needs.plan.outputs.full == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7

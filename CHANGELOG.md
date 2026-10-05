@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.19 - the macOS and Windows jobs run on a minor and every night, and the Linux ones on every push
+
+Every push ran fourteen jobs on GitHub's hosted machines, and the owner found the
+GitHub limits too low for a loop that pushes a version at a time and waits for each.
+The measured picture is that the repository is public and none of it is billed (the
+run of 1.10.14 reads zero billable milliseconds), so the limit that bites is time:
+the run took ten minutes, the Windows job alone 597 seconds, and the macOS jobs
+another four. Those are the two systems that cannot be run anywhere else, which is
+why they are the ones that move.
+
+A new first job, `plan`, decides which systems a run uses, and the other jobs read
+its answer. A push to `master` that is not a minor runs the Linux jobs; a push
+whose version ends in `.0`, the nightly schedule (it was weekly, and is now daily so
+that these jobs never go a fortnight unobserved), a manual dispatch and a pull
+request labelled `full-ci` add macOS, Windows and the iOS core. The crash loop's
+workflow takes the list as an input and still runs all three on its own every
+night. The decision was exercised for every event and version shape, including that
+`1.10.10` is not a minor and `1.11.0` is. ADR-103 records it, with what it costs:
+a break found only on Windows or macOS is now found by the night's run or by the
+minor and not by the push that caused it, and a red nightly is a red `master` like
+any other.
+
+This is the first of two steps. The second moves the Linux jobs that do not need
+Docker or an Android toolchain onto the owner's CI server in a disposable container,
+which is a separate change because it is infrastructure and has to be tried before
+it is trusted.
+
 ## 1.10.18 - Cloudflare turns the server's ETag into a weak one, and every write failed
 
 The owner ran one command, at the end of the previous entry: the headers of a

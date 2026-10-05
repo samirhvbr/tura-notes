@@ -3393,3 +3393,41 @@ no change, and a conditional read is a later saving. The merge is by lines, so a
 paragraph edited in two places at once is a conflict, as it is in version
 control, and the way out is the screen that already existed. Adds the `diffy`
 crate (MIT or Apache-2.0) to `notes-core`.
+
+## ADR-103 — macOS and Windows run on a minor and every night; the Linux jobs run on every push
+
+**Status:** `ACCEPTED` · 05/10/2026, the owner's choice among three options (“Runner Linux + macOS/Windows só por minor”) · built in 1.10.19
+
+**Context.** Every push ran fourteen jobs on GitHub's hosted machines, and the owner
+found the GitHub limits too low to keep doing that for a loop that pushes a version
+at a time and waits for each. Measured on the run of 1.10.14: ten minutes of wall
+time, of which the Windows job alone was 597 seconds and the macOS ones another
+four and two and a half; the Linux jobs were between half a minute and a little
+over four. The repository is public, so none of it is billed (the run's billable
+time reads zero), which means the limit that bites is time and concurrency, and the
+two hosted systems that cannot be run anywhere else are the slow ones.
+
+**Decision.**
+
+- *What runs when.* On a push to `master` that is not a minor, the Linux jobs run:
+  the rust job on `ubuntu-latest`, Arch, the front end, the contracts, the
+  advisories, the Android core, the server container and the Linux crash loop. On
+  a push whose version ends in `.0`, every night, by hand and on a pull request
+  labelled `full-ci`, the macOS and Windows legs run as well, and so does the iOS
+  simulator core. One job, `plan`, makes that decision and every other job reads
+  it; the crash loop (`crash.yml`) takes its list of systems from it and runs all
+  three nightly on its own.
+- *What it costs.* A break that exists only on Windows or macOS is found by the
+  next night's run, or by the minor, instead of by the push that caused it. That is
+  the trade the owner chose, and it is a real one: the Windows leg of the crash loop
+  and the Windows path of the atomic replace are the places this has bitten, and
+  the push that introduced such a break is found by `git log` between two green
+  nights, not by the red run itself. A red nightly is a red `master` and the next
+  item, as any red run is.
+- *Not a change to the rule for a milestone.* `roadmap.md` §19 still requires green
+  on all four before a desktop milestone closes; the run of its minor is that
+  evidence.
+
+**Consequences.** The per-push cycle falls from about ten minutes to about five,
+set by the slowest Linux job. Nothing else about how a version is published
+changes: the tag, the Release and the build workflows are triggered as before.

@@ -7,10 +7,18 @@ name: crash-save-loop
 # while `ARCHITECTURE.md` said "all four CI OS, nightly".
 #
 # One definition, two callers: `ci.yml` calls it on every push to master (and on
-# a pull request labelled `run-crash-loop`), and the schedule below runs it on
-# its own every night, without the rest of CI.
+# a pull request labelled `run-crash-loop`), with Linux alone unless the push is a
+# minor, and the schedule below runs it on its own every night on all three,
+# without the rest of CI.
 on:
   workflow_call:
+    inputs:
+      # The operating systems to run, as a JSON list. `ci.yml` passes Linux alone
+      # on a patch version and all three on a minor (ADR-103); the nightly run
+      # below has no caller and takes all three.
+      os:
+        type: string
+        default: '["ubuntu-latest","macos-latest","windows-latest"]'
   schedule:
     - cron: "41 3 * * *"
 
@@ -23,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(inputs.os || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     # R7-14: the Windows leg died silently (exit 2304, a SIGKILL of the shell) in
     # two of three runs. It keeps running and reporting, with every round traced,
