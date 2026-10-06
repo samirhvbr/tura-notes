@@ -7,6 +7,15 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.21 - exercise the publish helper with GNU tools on macOS
+
+The full local gate exposed a platform mismatch in the co-tenant fixture: the
+Linux publish helper needs dd's nofollow flag and GNU stat's size format, but the
+Mac supplied BSD tools. On macOS only, the fixture places Homebrew's real GNU
+tools in its private PATH and names the missing dependency when unavailable.
+The helper itself and Linux execution are unchanged. The fixture passes with
+Python 3.14 and coreutils, including both existing symlink rejection cases.
+
 ## 1.10.21 - update source-map-js to its patched release
 
 The required dependency audit found GHSA-68fv-2mgg-jv7q in the locked build-time

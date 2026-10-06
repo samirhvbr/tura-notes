@@ -47,6 +47,13 @@ should put on somebody's machine unasked — so `clippy (windows)` fails on a
 machine without it, naming the package, and `NOTES_NO_WINDOWS_CHECK=1` opts out
 deliberately. Debian: `gcc-mingw-w64-x86-64`. Homebrew: `mingw-w64`.
 
+**On macOS, the full gate also needs GNU coreutils** (`brew install coreutils`).
+The co-tenant fixture runs the Linux publish helper with real `gdd` and `gstat`
+under its private PATH, preserving the helper's no-follow checks. Use Python
+3.10 or newer for the gate; the bundled Apple Python 3.9 cannot run the license
+notice generator. For a Homebrew installation, put `/opt/homebrew/bin` first in
+`PATH` so `python3` resolves to the installed modern version.
+
 **There is no Docker path for the application**, and that is not an omission.
 `server/compose.yml` exists for the 0.5 server ([SERVER-0.5.md](SERVER-0.5.md)),
 which is a separate process an owner runs on their own host; the desktop

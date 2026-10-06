@@ -20,6 +20,7 @@ Creates only a disposable workspace under a temporary directory.
 import json
 import pathlib
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -401,6 +402,14 @@ with tempfile.TemporaryDirectory() as _root:
     (_app / "artisan").write_text("")
     _bin = _root / "bin"
     _bin.mkdir()
+    # The production helper runs on Linux: its no-follow copy and size check
+    # use GNU dd/stat. Keep those real implementations in the macOS fixture
+    # too; BSD dd rejects iflag=nofollow before testing any symlink at all.
+    if sys.platform == "darwin":
+        for _command in ("dd", "stat"):
+            _gnu = shutil.which(f"g{_command}")
+            assert _gnu, "the publish-helper fixture needs GNU tools: brew install coreutils"
+            (_bin / _command).symlink_to(_gnu)
     (_bin / "php").write_text('#!/bin/bash\nprintf "%s\\n" "$PWD" "$@" > "$0.called"\ncat "$3" > "$0.content"\n')
     (_bin / "php").chmod(0o755)
     _me = subprocess.run(["id", "-un"], capture_output=True, text=True, check=True).stdout.strip()
