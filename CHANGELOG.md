@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.23 - a device will get its cloud connection by signing in to the owner's site, and the contract is written down
+
+No code in this one: the decision and the contract, because half of what is decided
+is not in this repository. The owner asked that signing in on a phone bring the cloud
+connection with it, since typing a 60-character credential on a touch keyboard is how
+one ends up in a note or a screenshot. Of three options the owner chose the site's own
+login. The application opens the site in the system browser, the person signs in and
+consents there, and the application receives a credential for that device: OAuth 2.0
+authorization code with PKCE, the shape RFC 8252 prescribes for native applications,
+with the site as the authorization server and the notes server not involved at all.
+The secret never travels in a URL: the redirect carries a single-use code, and the
+credential is the answer to a POST that only the application that started the flow can
+make, because only it holds the verifier. A `tura://` link can be claimed by another
+application on the device, which is exactly the attack the verifier exists for.
+
+`docs/PAIRING.md` is the contract and ADR-105 the decision. It says what the site
+implements (a consent page, a mint through the `tura-credential` wrapper that already
+exists, a store with a 120-second lifetime, and the exchange, with the one rule that
+every refusal is the same refusal), and what this repository implements (a credential
+kept in the system keychain that the remote folder and Device sync read where they read a
+file today, a pairing client in Rust, the deep link, and the entry on the panels). The
+credential file stays for a server with no site, and the pairing code with no account was
+set aside as the runner-up that can sit beside this one later. The queue has the
+pieces: the keychain credential, the pairing client against a fake site, the desktop
+entry, the three routes of the site (the owner's, in a repository this session does not
+have), and the mobile glue, which waits for an installable mobile application.
+
 ## 1.10.22 - a folder can be made in the server's tree, and it exists in the window until a note is made in it
 
 The owner asked to be able to make folders and subfolders in the cloud. The server

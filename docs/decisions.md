@@ -3486,3 +3486,44 @@ as in ADR-099.
 **Consequences.** One new piece of state in `stores/remote.ts` and a menu on the
 folders of the remote tree. No server change, no new permission, and a server older
 or newer than the application behaves the same.
+
+## ADR-105 — A device gets its cloud connection by signing in to the owner's site, not by typing a key
+
+**Status:** `ACCEPTED` · 06/10/2026, the owner's choice of the site's login among three options · design only, nothing built; the contract is [PAIRING.md](PAIRING.md)
+
+**Context.** A device reaches the server with a credential, `nt_<id>.<secret>`,
+which a person gets today by minting it on the server or on the site's
+administration screen and pointing the application at the downloaded file. That is
+workable on a desktop and wrong on a phone, where there is no file and typing a
+secret is how it ends up somewhere it should not. The owner asked that signing in
+bring the cloud connection with it. The product has no accounts (`product.md`), and
+the site that does have a login is the owner's own, on the same host as the server
+and already able to mint credentials through `tura-credential`.
+
+**Decision.** The application opens the site in the system browser, the person
+signs in and consents there, and the application receives the credential for that
+device. The flow is OAuth 2.0 authorization code with PKCE, as RFC 8252 prescribes
+for native applications, with the **site** as the authorization server: the secret
+travels in the answer to a POST the application makes with a verifier that only it
+holds, and never in the redirect, which carries only a single-use code. One
+credential is minted per sign-in, with the device's label and the six permissions
+of the remote folder, so each is revocable on its own. The credential is kept in the
+**system keychain**, and the remote folder and Device sync read it where they read a
+credential file now; the file stays as the way for a server with no site. The
+notes server is not involved in the sign-in and gains no accounts and no routes.
+
+**Alternatives set aside.** *A pairing code or QR with no account*, issued on the
+server for a single use: it serves a self-hosted server with no site, needs a new
+server route (a server version the owner has to sign and deploy), and was the
+runner-up; it can sit beside this later and use the same keychain and the same
+client. *Typing or pasting the credential*, which is what exists.
+
+**Consequences.** Half the work is in the owner's site, which is not in this
+repository: three routes and a store with a 120-second TTL, specified in
+[PAIRING.md](PAIRING.md). In this repository: a credential store over the
+keychain that the remote folder and Device sync accept in place of a file path, a
+pairing client in Rust, a deep link, and the sign-in entry on desktop, which works
+before the mobile application exists. A new dependency for the deep link and the
+keychain on mobile is to be measured when it is added. ADR-007 holds: the desktop
+application opens no port, so the redirect arrives as a link the system hands over,
+with a field to paste it for a browser that will not.

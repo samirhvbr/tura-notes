@@ -103,3 +103,4 @@ and the fleet adopted it the same day.
 ## The remote folder
 
 - [ACCEPTANCE-remote.md](ACCEPTANCE-remote.md) — the owner's walk of the remote folder (ADR-099): editing the server's notes in place, against a real server.
+- [PAIRING.md](PAIRING.md) `PROPOSED` — signing in to the owner's site brings a device its cloud connection (ADR-105): the flow, the three routes the site implements, and what the application keeps in the keychain. Nothing in it is built.
