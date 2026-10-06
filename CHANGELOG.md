@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.21 - update source-map-js to its patched release
+
+The required dependency audit found GHSA-68fv-2mgg-jv7q in the locked build-time
+source-map-js 1.2.1. Update only that transitive package to 1.2.2 within its
+existing range. A clean npm installation reports no known vulnerabilities.
+
 ## 1.10.21 - keep remote save warnings stable while editing
 
 A rejected remote save removed its banner whenever typing changed the transport
