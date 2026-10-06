@@ -16,7 +16,7 @@
 use crate::remote::{address, client, credential, resolved};
 use crate::{Error, Result};
 use base64::Engine as _;
-use notes_model::{ContentHash, RelPath};
+use notes_model::{BaseRev, ContentHash, RelPath};
 use reqwest::{
     blocking::{Client, RequestBuilder, Response},
     Url,
@@ -381,23 +381,29 @@ fn send(request: RequestBuilder) -> Result<Response> {
     request.send().map_err(|_| Error::Offline)
 }
 
-/// A tag as this API means it: the quoted value, never its weak form.
+/// Recover the origin's revision tag from known proxy transformations.
 ///
-/// The server answers `etag: "…"` and accepts `if-match: "…"` in exactly that
-/// shape — the tag *is* the revision, base64url of its JSON, so it has no weak
-/// and strong form. A CDN has one: Cloudflare rewrites the answers it may
-/// transform and turns `"x"` into `W/"x"`, and `tura.samirhv.com.br` is behind
-/// it. Sent back as received, that tag is `400 invalid_etag`, which `refusal`
-/// reports as *"the sync settings are not valid"*. Reads and listings worked and
-/// every write failed, which is why it went undiagnosed: the part that broke was
-/// the part nobody had tried.
-///
-/// The `W/` is dropped where the header is read, once, so that everything built
-/// on a tag — the buffer's `If-Match`, the *same*/*different* marks that decode
-/// it, the comparison that notices another device's change — sees the form the
-/// server speaks. The payload inside the quotes is the origin's and is untouched.
-fn strong(tag: &str) -> &str {
-    tag.strip_prefix("W/").unwrap_or(tag)
+/// Cloudflare can prefix `W/`; Apache's gzip filter can append `-gzip` inside
+/// the quotes, including when the final hop no longer sends compressed bytes.
+/// Removing only `W/` leaves a tag that the server refuses as `invalid_etag`.
+/// Strip the compression suffix only if what remains decodes as the exact
+/// revision type the server accepts. Never invent a revision or take a newer
+/// one from a separate read: the original bytes still condition every write.
+fn revision_tag(tag: &str) -> String {
+    let strong = tag.strip_prefix("W/").unwrap_or(tag);
+    if let Some(raw) = strong
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix("-gzip\""))
+    {
+        let revision = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(raw)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<BaseRev>(&bytes).ok());
+        if revision.is_some() {
+            return format!("\"{raw}\"");
+        }
+    }
+    strong.to_owned()
 }
 
 /// Status, ETag and JSON body. Every answer this API gives is JSON, errors
@@ -410,7 +416,7 @@ fn read(response: Response) -> Result<(u16, Option<String>, serde_json::Value)> 
         .get("etag")
         .and_then(|v| v.to_str().ok())
         .filter(|v| v.len() <= 1024)
-        .map(|v| strong(v).to_owned());
+        .map(revision_tag);
     if response
         .headers()
         .get("content-type")
@@ -532,5 +538,43 @@ impl RemoteFolder {
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod revision_tag_tests {
+    use super::*;
+
+    #[test]
+    fn only_a_recognized_transform_of_a_complete_revision_is_removed() {
+        let revision = BaseRev {
+            size: 0,
+            mtime_ns: 1_790_000_000_000_000_001,
+            hash: ContentHash::of_empty(),
+        };
+        let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(&revision).unwrap());
+        let tag = format!("\"{raw}\"");
+        for transformed in [
+            tag.clone(),
+            format!("W/{tag}"),
+            format!("\"{raw}-gzip\""),
+            format!("W/\"{raw}-gzip\""),
+        ] {
+            assert_eq!(revision_tag(&transformed), tag);
+        }
+        // Neither an arbitrary opaque tag nor incomplete/invalid revision
+        // JSON grants permission to guess what the server intended.
+        let incomplete = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"size":0}"#);
+        for unchanged in [
+            "\"not-a-revision-gzip\"".to_owned(),
+            format!("\"{incomplete}-gzip\""),
+            format!("\"{raw}-unknown\""),
+            format!("\"{raw}-gzip-gzip\""),
+            format!("\"{raw}\"-gzip"),
+        ] {
+            assert_eq!(revision_tag(&unchanged), unchanged);
+            assert_eq!(revision_tag(&format!("W/{unchanged}")), unchanged);
+        }
     }
 }

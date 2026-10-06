@@ -1015,7 +1015,10 @@ version/notes/status only; it cannot choose an update URL or verification key.
     so the view and the one `innerHTML` assignment stay single;
   - the `remote_*` commands (`src-tauri/src/commands.rs`) call
     `notes-sync-client`'s `notes.rs` off the UI thread and write no local
-    file;
+    file. Response ETags recover the original revision across a weak `W/`
+    prefix and the known `-gzip` suffix (1.10.21). The suffix is removed only
+    when the remaining payload decodes as `BaseRev`; the original revision
+    bytes still condition the write, so a stale save remains a conflict;
   - `remote_list` hashes the local note at the same path through the root
     jail (`WorkspaceService::local_hash`), and `remote_render` renders with
     raw HTML off and no local images (`render_detached`);

@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.21 - recover remote revision tags altered by gzip proxies
+
+The installed 1.10.20 still could not save through the production proxy chain.
+Read-only checks found a weak ETag with an additional -gzip suffix; removing both
+transformations recovered exactly the revision in the detailed listing. The prior
+fix removed only the weak prefix. Strip the known compression suffix only when its
+remaining payload decodes as the server's complete BaseRev, keeping the original
+revision bytes for conditional writes. A proxy regression covers saves, rename,
+delete and stale-write conflicts; malformed tags remain rejected. No production
+note was changed during diagnosis.
+
 ## 1.10.20 - the Linux CI jobs can run on the owner's CI server, off by default, and the disk tests have a job of their own
 
 The second step of ADR-103. The image for a GitHub Actions runner that holds the

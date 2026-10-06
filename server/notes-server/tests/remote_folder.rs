@@ -219,14 +219,13 @@ fn the_folder_keeps_its_configuration_and_forgets_it() {
     assert!(RemoteFolder::new(data.path()).config().is_none());
 }
 
-/// What a CDN does to a strong ETag, and nothing else: puts `W/` in front of it.
+/// Transform only the response ETag as the production proxy chain does.
 ///
-/// Cloudflare does this to answers it may transform, and `tura.samirhv.com.br`
-/// is behind it. A plain forwarder, one upstream connection per request, that
-/// rewrites the `etag:` line of the response head and passes every other byte
-/// through. It exists because the loopback tests above talk to the server
-/// directly, which is the one path production does not have.
-fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
+/// Cloudflare prefixes `W/`; Apache can append `-gzip` to the opaque value.
+/// The final response need not itself be compressed, as observed in production.
+/// A plain forwarder rewrites that header and passes every other byte through:
+/// direct loopback tests alone never exercise this path.
+fn weakening_proxy(upstream: SocketAddr, gzip_suffix: bool) -> SocketAddr {
     fn head(stream: &mut TcpStream) -> std::io::Result<Option<Vec<u8>>> {
         let mut bytes = Vec::new();
         let mut one = [0u8; 1];
@@ -248,7 +247,11 @@ fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
             })
             .unwrap_or(0)
     }
-    fn relay(client: &mut TcpStream, upstream: SocketAddr) -> std::io::Result<()> {
+    fn relay(
+        client: &mut TcpStream,
+        upstream: SocketAddr,
+        gzip_suffix: bool,
+    ) -> std::io::Result<()> {
         // One exchange per client connection: the answer carries `connection: close`
         // (the upstream saw it asked for), so a client reconnects for the next one.
         if let Some(request) = head(client)? {
@@ -270,7 +273,11 @@ fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
                 .split("\r\n")
                 .map(|l| match l.split_once(": ") {
                     Some((k, v)) if k.eq_ignore_ascii_case("etag") && v.starts_with('"') => {
-                        format!("{k}: W/{v}")
+                        if gzip_suffix {
+                            format!("{k}: W/{}-gzip\"", v.strip_suffix('"').unwrap())
+                        } else {
+                            format!("{k}: W/{v}")
+                        }
                     }
                     _ => l.to_owned(),
                 })
@@ -288,7 +295,7 @@ fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
             let _ = client.set_read_timeout(Some(Duration::from_secs(10)));
             std::thread::spawn(move || {
                 let mut client = client;
-                let _ = relay(&mut client, upstream);
+                let _ = relay(&mut client, upstream, gzip_suffix);
             });
         }
     });
@@ -296,14 +303,18 @@ fn weakening_proxy(upstream: SocketAddr) -> SocketAddr {
 }
 
 fn behind_a_weakening_proxy(mut served: Served) -> Served {
+    served.config.origin = proxy_origin(&served, false);
+    served
+}
+
+fn proxy_origin(served: &Served, gzip_suffix: bool) -> String {
     let upstream: SocketAddr = served
         .config
         .origin
         .trim_start_matches("http://")
         .parse()
         .unwrap();
-    served.config.origin = format!("http://{}", weakening_proxy(upstream));
-    served
+    format!("http://{}", weakening_proxy(upstream, gzip_suffix))
 }
 
 #[test]
@@ -311,17 +322,21 @@ fn the_proxy_really_weakens_the_tag() {
     // The guard on the test below: a save that passes through a proxy which does
     // nothing proves nothing, so this reads the header the client would see.
     let s = behind_a_weakening_proxy(serve("", &all()));
-    let token = fs::read_to_string(&s.config.token_file).unwrap();
     RemoteNotes::connect(&s.config)
         .unwrap()
         .create(&p("a.md"), "x\n")
         .unwrap();
+    assert!(raw_tag(&s, "a.md").starts_with("W/\""));
+}
+
+fn raw_tag(s: &Served, path: &str) -> String {
+    let token = fs::read_to_string(&s.config.token_file).unwrap();
     let address = s.config.origin.trim_start_matches("http://").to_owned();
     let mut raw = TcpStream::connect(&address).unwrap();
     raw.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
     write!(
         raw,
-        "GET /v1/workspaces/home/notes/a.md HTTP/1.1\r\nhost: {address}\r\nauthorization: Bearer {}\r\nconnection: close\r\n\r\n",
+        "GET /v1/workspaces/home/notes/{path} HTTP/1.1\r\nhost: {address}\r\nauthorization: Bearer {}\r\nconnection: close\r\n\r\n",
         token.trim()
     )
     .unwrap();
@@ -331,10 +346,7 @@ fn the_proxy_really_weakens_the_tag() {
         .lines()
         .find(|l| l.to_ascii_lowercase().starts_with("etag:"))
         .expect("an etag header");
-    assert!(
-        tag.split_once(": ").unwrap().1.starts_with("W/\""),
-        "the proxy weakens the tag"
-    );
+    tag.split_once(": ").unwrap().1.to_owned()
 }
 
 #[test]
@@ -365,4 +377,49 @@ fn a_cdn_that_weakens_the_tag_does_not_stop_a_save() {
     let read = r.read(&p("b.md")).unwrap();
     assert_eq!(list[0].etag.as_deref(), Some(read.etag.as_str()));
     assert_eq!(etag_hash(&read.etag), Some(notes_fs::hash(b"bee\n")));
+}
+
+#[test]
+fn a_gzip_suffix_is_removed_without_losing_the_original_revision_guard() {
+    let mut s = serve("", &all());
+    s.config.origin = proxy_origin(&s, true);
+    let r = RemoteNotes::connect(&s.config).unwrap();
+    let path = p("SHVIA-sec.md");
+    let made = r.create(&path, "one\n").unwrap();
+    let raw = raw_tag(&s, path.as_str());
+    assert!(raw.starts_with("W/\""));
+    assert!(raw.ends_with("-gzip\""));
+
+    // The JSON listing retains the origin's exact tag. Both headers (create
+    // and read) must recover those same bytes, not a guessed/newer revision.
+    let listed = r
+        .list()
+        .unwrap()
+        .into_iter()
+        .find(|n| n.path == path)
+        .unwrap();
+    let read = r.read(&path).unwrap();
+    assert_eq!(Some(made.etag.as_str()), listed.etag.as_deref());
+    assert_eq!(made.etag, read.etag);
+    assert_eq!(etag_hash(&read.etag), Some(notes_fs::hash(b"one\n")));
+    let RemoteSave::Saved { etag } = r.save(&path, "two\n", &read.etag).unwrap() else {
+        panic!("the save through the gzip proxy was not accepted")
+    };
+    assert_eq!(r.read(&path).unwrap().etag, etag);
+
+    // Recovery of a transformed tag must never turn a stale write into an
+    // overwrite. The stale create/read tag still conflicts after this save.
+    let RemoteSave::Conflict { current } = r.save(&path, "stale edit\n", &read.etag).unwrap()
+    else {
+        panic!("the stale save bypassed the original revision guard")
+    };
+    assert_eq!(current.text, "two\n");
+    assert_eq!(current.etag, etag);
+    assert_eq!(
+        fs::read_to_string(s.data.join("workspaces/home/SHVIA-sec.md")).unwrap(),
+        "two\n"
+    );
+    let moved = r.rename(&path, &p("renamed.md"), &etag).unwrap();
+    r.delete(&moved.path, &moved.etag).unwrap();
+    assert!(r.list().unwrap().iter().all(|n| n.path != moved.path));
 }
