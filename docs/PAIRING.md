@@ -1,7 +1,10 @@
 # Signing in from the application: the pairing contract
 
-> **Status:** `PROPOSED` · Nothing here is built yet; it moves to `ACTIVE` when the
-> application side exists and a device has paired through a real site. Decision:
+> **Status:** `PROPOSED` · The application's half is built for the desktop (1.10.24:
+> the keychain credential, the pairing client, and a sign-in section with a field to
+> paste the address into), and tested against a site that plays this contract. The
+> site's half is not, and neither are the `tura://` handler and the mobile
+> application. It moves to `ACTIVE` when a device has paired through a real site. Decision:
 > [ADR-105](decisions.md#adr-105--a-device-gets-its-cloud-connection-by-signing-in-to-the-owners-site-not-by-typing-a-key).
 > It is written first because **half of it is not in this repository**: the site
 > that has the login is the owner's own, and this page is what that site implements
@@ -58,7 +61,11 @@ native applications, with the **site** as the authorization server and the
    the wrapper `docs/SERVER-0.5.md` already describes), keeps the secret **in its
    store, keyed by a fresh single-use `code`** (random, 32 bytes) together with the
    `challenge`, for **120 seconds**, and redirects to
-   `tura://pair?code=<code>&state=<state>`. The secret is in no URL.
+   `tura://pair?code=<code>&state=<state>`. The secret is in no URL. **The page it
+   lands on also shows that same address in a text box with a Copy button**, because
+   a desktop browser with no handler for `tura://` shows nothing, and the application
+   has a field to paste it into for exactly that case (what it does on desktop
+   until a handler is registered).
 5. **`POST https://<site>/tura/pair/exchange`**, JSON `{code, verifier}`. The site
    checks that the code exists, has not been used, has not expired, and that
    `base64url(SHA-256(verifier))` equals the stored challenge; it answers **once**

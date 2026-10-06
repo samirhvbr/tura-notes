@@ -566,5 +566,20 @@
   "remote.folder.folder": "Nova pasta aqui",
   "remote.folder.forget": "Remover esta pasta vazia",
   "remote.folder.empty": "vazia",
-  "remote.folder.virtual": "{path}: só nesta janela até uma nota ser criada nela"
+  "remote.folder.virtual": "{path}: só nesta janela até uma nota ser criada nela",
+  "remote.signin.title": "Entrar com o seu site",
+  "remote.signin.explain": "Se o seu servidor tem um site com login, você não precisa digitar endereço nem procurar arquivo de credencial: entre lá e este aparelho recebe a sua própria conexão. A chave fica no chaveiro do sistema e nunca aparece.",
+  "remote.signin.site": "Endereço do seu site",
+  "remote.signin.label": "Nome deste aparelho",
+  "remote.signin.thisDevice": "Este computador",
+  "remote.signin.go": "Entrar no navegador",
+  "remote.signin.waiting": "O navegador abriu o seu site. Entre lá e permita este aparelho, depois copie o endereço em que ele termina (começa com tura://pair) e cole aqui.",
+  "remote.signin.paste": "Endereço a que o navegador voltou",
+  "remote.signin.finish": "Concluir o login",
+  "remote.signin.done": "Login feito como “{label}”. Este aparelho está conectado.",
+  "remote.signin.denied": "O site não permitiu: foi recusado, ou o código expirou ou já foi usado. Comece de novo.",
+  "remote.signin.invalid": "Esse não é o endereço que este login iniciou. Comece de novo e copie o em que o navegador termina.",
+  "remote.signin.out": "Sair neste aparelho",
+  "remote.signin.outNote": "Sair apaga a chave deste aparelho. Ela é revogada no seu site, ou na lista de dispositivos, e até lá ainda funciona para quem a tiver.",
+  "remote.signin.signedOut": "Você saiu. Este aparelho já não tem a chave."
 }

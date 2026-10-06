@@ -114,7 +114,120 @@ pub(crate) enum CredentialProblem {
     Shape,
 }
 
+/// Where a credential may live besides a file: the system keychain, named in the
+/// place a file's path goes, as `keychain:<name>` (ADR-105). The configuration
+/// formats are unchanged, so a connection saved with a path still works and one
+/// saved with a name needs no new field anywhere.
+pub const KEYCHAIN_PREFIX: &str = "keychain:";
+
+/// The name inside a `keychain:<name>` reference, or `None` when `token_file` is
+/// anything else, or a name that is not a short token of letters, digits, `-`,
+/// `_` and `.`, so it cannot smuggle anything into the keychain's account.
+pub fn credential_name(token_file: &str) -> Option<&str> {
+    let name = token_file.strip_prefix(KEYCHAIN_PREFIX)?;
+    let valid = !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'));
+    valid.then_some(name)
+}
+
+/// Whether `token_file` is a keychain reference rather than a path.
+pub fn is_credential_ref(token_file: &str) -> bool {
+    token_file.starts_with(KEYCHAIN_PREFIX)
+}
+
+/// Why the keychain did not answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoreFailure {
+    /// No keychain this application can reach on this system.
+    Unavailable,
+    /// There is one, and it said no.
+    Failed,
+}
+
+/// The keychain, as this crate needs it. The application provides the real one
+/// (it owns the platform's keychain library) and installs it once at start; a
+/// crate that only reads a credential has no business linking one.
+///
+/// There is **no fallback to a file**: where the system has no keychain, a
+/// reference to it is a credential that cannot be read, and says so.
+pub trait CredentialStore: Send + Sync {
+    fn get(&self, name: &str) -> std::result::Result<Option<String>, StoreFailure>;
+    fn set(&self, name: &str, secret: &str) -> std::result::Result<(), StoreFailure>;
+    /// Removing one that is not there is not an error.
+    fn clear(&self, name: &str) -> std::result::Result<(), StoreFailure>;
+}
+
+static STORE: std::sync::RwLock<Option<std::sync::Arc<dyn CredentialStore>>> =
+    std::sync::RwLock::new(None);
+
+/// Install the keychain (replacing any earlier one, which tests rely on).
+pub fn install_credential_store(store: std::sync::Arc<dyn CredentialStore>) {
+    if let Ok(mut slot) = STORE.write() {
+        *slot = Some(store);
+    }
+}
+
+fn installed() -> Option<std::sync::Arc<dyn CredentialStore>> {
+    STORE.read().ok().and_then(|slot| slot.clone())
+}
+
+/// What a credential has to look like, wherever it was kept.
+pub(crate) fn shaped_credential(bearer: &str) -> bool {
+    shaped(bearer)
+}
+
+fn shaped(bearer: &str) -> bool {
+    bearer.starts_with("nt_") && bearer.len() <= 199 && !bearer.chars().any(char::is_whitespace)
+}
+
+/// Keep a credential in the keychain under `name`. Refuses what is not one,
+/// so a pairing that went wrong cannot overwrite a good credential with junk.
+pub fn store_credential(name: &str, bearer: &str) -> Result<()> {
+    if credential_name(&format!("{KEYCHAIN_PREFIX}{name}")).is_none() || !shaped(bearer) {
+        return Err(Error::Invalid);
+    }
+    installed()
+        .ok_or(Error::Invalid)?
+        .set(name, bearer)
+        .map_err(|_| Error::Invalid)
+}
+
+/// Forget the credential kept under `name`.
+pub fn forget_credential(name: &str) -> Result<()> {
+    installed()
+        .ok_or(Error::Invalid)?
+        .clear(name)
+        .map_err(|_| Error::Invalid)
+}
+
+/// Whether a credential is kept under `name`. The answer is yes or no: the
+/// secret is not returned to anything that only wants to know.
+pub fn has_credential(name: &str) -> bool {
+    installed()
+        .and_then(|s| s.get(name).ok().flatten())
+        .is_some_and(|b| shaped(&b))
+}
+
 pub(crate) fn credential(token_file: &Path) -> std::result::Result<String, CredentialProblem> {
+    if let Some(text) = token_file.to_str().filter(|t| is_credential_ref(t)) {
+        // A reference that is not a valid name, an application that installed no
+        // keychain, a keychain that refused and a credential that is not there
+        // are all the same answer: this connection has no credential to use.
+        let name = credential_name(text).ok_or(CredentialProblem::File)?;
+        let bearer = installed()
+            .ok_or(CredentialProblem::File)?
+            .get(name)
+            .map_err(|_| CredentialProblem::File)?
+            .ok_or(CredentialProblem::File)?;
+        return if shaped(&bearer) {
+            Ok(bearer)
+        } else {
+            Err(CredentialProblem::Shape)
+        };
+    }
     let meta = std::fs::symlink_metadata(token_file).map_err(|_| CredentialProblem::File)?;
     if !token_file.is_absolute() || !meta.is_file() || meta.len() > 200 {
         return Err(CredentialProblem::File);
@@ -949,5 +1062,129 @@ mod http_tests {
         let probe = Remote::probe("https://example.org/", false, &loose, None);
         assert!(matches!(probe.outcome, SyncProbeOutcome::CredentialFile));
         assert_eq!(probe.status, None);
+    }
+}
+
+// The keychain reference (ADR-105). A separate module because the store they use
+// is process-wide, and these are the only tests that install one.
+#[cfg(test)]
+mod keychain_tests {
+    use super::*;
+    use std::{collections::HashMap, sync::Arc, sync::Mutex};
+
+    #[derive(Default)]
+    struct Memory(Mutex<HashMap<String, String>>);
+    impl CredentialStore for Memory {
+        fn get(&self, name: &str) -> std::result::Result<Option<String>, StoreFailure> {
+            Ok(self.0.lock().unwrap().get(name).cloned())
+        }
+        fn set(&self, name: &str, secret: &str) -> std::result::Result<(), StoreFailure> {
+            self.0.lock().unwrap().insert(name.into(), secret.into());
+            Ok(())
+        }
+        fn clear(&self, name: &str) -> std::result::Result<(), StoreFailure> {
+            self.0.lock().unwrap().remove(name);
+            Ok(())
+        }
+    }
+    struct Broken;
+    impl CredentialStore for Broken {
+        fn get(&self, _: &str) -> std::result::Result<Option<String>, StoreFailure> {
+            Err(StoreFailure::Unavailable)
+        }
+        fn set(&self, _: &str, _: &str) -> std::result::Result<(), StoreFailure> {
+            Err(StoreFailure::Unavailable)
+        }
+        fn clear(&self, _: &str) -> std::result::Result<(), StoreFailure> {
+            Err(StoreFailure::Unavailable)
+        }
+    }
+
+    // One test, in order: the store is a process-wide slot and tests run in
+    // parallel, so the states it goes through must not interleave.
+    #[test]
+    fn a_credential_is_kept_read_and_forgotten_by_name_and_never_from_a_file() {
+        assert_eq!(credential_name("keychain:remote"), Some("remote"));
+        assert_eq!(credential_name("keychain:a.b-c_9"), Some("a.b-c_9"));
+        for bad in [
+            "keychain:",
+            "keychain:a/b",
+            "keychain:a b",
+            "keychain:..\\x",
+            "/home/me/token",
+            "keychain",
+            "KEYCHAIN:x",
+        ] {
+            assert_eq!(credential_name(bad), None, "{bad:?}");
+        }
+        assert_eq!(
+            credential_name(&format!("keychain:{}", "x".repeat(65))),
+            None
+        );
+        assert!(
+            is_credential_ref("keychain:anything at all"),
+            "a reference, if a bad one"
+        );
+
+        // No keychain installed by the application: nothing to read.
+        install_credential_store(Arc::new(Memory::default()));
+        let good = format!("nt_{}.{}", "a".repeat(8), "b".repeat(40));
+        assert!(matches!(
+            credential(Path::new("keychain:remote")),
+            Err(CredentialProblem::File)
+        ));
+        assert!(!has_credential("remote"));
+
+        store_credential("remote", &good).unwrap();
+        assert!(has_credential("remote"));
+        assert_eq!(
+            credential(Path::new("keychain:remote")).ok().as_deref(),
+            Some(good.as_str())
+        );
+        // A reference with an invalid name never reaches the store.
+        assert!(matches!(
+            credential(Path::new("keychain:a/b")),
+            Err(CredentialProblem::File)
+        ));
+
+        // What is not a credential is not stored, and does not overwrite one.
+        for junk in [
+            "",
+            "hello",
+            "nt_has space",
+            &format!("nt_{}", "x".repeat(200)),
+        ] {
+            assert!(store_credential("remote", junk).is_err(), "{junk:?}");
+        }
+        assert_eq!(
+            credential(Path::new("keychain:remote")).ok().as_deref(),
+            Some(good.as_str())
+        );
+        assert!(store_credential("../x", &good).is_err());
+
+        // Something in the keychain that is not shaped like one is the shape problem.
+        let memory = Arc::new(Memory::default());
+        memory.set("odd", "not-a-credential").unwrap();
+        install_credential_store(memory);
+        assert!(matches!(
+            credential(Path::new("keychain:odd")),
+            Err(CredentialProblem::Shape)
+        ));
+
+        forget_credential("odd").unwrap();
+        assert!(matches!(
+            credential(Path::new("keychain:odd")),
+            Err(CredentialProblem::File)
+        ));
+
+        // A system with no keychain: every answer is "no credential", and
+        // saving says it could not. There is no file to fall back to.
+        install_credential_store(Arc::new(Broken));
+        assert!(matches!(
+            credential(Path::new("keychain:odd")),
+            Err(CredentialProblem::File)
+        ));
+        assert!(store_credential("odd", &good).is_err());
+        assert!(!has_credential("odd"));
     }
 }

@@ -566,5 +566,20 @@
   "remote.folder.folder": "New folder here",
   "remote.folder.forget": "Remove this empty folder",
   "remote.folder.empty": "empty",
-  "remote.folder.virtual": "{path}: only in this window until a note is created in it"
+  "remote.folder.virtual": "{path}: only in this window until a note is created in it",
+  "remote.signin.title": "Sign in with your site",
+  "remote.signin.explain": "If your server has a site with a sign-in, you do not need to type an address or find a credential file: sign in there and this device gets its own connection. The key is kept in the system keychain and is never shown.",
+  "remote.signin.site": "Your site's address",
+  "remote.signin.label": "Name for this device",
+  "remote.signin.thisDevice": "This computer",
+  "remote.signin.go": "Sign in in the browser",
+  "remote.signin.waiting": "The browser opened your site. Sign in there and allow this device, then copy the address it ends on (it starts with tura://pair) and paste it here.",
+  "remote.signin.paste": "Address the browser came back to",
+  "remote.signin.finish": "Finish signing in",
+  "remote.signin.done": "Signed in as “{label}”. This device is connected.",
+  "remote.signin.denied": "The site did not allow it: it was declined, or the code had expired or been used. Start again.",
+  "remote.signin.invalid": "That is not the address this sign-in started. Start again and copy the one the browser ends on.",
+  "remote.signin.out": "Sign out of this device",
+  "remote.signin.outNote": "Signing out forgets the key on this device. It is revoked on your site, or from the devices list, and until then it still works for anyone who has it.",
+  "remote.signin.signedOut": "Signed out. This device no longer has the key."
 }

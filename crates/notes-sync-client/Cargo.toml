@@ -16,6 +16,9 @@ blake3.workspace = true
 fd-lock.workspace = true
 tempfile.workspace = true
 base64 = "0.23"
+# SHA-256 and the system random source for the pairing flow (ADR-105): `ring` is
+# already in the build through the TLS provider, so nothing new is linked.
+ring = "0.17"
 thiserror.workspace = true
 reqwest = { version = "=0.13.5", default-features = false, features = ["blocking", "json", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

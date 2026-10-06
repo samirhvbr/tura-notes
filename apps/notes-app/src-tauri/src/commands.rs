@@ -29,6 +29,10 @@ pub struct App {
     /// it (ADR-100).
     pub ai_chats:
         Mutex<std::collections::HashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    /// The sign-in to the owner's site that is waiting for the browser to come
+    /// back (ADR-105), and when it began. One at a time: starting another
+    /// replaces it, and finishing it, well or badly, consumes it.
+    pub pairing: Mutex<Option<(notes_sync_client::pairing::Pending, std::time::Instant)>>,
 }
 
 /// A received workspace opened for editing, **with the workspace it was opened

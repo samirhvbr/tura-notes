@@ -19,6 +19,9 @@ notes-model = { workspace = true }
 notes-core = { workspace = true }
 notes-sync-client = { path = "../../../crates/notes-sync-client" }
 notes-ai = { path = "../../../crates/notes-ai" }
+# The system keychain for the device credential (ADR-105); the same version and
+# the same service name as the AI assistant's keys, so nothing new is linked.
+keyring = "4"
 uuid = { workspace = true }
 notes-markdown = { workspace = true }
 tauri = { version = "2", features = [] }

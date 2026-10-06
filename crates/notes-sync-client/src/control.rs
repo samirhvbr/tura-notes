@@ -694,13 +694,20 @@ impl Controller {
     }
 }
 fn validate_connection(c: &SyncConnection) -> Result<()> {
-    if !(120..=3600).contains(&c.interval_seconds) || !Path::new(&c.token_file).is_absolute() {
+    let in_keychain = crate::remote::credential_name(&c.token_file).is_some();
+    if !(120..=3600).contains(&c.interval_seconds)
+        || !(Path::new(&c.token_file).is_absolute() || in_keychain)
+    {
         return Err(Error::Invalid);
     }
     let store = Store::open(Path::new(&c.state_dir))?;
     let (source, _) = store.source_mode()?;
-    notes_core::sync::validate_state_location(&[&source], Path::new(&c.token_file))
-        .map_err(|_| Error::Invalid)?;
+    // A credential in the keychain is on no disk, so it cannot be inside the
+    // synchronized folder or the state directory.
+    if !in_keychain {
+        notes_core::sync::validate_state_location(&[&source], Path::new(&c.token_file))
+            .map_err(|_| Error::Invalid)?;
+    }
     store.endpoint()?.validate()?;
     Ok(())
 }

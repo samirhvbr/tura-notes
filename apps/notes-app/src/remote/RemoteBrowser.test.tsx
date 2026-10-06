@@ -10,6 +10,10 @@ vi.mock("../ipc", async (original) => ({
   remoteList: vi.fn(),
   remoteProbe: vi.fn(),
   remoteRename: vi.fn(),
+  pairBegin: vi.fn(),
+  pairFinish: vi.fn(),
+  pairSignOut: vi.fn(),
+  shellOpen: vi.fn(),
 }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("../app/dialog", async (original) => ({
@@ -51,8 +55,8 @@ it("asks where the server is when nothing is configured", async () => {
     permissions: ["read"],
     review: false,
   } as ipc.SyncProbe);
-  const inputs = screen.getAllByRole("textbox");
-  fireEvent.change(inputs[1], { target: { value: config.token_file } });
+  // By its label: the sign-in section above the form has fields of its own.
+  fireEvent.change(screen.getAllByLabelText(/Credential file/)[0], { target: { value: config.token_file } });
   fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
   // The credential names the workspace, and an empty field takes it.
   await waitFor(() => expect(screen.getByDisplayValue("home")).toBeInTheDocument());
@@ -235,4 +239,105 @@ it("a folder with no notes is shown even when the server has none at all", async
   act(() => useRemote.getState().addFolder("first"));
   expect(await screen.findByText("first")).toBeInTheDocument();
   expect(screen.queryByText("No notes on the server yet.")).toBeNull();
+});
+
+// ---- signing in with the site (ADR-105) ---------------------------------------
+
+const paired: ipc.Paired = {
+  origin: "https://tura.example.com",
+  workspace: "personal",
+  label: "This computer",
+  token_file: "keychain:site",
+};
+const REDIRECT = "tura://pair?code=abc&state=xyz";
+
+async function openSignIn() {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(null);
+  render(<RemoteBrowser />);
+  return screen.findByRole("button", { name: "Sign in in the browser" });
+}
+
+it("signing in opens the site in the browser and waits for the address it comes back to", async () => {
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair?client=tura&challenge=c");
+  const go = await openSignIn();
+  expect(go).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: " https://site.example " } });
+  fireEvent.change(screen.getByLabelText("Name for this device"), { target: { value: "Pixel 8" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
+  await waitFor(() => expect(ipc.pairBegin).toHaveBeenCalledWith("https://site.example", "Pixel 8", false));
+  await waitFor(() => expect(ipc.shellOpen).toHaveBeenCalledWith("https://site.example/tura/pair?client=tura&challenge=c"));
+  expect(await screen.findByText(/Sign in there and allow this device/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Finish signing in" })).toBeDisabled();
+});
+
+it("pasting the address finishes it: the connection is configured from the answer, with a keychain name where the file's path goes", async () => {
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair?x=1");
+  vi.mocked(ipc.pairFinish).mockResolvedValue(paired);
+  vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
+  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  await openSignIn();
+  fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: "https://site.example" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
+  fireEvent.change(await screen.findByLabelText("Address the browser came back to"), { target: { value: `  ${REDIRECT}\n` } });
+  fireEvent.click(screen.getByRole("button", { name: "Finish signing in" }));
+  await waitFor(() => expect(ipc.pairFinish).toHaveBeenCalledWith(REDIRECT));
+  await waitFor(() =>
+    expect(ipc.remoteConfigSet).toHaveBeenCalledWith({
+      origin: "https://tura.example.com",
+      workspace: "personal",
+      token_file: "keychain:site",
+      allow_private: false,
+    }),
+  );
+  // The page never held a secret: nothing it was given or sent looks like one.
+  expect(JSON.stringify(vi.mocked(ipc.pairFinish).mock.results)).not.toMatch(/nt_/);
+});
+
+it("a sign-in the site refuses says why in words and is over: the next one is a new request", async () => {
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair");
+  vi.mocked(ipc.pairFinish).mockRejectedValue({ code: "sync", cause: "denied" });
+  await openSignIn();
+  fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: "https://site.example" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
+  fireEvent.change(await screen.findByLabelText("Address the browser came back to"), { target: { value: REDIRECT } });
+  fireEvent.click(screen.getByRole("button", { name: "Finish signing in" }));
+  expect(await screen.findByText(/it was declined, or the code had expired or been used/)).toBeInTheDocument();
+  // Back at the start, with nothing waiting and no connection saved.
+  expect(await screen.findByRole("button", { name: "Sign in in the browser" })).toBeInTheDocument();
+  expect(ipc.remoteConfigSet).not.toHaveBeenCalled();
+});
+
+it("an address that is not the one this sign-in started is named as that", async () => {
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair");
+  vi.mocked(ipc.pairFinish).mockRejectedValue({ code: "sync", cause: "invalid" });
+  await openSignIn();
+  fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: "https://site.example" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
+  fireEvent.change(await screen.findByLabelText("Address the browser came back to"), { target: { value: "garbage" } });
+  fireEvent.click(screen.getByRole("button", { name: "Finish signing in" }));
+  expect(await screen.findByText(/That is not the address this sign-in started/)).toBeInTheDocument();
+});
+
+it("cancelling while waiting goes back without asking the server anything", async () => {
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair");
+  await openSignIn();
+  fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: "https://site.example" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
+  await screen.findByLabelText("Address the browser came back to");
+  fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
+  expect(await screen.findByRole("button", { name: "Sign in in the browser" })).toBeInTheDocument();
+  expect(ipc.pairFinish).not.toHaveBeenCalled();
+});
+
+it("a connection whose credential is in the keychain offers to sign out, and says what that does and does not do", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue({ ...config, token_file: "keychain:site" });
+  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.pairSignOut).mockResolvedValue(undefined);
+  vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
+  render(<RemoteBrowser />);
+  fireEvent.click(await screen.findByRole("button", { name: "Connection" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Sign out of this device" }));
+  await waitFor(() => expect(ipc.pairSignOut).toHaveBeenCalled());
+  await waitFor(() => expect(ipc.remoteConfigSet).toHaveBeenCalledWith(null));
+  expect(screen.getByText(/it still works for anyone who has it/)).toBeInTheDocument();
 });

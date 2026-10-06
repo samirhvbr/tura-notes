@@ -1,5 +1,6 @@
 pub mod control;
 pub mod notes;
+pub mod pairing;
 pub mod remote;
 pub mod state;
 

@@ -3489,7 +3489,7 @@ or newer than the application behaves the same.
 
 ## ADR-105 — A device gets its cloud connection by signing in to the owner's site, not by typing a key
 
-**Status:** `ACCEPTED` · 06/10/2026, the owner's choice of the site's login among three options · design only, nothing built; the contract is [PAIRING.md](PAIRING.md)
+**Status:** `ACCEPTED` · 06/10/2026, the owner's choice of the site's login among three options · the desktop half built in 1.10.24 (keychain credential, pairing client, sign-in section with a field to paste the address); the site's routes, the `tura://` handler and the mobile application are not; the contract is [PAIRING.md](PAIRING.md)
 
 **Context.** A device reaches the server with a credential, `nt_<id>.<secret>`,
 which a person gets today by minting it on the server or on the site's

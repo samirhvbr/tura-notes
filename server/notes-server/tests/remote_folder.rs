@@ -423,3 +423,53 @@ fn a_gzip_suffix_is_removed_without_losing_the_original_revision_guard() {
     r.delete(&moved.path, &moved.etag).unwrap();
     assert!(r.list().unwrap().iter().all(|n| n.path != moved.path));
 }
+
+// ---- a credential kept in the keychain (ADR-105) ------------------------------
+
+struct Keychain(std::sync::Mutex<std::collections::HashMap<String, String>>);
+impl notes_sync_client::remote::CredentialStore for Keychain {
+    fn get(&self, name: &str) -> Result<Option<String>, notes_sync_client::remote::StoreFailure> {
+        Ok(self.0.lock().unwrap().get(name).cloned())
+    }
+    fn set(&self, name: &str, secret: &str) -> Result<(), notes_sync_client::remote::StoreFailure> {
+        self.0.lock().unwrap().insert(name.into(), secret.into());
+        Ok(())
+    }
+    fn clear(&self, name: &str) -> Result<(), notes_sync_client::remote::StoreFailure> {
+        self.0.lock().unwrap().remove(name);
+        Ok(())
+    }
+}
+
+#[test]
+fn the_remote_folder_works_with_the_credential_in_the_keychain_and_no_file_at_all() {
+    let s = serve("notes", &all());
+    let secret = fs::read_to_string(&s.config.token_file)
+        .unwrap()
+        .trim()
+        .to_owned();
+    // The credential goes into the keychain, and the file it came from is gone:
+    // what remains is a name, which is all the configuration holds.
+    let store = std::sync::Arc::new(Keychain(Default::default()));
+    notes_sync_client::remote::install_credential_store(store);
+    notes_sync_client::remote::store_credential("integration", &secret).unwrap();
+    fs::remove_file(&s.config.token_file).unwrap();
+    let mut config = s.config.clone();
+    config.token_file = "keychain:integration".into();
+
+    let r = RemoteNotes::connect(&config).unwrap();
+    r.create(&p("from-keychain.md"), "hello\n").unwrap();
+    assert_eq!(
+        fs::read_to_string(s.data.join("workspaces/home/notes/from-keychain.md")).unwrap(),
+        "hello\n"
+    );
+
+    // Forgotten, the same configuration has no credential, and says Denied like
+    // a missing file: it does not say what it found or did not find.
+    notes_sync_client::remote::forget_credential("integration").unwrap();
+    assert!(matches!(RemoteNotes::connect(&config), Err(Error::Denied)));
+    // A name that cannot be one is refused before anything is read.
+    let mut odd = s.config.clone();
+    odd.token_file = "keychain:../x".into();
+    assert!(matches!(RemoteNotes::connect(&odd), Err(Error::Invalid)));
+}

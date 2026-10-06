@@ -5,7 +5,9 @@ mod ai;
 mod ai_chat;
 mod asset;
 mod commands;
+mod credentials;
 pub mod linux;
+mod pairing;
 mod updater;
 
 use std::sync::Mutex;
@@ -58,6 +60,12 @@ pub fn run() {
             _ => {}
         })
         .setup(|app| {
+            // The keychain the device credential is read from (ADR-105). Installed
+            // before anything connects, so a configuration that names a
+            // `keychain:` credential finds it.
+            notes_sync_client::remote::install_credential_store(std::sync::Arc::new(
+                credentials::SystemCredentials,
+            ));
             // Every use of `app` below is behind `cfg(desktop)`, so on Android
             // and iOS the binding is unused and `-D warnings` turns that into a
             // build failure. Naming it `_app` would then read as "unused" on the
@@ -119,6 +127,7 @@ pub fn run() {
             svc: Mutex::new(service),
             received: Mutex::new(None),
             ai_chats: Mutex::new(std::collections::HashMap::new()),
+            pairing: Mutex::new(None),
             network,
             remote,
             dmabuf: DmabufReport {
@@ -143,6 +152,10 @@ pub fn run() {
             commands::remote_rename,
             commands::remote_delete,
             commands::remote_merge,
+            pairing::pair_begin,
+            pairing::pair_finish,
+            pairing::pair_signed_in,
+            pairing::pair_sign_out,
             commands::remote_render,
             updater::update_check,
             updater::update_install,

@@ -50,7 +50,8 @@ impl RemoteConfig {
                 .workspace
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
-            || !Path::new(&self.token_file).is_absolute()
+            || !(Path::new(&self.token_file).is_absolute()
+                || crate::remote::credential_name(&self.token_file).is_some())
         {
             return Err(Error::Invalid);
         }

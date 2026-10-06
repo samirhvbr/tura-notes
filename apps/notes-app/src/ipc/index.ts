@@ -398,6 +398,13 @@ export const remoteList = () => invoke<import("./generated/RemoteEntry").RemoteE
 export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path});
 export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag});
 export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text});
+export type { Paired } from "./generated/Paired";
+/** Start signing in to the owner's site (ADR-105): returns the address to open in the browser. */
+export const pairBegin = (site: string, label: string, allowPrivate: boolean) => invoke<string>("pair_begin", {site,label,allowPrivate});
+/** Finish it with the address the browser came back to. The credential is kept in the keychain and is not returned. */
+export const pairFinish = (redirect: string) => invoke<import("./generated/Paired").Paired>("pair_finish", {redirect});
+export const pairSignedIn = () => invoke<boolean>("pair_signed_in");
+export const pairSignOut = () => invoke<void>("pair_sign_out");
 export const remoteMerge = (base: string, mine: string, theirs: string) => invoke<import("./generated/Merged").Merged>("remote_merge", {base,mine,theirs});
 export const remoteRename = (from: string, to: string, etag: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_rename", {from,to,etag});
 export const remoteDelete = (path: string, etag: string) => invoke<void>("remote_delete", {path,etag});

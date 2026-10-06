@@ -1039,7 +1039,15 @@ version/notes/status only; it cannot choose an update URL or verification key.
     the server lists notes and has no route for a folder (ADR-104):
     `stores/remote.ts` keeps the empty ones as `pending`, in memory, and
     `buildTree` marks them `virtual`; the first note created inside (`parents`)
-    makes the folder real, and the next listing drops it from `pending`.
+    makes the folder real, and the next listing drops it from `pending`;
+  - the connection's credential may be a **`keychain:<name>`** where a file's path
+    goes (ADR-105): `notes_sync_client::remote::credential` reads either, from a
+    `CredentialStore` the application installs at start (`credentials.rs`, the
+    system keychain, account `cred:<name>`), with no fallback to a file. Signing
+    in to the owner's site (`notes_sync_client::pairing`, the `pair_*` commands,
+    `RemoteSignIn` in the remote panel) makes one: the secret goes from the site's
+    answer to the keychain inside Rust, and the page receives only where to connect
+    and the `keychain:` name.
 
 ---
 

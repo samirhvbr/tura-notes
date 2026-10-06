@@ -7,6 +7,58 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.24 - the desktop can sign in to the owner's site and keep the connection's credential in the keychain
+
+The application's half of ADR-105, for the desktop, tested against a site that plays
+the contract in `docs/PAIRING.md`. The half that is not here is the site's own three
+routes, which are in a repository this session does not have, so a sign-in against
+the real site has not been done and the acceptance rows for it (20 to 22) are the
+owner's.
+
+A credential can now live in the system keychain. Where a connection's configuration
+holds the path of a credential file, it may hold `keychain:<name>` instead, and
+nothing about any configuration format changed to allow it: the field is a string
+already. The sync client reads either through one function, from a store the
+application installs at start (`SystemCredentials`, account `cred:<name>` under the
+service the AI assistant's keys already use). There is no fallback to a file: on a
+system with no keychain a reference to it is a credential that cannot be read, and
+says so as a missing one does. A name has to be a short token, checked three times
+(when it is configured, when it is read and once more where it meets the keychain).
+It was proved against this repository's real server over a loopback socket: the
+remote folder creates a note with the credential only in the keychain and the file it
+came from deleted, and the same configuration is refused once the credential is
+forgotten.
+
+The pairing client does the application's part of the flow. It makes a 256-bit
+verifier with the system's random source and its SHA-256 challenge (the unit test
+checks the example in RFC 7636), a `state`, and the address the browser is sent to;
+it reads the address the browser comes back to with no tolerance (anything but
+exactly `tura://pair` with a `code` and this request's `state` is refused, and a
+refusal from the person is a different answer from a stranger's redirect); and it
+trades the code for the credential over the transport every other connection uses,
+with no redirect followed, no proxy and an answer bounded at 8 KiB. **The secret
+goes from the site's answer to the keychain inside Rust and is not returned**: what
+the caller, and so the page, gets is the origin, the workspace, the device's name
+and `keychain:site`. The origin has to pass the address policy, the workspace the
+rule a configuration's has, the credential the shape of one, or nothing is stored,
+and a good credential is not replaced by one that failed. Seven tests against a
+fake site cover the happy path, a code that is good once, a code taken to the
+exchange with another verifier (the link another application claimed), a redirect
+that is not this request's, which never reaches the site at all, every wrong answer
+the site could give, a busy or absent site, and the credential that must survive a
+failed sign-in.
+
+In the remote panel, a *Sign in with your site* section sits above the form that is
+still there: the site's address, a name for the device, and a button that opens the
+browser. A desktop browser with no handler for `tura://` shows nothing, so the person
+pastes the address the site's page shows (the contract now asks the page to show it,
+with a Copy button) and finishes. A sign-in is over whatever happens, since a code is
+single-use, and a signed-in connection offers *Sign out of this device*, which forgets
+the key here and says plainly that the key still works for anyone who has it until it
+is revoked on the site. Left for the next piece: the handler for `tura://` (a plugin
+to measure, and the registration in each package), the same section in Device sync,
+and the mobile application, which does not exist yet.
+
 ## 1.10.23 - a device will get its cloud connection by signing in to the owner's site, and the contract is written down
 
 No code in this one: the decision and the contract, because half of what is decided
