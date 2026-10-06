@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.22 - a folder can be made in the server's tree, and it exists in the window until a note is made in it
+
+The owner asked to be able to make folders and subfolders in the cloud. The server
+has no empty folders: it lists notes, a folder is a prefix of a note's path, and its
+API has no route that makes one (ADR-099 left that out on purpose, and adding it
+means a server version that the owner has to sign and deploy, while the server they
+run is on 1.9.0). So this does the part that needs no server: *New folder* in the
+remote tree, and in the menu of a folder for a subfolder, makes the folder at once,
+empty and marked as such, and opens every level of it. It lives in the window, in
+memory, and becomes the server's when a note is created inside it, which is already
+how a folder comes to exist there (`parents`, 1.9.8); the next listing then drops it
+from the window's list. A path may have several levels (`ideas/2026`), a folder that
+only exists here can be removed, and closing the application forgets it. Nothing is
+sent to the server when the folder is made and nothing is written anywhere.
+
+Right-clicking a folder, or its `⋮` button, also offers *New note here* and *New
+folder here*, with the prompt starting from the folder's path, which is the way to
+make a note in a folder that has nothing in it yet. A folder the server already has
+is never marked empty and has no *Remove* entry. ADR-104 records the decision and
+what it is not: it does not make an empty folder permanent, and the tooltip says so.
+A permanent one needs a route on the server, which can come later and be used when
+the server has it.
+
+One existing test selected a folder by a button whose name matched its path, and now
+matches two (the folder and its `⋮`); it selects by title. Tests: five for the tree
+(a folder appears, empty and marked; the path rule; the menu from a folder with the
+prompt starting from its path; forgetting one made here and not one the server has;
+a folder shown when the server has no notes at all) and three for the store.
+
 ## 1.10.21 - exercise the publish helper with GNU tools on macOS
 
 The full local gate exposed a platform mismatch in the co-tenant fixture: the

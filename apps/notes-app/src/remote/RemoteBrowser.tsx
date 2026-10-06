@@ -9,6 +9,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
   Minus,
   MoreVertical,
   Plus,
@@ -22,7 +23,7 @@ import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { Menu, type MenuRow } from "../app/Menu";
 import { useUi } from "../stores/ui";
 import { askText } from "../app/dialog";
-import { remoteNotePath } from "./names";
+import { remoteFolderPath, remoteNotePath } from "./names";
 import { useRemoteListSync } from "./useRemoteSync";
 
 /**
@@ -37,6 +38,7 @@ import { useRemoteListSync } from "./useRemoteSync";
 export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) => void }) {
   const config = useRemote((s) => s.config);
   const entries = useRemote((s) => s.entries);
+  const pending = useRemote((s) => s.pending);
   const loading = useRemote((s) => s.loading);
   const error = useRemote((s) => s.error);
   const adopted = useRemote((s) => s.adopted);
@@ -67,7 +69,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
       </div>
     );
 
-  const root = entries ? buildTree(entries) : null;
+  const root = entries ? buildTree(entries, pending) : null;
   const count = (mark: ipc.LocalMark) => entries?.filter((e) => e.local === mark).length ?? 0;
   let host = config.origin;
   try {
@@ -101,6 +103,15 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
         >
           <Plus size={14} aria-hidden="true" />
         </button>
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t("remote.newFolder")}
+          title={t("remote.newFolder")}
+          onClick={() => void newFolder("")}
+        >
+          <FolderPlus size={14} aria-hidden="true" />
+        </button>
         <button type="button" className="link-btn" onClick={() => setEditing(true)}>
           {t("remote.change")}
         </button>
@@ -127,7 +138,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
       )}
       <div className="side-scroll">
         {loading && !entries && <p className="muted remote-pad">{t("remote.loading")}</p>}
-        {entries && !entries.length && <p className="muted remote-pad">{t("remote.empty")}</p>}
+        {entries && !entries.length && !pending.length && <p className="muted remote-pad">{t("remote.empty")}</p>}
         {root && (
           <ul className="tree" aria-label={t("remote.title")}>
             <Level dir={root} depth={0} onOpen={onOpen} say={setMessage} />
@@ -149,42 +160,106 @@ function Level({
   onOpen?: (entry: ipc.RemoteEntry) => void;
   say: (message: string) => void;
 }) {
-  const expanded = useRemote((s) => s.expanded);
   return (
     <>
-      {dir.dirs.map((d) => {
-        const isOpen = !!expanded[d.path];
-        return (
-          <li key={d.path}>
-            <div className="row-wrap" style={{ "--depth": depth } as CSSProperties}>
-              <button
-                className="row"
-                style={{ paddingLeft: 8 + depth * 14 }}
-                aria-expanded={isOpen}
-                title={d.path}
-                onClick={() => useRemote.getState().toggle(d.path)}
-              >
-                <span className="twist" aria-hidden="true">
-                  {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </span>
-                <span className="glyph" aria-hidden="true">
-                  {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
-                </span>
-                <span className="label">{d.name}</span>
-              </button>
-            </div>
-            {isOpen && (
-              <ul className="tree">
-                <Level dir={d} depth={depth + 1} onOpen={onOpen} say={say} />
-              </ul>
-            )}
-          </li>
-        );
-      })}
+      {dir.dirs.map((d) => (
+        <RemoteDirRow key={d.path} dir={d} depth={depth} onOpen={onOpen} say={say} />
+      ))}
       {dir.notes.map((n) => (
         <RemoteNoteRow key={n.path} note={n} depth={depth} onOpen={onOpen} say={say} />
       ))}
     </>
+  );
+}
+
+/**
+ * One folder of the server's tree, with the rest of what is inside it. Right-click
+ * (or the ⋮ button) offers a note or a folder made in it, and, for a folder that
+ * only exists in this window, forgetting it.
+ */
+function RemoteDirRow({
+  dir,
+  depth,
+  onOpen,
+  say,
+}: {
+  dir: RemoteDir;
+  depth: number;
+  onOpen?: (entry: ipc.RemoteEntry) => void;
+  say: (message: string) => void;
+}) {
+  const isOpen = useRemote((s) => !!s.expanded[dir.path]);
+  const [menu, setMenu] = useState(false);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const rows: MenuRow[] = [
+    { id: "remote-dir-note", label: t("remote.folder.note"), run: () => newNote(say, `${dir.path}/`) },
+    { id: "remote-dir-folder", label: t("remote.folder.folder"), run: () => newFolder(`${dir.path}/`) },
+    ...(dir.virtual
+      ? [
+          { separator: true } as const,
+          {
+            id: "remote-dir-forget",
+            label: t("remote.folder.forget"),
+            run: () => useRemote.getState().forgetFolder(dir.path),
+          },
+        ]
+      : []),
+  ];
+  return (
+    <li>
+      <div
+        className="row-wrap"
+        style={{ "--depth": depth } as CSSProperties}
+        onContextMenu={(ev) => {
+          ev.preventDefault();
+          setMenu(true);
+        }}
+      >
+        <button
+          className="row"
+          style={{ paddingLeft: 8 + depth * 14 }}
+          aria-expanded={isOpen}
+          title={dir.virtual ? t("remote.folder.virtual", { path: dir.path }) : dir.path}
+          onClick={() => useRemote.getState().toggle(dir.path)}
+        >
+          <span className="twist" aria-hidden="true">
+            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <span className="glyph" aria-hidden="true">
+            {isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
+          </span>
+          <span className="label">{dir.name}</span>
+          {dir.virtual && <span className="muted">{t("remote.folder.empty")}</span>}
+        </button>
+        <button
+          ref={trigger}
+          type="button"
+          className="row-more"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          aria-label={t("tree.actions.hint", { path: dir.path })}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenu((m) => !m);
+          }}
+        >
+          <MoreVertical size={14} aria-hidden="true" />
+        </button>
+        <Menu
+          rows={rows}
+          open={menu}
+          onClose={() => setMenu(false)}
+          label={t("tree.actions.hint", { path: dir.path })}
+          align="end"
+          trigger={trigger}
+        />
+      </div>
+      {isOpen && (
+        <ul className="tree">
+          <Level dir={dir} depth={depth + 1} onOpen={onOpen} say={say} />
+        </ul>
+      )}
+    </li>
   );
 }
 
@@ -295,11 +370,11 @@ export async function askRemoteName(path: string): Promise<string | null> {
 
 /** A new note on the server, under folders that need not exist yet: the
  *  server makes them (`parents`, 1.9.8). */
-async function newNote(say: (m: string) => void) {
+async function newNote(say: (m: string) => void, initial = "") {
   const path = await askText({
     title: t("remote.new"),
     label: t("remote.newPath"),
-    initial: "",
+    initial,
     confirmLabel: t("remote.create"),
     validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
   });
@@ -311,6 +386,24 @@ async function newNote(say: (m: string) => void) {
   } catch (e) {
     say(remoteErrorText(ipc.asCoreError(e)));
   }
+}
+
+/**
+ * A new folder on the server. The server's tree is its notes, so a folder is
+ * only a prefix of some note's path: this one is made here, shown, and becomes the
+ * server's when the first note is created in it (`parents`, 1.9.8). `initial` is
+ * the folder it is made in, so a subfolder is a prefix away.
+ */
+async function newFolder(initial: string) {
+  const typed = await askText({
+    title: t("remote.newFolder"),
+    label: t("remote.newFolder.prompt"),
+    initial,
+    confirmLabel: t("remote.create"),
+    validate: (v) => (remoteFolderPath(v) ? null : t("remote.folderInvalid")),
+  });
+  const path = typed ? remoteFolderPath(typed) : null;
+  if (path) useRemote.getState().addFolder(path);
 }
 
 /** An icon **and** a name for it: a colour alone says nothing to a screen

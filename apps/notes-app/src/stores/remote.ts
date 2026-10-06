@@ -19,6 +19,10 @@ export interface RemoteState {
    *  the connection form starts from, so nothing is typed twice. */
   suggestion: ipc.RemoteConfig | null;
   entries: ipc.RemoteEntry[] | null;
+  /** Folders made here that have no note in them yet. The server's tree is its
+   *  notes, so such a folder is only this window's until a note is created in
+   *  it, and is forgotten when the application closes. */
+  pending: string[];
   loading: boolean;
   error: ipc.CoreError | null;
   expanded: Record<string, boolean>;
@@ -26,6 +30,10 @@ export interface RemoteState {
   configure(config: ipc.RemoteConfig | null): Promise<void>;
   refresh(): Promise<void>;
   toggle(dir: string): void;
+  /** Add an empty folder, and open it and its parents so it is seen. */
+  addFolder(path: string): void;
+  /** Forget a folder that only exists here. */
+  forgetFolder(path: string): void;
 }
 
 const EXPANDED = "tura-remote-expanded";
@@ -55,6 +63,7 @@ export const useRemote = create<RemoteState>((set, get) => ({
   adopted: false,
   suggestion: null,
   entries: null,
+  pending: [],
   loading: false,
   error: null,
   expanded: remembered(),
@@ -96,7 +105,14 @@ export const useRemote = create<RemoteState>((set, get) => ({
     set({ loading: true, error: null });
     inflight = ipc
       .remoteList()
-      .then((entries) => set({ entries }))
+      .then((entries) =>
+        set((s) => ({
+          entries,
+          // A folder that now has a note under it is on the server and is no
+          // longer this window's to remember.
+          pending: s.pending.filter((p) => !entries.some((e) => e.path.startsWith(`${p}/`))),
+        })),
+      )
       .catch((e) => set({ error: ipc.asCoreError(e) }))
       .finally(() => {
         set({ loading: false });
@@ -109,6 +125,19 @@ export const useRemote = create<RemoteState>((set, get) => ({
     const expanded = { ...get().expanded, [dir]: !get().expanded[dir] };
     set({ expanded });
     remember(expanded);
+  },
+
+  addFolder(path) {
+    const parts = path.split("/");
+    const expanded = { ...get().expanded };
+    // Every level is opened, or the new folder would be made and not shown.
+    for (let i = 1; i <= parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
+    set((s) => ({ expanded, pending: s.pending.includes(path) ? s.pending : [...s.pending, path] }));
+    remember(expanded);
+  },
+
+  forgetFolder(path) {
+    set((s) => ({ pending: s.pending.filter((p) => p !== path && !p.startsWith(`${path}/`)) }));
   },
 }));
 
@@ -158,6 +187,8 @@ export interface RemoteDir {
   path: string;
   dirs: RemoteDir[];
   notes: ipc.RemoteEntry[];
+  /** Nothing of the server's is in it: it is a folder made here, still empty. */
+  virtual?: boolean;
 }
 
 /**
@@ -165,22 +196,28 @@ export interface RemoteDir {
  * note's path. Folders first, then notes, each by name — the order the local
  * tree uses.
  */
-export function buildTree(entries: ipc.RemoteEntry[]): RemoteDir {
+export function buildTree(entries: ipc.RemoteEntry[], pending: string[] = []): RemoteDir {
   const root: RemoteDir = { name: "", path: "", dirs: [], notes: [] };
-  for (const entry of entries) {
-    const parts = entry.path.split("/");
+  const descend = (parts: string[], virtual: boolean): RemoteDir => {
     let dir = root;
-    for (const part of parts.slice(0, -1)) {
+    for (const part of parts) {
       const path = dir.path ? `${dir.path}/${part}` : part;
       let next = dir.dirs.find((d) => d.name === part);
       if (!next) {
-        next = { name: part, path, dirs: [], notes: [] };
+        next = { name: part, path, dirs: [], notes: [], ...(virtual ? { virtual: true } : {}) };
         dir.dirs.push(next);
       }
       dir = next;
     }
-    dir.notes.push(entry);
+    return dir;
+  };
+  for (const entry of entries) {
+    const parts = entry.path.split("/");
+    descend(parts.slice(0, -1), false).notes.push(entry);
   }
+  // Folders made here and still empty. A folder the server's notes already
+  // make is left as it is: it is not "only here".
+  for (const path of pending) descend(path.split("/"), true);
   const order = (d: RemoteDir) => {
     d.dirs.sort((a, b) => a.name.localeCompare(b.name));
     d.notes.sort((a, b) => a.path.localeCompare(b.path));

@@ -3452,3 +3452,37 @@ changes: the tag, the Release and the build workflows are triggered as before. T
 GitHub minutes the Linux jobs use only fall once the owner has switched the
 variable on, and the jobs that stay hosted (Arch, the server container, Android,
 `disk`) are the larger part of what a patch push still costs.
+
+## ADR-104 — A folder made in the server's tree exists in the window until a note is made in it
+
+**Status:** `ACCEPTED` · 06/10/2026, the owner's choice (“a pasta virtual agora, real depois”) · built in 1.10.22
+
+**Context.** The remote folder (ADR-099) edits the notes of the server's workspace,
+and the owner asked to be able to make folders and subfolders there. The server
+has no notion of an empty folder: its listing is its notes, a folder is a prefix of
+some note's path, and the only way one comes to exist is `parents` on creating a
+note (1.9.8). Its API has no route that creates, moves or deletes a folder, and
+ADR-099 left that out on purpose. Adding one is a new server version, which the
+owner has to sign and deploy, and the server they run is on 1.9.0.
+
+**Decision.** *New folder* in the remote tree (a button, and in the menu of a folder
+for a subfolder) adds the folder at once, empty and marked as only here, and opens
+every level of it. It is kept in memory in the window, as `pending`, and is the
+server's only when a note is created in it; creating a note is already how a folder
+is made there, with `parents`. Once a listing has a note under it, it leaves
+`pending`. A folder that is only here can be removed from the tree, and closing the
+application forgets it. A path may have several levels (`ideas/2026`). Nothing is
+sent to the server when a folder is made, and nothing about it is written to the
+workspace or to the application's data: this is the view, and not a copy of
+anything.
+
+**What this is not.** It does not make an empty folder permanent, and it says so
+(*empty*, with the reason in its tooltip). A permanent one needs a route on the
+server (`POST …/folders`, with empty folders in the listing), which is a later
+change that the application can use when the server says it has it; until then this
+works with the server as it is. Renaming, moving and deleting a folder remain out,
+as in ADR-099.
+
+**Consequences.** One new piece of state in `stores/remote.ts` and a menu on the
+folders of the remote tree. No server change, no new permission, and a server older
+or newer than the application behaves the same.

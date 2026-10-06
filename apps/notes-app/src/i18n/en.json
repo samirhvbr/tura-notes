@@ -558,5 +558,13 @@
   "remote.adopted": "Using Device sync's server and credential.",
   "remote.nameInvalid": "Type a note name, not a folder (no trailing /, no . or .. parts).",
   "remote.synced.updated": "Updated from another device",
-  "remote.synced.merged": "Your changes were joined with those from another device"
+  "remote.synced.merged": "Your changes were joined with those from another device",
+  "remote.newFolder": "New folder on the server",
+  "remote.newFolder.prompt": "Folder name or path, e.g. ideas/2026",
+  "remote.folderInvalid": "Type a folder name (no empty parts, no . or .. parts).",
+  "remote.folder.note": "New note here",
+  "remote.folder.folder": "New folder here",
+  "remote.folder.forget": "Remove this empty folder",
+  "remote.folder.empty": "empty",
+  "remote.folder.virtual": "{path}: only in this window until a note is created in it"
 }

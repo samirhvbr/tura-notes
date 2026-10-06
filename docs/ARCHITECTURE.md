@@ -1034,7 +1034,12 @@ version/notes/status only; it cannot choose an update URL or verification key.
     of pending/writing transport states (1.10.21). The same banner stays mounted
     while typing or retrying. An acknowledgement for older text and a merge
     awaiting upload preserve it; successful acknowledgement of the current
-    buffer clears it. Conflict/deletion and explicit replacement take precedence.
+    buffer clears it. Conflict/deletion and explicit replacement take precedence;
+  - a **folder** made in the server's tree is a prefix of a note's path, because
+    the server lists notes and has no route for a folder (ADR-104):
+    `stores/remote.ts` keeps the empty ones as `pending`, in memory, and
+    `buildTree` marks them `virtual`; the first note created inside (`parents`)
+    makes the folder real, and the next listing drops it from `pending`.
 
 ---
 

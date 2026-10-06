@@ -95,3 +95,33 @@ it("an unpaired Device sync form only pre-fills, because nobody confirmed it", a
   expect(useRemote.getState().config).toBeNull();
   expect(useRemote.getState().suggestion).toEqual(config);
 });
+
+// ---- folders made here -------------------------------------------------------
+
+it("a folder made here is in the tree, empty and marked, and a real folder is not marked", () => {
+  const root = buildTree([entry("work/a.md")], ["work", "ideas/2026"]);
+  const work = root.dirs.find((d) => d.name === "work")!;
+  expect(work.virtual, "the server's notes make this folder, so it is not only here").toBeUndefined();
+  const ideas = root.dirs.find((d) => d.name === "ideas")!;
+  expect(ideas.virtual).toBe(true);
+  expect(ideas.dirs.map((d) => [d.name, d.path, d.virtual])).toEqual([["2026", "ideas/2026", true]]);
+});
+
+it("adding a folder opens every level of it, and refreshing drops it once a note is inside", async () => {
+  useRemote.setState({ pending: [], expanded: {} });
+  useRemote.getState().addFolder("a/b");
+  expect(useRemote.getState().pending).toEqual(["a/b"]);
+  expect(useRemote.getState().expanded).toMatchObject({ a: true, "a/b": true });
+  useRemote.getState().addFolder("a/b");
+  expect(useRemote.getState().pending, "twice is once").toEqual(["a/b"]);
+
+  vi.mocked(ipc.remoteList).mockResolvedValue([entry("a/b/note.md")]);
+  await useRemote.getState().refresh();
+  expect(useRemote.getState().pending, "the server has it now").toEqual([]);
+});
+
+it("forgetting a folder takes its subfolders with it and leaves the others", () => {
+  useRemote.setState({ pending: ["a", "a/b", "c"] });
+  useRemote.getState().forgetFolder("a");
+  expect(useRemote.getState().pending).toEqual(["c"]);
+});

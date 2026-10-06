@@ -558,5 +558,13 @@
   "remote.adopted": "Usando o servidor e a credencial do Device sync.",
   "remote.nameInvalid": "Digite o nome de uma nota, não de uma pasta (sem / no final, sem partes . ou ..).",
   "remote.synced.updated": "Atualizada a partir de outro dispositivo",
-  "remote.synced.merged": "Suas mudanças foram juntadas às de outro dispositivo"
+  "remote.synced.merged": "Suas mudanças foram juntadas às de outro dispositivo",
+  "remote.newFolder": "Nova pasta no servidor",
+  "remote.newFolder.prompt": "Nome ou caminho da pasta, ex.: ideias/2026",
+  "remote.folderInvalid": "Digite o nome de uma pasta (sem partes vazias, sem partes . ou ..).",
+  "remote.folder.note": "Nova nota aqui",
+  "remote.folder.folder": "Nova pasta aqui",
+  "remote.folder.forget": "Remover esta pasta vazia",
+  "remote.folder.empty": "vazia",
+  "remote.folder.virtual": "{path}: só nesta janela até uma nota ser criada nela"
 }
