@@ -410,3 +410,31 @@ it("keeping mine after a conflict starts the next merge from the server's text",
   await useRemoteDoc.getState().resolve("mine");
   expect(useRemoteDoc.getState().doc).toMatchObject({ base: PLAN.replace("three", "mine"), etag: '"e3"' });
 });
+
+it("keeps a save failure until an acknowledgement covers the current buffer", async () => {
+  const { saveWarning } = await import("./remoteDoc");
+  const error = { code: "sync", cause: "invalid" } as const;
+  await opened();
+  vi.mocked(ipc.remoteSave).mockRejectedValueOnce(error);
+  useRemoteDoc.getState().edit("first edit\n");
+  await useRemoteDoc.getState().save();
+  let first!: (value: ipc.RemoteSave) => void;
+  let latest!: (value: ipc.RemoteSave) => void;
+  vi.mocked(ipc.remoteSave)
+    .mockImplementationOnce(() => new Promise((resolve) => { first = resolve; }))
+    .mockImplementationOnce(() => new Promise((resolve) => { latest = resolve; }));
+  const retry = useRemoteDoc.getState().save();
+  await Promise.resolve();
+  useRemoteDoc.getState().edit("latest edit\n");
+  first({ outcome: "saved", etag: '"e2"' });
+  await retry;
+  expect(dirty(useRemoteDoc.getState().doc)).toBe(true);
+  expect(saveWarning(useRemoteDoc.getState().doc)).toBe("error");
+  expect(useRemoteDoc.getState().doc!.lastError).toEqual(error);
+  await vi.waitFor(() => expect(latest).toBeTypeOf("function"));
+  latest({ outcome: "saved", etag: '"e3"' });
+  await useRemoteDoc.getState().save();
+  expect(saveWarning(useRemoteDoc.getState().doc)).toBeNull();
+  expect(dirty(useRemoteDoc.getState().doc)).toBe(false);
+  expect(useRemoteDoc.getState().doc!.text).toBe("latest edit\n");
+});

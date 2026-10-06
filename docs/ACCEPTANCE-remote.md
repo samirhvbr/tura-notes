@@ -30,7 +30,7 @@ open on the desktop. That is this walk.
 | 13 | Edit **the same line** in both apps | The conflict screen of row 5 appears, with both versions, and neither app has lost its text | ☐ |
 | 14 | Put one app in the background behind the other, and minimize it for a minute | The minimized one stops asking, and catches up once when shown again | ☐ |
 | 15 | Open **two different remote notes one after the other**, from the tree and from the tabs, one of them **empty** (create it with `+`). Do it again in the other order | Each shows **its own** text. The word and character count in the status bar, the preview and the editor all describe the same note. Type one character in the second note, wait for *Saved on the server*, and read **the first note on the server**: it is unchanged | ☐ |
-| 16 | Connect with a credential that has **`read` only**, open a remote note and type | A banner on the note says it **was not saved to the server**, why, that the text is kept here, and offers *Try now* and *Save a copy to the local folder*. The status bar says *Not saved*. Click **another note in the tree**, and **another remote tab**: each says the open note has changes the server did not take — never *This storage does not support that*, and never nothing. Close the tab: it asks, and *Discard and close* lets go | ☐ |
+| 16 | Connect with a credential that has **`read` only**, open a remote note and type | A banner on the note says it **was not saved to the server**, why, that the text is kept here, and offers *Try now* and *Save a copy to the local folder*. The status bar says *Not saved*. Keep typing, pause and use *Try now*: the warning stays in place through pending/sending/refused states and the editor does not jump. A successful save of the current text clears it. Click **another note in the tree**, and **another remote tab**: each says the open note has changes the server did not take — never *This storage does not support that*, and never nothing. Close the tab: it asks, and *Discard and close* lets go | ☐ |
 | 17 | Through the **real proxy chain** (Cloudflare in front of the server, as `tura.samirhv.com.br` is), open a remote note, type, and wait | *Saved on the server* — not *Not saved*, and never *The sync settings … are not valid*. Then rename it and delete it from its `⋮` menu: both work. This is the row that proves 1.10.18 and 1.10.21: the proxy tests cover both a weak prefix and a gzip suffix, but only an installed save through the real chain proves that whole path | ☐ |
 
 ## Diagnostic evidence from 06/10/2026
@@ -45,4 +45,7 @@ fix alone did not resolve the owner's save failure.
 
 The 1.10.21 tests reproduce the refusal through a proxy with that header shape,
 then cover successful writes and a stale revision that must still conflict.
-These automated checks do not tick the installed acceptance boxes above.
+Frontend regressions compare the warning and editor DOM nodes while typing,
+retrying and failing again, and check that an older acknowledgement does not
+clear a newer unsent edit's warning. These automated checks do not tick the
+installed acceptance boxes above.

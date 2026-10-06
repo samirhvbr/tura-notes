@@ -276,3 +276,53 @@ it("a note the server will not take says so, keeps its text, and offers the two 
   fireEvent.click(screen.getByRole("button", { name: "Try now" }));
   await vi.waitFor(() => expect(ipcMod.remoteSave).toHaveBeenCalledWith(base.path, "remote text\n", base.etag));
 });
+
+it.each(["invalid", "offline", "busy"] as const)(
+  "keeps the %s warning mounted while typing and retrying, until the server accepts the edit",
+  async (cause) => {
+    const error = { code: "sync", cause } as const;
+    useEditor.setState({ doc: null });
+    useUi.setState({ view: "source" });
+    useRemoteDoc.setState({
+      doc: { ...base, bufferVersion: 1, status: cause === "invalid" ? "error" : "offline", lastError: error },
+      tabs: [base.path],
+    });
+    vi.mocked(ipcMod.remoteOpen).mockResolvedValue({ path: base.path, text: base.text, etag: base.etag, read_only: null });
+    render(<RemoteEditor />);
+    const banner = document.querySelector(".banner")!;
+    const panes = document.querySelector(".panes")!;
+    const editor = document.querySelector(".cm-editor") as HTMLElement;
+    const view = EditorView.findFromDOM(editor)!;
+    expect(banner).toBeInTheDocument();
+    expect(panes.previousElementSibling).toBe(banner);
+
+    act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: "more text" } }));
+    expect(document.querySelector(".banner")).toBe(banner);
+    expect(panes.previousElementSibling).toBe(banner);
+
+    let reject!: (error: unknown) => void;
+    vi.mocked(ipcMod.remoteSave).mockImplementationOnce(() => new Promise((_, no) => { reject = no; }));
+    let saving!: Promise<void>;
+    await act(async () => { saving = useRemoteDoc.getState().save(); });
+    expect(useRemoteDoc.getState().doc!.status).toBe("writing");
+    expect(document.querySelector(".banner")).toBe(banner);
+    expect(screen.getByRole("button", { name: "Try now" })).toBeDisabled();
+    await act(async () => { reject(error); await saving; });
+    expect(document.querySelector(".banner")).toBe(banner);
+    expect(document.querySelector(".panes")).toBe(panes);
+    expect(document.querySelector(".cm-editor")).toBe(editor);
+    expect(shown()).toBe(base.text + "more text");
+
+    // A changing refusal is still the same unresolved save, not a new row.
+    vi.mocked(ipcMod.remoteSave).mockRejectedValueOnce({ code: "sync", cause: cause === "invalid" ? "offline" : "denied" });
+    await act(async () => { await useRemoteDoc.getState().save(); });
+    expect(document.querySelector(".banner")).toBe(banner);
+    expect(panes.previousElementSibling).toBe(banner);
+
+    vi.mocked(ipcMod.remoteSave).mockResolvedValueOnce({ outcome: "saved", etag: '"e2"' });
+    await act(async () => { await useRemoteDoc.getState().save(); });
+    expect(useRemoteDoc.getState().doc!.status).toBe("saved");
+    expect(document.querySelector(".banner")).toBeNull();
+    expect(shown()).toBe(base.text + "more text");
+  },
+);

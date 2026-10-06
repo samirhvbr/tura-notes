@@ -1029,7 +1029,12 @@ version/notes/status only; it cannot choose an update URL or verification key.
     `remote_merge` (`notes_core::merge`, a line-based three-way merge against
     `base`, the server's text at the tag the buffer was read at), and leaves
     the conflict screen for edits that touched the same lines. The tree is
-    read again once a minute.
+    read again once a minute;
+  - a failed save's warning follows the unresolved `lastError`, independently
+    of pending/writing transport states (1.10.21). The same banner stays mounted
+    while typing or retrying. An acknowledgement for older text and a merge
+    awaiting upload preserve it; successful acknowledgement of the current
+    buffer clears it. Conflict/deletion and explicit replacement take precedence.
 
 ---
 

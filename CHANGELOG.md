@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.21 - keep remote save warnings stable while editing
+
+A rejected remote save removed its banner whenever typing changed the transport
+state to pending, then restored it on the next refusal, moving the editor with
+every pause. Keep one warning mounted across edits, in-flight retries and changed
+failure causes. Clear it only when the current buffer is acknowledged or an
+explicit conflict/deletion/replacement takes over; an acknowledgement for older
+text and a merge still awaiting upload do not clear the failure. Retain retry and
+local-copy actions, disabling duplicate retries while a save is in flight.
+Regression tests exercise the real editor and preserve the warning and editor DOM.
+
 ## 1.10.21 - recover remote revision tags altered by gzip proxies
 
 The installed 1.10.20 still could not save through the production proxy chain.

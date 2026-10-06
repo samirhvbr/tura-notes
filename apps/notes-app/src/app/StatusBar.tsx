@@ -5,7 +5,7 @@ import { useSync } from "../stores/sync";
 import { useWorkspace } from "../stores/workspace";
 import { useUi } from "../stores/ui";
 import { useRemote } from "../stores/remote";
-import { REMOTE_UNSENT, useRemoteDoc, type RemoteStatus } from "../stores/remoteDoc";
+import { REMOTE_UNSENT, saveWarning, useRemoteDoc, type RemoteStatus } from "../stores/remoteDoc";
 import type { CoreError, DocStatus, WatchStatus } from "../ipc";
 
 /**
@@ -70,7 +70,7 @@ export function StatusBar() {
     };
     return (
       <footer className="statusbar">
-        {remote.lastError && remote.status === "error" && (
+        {remote.lastError && saveWarning(remote) === "error" && (
           <span className="message">{errorText(remote.lastError)}</span>
         )}
         {remote.synced && (

@@ -10,7 +10,7 @@ import { askConfirm } from "../app/dialog";
 import { diffLines } from "../conflict/diff";
 import { DiffColumns } from "../conflict/Compare";
 import { useRemote } from "../stores/remote";
-import { dirty, useRemoteDoc } from "../stores/remoteDoc";
+import { dirty, saveWarning, useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 import { askRemoteName, remoteErrorText } from "./RemoteBrowser";
@@ -59,6 +59,7 @@ export function RemoteEditor() {
   const title = name.replace(/\.(md|markdown)$/i, "");
   const showing = view === "preview";
   const unsent = dirty(doc);
+  const warning = saveWarning(doc);
 
   const rows: MenuRow[] = [
     {
@@ -177,17 +178,15 @@ export function RemoteEditor() {
           </button>
         </div>
       )}
-      {/* A note the server refused for a reason that is not "unreachable". The
-          status bar already said "Not saved", but a state that blocks leaving the
-          note belongs on the note: what stopped it, that the text is kept, and
-          the two ways out. Offline has its own banner because it fixes itself;
-          this one does not. */}
-      {doc.status === "error" && (
+      {/* Keep one warning mounted until the current edit is acknowledged.
+          Pending saves, retries and changed failure causes do not remove a row
+          above the editor or replace the warning with another container. */}
+      {warning && (
         <div className="banner warn" role="status">
           <strong>{t("remote.notSaved.title", { name })}</strong>
-          <span>{doc.lastError ? remoteErrorText(doc.lastError) : ""}</span>
-          <span>{t("remote.notSaved.kept")}</span>
-          <button onClick={() => void useRemoteDoc.getState().save()}>{t("remote.retry")}</button>
+          <span>{warning === "offline" ? t("remote.offline") : doc.lastError ? remoteErrorText(doc.lastError) : ""}</span>
+          {warning === "error" && <span>{t("remote.notSaved.kept")}</span>}
+          <button disabled={doc.status === "writing"} onClick={() => void useRemoteDoc.getState().save()}>{t("remote.retry")}</button>
           <button
             onClick={() =>
               void run(async () => {
@@ -198,12 +197,6 @@ export function RemoteEditor() {
           >
             {t("remote.copyToLocal")}
           </button>
-        </div>
-      )}
-      {doc.status === "offline" && (
-        <div className="banner">
-          <span>{t("remote.offline")}</span>
-          <button onClick={() => void useRemoteDoc.getState().save()}>{t("remote.retry")}</button>
         </div>
       )}
       {doc.readOnly && (

@@ -137,6 +137,14 @@ function transient(e: ipc.CoreError) {
   return e.code === "sync" && (e.cause === "offline" || e.cause === "busy");
 }
 
+/** A failed save stays unresolved while typing or retrying. Transport states
+ *  (pending/writing) describe activity, not recovery: hiding the warning on
+ *  those transitions removes a row above the editor on every keystroke. */
+export function saveWarning(d: RemoteDoc | null): "offline" | "error" | null {
+  if (!d?.lastError || !dirty(d) || d.conflict || d.status === "gone" || d.readOnly) return null;
+  return transient(d.lastError) ? "offline" : "error";
+}
+
 let debounce: ReturnType<typeof setTimeout> | null = null;
 let retry: ReturnType<typeof setTimeout> | null = null;
 let failures = 0;
@@ -198,7 +206,8 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         base: d.text,
         savedVersion: sending,
         status: now.bufferVersion === sending ? "saved" : "pending",
-        lastError: null,
+        // An acknowledgement for older text does not settle the current edit.
+        lastError: now.bufferVersion === sending ? null : now.lastError,
       }));
       // Typed while it was on the wire: send the rest.
       const now = get().doc;
@@ -278,7 +287,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         externalRev: after.externalRev + 1,
         status: "pending",
         conflict: null,
-        lastError: null,
+        // The joined text still needs a successful save of its own.
         synced: { kind: "merged", at: now },
       },
     });
