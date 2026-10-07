@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.25 - the echo blocks are regenerated from repodocs
+
+The marked rules in `CLAUDE.md` and `AGENTS.md` are rewritten from the single
+source at [samirhvbr/repodocs](https://github.com/samirhvbr/repodocs):
+`QUEUE-RULE`, `RELEASES-RULE`, `LANGUAGE-RULE`, `COMMIT-RULE` and `CICD-RULE`.
+A block is replaced whole between its markers, heading included — which is what
+stops a local edit from surviving a regeneration and confusing the next reader.
+
+`QUEUE-RULE` is new and arrives here for the first time: `.continue/` holds work
+that does not exist yet, and a document leaves it when — and only when — the
+thing it describes **exists**. Length, language and untidiness are not exit
+conditions. **Never empty that folder as tidying.**
+
 ## 1.10.24 - the desktop can sign in to the owner's site and keep the connection's credential in the keychain
 
 The application's half of ADR-105, for the desktop, tested against a site that plays
