@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.26 - the Windows crash-loop leg blocks like the others, after fifteen nights green
+
+The Windows leg of the crash loop was made non-blocking on 1.8.45 while it was
+diagnosed: it died silently in two runs out of three, with an exit status that was a
+SIGKILL of the shell itself and not of the writer it was meant to kill. 1.8.46 ended
+the writer with `taskkill` on the Windows pid, and the line that kept the leg from
+failing the workflow said to be removed after ten nightly runs in a row.
+
+The nightly schedule has run it fifteen times in a row, 24 September to 8 October,
+read as the `windows-latest` job of each scheduled run and not as the run's own
+conclusion (which `continue-on-error` would have kept green whatever the job did):
+fifteen jobs, fifteen `success`. So the line is gone, and a Windows failure of the
+crash loop now fails the workflow as the Linux and macOS ones do. The one place that
+described the leg as non-blocking, the architecture page's testing table, is
+corrected in the same pass, and with it the claim it made next to it that the loop
+runs on every push on all four systems, which has been Linux and Arch on a push and
+all of them on a minor and every night since ADR-103.
+
 ## 1.10.25 - the echo blocks are regenerated from repodocs
 
 The marked rules in `CLAUDE.md` and `AGENTS.md` are rewritten from the single
