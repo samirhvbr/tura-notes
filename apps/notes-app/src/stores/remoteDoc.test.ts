@@ -15,6 +15,14 @@ const { useUi } = await import("./ui");
 const { useRemote } = await import("./remote");
 const initial = useRemoteDoc.getState();
 
+/** What the command answers: the notes, and the folders when the server lists them. */
+const tree = (entries: ipc.RemoteEntry[], folders?: string[]): ipc.RemoteTree => ({
+  entries,
+  folders: folders ?? [],
+  folders_supported: folders !== undefined,
+  folders_truncated: false,
+});
+
 const note = (path: string, text: string, etag: string): ipc.RemoteNote => ({
   path,
   text,
@@ -23,7 +31,7 @@ const note = (path: string, text: string, etag: string): ipc.RemoteNote => ({
 });
 
 beforeEach(() => {
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
 });
 afterEach(() => {
   resetRemoteDocTimers();
@@ -215,7 +223,7 @@ it("renaming the open note keeps its buffer, and refuses while text is unsent", 
   expect(useRemoteDoc.getState().doc?.path).toBe("renamed.md");
 
   vi.clearAllMocks();
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   useRemoteDoc.setState((s) => ({ doc: s.doc && { ...s.doc, bufferVersion: s.doc.savedVersion + 1 } }));
   expect(await useRemoteDoc.getState().renameNote("renamed.md", "again.md", null)).toBe(false);
   expect(ipc.remoteRename).not.toHaveBeenCalled();

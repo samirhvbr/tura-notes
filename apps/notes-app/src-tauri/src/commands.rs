@@ -951,13 +951,14 @@ pub async fn remote_probe(
     .map_err(sync_error)
 }
 /// The whole remote tree, each note marked against the local folder when one
-/// is open.
+/// is open, and the server's folders when it lists them.
 #[tauri::command]
-pub async fn remote_list(app: State<'_, App>) -> R<Vec<RemoteEntry>> {
-    let listed = remote_call(&app, None, |f| f.with(|r| r.list())).await?;
+pub async fn remote_list(app: State<'_, App>) -> R<notes_sync_client::notes::RemoteTree> {
+    let listed = remote_call(&app, None, |f| f.with(|r| r.tree())).await?;
     let service = svc(&app)?;
     let open = service.workspace_id().is_some();
-    Ok(listed
+    let entries = listed
+        .notes
         .into_iter()
         .map(|n| {
             // A local file that cannot be read (permissions, a symlink the jail
@@ -976,7 +977,20 @@ pub async fn remote_list(app: State<'_, App>) -> R<Vec<RemoteEntry>> {
                 local,
             }
         })
-        .collect())
+        .collect();
+    Ok(notes_sync_client::notes::RemoteTree {
+        entries,
+        folders_supported: listed.folders.is_some(),
+        folders: listed.folders.unwrap_or_default(),
+        folders_truncated: listed.folders_truncated,
+    })
+}
+/// Make an empty folder on the server (1.11.0). Only called when the last
+/// listing said the server knows folders; `true` when it was made.
+#[tauri::command]
+pub async fn remote_create_folder(app: State<'_, App>, path: RelPath) -> R<bool> {
+    let p = path.clone();
+    remote_call(&app, Some(path), move |f| f.with(|r| r.create_folder(&p))).await
 }
 #[tauri::command]
 pub async fn remote_open(app: State<'_, App>, path: RelPath) -> R<RemoteNote> {

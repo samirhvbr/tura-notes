@@ -1035,9 +1035,11 @@ version/notes/status only; it cannot choose an update URL or verification key.
     while typing or retrying. An acknowledgement for older text and a merge
     awaiting upload preserve it; successful acknowledgement of the current
     buffer clears it. Conflict/deletion and explicit replacement take precedence;
-  - a **folder** made in the server's tree is a prefix of a note's path, because
-    the server lists notes and has no route for a folder (ADR-104):
-    `stores/remote.ts` keeps the empty ones as `pending`, in memory, and
+  - a **folder** made in the server's tree is the server's when it can hold one
+    (ADR-106, 1.11.0): the listing carries `folders`, `remote_create_folder` asks
+    the server (`POST …/folders`) and `stores/remote.ts` keeps them in `folders`.
+    A server older than that lists none, so the folder is a prefix of a note's
+    path (ADR-104): the store keeps the empty ones as `pending`, in memory, and
     `buildTree` marks them `virtual`; the first note created inside (`parents`)
     makes the folder real, and the next listing drops it from `pending`;
   - the connection's credential may be a **`keychain:<name>`** where a file's path

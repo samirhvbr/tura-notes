@@ -70,6 +70,18 @@ pub struct ListedNote {
     pub etag: Option<String>,
 }
 
+/// The remote tree as one listing gives it: the notes, and the folders when the
+/// server says so. `folders` is `None` on a server that does not list them (older
+/// than 1.11.0), which is not the same as having none: such a server cannot be
+/// asked to make an empty folder either.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedTree {
+    pub notes: Vec<ListedNote>,
+    pub folders: Option<Vec<RelPath>>,
+    /// The server stopped listing folders at its bound; the list is a part.
+    pub folders_truncated: bool,
+}
+
 /// A remote note as read: its text and the revision a save is conditioned on.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
@@ -125,6 +137,19 @@ pub struct RemoteEntry {
     pub size: Option<u64>,
     pub etag: Option<String>,
     pub local: LocalMark,
+}
+/// The remote tree as the window shows it: the notes marked against the local
+/// folder, and the server's folders when it lists them (1.11.0). `folders_supported`
+/// false means an older server, whose empty folders cannot exist: the window then
+/// keeps a folder it makes only for itself, as it did before.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct RemoteTree {
+    pub entries: Vec<RemoteEntry>,
+    #[ts(type = "string[]")]
+    pub folders: Vec<RelPath>,
+    pub folders_supported: bool,
+    pub folders_truncated: bool,
 }
 /// Compare one remote note with its local counterpart. `local` is `None` when
 /// no local folder is open, `Some(None)` when the file is not there.
@@ -238,7 +263,16 @@ impl RemoteNotes {
     /// used, and every note comes back without a tag, which the comparison
     /// shows as unknown rather than guessing.
     pub fn list(&self) -> Result<Vec<ListedNote>> {
+        Ok(self.tree()?.notes)
+    }
+
+    /// `list`, and the folders the first detailed page carries (1.11.0). The
+    /// `folders` key being there is how a server says it knows folders: absent,
+    /// the answer is `None` and the folder is never asked for one.
+    pub fn tree(&self) -> Result<ListedTree> {
         let mut notes = vec![];
+        let mut folders: Option<Vec<RelPath>> = None;
+        let mut truncated = false;
         let mut cursor = 0usize;
         let mut detailed = true;
         loop {
@@ -258,6 +292,19 @@ impl RemoteNotes {
                 return Err(refusal(status));
             }
             if detailed {
+                if cursor == 0 {
+                    if let Some(listed) = body.get("folders") {
+                        folders = Some(
+                            listed
+                                .as_array()
+                                .ok_or(Error::Protocol)?
+                                .iter()
+                                .map(|f| self.local(f.as_str().ok_or(Error::Protocol)?))
+                                .collect::<Result<_>>()?,
+                        );
+                        truncated = body["folders_truncated"].as_bool().unwrap_or(false);
+                    }
+                }
                 for n in body["notes"].as_array().ok_or(Error::Protocol)? {
                     notes.push(ListedNote {
                         path: self.local(n["path"].as_str().ok_or(Error::Protocol)?)?,
@@ -282,7 +329,28 @@ impl RemoteNotes {
                 None => break,
             }
         }
-        Ok(notes)
+        Ok(ListedTree {
+            notes,
+            folders,
+            folders_truncated: truncated,
+        })
+    }
+
+    /// Make an empty folder, and the ones above it. `true` when it was made,
+    /// `false` when it was already there. A server older than 1.11.0 has no such
+    /// route and answers 404, which is `Missing`; callers ask `tree()` first and
+    /// do not call this on a server that listed no folders.
+    pub fn create_folder(&self, path: &RelPath) -> Result<bool> {
+        let request = self
+            .client
+            .post(self.base.join("folders").map_err(|_| Error::Invalid)?)
+            .bearer_auth(&self.bearer)
+            .json(&serde_json::json!({ "path": self.global(path)? }));
+        match read(send(request)?)? {
+            (201, _, _) => Ok(true),
+            (200, _, _) => Ok(false),
+            (s, _, _) => Err(refusal(s)),
+        }
     }
 
     pub fn read(&self, path: &RelPath) -> Result<RemoteNote> {

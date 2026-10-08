@@ -5,6 +5,7 @@ vi.mock("../ipc", async (original) => ({
   remoteConfigGet: vi.fn(),
   remoteConfigSet: vi.fn(),
   remoteList: vi.fn(),
+  remoteCreateFolder: vi.fn(),
   deviceStatus: vi.fn(),
 }));
 const { buildTree, useRemote } = await import("./remote");
@@ -13,6 +14,14 @@ afterEach(() => {
   useRemote.setState(initial, true);
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+});
+
+/** What the command answers: the notes, and the folders when the server lists them. */
+const tree = (entries: ipc.RemoteEntry[], folders?: string[]): ipc.RemoteTree => ({
+  entries,
+  folders: folders ?? [],
+  folders_supported: folders !== undefined,
+  folders_truncated: false,
 });
 
 const entry = (path: string, local: ipc.LocalMark = "absent"): ipc.RemoteEntry => ({
@@ -31,12 +40,12 @@ it("builds folders from note paths, folders first and by name", () => {
 });
 
 it("asks the server once however many times refresh is pressed", async () => {
-  let answer!: (v: ipc.RemoteEntry[]) => void;
+  let answer!: (v: ipc.RemoteTree) => void;
   vi.mocked(ipc.remoteList).mockReturnValue(new Promise((r) => (answer = r)));
   const first = useRemote.getState().refresh();
   const second = useRemote.getState().refresh();
   expect(useRemote.getState().loading).toBe(true);
-  answer([entry("a.md")]);
+  answer(tree([entry("a.md")]));
   await Promise.all([first, second]);
   expect(ipc.remoteList).toHaveBeenCalledTimes(1);
   expect(useRemote.getState().entries).toHaveLength(1);
@@ -52,7 +61,7 @@ it("keeps the refusal to show it, and the previous list is not invented", async 
 
 it("saves a configuration and lists at once; forgetting it clears the list", async () => {
   vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
-  vi.mocked(ipc.remoteList).mockResolvedValue([entry("a.md")]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([entry("a.md")]));
   const config = { origin: "https://n.example", workspace: "home", token_file: "/t", allow_private: false };
   await useRemote.getState().configure(config);
   expect(ipc.remoteConfigSet).toHaveBeenCalledWith(config);
@@ -109,15 +118,50 @@ it("a folder made here is in the tree, empty and marked, and a real folder is no
 
 it("adding a folder opens every level of it, and refreshing drops it once a note is inside", async () => {
   useRemote.setState({ pending: [], expanded: {} });
-  useRemote.getState().addFolder("a/b");
+  await useRemote.getState().addFolder("a/b");
   expect(useRemote.getState().pending).toEqual(["a/b"]);
   expect(useRemote.getState().expanded).toMatchObject({ a: true, "a/b": true });
-  useRemote.getState().addFolder("a/b");
+  await useRemote.getState().addFolder("a/b");
   expect(useRemote.getState().pending, "twice is once").toEqual(["a/b"]);
 
-  vi.mocked(ipc.remoteList).mockResolvedValue([entry("a/b/note.md")]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([entry("a/b/note.md")]));
   await useRemote.getState().refresh();
   expect(useRemote.getState().pending, "the server has it now").toEqual([]);
+});
+
+it("a folder the server lists is a real one, empty or not, and not marked as only here", () => {
+  const root = buildTree([entry("work/a.md")], [], ["work", "ideas/2026"]);
+  const ideas = root.dirs.find((d) => d.name === "ideas")!;
+  expect(ideas.virtual).toBeUndefined();
+  expect(ideas.dirs.map((d) => [d.path, d.virtual])).toEqual([["ideas/2026", undefined]]);
+});
+
+it("on a server that knows folders, adding one asks the server and keeps nothing to forget", async () => {
+  vi.mocked(ipc.remoteCreateFolder).mockResolvedValue(true);
+  useRemote.setState({ pending: [], expanded: {}, folders: ["x"], foldersSupported: true });
+  await useRemote.getState().addFolder("a/b");
+  expect(ipc.remoteCreateFolder).toHaveBeenCalledWith("a/b");
+  const s = useRemote.getState();
+  expect(s.pending, "it is the server's, not this window's").toEqual([]);
+  expect(s.folders).toEqual(["x", "a", "a/b"]);
+  expect(s.expanded).toMatchObject({ a: true, "a/b": true });
+});
+
+it("a refusal from the server leaves no folder behind and is thrown to the caller", async () => {
+  vi.mocked(ipc.remoteCreateFolder).mockRejectedValue({ code: "sync", cause: "invalid" });
+  useRemote.setState({ pending: [], expanded: {}, folders: [], foldersSupported: true });
+  await expect(useRemote.getState().addFolder("con")).rejects.toBeTruthy();
+  const s = useRemote.getState();
+  expect([s.pending, s.folders, s.expanded]).toEqual([[], [], {}]);
+});
+
+it("a listing that now holds the folder drops the one remembered here", async () => {
+  useRemote.setState({ pending: ["a", "b"] });
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([], ["a/deep"]));
+  await useRemote.getState().refresh();
+  const s = useRemote.getState();
+  expect(s.pending, "a is a parent of a listed folder, b is still only here").toEqual(["b"]);
+  expect(s.foldersSupported).toBe(true);
 });
 
 it("forgetting a folder takes its subfolders with it and leaves the others", () => {

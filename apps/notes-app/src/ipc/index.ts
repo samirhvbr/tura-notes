@@ -387,6 +387,7 @@ export const devicePause = () => invoke<void>("sync_control_pause");
 // these writes a local file.
 export type { RemoteConfig } from "./generated/RemoteConfig";
 export type { RemoteEntry } from "./generated/RemoteEntry";
+export type { RemoteTree } from "./generated/RemoteTree";
 export type { RemoteNote } from "./generated/RemoteNote";
 export type { RemoteSave } from "./generated/RemoteSave";
 export type { LocalMark } from "./generated/LocalMark";
@@ -394,7 +395,9 @@ export type { SyncCause } from "./generated/SyncCause";
 export const remoteConfigGet = () => invoke<import("./generated/RemoteConfig").RemoteConfig | null>("remote_config_get");
 export const remoteConfigSet = (config: import("./generated/RemoteConfig").RemoteConfig | null) => invoke<void>("remote_config_set", {config});
 export const remoteProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("remote_probe", {origin,allowPrivate,tokenFile});
-export const remoteList = () => invoke<import("./generated/RemoteEntry").RemoteEntry[]>("remote_list");
+export const remoteList = () => invoke<import("./generated/RemoteTree").RemoteTree>("remote_list");
+/** Make an empty folder on the server (1.11.0); `true` when it was made, `false` when it was there. */
+export const remoteCreateFolder = (path: string) => invoke<boolean>("remote_create_folder", {path});
 export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path});
 export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag});
 export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text});

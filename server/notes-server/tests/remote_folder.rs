@@ -124,6 +124,47 @@ fn a_note_is_created_listed_read_saved_renamed_and_deleted_under_the_scope() {
 }
 
 #[test]
+fn an_empty_folder_is_made_on_the_server_listed_and_made_again_without_harm() {
+    let s = serve("notes", &all());
+    let r = RemoteNotes::connect(&s.config).unwrap();
+    assert!(r.tree().unwrap().folders.is_some_and(|f| f.is_empty()));
+    // Addressed from the scope, with the folders above it made too.
+    assert!(r.create_folder(&p("ideas/2026")).unwrap());
+    assert!(s.data.join("workspaces/home/notes/ideas/2026").is_dir());
+    assert!(!r.create_folder(&p("ideas/2026")).unwrap(), "already there");
+    assert!(
+        !r.create_folder(&p("ideas")).unwrap(),
+        "a parent made on the way"
+    );
+    // Listed relative to the scope, with no note in it, and the notes unchanged.
+    let tree = r.tree().unwrap();
+    assert_eq!(tree.folders, Some(vec![p("ideas"), p("ideas/2026")]));
+    assert!(!tree.folders_truncated);
+    assert!(tree.notes.is_empty());
+    assert!(r.list().unwrap().is_empty());
+    // A note made in it leaves it a folder, and the listing still names it.
+    r.create(&p("ideas/2026/first.md"), "one\n").unwrap();
+    let tree = r.tree().unwrap();
+    assert_eq!(tree.notes.len(), 1);
+    assert_eq!(tree.folders, Some(vec![p("ideas"), p("ideas/2026")]));
+    // What a note may not be named, a folder may not either; nothing is made.
+    assert!(matches!(r.create_folder(&p("con")), Err(Error::Invalid)));
+    assert!(matches!(
+        r.create_folder(&p("ideas/2026/first.md/deeper")),
+        Err(Error::Invalid)
+    ));
+    assert!(!s.data.join("workspaces/home/notes/con").exists());
+}
+
+#[test]
+fn a_credential_that_cannot_create_cannot_make_a_folder() {
+    let s = serve("notes", &[Permission::Read]);
+    let r = RemoteNotes::connect(&s.config).unwrap();
+    assert!(matches!(r.create_folder(&p("ideas")), Err(Error::Denied)));
+    assert!(!s.data.join("workspaces/home/notes/ideas").exists());
+}
+
+#[test]
 fn a_save_on_a_stale_tag_comes_back_as_a_conflict_with_the_server_text() {
     let s = serve("notes", &all());
     let r = RemoteNotes::connect(&s.config).unwrap();

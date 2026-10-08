@@ -146,6 +146,7 @@ pub fn run() {
             commands::remote_config_set,
             commands::remote_probe,
             commands::remote_list,
+            commands::remote_create_folder,
             commands::remote_open,
             commands::remote_save,
             commands::remote_create,

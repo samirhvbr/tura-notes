@@ -8,6 +8,7 @@ vi.mock("../ipc", async (original) => ({
   remoteConfigGet: vi.fn(),
   remoteConfigSet: vi.fn(),
   remoteList: vi.fn(),
+  remoteCreateFolder: vi.fn(),
   remoteProbe: vi.fn(),
   remoteRename: vi.fn(),
   pairBegin: vi.fn(),
@@ -30,6 +31,14 @@ afterEach(() => {
   useRemote.setState(initial, true);
   useRemoteDoc.setState({ doc: null, tabs: [] });
   vi.clearAllMocks();
+});
+
+/** What the command answers: the notes, and the folders when the server lists them. */
+const tree = (entries: ipc.RemoteEntry[], folders?: string[]): ipc.RemoteTree => ({
+  entries,
+  folders: folders ?? [],
+  folders_supported: folders !== undefined,
+  folders_truncated: false,
 });
 
 const config: ipc.RemoteConfig = {
@@ -61,7 +70,7 @@ it("asks where the server is when nothing is configured", async () => {
   // The credential names the workspace, and an empty field takes it.
   await waitFor(() => expect(screen.getByDisplayValue("home")).toBeInTheDocument());
   vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   fireEvent.click(screen.getByRole("button", { name: "Connect" }));
   await waitFor(() => expect(ipc.remoteConfigSet).toHaveBeenCalledWith(config));
   await screen.findByText("No notes on the server yet.");
@@ -69,11 +78,11 @@ it("asks where the server is when nothing is configured", async () => {
 
 it("shows the tree with each note's mark in words, and counts them", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue([
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([
     { path: "only.md", size: 1, etag: '"a"', local: "absent" },
     { path: "same.md", size: 1, etag: '"b"', local: "same" },
     { path: "work/changed.md", size: 1, etag: '"c"', local: "differs" },
-  ]);
+  ]));
   const opened: string[] = [];
   render(<RemoteBrowser onOpen={(e) => opened.push(e.path)} />);
   await screen.findByText("3 notes · 1 only on the server · 1 different from local");
@@ -102,7 +111,7 @@ it("a new note typed without .md is created with it", async () => {
   const old = useRemoteDoc.getState().create;
   useRemoteDoc.setState({ create });
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   vi.mocked(askText).mockResolvedValue("ideas/today");
   render(<RemoteBrowser />);
   fireEvent.click(await screen.findByRole("button", { name: "New note on the server" }));
@@ -119,7 +128,7 @@ const listed = [
 
 it("a right-click on a note offers Rename, and renaming works without opening the note", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   vi.mocked(askText).mockResolvedValue("ideas/first");
   vi.mocked(ipc.remoteRename).mockResolvedValue({ path: "ideas/first.md", text: "", etag: '"z"', read_only: null });
   const opened: string[] = [];
@@ -134,7 +143,7 @@ it("a right-click on a note offers Rename, and renaming works without opening th
 
 it("the ⋮ button opens the same menu for whoever has no right button", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   render(<RemoteBrowser onOpen={() => {}} />);
   await screen.findByText("only.md");
   fireEvent.click(screen.getByRole("button", { name: /only\.md/, expanded: false, haspopup: "menu" } as never));
@@ -143,7 +152,7 @@ it("the ⋮ button opens the same menu for whoever has no right button", async (
 
 it("cancelling the prompt, or keeping the same name, renames nothing", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   render(<RemoteBrowser onOpen={() => {}} />);
   const row = await screen.findByText("only.md");
   for (const answer of [null, "only"]) {
@@ -158,7 +167,7 @@ it("cancelling the prompt, or keeping the same name, renames nothing", async () 
 
 it("a refusal is said in words under the title bar, and the tree is left as it was", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   vi.mocked(askText).mockResolvedValue("taken");
   vi.mocked(ipc.remoteRename).mockRejectedValue({ code: "sync", cause: "invalid" });
   render(<RemoteBrowser onOpen={() => {}} />);
@@ -170,7 +179,7 @@ it("a refusal is said in words under the title bar, and the tree is left as it w
 
 it("the note that is open with unsent text cannot be renamed from the tree", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   useRemoteDoc.setState({
     doc: { path: "only.md", text: "x", etag: '"a"', bufferVersion: 2, savedVersion: 1 } as never,
   });
@@ -183,7 +192,7 @@ it("the note that is open with unsent text cannot be renamed from the tree", asy
 
 it("a new folder appears at once, empty and marked as only here, and opens so it is seen", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   vi.mocked(askText).mockResolvedValue("ideas/2026");
   render(<RemoteBrowser onOpen={() => {}} />);
   await screen.findByText("only.md");
@@ -206,7 +215,7 @@ it("a folder is a name or a path, and what is not one is refused before it is ma
 
 it("a right-click on a folder offers a note or a subfolder in it, starting from its path", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   vi.mocked(askText).mockResolvedValue(null);
   render(<RemoteBrowser onOpen={() => {}} />);
   fireEvent.contextMenu(await screen.findByTitle("work"));
@@ -219,10 +228,10 @@ it("a right-click on a folder offers a note or a subfolder in it, starting from 
 
 it("a folder that only exists here can be forgotten, and one the server has cannot", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue(listed);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
   render(<RemoteBrowser onOpen={() => {}} />);
   await screen.findByText("only.md");
-  act(() => useRemote.getState().addFolder("draft"));
+  await act(async () => useRemote.getState().addFolder("draft"));
   fireEvent.contextMenu(await screen.findByTitle("draft: only in this window until a note is created in it"));
   fireEvent.click(await screen.findByRole("menuitem", { name: "Remove this empty folder" }));
   await waitFor(() => expect(screen.queryByText("draft")).toBeNull());
@@ -231,12 +240,37 @@ it("a folder that only exists here can be forgotten, and one the server has cann
   expect(screen.queryByRole("menuitem", { name: "Remove this empty folder" })).toBeNull();
 });
 
+it("an empty folder the server lists is shown as a real folder, and the list is not called empty", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([], ["ideas"]));
+  render(<RemoteBrowser onOpen={() => {}} />);
+  await screen.findByTitle("ideas");
+  expect(screen.queryByText("No notes on the server yet.")).toBeNull();
+  expect(screen.queryByText("empty"), "the server holds it: it is not only here").toBeNull();
+});
+
+it("a new folder on a server that knows folders is made there, and a refusal is said", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed, []));
+  vi.mocked(askText).mockResolvedValueOnce("ideas/2026").mockResolvedValueOnce("again");
+  vi.mocked(ipc.remoteCreateFolder).mockResolvedValueOnce(true).mockRejectedValueOnce({ code: "sync", cause: "invalid" });
+  render(<RemoteBrowser onOpen={() => {}} />);
+  await screen.findByText("only.md");
+  fireEvent.click(screen.getByRole("button", { name: "New folder on the server" }));
+  await screen.findByTitle("ideas/2026");
+  expect(ipc.remoteCreateFolder).toHaveBeenCalledWith("ideas/2026");
+  expect(useRemote.getState().pending).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "New folder on the server" }));
+  await waitFor(() => expect(ipc.remoteCreateFolder).toHaveBeenCalledTimes(2));
+  expect(screen.queryByTitle("again")).toBeNull();
+});
+
 it("a folder with no notes is shown even when the server has none at all", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   render(<RemoteBrowser onOpen={() => {}} />);
   await screen.findByText("No notes on the server yet.");
-  act(() => useRemote.getState().addFolder("first"));
+  await act(async () => useRemote.getState().addFolder("first"));
   expect(await screen.findByText("first")).toBeInTheDocument();
   expect(screen.queryByText("No notes on the server yet.")).toBeNull();
 });
@@ -274,7 +308,7 @@ it("pasting the address finishes it: the connection is configured from the answe
   vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair?x=1");
   vi.mocked(ipc.pairFinish).mockResolvedValue(paired);
   vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   await openSignIn();
   fireEvent.change(screen.getByLabelText("Your site's address"), { target: { value: "https://site.example" } });
   fireEvent.click(screen.getByRole("button", { name: "Sign in in the browser" }));
@@ -331,7 +365,7 @@ it("cancelling while waiting goes back without asking the server anything", asyn
 
 it("a connection whose credential is in the keychain offers to sign out, and says what that does and does not do", async () => {
   vi.mocked(ipc.remoteConfigGet).mockResolvedValue({ ...config, token_file: "keychain:site" });
-  vi.mocked(ipc.remoteList).mockResolvedValue([]);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
   vi.mocked(ipc.pairSignOut).mockResolvedValue(undefined);
   vi.mocked(ipc.remoteConfigSet).mockResolvedValue(undefined);
   render(<RemoteBrowser />);

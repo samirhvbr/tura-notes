@@ -7,6 +7,14 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.0 - a folder made in the remote tree is made on the server when the server can hold it
+
+With the server able to make and list folders (the entry below), the application uses it. `RemoteNotes::tree()` returns the notes and, when the first detailed page carries the key, the folders; `list()` is unchanged for its callers. `create_folder()` posts the path relative to the scope, as every note call does. The `remote_list` command now answers a `RemoteTree` (the marked notes, the folders, whether the server lists folders, whether the list was cut) and `remote_create_folder` is new; both are in the generated types.
+
+In the store, `foldersSupported` comes from the last listing and decides what *New folder* does. On a server that lists folders the application asks the server first and shows the folder only after the answer, so a refusal leaves nothing behind and is said in words under the title bar like any other; the folder is then the server's, not marked *empty*, not removable from the tree, and it survives closing the window. On an older server nothing changes: the folder is made in the window, marked, and becomes real with the first note created in it (ADR-104 stands for that case). A refresh drops a remembered folder as soon as the listing holds it, or a note or a folder beneath it. An older application with a newer server ignores the key and behaves as it did.
+
+Tests: two end-to-end tests against the real server over loopback (`remote_folder.rs`: make, make again, a parent made on the way, listed relative to the scope, still listed once a note is inside, refused names and a file in the way, and a credential without `create`), and in the store and the panel the server's folder as a real one, the call made, the refusal said with nothing left behind, and the old behaviour kept for a server that lists none. The acceptance document has the walk for 1.11.0 as row 24 and says which rows are for an older server. The ADR-104 status names its successor, and ARCHITECTURE describes both paths.
+
 ## 1.11.0 - the server makes empty folders and lists them
 
 The remote folder could already show a folder made in the tree, but only as a thing of the window (ADR-104): the server's tree was its notes, a folder was a prefix of some note's path, and the one way to bring one into being was to create a note in it. The owner asked for the real thing, and a real folder needs two things from the server: a route that makes it, and a listing that carries the empty ones. Both are in here, as a minor, because the server the owner runs installs only a signed `X.Y.0` and this adds a route, the way the devices routes arrived in 1.9.0.

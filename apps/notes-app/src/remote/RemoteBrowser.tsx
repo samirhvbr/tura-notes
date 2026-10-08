@@ -43,6 +43,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
   const config = useRemote((s) => s.config);
   const entries = useRemote((s) => s.entries);
   const pending = useRemote((s) => s.pending);
+  const folders = useRemote((s) => s.folders);
   const loading = useRemote((s) => s.loading);
   const error = useRemote((s) => s.error);
   const adopted = useRemote((s) => s.adopted);
@@ -73,7 +74,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
       </div>
     );
 
-  const root = entries ? buildTree(entries, pending) : null;
+  const root = entries ? buildTree(entries, pending, folders) : null;
   const count = (mark: ipc.LocalMark) => entries?.filter((e) => e.local === mark).length ?? 0;
   let host = config.origin;
   try {
@@ -112,7 +113,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
           className="icon-btn"
           aria-label={t("remote.newFolder")}
           title={t("remote.newFolder")}
-          onClick={() => void newFolder("")}
+          onClick={() => void newFolder(setMessage, "")}
         >
           <FolderPlus size={14} aria-hidden="true" />
         </button>
@@ -142,7 +143,7 @@ export function RemoteBrowser({ onOpen }: { onOpen?: (entry: ipc.RemoteEntry) =>
       )}
       <div className="side-scroll">
         {loading && !entries && <p className="muted remote-pad">{t("remote.loading")}</p>}
-        {entries && !entries.length && !pending.length && <p className="muted remote-pad">{t("remote.empty")}</p>}
+        {entries && !entries.length && !pending.length && !folders.length && <p className="muted remote-pad">{t("remote.empty")}</p>}
         {root && (
           <ul className="tree" aria-label={t("remote.title")}>
             <Level dir={root} depth={0} onOpen={onOpen} say={setMessage} />
@@ -197,7 +198,7 @@ function RemoteDirRow({
   const trigger = useRef<HTMLButtonElement | null>(null);
   const rows: MenuRow[] = [
     { id: "remote-dir-note", label: t("remote.folder.note"), run: () => newNote(say, `${dir.path}/`) },
-    { id: "remote-dir-folder", label: t("remote.folder.folder"), run: () => newFolder(`${dir.path}/`) },
+    { id: "remote-dir-folder", label: t("remote.folder.folder"), run: () => newFolder(say, `${dir.path}/`) },
     ...(dir.virtual
       ? [
           { separator: true } as const,
@@ -393,12 +394,12 @@ async function newNote(say: (m: string) => void, initial = "") {
 }
 
 /**
- * A new folder on the server. The server's tree is its notes, so a folder is
- * only a prefix of some note's path: this one is made here, shown, and becomes the
- * server's when the first note is created in it (`parents`, 1.9.8). `initial` is
- * the folder it is made in, so a subfolder is a prefix away.
+ * A new folder on the server. A server from 1.11.0 makes it there, empty; an
+ * older one holds only notes, so the folder is made and shown here and becomes
+ * the server's when the first note is created in it (`parents`, 1.9.8).
+ * `initial` is the folder it is made in, so a subfolder is a prefix away.
  */
-async function newFolder(initial: string) {
+async function newFolder(say: (m: string) => void, initial: string) {
   const typed = await askText({
     title: t("remote.newFolder"),
     label: t("remote.newFolder.prompt"),
@@ -407,7 +408,13 @@ async function newFolder(initial: string) {
     validate: (v) => (remoteFolderPath(v) ? null : t("remote.folderInvalid")),
   });
   const path = typed ? remoteFolderPath(typed) : null;
-  if (path) useRemote.getState().addFolder(path);
+  if (!path) return;
+  say("");
+  try {
+    await useRemote.getState().addFolder(path);
+  } catch (e) {
+    say(remoteErrorText(ipc.asCoreError(e)));
+  }
 }
 
 /** An icon **and** a name for it: a colour alone says nothing to a screen

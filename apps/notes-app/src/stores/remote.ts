@@ -19,9 +19,14 @@ export interface RemoteState {
    *  the connection form starts from, so nothing is typed twice. */
   suggestion: ipc.RemoteConfig | null;
   entries: ipc.RemoteEntry[] | null;
-  /** Folders made here that have no note in them yet. The server's tree is its
-   *  notes, so such a folder is only this window's until a note is created in
-   *  it, and is forgotten when the application closes. */
+  /** The server's folders, empty ones included (1.11.0). */
+  folders: string[];
+  /** The server lists folders and can be asked to make one. False on an older
+   *  server, and before the first listing. */
+  foldersSupported: boolean;
+  /** Folders made here that the server cannot hold: only on a server older than
+   *  1.11.0, whose tree is its notes. Such a folder is this window's until a
+   *  note is created in it, and is forgotten when the application closes. */
   pending: string[];
   loading: boolean;
   error: ipc.CoreError | null;
@@ -30,8 +35,10 @@ export interface RemoteState {
   configure(config: ipc.RemoteConfig | null): Promise<void>;
   refresh(): Promise<void>;
   toggle(dir: string): void;
-  /** Add an empty folder, and open it and its parents so it is seen. */
-  addFolder(path: string): void;
+  /** Make an empty folder — on the server when it knows folders, else only in
+   *  this window — and open it and its parents so it is seen. Rejects with the
+   *  server's refusal. */
+  addFolder(path: string): Promise<void>;
   /** Forget a folder that only exists here. */
   forgetFolder(path: string): void;
 }
@@ -63,6 +70,8 @@ export const useRemote = create<RemoteState>((set, get) => ({
   adopted: false,
   suggestion: null,
   entries: null,
+  folders: [],
+  foldersSupported: false,
   pending: [],
   loading: false,
   error: null,
@@ -96,7 +105,7 @@ export const useRemote = create<RemoteState>((set, get) => ({
 
   async configure(config) {
     await ipc.remoteConfigSet(config);
-    set({ config, entries: null, error: null, adopted: false });
+    set({ config, entries: null, folders: [], foldersSupported: false, error: null, adopted: false });
     if (config) await get().refresh();
   },
 
@@ -105,12 +114,18 @@ export const useRemote = create<RemoteState>((set, get) => ({
     set({ loading: true, error: null });
     inflight = ipc
       .remoteList()
-      .then((entries) =>
+      .then((tree) =>
         set((s) => ({
-          entries,
-          // A folder that now has a note under it is on the server and is no
-          // longer this window's to remember.
-          pending: s.pending.filter((p) => !entries.some((e) => e.path.startsWith(`${p}/`))),
+          entries: tree.entries,
+          folders: tree.folders,
+          foldersSupported: tree.folders_supported,
+          // A folder that now has a note or a folder under it, or is one, is on
+          // the server and is no longer this window's to remember.
+          pending: s.pending.filter(
+            (p) =>
+              !tree.entries.some((e) => e.path.startsWith(`${p}/`)) &&
+              !tree.folders.some((f) => f === p || f.startsWith(`${p}/`)),
+          ),
         })),
       )
       .catch((e) => set({ error: ipc.asCoreError(e) }))
@@ -127,12 +142,20 @@ export const useRemote = create<RemoteState>((set, get) => ({
     remember(expanded);
   },
 
-  addFolder(path) {
+  async addFolder(path) {
     const parts = path.split("/");
+    const levels = parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+    const server = get().foldersSupported;
+    // Before anything is shown: a refusal leaves no folder behind.
+    if (server) await ipc.remoteCreateFolder(path);
     const expanded = { ...get().expanded };
     // Every level is opened, or the new folder would be made and not shown.
-    for (let i = 1; i <= parts.length; i++) expanded[parts.slice(0, i).join("/")] = true;
-    set((s) => ({ expanded, pending: s.pending.includes(path) ? s.pending : [...s.pending, path] }));
+    for (const level of levels) expanded[level] = true;
+    set((s) =>
+      server
+        ? { expanded, folders: [...new Set([...s.folders, ...levels])] }
+        : { expanded, pending: s.pending.includes(path) ? s.pending : [...s.pending, path] },
+    );
     remember(expanded);
   },
 
@@ -192,11 +215,15 @@ export interface RemoteDir {
 }
 
 /**
- * The server lists notes, not folders: every folder here is a prefix of some
- * note's path. Folders first, then notes, each by name — the order the local
- * tree uses.
+ * Every folder here is a prefix of some note's path, or one the server listed
+ * (1.11.0), or one made in this window against an older server (`pending`).
+ * Folders first, then notes, each by name — the order the local tree uses.
  */
-export function buildTree(entries: ipc.RemoteEntry[], pending: string[] = []): RemoteDir {
+export function buildTree(
+  entries: ipc.RemoteEntry[],
+  pending: string[] = [],
+  folders: string[] = [],
+): RemoteDir {
   const root: RemoteDir = { name: "", path: "", dirs: [], notes: [] };
   const descend = (parts: string[], virtual: boolean): RemoteDir => {
     let dir = root;
@@ -215,6 +242,8 @@ export function buildTree(entries: ipc.RemoteEntry[], pending: string[] = []): R
     const parts = entry.path.split("/");
     descend(parts.slice(0, -1), false).notes.push(entry);
   }
+  // Folders the server holds, the empty ones among them.
+  for (const path of folders) descend(path.split("/"), false);
   // Folders made here and still empty. A folder the server's notes already
   // make is left as it is: it is not "only here".
   for (const path of pending) descend(path.split("/"), true);
