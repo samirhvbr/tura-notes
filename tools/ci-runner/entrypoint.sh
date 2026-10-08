@@ -10,7 +10,7 @@ if [ ! -f .runner ]; then
   : "${REPO_URL:?need REPO_URL, e.g. https://github.com/owner/repo}"
   ./config.sh --unattended --replace \
     --url "$REPO_URL" --token "$REG_TOKEN" \
-    --name "${RUNNER_NAME:-tura-ci}" --labels "${RUNNER_LABELS:-tura-ci}" \
+    --name "${RUNNER_NAME:-tura-ci}" --labels "${RUNNER_LABELS:-shvia-ci}" \
     --work _work
 fi
 # The token is not needed again and must not stay in the environment of the jobs.

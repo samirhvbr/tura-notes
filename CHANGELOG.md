@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.37 - the Linux jobs read the fleet's runner switch, CI_RUNNER, and the runner carries its label
+
+When 1.10.20 made the Linux jobs movable to the owner's CI server it invented the switch:
+a repository variable `CI_LINUX` holding a JSON value, and a runner labelled `tura-ci`.
+Since then the fleet has written its own norm into `CLAUDE.md` (the CICD-RULE block, from
+the single source in repodocs): the job reads `vars.CI_RUNNER`, the label is `shvia-ci`,
+the variable is set at repository scope and never at organisation scope, and a runner for
+a public repository is registered only by the owner's word. This aligns to it, for the
+plain reason that a switch that is different in one repository out of ten is a switch
+somebody gets wrong at two in the morning. The expression keeps the one thing the fleet's
+does not have, the fork guard: a pull request from a fork runs on GitHub's machines whatever
+the variable says. A manual run can still try a runner without setting anything, through
+the `runner` input of the workflow.
+
+The runner image's default label becomes `shvia-ci`, and its README is rewritten for two
+changes of method. The registration token goes through a file only its reader can read and
+is shredded afterwards, where the first README put it on a `docker run` command line, which
+is where `ps` shows it to every user of the machine. And the README names the setting the
+norm makes mandatory for a public repository, *Require approval for all external
+contributors*. ADR-103 records the change of name, and that the owner gave the word to
+register on 08/10/2026. This push registers nothing and moves no job: the runner is
+registered after it, and the variable is set only after a full run on it has been read.
+
 ## 1.10.36 - tauri-plugin-updater 2.13.0 to 2.13.1 (Dependabot #49)
 
 The plugin that installs updates, so its sources were compared and the part of it that matters was exercised. The source difference between the two releases is one line in a test. Everything in it moves through the manifest: the file-type sniffer `infer` 0.19 to 0.22, which the plugin uses to check that a downloaded update is the kind of package it expects (a deb, a gzip, an installer), `dirs` 6 to 7 on Linux and `windows-sys` 0.60 to 0.61 on Windows. The sniffer is the one that could have turned an update away, so the new one was run against the three packages the feeds publish today, the deb, the AppImage and the macOS archive, and answers exactly as the old one does: the deb is a deb, the archive is a gzip, and the AppImage, an executable, is none of the archive kinds. The check on the signed version, `verify_signed_version` and the `requireSignedVersion` setting that ADR-101 turned on, is untouched by the diff, and the test that reads the shipped configuration through the plugin's own type and the publication tests pass. In the lockfile three duplicates disappear (an older `infer`, `cfb` and `dirs` 6; the `dirs` the application's own data-directory lookup uses was already version 7). The exact version the pull request named is installed, and the notice file is regenerated.

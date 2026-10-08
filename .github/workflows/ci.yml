@@ -13,8 +13,8 @@ on:
     - cron: "17 6 * * *"
   workflow_dispatch:
     inputs:
-      linux:
-        description: 'runs-on for the Linux jobs, as JSON, e.g. ["self-hosted","tura-ci"] (empty: the CI_LINUX variable)'
+      runner:
+        description: 'runner label for the movable Linux jobs, e.g. shvia-ci (empty: the CI_RUNNER variable, then GitHub)'
         required: false
         default: ''
 
@@ -23,12 +23,13 @@ env:
 
 # WHERE THE LINUX JOBS RUN (ADR-103). `runs-on` of `contracts`, `frontend`,
 # `advisories` and the Linux leg of `rust` reads the repository variable
-# `CI_LINUX`, a JSON value: unset, they run on GitHub's `ubuntu-latest`; set to
-# `["self-hosted","tura-ci"]` they run on the owner's CI server, in the container
-# `tools/ci-runner/` builds. Deleting the variable is the whole of going back.
+# `CI_RUNNER`, the fleet's switch (`CLAUDE.md`, CICD-RULE): unset, they run on
+# GitHub's `ubuntu-latest`; set to `shvia-ci`, they run on the owner's CI server, in
+# the container `tools/ci-runner/` builds. Deleting the variable is the whole of
+# going back; it is set at repository scope and never at organisation scope.
 # A pull request from a fork never reads it: its code runs on GitHub's machines,
 # not the owner's. A manual run can try a runner without changing the variable
-# (the `linux` input). What stays on GitHub whatever the variable says: Arch and
+# (the `runner` input). What stays on GitHub whatever the variable says: Arch and
 # the server container (they need Docker), the Android core (it needs the NDK the
 # hosted image ships), the macOS and Windows legs, and `disk` below (a container
 # cannot mount a filesystem of its own, which the full-disk test does).
@@ -72,7 +73,7 @@ jobs:
   # The two checks that catch a whole class of mistake without building the app.
   contracts:
     name: contracts
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (inputs.runner || vars.CI_RUNNER) || 'ubuntu-latest' }}
     steps:
       # `fetch-depth: 0`, and only on this job. `tools/changelog-versions.py`
       # asks whether some commit ever carried each version in `CHANGELOG.md`,
@@ -264,7 +265,7 @@ jobs:
   rust:
     name: rust (${{ matrix.os }})
     needs: plan
-    runs-on: ${{ matrix.os == 'ubuntu-latest' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || matrix.os }}
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (inputs.runner || vars.CI_RUNNER) || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -292,7 +293,7 @@ jobs:
         shell: bash
 
   # The two Linux-only checks that need the machine itself and not only a
-  # toolchain, so they stay on GitHub's hosted runner whatever `CI_LINUX` says
+  # toolchain, so they stay on GitHub's hosted runner whatever `CI_RUNNER` says
   # (ADR-103): a container cannot mount a filesystem of its own, which the
   # full-disk test does, and the one-second rule watches ~21 000 directories
   # against the host's inotify limits. Both build `notes-core` alone, which needs
@@ -352,7 +353,7 @@ jobs:
 
   frontend:
     name: frontend
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (inputs.runner || vars.CI_RUNNER) || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/notes-app
@@ -392,7 +393,7 @@ jobs:
   # of this file.
   advisories:
     name: dependency advisories
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON(inputs.linux || vars.CI_LINUX || '"ubuntu-latest"') || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (inputs.runner || vars.CI_RUNNER) || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

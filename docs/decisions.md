@@ -3430,21 +3430,24 @@ two hosted systems that cannot be run anywhere else are the slow ones.
 
 - *The Linux jobs on the owner's CI server, switchable.* `contracts`, `frontend`,
   `dependency advisories` and the Linux leg of `rust` read the repository variable
-  `CI_LINUX` for their `runs-on`: unset, GitHub's `ubuntu-latest`; set to
-  `["self-hosted","tura-ci"]`, a runner in a container built by `tools/ci-runner/`
-  on the CI server, which has no access to the machine's other repositories'
-  runners. A pull request from a fork never reads it. Deleting the variable is the
-  whole of going back. What stays on GitHub regardless: Arch and the server
+  `CI_RUNNER` for their `runs-on`, the switch the fleet's own norm defines
+  (`CLAUDE.md`, CICD-RULE; first written here as `CI_LINUX` with a JSON value and the
+  label `tura-ci`, and aligned on 08/10/2026 when the fleet norm arrived, so that this
+  repository is a Z bump and not an override): unset, GitHub's `ubuntu-latest`; set
+  to `shvia-ci`, a runner in a container built by `tools/ci-runner/` on the CI server,
+  which has no access to the machine's other repositories' runners. A pull request
+  from a fork never reads it. Deleting the variable is the whole of going back. What stays on GitHub regardless: Arch and the server
   container (Docker), the Android core (the hosted image's NDK), macOS, Windows,
   and `disk`, a new job that holds the full-disk test and the one-second rule,
   because a container cannot mount a filesystem of its own (tried here: not with
   seccomp, AppArmor and the masked system paths all lifted, which is also more
   than a public repository's runner should be given).
 
-**Status of the runner.** The image is built and the workflows are ready, **and no
-runner is registered**: registering one on a public repository is the owner's act,
-and the attempt to do it from the session that wrote this was refused. The
-commands are in `tools/ci-runner/README.md`.
+**Status of the runner.** The image is built and the workflows are ready. Registering
+a runner on a public repository is the owner's act (the fleet norm says so too), and
+an attempt to do it on 05/10 without that word was refused; the owner gave it on
+08/10/2026 (“Sim, registre agora”), with the fork-pull-request approval setting moved
+to *all external contributors*. The commands are in `tools/ci-runner/README.md`.
 
 **Consequences.** The per-push cycle falls from about ten minutes to about five,
 set by the slowest Linux job. Nothing else about how a version is published
