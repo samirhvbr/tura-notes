@@ -326,6 +326,11 @@ struct Create {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct Folder {
+    path: RelPath,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Text {
     text: String,
 }
@@ -569,6 +574,9 @@ fn audit_subject(parts: &axum::http::request::Parts, bytes: &[u8]) -> (String, S
     if parts.method == "GET" && route.ends_with("/sync/devices") {
         return ("sync_devices_list".into(), hash(route));
     }
+    if parts.method == "POST" && route.ends_with("/folders") {
+        return ("folder_create".into(), hash(route));
+    }
     let operation = match parts.method.as_str() {
         "GET" => "read",
         "POST" => "create_or_move",
@@ -692,16 +700,39 @@ fn dispatch(
         review: credential.review,
     };
     let mut service = AgentService::with_data_dir(config, &server.data.join("state"))?;
+    if method == "POST" && route.1 == "folders" {
+        // A folder with no note in it (1.11.0). Not a tool of the catalogue: it
+        // is a REST route only, so remote MCP stays the eight tools it was.
+        // Idempotent: a folder that is already there answers 200, one made now 201.
+        let input: Folder = body(bytes, &parts.headers)?;
+        let created = service.create_folder(&input.path)?;
+        return Ok(reply(
+            json!({"path": input.path, "created": created}),
+            if created {
+                StatusCode::CREATED
+            } else {
+                StatusCode::OK
+            },
+        ));
+    }
     if detailed && query.detail == Some(true) {
         let (page, truncated) = service.list_revisions(offset, limit)?;
         let notes: Vec<Value> = page
             .iter()
             .map(|n| json!({"path":n.path,"size":n.size,"etag":n.rev.as_ref().map(etag)}))
             .collect();
-        return Ok(reply(
-            json!({"notes":notes,"truncated":truncated,"next_cursor":if truncated { json!(offset + limit) } else { Value::Null }}),
-            StatusCode::OK,
-        ));
+        let mut answer = json!({"notes":notes,"truncated":truncated,"next_cursor":if truncated { json!(offset + limit) } else { Value::Null }});
+        // The folders go in the first page only, and their presence is how a
+        // client learns that this server has folders of its own (an older one
+        // sends no such key). They are not paged: the list is bounded instead.
+        if offset == 0 {
+            let (folders, cut) = service.list_folders()?;
+            answer["folders"] = json!(folders);
+            if cut {
+                answer["folders_truncated"] = json!(true);
+            }
+        }
+        return Ok(reply(answer, StatusCode::OK));
     }
     let mut args = AgentArgs {
         limit: Some(limit),

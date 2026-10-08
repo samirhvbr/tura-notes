@@ -2400,3 +2400,203 @@ async fn folders_are_not_made_without_create() {
     assert_eq!(made.0, StatusCode::FORBIDDEN);
     assert!(!f.data.join("workspaces/home/allowed/new").exists());
 }
+
+// ---- folders with no note in them (1.11.0) ------------------------------------
+
+const FOLDERS: &str = "/v1/workspaces/home/folders";
+
+async fn folder(f: &Fixture, path: &str) -> (StatusCode, axum::http::HeaderMap, Value) {
+    f.request("POST", FOLDERS, Some(json!({"path":path})), &[])
+        .await
+}
+
+#[tokio::test]
+async fn a_folder_is_made_with_the_ones_above_it_and_made_again_it_is_not_an_error() {
+    let f = Fixture::new(&all());
+    let made = folder(&f, "allowed/ideas/2026").await;
+    assert_eq!(made.0, StatusCode::CREATED);
+    assert_eq!(made.2, json!({"path":"allowed/ideas/2026","created":true}));
+    assert!(f.data.join("workspaces/home/allowed/ideas/2026").is_dir());
+    // Idempotent: 200 and `created: false`, so a client that asks twice is not told it failed.
+    let again = folder(&f, "allowed/ideas/2026").await;
+    assert_eq!(again.0, StatusCode::OK);
+    assert_eq!(again.2["created"], false);
+    // A folder above one that exists is "already there" too, and a new one beside it is made.
+    assert_eq!(folder(&f, "allowed/ideas").await.2["created"], false);
+    assert_eq!(
+        folder(&f, "allowed/ideas/2027").await.0,
+        StatusCode::CREATED
+    );
+    // Nothing but folders was made.
+    assert_eq!(
+        fs::read_dir(f.data.join("workspaces/home/allowed/ideas/2026"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn a_folder_is_held_to_the_rules_of_a_note() {
+    let f = Fixture::new(&all());
+    // Outside the scope, hidden, unportable, a note's name, the scope itself, traversing.
+    assert_eq!(folder(&f, "other/x").await.0, StatusCode::FORBIDDEN);
+    assert!(!f.data.join("workspaces/home/other").exists());
+    assert_eq!(folder(&f, "allowed/.git").await.0, StatusCode::FORBIDDEN);
+    assert_eq!(
+        folder(&f, "allowed/a/.hidden/b").await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert!(
+        !f.data.join("workspaces/home/allowed/a").exists(),
+        "nothing is left half made"
+    );
+    assert_eq!(folder(&f, "allowed/con").await.0, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        folder(&f, "allowed/ideas.md").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        folder(&f, "allowed/notes.markdown").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        folder(&f, "allowed/../other").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(folder(&f, "").await.0, StatusCode::BAD_REQUEST);
+    assert!(!f.data.join("workspaces/home/other").exists());
+    // The scope itself is already there: not a failure, not a creation.
+    assert_eq!(folder(&f, "allowed").await.2["created"], false);
+    // A file where a folder is needed, or is asked for.
+    fs::write(f.data.join("workspaces/home/allowed/plain"), "file").unwrap();
+    assert_eq!(folder(&f, "allowed/plain").await.0, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        folder(&f, "allowed/plain/deeper").await.0,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn a_folder_needs_create_and_is_refused_to_a_read_only_credential() {
+    let f = Fixture::new(&[Permission::Read, Permission::Update]);
+    assert_eq!(folder(&f, "allowed/new").await.0, StatusCode::FORBIDDEN);
+    assert!(!f.data.join("workspaces/home/allowed/new").exists());
+}
+
+#[tokio::test]
+async fn in_review_a_folder_is_made_only_under_proposals() {
+    let f = Fixture::new(&all());
+    fs::create_dir(f.data.join("workspaces/home/allowed/proposals")).unwrap();
+    let mut store = admin::load(&f.data).unwrap();
+    store.credentials[0].review = true;
+    admin::save(&f.data, &store).unwrap();
+    assert_eq!(
+        folder(&f, "allowed/proposals/draft").await.0,
+        StatusCode::CREATED
+    );
+    assert!(f
+        .data
+        .join("workspaces/home/allowed/proposals/draft")
+        .is_dir());
+    assert_eq!(folder(&f, "allowed/outside").await.0, StatusCode::FORBIDDEN);
+    assert!(!f.data.join("workspaces/home/allowed/outside").exists());
+}
+
+#[tokio::test]
+async fn the_detailed_list_names_the_folders_empty_ones_included_and_only_on_the_first_page() {
+    let f = Fixture::new(&all());
+    fs::create_dir_all(f.data.join("workspaces/home/allowed/full")).unwrap();
+    fs::write(f.data.join("workspaces/home/allowed/full/a.md"), "x").unwrap();
+    fs::create_dir_all(f.data.join("workspaces/home/allowed/empty/deeper")).unwrap();
+    fs::create_dir_all(f.data.join("workspaces/home/allowed/.hidden/inner")).unwrap();
+    fs::create_dir_all(f.data.join("workspaces/home/other/secret")).unwrap();
+
+    let list = f
+        .request("GET", &format!("{COLLECTION}?detail=true"), None, &[])
+        .await;
+    assert_eq!(list.0, StatusCode::OK);
+    assert_eq!(
+        list.2["folders"],
+        json!(["allowed/empty", "allowed/empty/deeper", "allowed/full"])
+    );
+    assert!(list.2.get("folders_truncated").is_none());
+
+    // A later page does not repeat them, so paging costs nothing extra.
+    let next = f
+        .request(
+            "GET",
+            &format!("{COLLECTION}?detail=true&cursor=1"),
+            None,
+            &[],
+        )
+        .await;
+    assert!(next.2.get("folders").is_none());
+}
+
+#[tokio::test]
+async fn the_folder_list_is_bounded_and_says_when_it_was_cut() {
+    let f = Fixture::new(&all());
+    for i in 0..2005 {
+        fs::create_dir_all(f.data.join(format!("workspaces/home/allowed/f{i:04}"))).unwrap();
+    }
+    let list = f
+        .request("GET", &format!("{COLLECTION}?detail=true"), None, &[])
+        .await;
+    assert_eq!(list.2["folders"].as_array().unwrap().len(), 2000);
+    assert_eq!(list.2["folders_truncated"], true);
+}
+
+#[tokio::test]
+async fn the_plain_list_and_the_notes_are_unchanged_by_folders() {
+    let f = Fixture::new(&all());
+    folder(&f, "allowed/empty").await;
+    let plain = f.request("GET", COLLECTION, None, &[]).await;
+    assert!(
+        plain.2.get("folders").is_none(),
+        "the plain list keeps its shape"
+    );
+    // The folders route is a POST: a GET on it is no route at all.
+    assert_eq!(
+        f.request("GET", FOLDERS, None, &[]).await.0,
+        StatusCode::NOT_FOUND
+    );
+    // And so is anything else a client might try on it.
+    for method in ["PUT", "DELETE", "PATCH"] {
+        let status = f
+            .request(method, FOLDERS, Some(json!({"path":"allowed/x"})), &[])
+            .await
+            .0;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{method}");
+    }
+}
+
+#[tokio::test]
+async fn a_folder_body_outside_the_contract_is_refused() {
+    let f = Fixture::new(&all());
+    for body in [
+        json!({}),
+        json!({"path": 3}),
+        json!({"path":"allowed/x","parents":true}),
+        json!([]),
+    ] {
+        let status = f.request("POST", FOLDERS, Some(body.clone()), &[]).await.0;
+        assert!(status.is_client_error(), "{body}: {status}");
+    }
+    assert!(!f.data.join("workspaces/home/allowed/x").exists());
+}
+
+#[tokio::test]
+async fn a_folder_is_audited_as_what_it_was_without_its_path() {
+    let f = Fixture::new(&all());
+    folder(&f, "allowed/a-folder-with-a-telling-name").await;
+    let lines = audit_lines(&f);
+    let line = lines
+        .iter()
+        .find(|l| l["operation"] == "folder_create")
+        .expect("an audit line");
+    assert!(
+        !line.to_string().contains("telling-name"),
+        "the log never names the path"
+    );
+}

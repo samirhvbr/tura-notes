@@ -43,8 +43,9 @@ generated secrets; only BLAKE3 digests are persisted in `admin/tokens.json`.
 These are high-entropy bearer secrets, not human passwords.
 
 Folders under `workspaces/<name>` remain ordinary directories. The operator
-can import files and create folders there. The API creates/moves/deletes notes,
-not workspace roots or directories. Workspace names use `[a-z0-9_-]`, 1–64
+can import files and create folders there. The API creates/moves/deletes notes
+and, from 1.11.0, makes empty folders (`POST …/folders`); it does not move or
+delete a folder, nor create a workspace root. Workspace names use `[a-z0-9_-]`, 1–64
 characters. Note paths use the core's relative-path rules; absolute paths,
 traversal, symlinks, hidden internals and non-Markdown writes are refused.
 
@@ -262,8 +263,9 @@ liveness after peer/transport checks; it exposes no version or data.
 | Route | Method | Permission and conditions |
 |---|---|---|
 | `/v1/workspaces` | GET | Returns only the credential's workspace, scope and permissions |
-| `/v1/workspaces/{workspace}/notes` | GET | `read`; `limit` and `cursor` pagination; `detail=true` lists `{path, size, etag}` per note (1.9.8) |
+| `/v1/workspaces/{workspace}/notes` | GET | `read`; `limit` and `cursor` pagination; `detail=true` lists `{path, size, etag}` per note (1.9.8) and, on the first page, the workspace's folders (1.11.0) |
 | Same collection | POST | `create`; JSON `path`, `text`, optional `parents`; `If-None-Match: *` |
+| `/v1/workspaces/{workspace}/folders` | POST | `create`; JSON `path`; makes the folder and the ones above it (1.11.0). 201 when made, 200 when it was there |
 | `/v1/workspaces/{workspace}/notes/{path}` | GET | `read`; returns text and ETag |
 | Same note | PUT | `update`; JSON `text`; exact `If-Match` |
 | Same note | PATCH | `update`; JSON `text` to append; exact `If-Match` |
@@ -296,8 +298,26 @@ is refused (400 `invalid_query`) on every other route.
 **`parents: true` on create makes the missing folders above the note** (1.9.8),
 under the rules the note is held to: inside the scope, under `proposals` in
 review mode, no hidden segment, portable names, no symlink. Without it a missing
-parent is still an error. The API still has no route that creates, moves or
-deletes a folder by itself.
+parent is still an error.
+
+**A folder is made by itself with `POST …/folders` `{"path": "ideas/2026"}`**
+(1.11.0), and the answer is `{"path", "created"}`: 201 and `true` when it was made,
+200 and `false` when it was already there, so a retry after a lost answer is
+harmless. It needs `create`, and the path is held to the rules a note's is: inside
+the scope (the scope itself is not a folder to make), under `proposals` in review
+mode, no hidden segment, portable names, nothing named like a note
+(`ideas.md` is refused), no symlink, and no file in the way (400). The audit
+names it `folder_create`, and, like the other routes, never records the path.
+There is still no route that moves or deletes a folder, and none in the MCP
+catalogue: this is REST only.
+
+**`detail=true` also lists the folders.** The first page (`cursor` 0) carries
+`folders`, every folder inside the scope as a workspace path, sorted, empty ones
+included, hidden names and the workspace's ignore list left out. It is bounded
+at 2,000, and `folders_truncated: true` says the list was cut. Later pages carry
+neither key. **The key being there is how a client knows the server can make
+folders**: a server older than 1.11.0 has no `folders`, and no route either. The
+plain list, without `detail`, is unchanged.
 
 JSON rejects unknown fields. Text and final note size are limited to 8 MiB,
 HTTP bodies to 16 MiB, body delivery to 15 seconds, query text to 4096 UTF-8

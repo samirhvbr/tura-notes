@@ -3458,7 +3458,7 @@ variable on, and the jobs that stay hosted (Arch, the server container, Android,
 
 ## ADR-104 — A folder made in the server's tree exists in the window until a note is made in it
 
-**Status:** `ACCEPTED` · 06/10/2026, the owner's choice (“a pasta virtual agora, real depois”) · built in 1.10.22
+**Status:** `ACCEPTED` · 06/10/2026, the owner's choice (“a pasta virtual agora, real depois”) · built in 1.10.22 · **the “later” arrived in 1.11.0 ([ADR-106](#adr-106--the-server-makes-empty-folders-and-lists-them-so-a-folder-made-in-the-tree-is-real)): this behaviour stays for a server older than 1.11.0, and is not used with a newer one**
 
 **Context.** The remote folder (ADR-099) edits the notes of the server's workspace,
 and the owner asked to be able to make folders and subfolders there. The server
@@ -3530,3 +3530,37 @@ before the mobile application exists. A new dependency for the deep link and the
 keychain on mobile is to be measured when it is added. ADR-007 holds: the desktop
 application opens no port, so the redirect arrives as a link the system hands over,
 with a field to paste it for a browser that will not.
+
+## ADR-106 — The server makes empty folders and lists them, so a folder made in the tree is real
+
+**Status:** `ACCEPTED` · 08/10/2026, the owner's choice of “cut 1.11.0 and sign the server” · built and closed in 1.11.0
+
+**Context.** ADR-104 gave the remote tree a folder that lived in the window until a
+note was made in it, because the server had no notion of an empty folder, and said
+that a permanent one needed a route and a listing that carries empty folders, which
+is a new server version. The owner then asked for that version. A server change
+reaches the owner's server only as a signed `X.Y.0`, the way the devices routes
+reached it in 1.9.0.
+
+**Decision.** `POST /v1/workspaces/{workspace}/folders` makes a folder and the ones
+above it, needs `create`, and is held to the rules of a note's path (scope, review
+mode, hidden names, portable names, nothing named like a note, no file in the way).
+Making a folder that exists is a success. `GET …/notes?detail=true` carries
+`folders` on its first page, bounded, and the key's presence is the capability
+bit: the application asks the server to make a folder only when the last listing
+carried it, and otherwise keeps ADR-104's folder in the window. The route is REST
+only: the MCP catalogue is the same, so the parity between the two does not move.
+Because it adds a route, this is a minor, **1.11.0**, and the server is signed and
+deployed as one.
+
+**Alternatives set aside.** *Making the folder as a side effect of creating a
+`.keep` note*: it writes a file nobody asked for into the user's tree, against
+ADR-001. *A capability endpoint or a version check*: the listing already says it,
+with nothing more to ask. *Listing folders on every page*: the answer would grow
+with the pages; the first page is where a client builds its tree.
+
+**Consequences.** An older application with a newer server behaves as before (it
+ignores `folders`); a newer application with an older server falls back to the
+folder in the window. A credential that can create can now create very many empty
+folders, so the listing is bounded at 2,000 and says when it cut. Moving and
+deleting a folder remain out, as in ADR-099.

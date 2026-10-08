@@ -1399,6 +1399,96 @@
           }
         }
       }
+    },
+    "/v1/workspaces/{workspace}/folders": {
+      "post": {
+        "operationId": "createFolder",
+        "description": "Requires create. Makes the folder, and any missing folder above it, inside the credential's scope, with the same scope, hidden-name and portable-name rules as a note (and under proposals in review mode). A folder cannot be named like a note. Idempotent: 200 when it already exists, 201 when it was made now. Not available before server 1.11.0: an older server answers 404, and its note listing carries no folders key.",
+        "parameters": [
+          {
+            "name": "workspace",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_-]{1,64}$"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error413"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error415"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "200": {
+            "description": "Already existed",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderMade"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderMade"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Folder"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2001,6 +2091,18 @@
               "null"
             ],
             "minimum": 0
+          },
+          "folders": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "type": "string"
+            },
+            "description": "Every folder inside the credential's scope, sorted, as workspace paths, empty ones included. First page only (cursor 0). Present from server 1.11.0: its absence means the server has no folders of its own, and a client keeps a folder it makes only until a note is filed in it."
+          },
+          "folders_truncated": {
+            "type": "boolean",
+            "description": "Present and true when the folder list was cut at its bound."
           }
         },
         "required": [
@@ -2033,6 +2135,36 @@
           "path",
           "size",
           "etag"
+        ],
+        "additionalProperties": false
+      },
+      "Folder": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Workspace-relative folder path; slash-separated, not a Markdown file name."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "FolderMade": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "created": {
+            "type": "boolean",
+            "description": "False when the folder was already there."
+          }
+        },
+        "required": [
+          "path",
+          "created"
         ],
         "additionalProperties": false
       }

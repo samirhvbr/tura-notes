@@ -213,32 +213,80 @@ impl AgentService {
     /// symlink on the way. Folders that already exist are left alone.
     ///
     /// This is what lets a client file a new note under a new folder, the way
-    /// a category works in other notes applications, without the API growing
-    /// a folder surface of its own.
+    /// a category works in other notes applications.
     pub fn create_parents(&mut self, path: &RelPath) -> Result<()> {
         if !self.config.permissions.contains(&Permission::Create) {
             return Err(denied());
         }
         self.authorize(path, true)?;
+        match path.parent() {
+            Some(dir) => self.make_dirs(&dir).map(|_| ()),
+            None => Ok(()),
+        }
+    }
+
+    /// Create a folder, and the missing folders above it, with no note in it.
+    /// Returns whether it was created now (`false`: it was already there, which
+    /// is not an error, so a client that asks twice is not told it failed).
+    ///
+    /// The rules are the note's, because the folder is where a note will go: the
+    /// scope, `proposals` in review, no hidden segment, portable names, nothing
+    /// on the way that is a file or a symlink. A folder cannot be named like a
+    /// note (`ideas.md`), which would be a folder the tree shows as a note.
+    pub fn create_folder(&mut self, path: &RelPath) -> Result<bool> {
+        if !self.config.permissions.contains(&Permission::Create) {
+            return Err(denied());
+        }
+        // The root is not a folder anyone names, and is refused as malformed
+        // before it is refused as out of scope.
+        if path.is_root() {
+            return Err(invalid("a folder needs a name"));
+        }
+        self.authorize(path, true)?;
+        if path.is_note() {
+            return Err(invalid("a folder cannot be named like a note"));
+        }
+        self.make_dirs(path)
+    }
+
+    /// The missing directories from `target` up to the first one that exists (or
+    /// the scope), created from the top down. Whether `target` itself was new.
+    fn make_dirs(&mut self, target: &RelPath) -> Result<bool> {
         let mut missing = vec![];
-        let mut dir = path.parent();
+        let mut dir = Some(target.clone());
         while let Some(d) = dir {
             if d.is_root() || d == self.config.scope {
                 break;
             }
             match self.service.open()?.fs.stat(&d) {
                 Ok(stat) if stat.kind == EntryKind::Dir => break,
-                Ok(_) => return Err(invalid("a parent of the note is not a folder")),
+                Ok(_) => return Err(invalid("a part of the path exists and is not a folder")),
                 Err(CoreError::NotFound { .. }) => {}
                 Err(CoreError::Io {
                     kind: notes_model::IoKind::NotFound,
                     ..
                 }) => {}
-                Err(e) => return Err(e),
+                Err(e) => {
+                    // A path beneath a regular file fails with ENOTDIR, which is
+                    // not "not found": say what is wrong instead of a server error.
+                    let under_a_file = d.parent().is_some_and(|p| {
+                        !p.is_root()
+                            && matches!(
+                                self.service.open().and_then(|o| o.fs.stat(&p)),
+                                Ok(s) if s.kind != EntryKind::Dir
+                            )
+                    });
+                    return Err(if under_a_file {
+                        invalid("a part of the path exists and is not a folder")
+                    } else {
+                        e
+                    });
+                }
             }
             dir = d.parent();
             missing.push(d);
         }
+        let created = missing.first().is_some_and(|first| first == target);
         for d in missing.into_iter().rev() {
             self.service.check_name(d.file_name(), &d)?;
             match self.service.open()?.fs.create_dir(&d) {
@@ -247,8 +295,45 @@ impl AgentService {
             }
         }
         self.service.invalidate_paths();
-        Ok(())
+        Ok(created)
     }
+
+    /// Every folder inside the scope, sorted, as workspace paths: the empty ones
+    /// a list of notes cannot show, and the others too, so a client has the whole
+    /// tree from one answer. Hidden names and the workspace's own ignore list are
+    /// left out as they are for notes, and the walk stays inside the scope.
+    ///
+    /// Bounded: a credential that can create folders can create very many, and
+    /// the answer must not grow with them. `true` says the list was cut.
+    pub fn list_folders(&self) -> Result<(Vec<RelPath>, bool)> {
+        const MAX: usize = 2000;
+        if !self.config.permissions.contains(&Permission::Read) {
+            return Err(denied());
+        }
+        let open = self.service.open()?;
+        let mut dirs = vec![self.config.scope.clone()];
+        let mut folders = vec![];
+        while let Some(dir) = dirs.pop() {
+            for entry in open.fs.list(&dir)? {
+                if entry.kind != EntryKind::Dir
+                    || crate::ignore::is_hidden_name(&entry.name)
+                    || open
+                        .extra_ignore
+                        .iter()
+                        .any(|x| x == &entry.name || x == entry.path.as_str())
+                {
+                    continue;
+                }
+                folders.push(entry.path.clone());
+                dirs.push(entry.path);
+            }
+        }
+        folders.sort();
+        let truncated = folders.len() > MAX;
+        folders.truncate(MAX);
+        Ok((folders, truncated))
+    }
+
     pub fn call(&mut self, tool: &str, args: AgentArgs) -> Result<Value> {
         // `truncated` promised a continuation the catalogue could not ask for:
         // `offset` was honoured here and absent from the published schema, and
