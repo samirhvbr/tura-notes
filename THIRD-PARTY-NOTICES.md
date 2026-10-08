@@ -81,7 +81,6 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `cbc` | 0.2.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-modes |
 | Rust: `cesu8` | 1.1.0 | Apache-2.0/MIT | https://github.com/emk/cesu8-rs |
 | Rust: `cfb` | 0.14.0 | MIT | https://github.com/mdsteele/rust-cfb |
-| Rust: `cfb` | 0.7.3 | MIT | https://github.com/mdsteele/rust-cfb |
 | Rust: `cff-parser` | 0.2.0 | MIT OR Apache-2.0 | https://github.com/jrmuizel/cff-parser |
 | Rust: `cfg-if` | 1.0.4 | MIT OR Apache-2.0 | https://github.com/rust-lang/cfg-if |
 | Rust: `chacha20` | 0.10.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/stream-ciphers |
@@ -129,7 +128,6 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `diffy` | 0.5.2 | MIT OR Apache-2.0 | https://github.com/bmwill/diffy |
 | Rust: `digest` | 0.10.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | Rust: `digest` | 0.11.3 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
-| Rust: `dirs` | 6.0.0 | MIT OR Apache-2.0 | https://github.com/soc/dirs-rs |
 | Rust: `dirs` | 7.0.0 | MIT OR Apache-2.0 | https://codeberg.org/dirs/dirs-rs |
 | Rust: `dirs-sys` | 0.5.0 | MIT OR Apache-2.0 | https://github.com/dirs-dev/dirs-sys-rs |
 | Rust: `dispatch2` | 0.3.1 | Zlib OR Apache-2.0 OR MIT | https://github.com/madsmtm/objc2 |
@@ -238,7 +236,6 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `image` | 0.25.10 | MIT OR Apache-2.0 | https://github.com/image-rs/image |
 | Rust: `indexmap` | 1.9.3 | Apache-2.0 OR MIT | https://github.com/bluss/indexmap |
 | Rust: `indexmap` | 2.14.2 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/indexmap |
-| Rust: `infer` | 0.19.0 | MIT | https://github.com/bojand/infer |
 | Rust: `infer` | 0.22.0 | MIT | https://github.com/bojand/infer |
 | Rust: `inotify` | 0.11.5 | ISC | https://github.com/hannobraun/inotify-rs |
 | Rust: `inotify-sys` | 0.1.8 | ISC | https://github.com/hannobraun/inotify-sys |
@@ -475,7 +472,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tauri-plugin-dialog` | 2.8.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-fs` | 2.6.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-shell` | 2.4.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
-| Rust: `tauri-plugin-updater` | 2.13.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| Rust: `tauri-plugin-updater` | 2.13.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-runtime` | 2.12.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-runtime-wry` | 2.12.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-utils` | 2.10.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
@@ -4020,7 +4017,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### cfb 0.14.0, cfb 0.7.3
+### cfb 0.14.0
 
 ```text
 MIT License
@@ -6888,7 +6885,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### dirs 6.0.0, dirs 7.0.0, dirs-sys 0.5.0
+### dirs 7.0.0, dirs-sys 0.5.0
 
 ```text
 Apache License
@@ -7067,7 +7064,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
    of your accepting any such warranty or additional liability.
 ```
 
-### dirs 6.0.0, dirs 7.0.0, dirs-sys 0.5.0
+### dirs 7.0.0, dirs-sys 0.5.0
 
 ```text
 Copyright (c) 2018-2019 dirs-rs contributors
@@ -8205,7 +8202,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.1, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.0, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.1
+### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.1, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.1
 
 ```text
 Apache License
@@ -10391,7 +10388,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### infer 0.19.0, infer 0.22.0
+### infer 0.22.0
 
 ```text
 MIT License
@@ -16634,7 +16631,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tauri 2.12.1, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.0, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, @tauri-apps/api 2.12.1
+### tauri 2.12.1, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, @tauri-apps/api 2.12.1
 
 ```text
 MIT License
@@ -16660,7 +16657,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.0, @tauri-apps/plugin-dialog 2.8.1
+### tauri-plugin-dialog 2.8.1, tauri-plugin-fs 2.6.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, @tauri-apps/plugin-dialog 2.8.1
 
 ```text
 SPDXVersion: SPDX-2.1

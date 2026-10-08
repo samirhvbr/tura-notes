@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.36 - tauri-plugin-updater 2.13.0 to 2.13.1 (Dependabot #49)
+
+The plugin that installs updates, so its sources were compared and the part of it that matters was exercised. The source difference between the two releases is one line in a test. Everything in it moves through the manifest: the file-type sniffer `infer` 0.19 to 0.22, which the plugin uses to check that a downloaded update is the kind of package it expects (a deb, a gzip, an installer), `dirs` 6 to 7 on Linux and `windows-sys` 0.60 to 0.61 on Windows. The sniffer is the one that could have turned an update away, so the new one was run against the three packages the feeds publish today, the deb, the AppImage and the macOS archive, and answers exactly as the old one does: the deb is a deb, the archive is a gzip, and the AppImage, an executable, is none of the archive kinds. The check on the signed version, `verify_signed_version` and the `requireSignedVersion` setting that ADR-101 turned on, is untouched by the diff, and the test that reads the shipped configuration through the plugin's own type and the publication tests pass. In the lockfile three duplicates disappear (an older `infer`, `cfb` and `dirs` 6; the `dirs` the application's own data-directory lookup uses was already version 7). The exact version the pull request named is installed, and the notice file is regenerated.
+
 ## 1.10.35 - tauri 2.12.0 to 2.12.1 (Dependabot #48)
 
 A patch release of the framework. The sources of the two releases were compared: the
