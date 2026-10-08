@@ -7,6 +7,34 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.27 - the queue index is re-measured: one row retired, two corrected, one added
+
+The status line of `.continue/README.md` says every row below it was checked against
+what it names, so editing the file is a claim, and this edit re-measured instead of
+restamping. Four rows changed.
+
+The intermittent-test row leaves. It named its own exit, that the macOS CI run a week
+without the failure, and the cause (a child process holding a copy of the descriptor
+of an activity lease while it spawns, found on 24 September and fixed in 1.8.62) has
+a measurement behind it: the macOS Rust job has run more than seventy times since,
+on pushes, pull requests and the nightly schedule, and has not failed once. The
+history of how it was found stays in the changelog and the queue, which is where a
+finished thing's record belongs.
+
+The desktop-update row said the feeds were at 1.8.58 and 1.7.21. Read from outside
+today, all three are at 1.10.25 (the owner publishes the patches), and the macOS one
+is in step with Linux. A section of `docs/updater.md` records the measurement and a
+finding the old one could not have had: decoded, the trusted comment of each published
+signature ends in `version:1.10.25`, which is what ADR-101 asked of the publisher in
+1.10.6. The chain from publisher to feed to a build that insists on it has been
+observed in production now, and not only in the test of each half. The 24 September
+section stays as the record it is.
+
+The AI assistant row said nothing was built, which stopped being true in 1.10.0 and
+has not been true for five versions; it now says what exists and that what remains is
+the owner's walk with a real key. And the remote folder, which has had twenty-two
+rows of acceptance and no row in the index, gets one.
+
 ## 1.10.26 - the Windows crash-loop leg blocks like the others, after fifteen nights green
 
 The Windows leg of the crash loop was made non-blocking on 1.8.45 while it was

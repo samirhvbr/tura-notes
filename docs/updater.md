@@ -307,7 +307,27 @@ previous version of this paragraph recorded, in good faith, as a path to
 confirm. 1.1.17 moved the default to `.125` and 1.1.14's preflight now passes
 against it.
 
-### What is published, measured from outside — 24/09/2026
+### What is published, measured from outside — 08/10/2026
+
+Read back over HTTPS from `https://samirhv.com.br` on 08/10/2026:
+
+| Feed | State |
+|---|---|
+| `linux-x86_64-deb.json` | `1.10.25`, 440-byte signature |
+| `linux-x86_64-appimage.json` | `1.10.25`, 444-byte signature |
+| `darwin-aarch64-app.json` | `1.10.25`, 428-byte signature: the macOS feed is in step with Linux for the first time since 17/09 |
+
+`/p/tura-notes` lists releases up to `1.10.25`. **Every published signature names
+its version.** Decoded, the trusted comment of each one reads
+`timestamp:…<TAB>file:…<TAB>version:1.10.25`, which is what ADR-101 asked of the
+publisher in 1.10.6 and what an application with `requireSignedVersion` compares
+with the version the feed announces; the signatures are 24 bytes longer than the
+`1.8.58` ones for exactly that field. So the whole chain, publisher to feed to a
+build that insists, has now been observed in production and not only in the test of
+each half. What it does not show is a build installing from it, which is the owner's
+acceptance below.
+
+### What was published on 24/09/2026, kept as the record it is
 
 Read back over HTTPS from `https://samirhv.com.br` on 24/09/2026, after the
 owner's `tools/build-linux.sh --publish` of that afternoon:
