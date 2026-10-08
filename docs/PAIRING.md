@@ -2,9 +2,10 @@
 
 > **Status:** `PROPOSED` · The application's half is built for the desktop (1.10.24:
 > the keychain credential, the pairing client, and a sign-in section with a field to
-> paste the address into), and tested against a site that plays this contract. The
-> site's half is not, and neither are the `tura://` handler and the mobile
-> application. It moves to `ACTIVE` when a device has paired through a real site. Decision:
+> paste the address into; 1.10.38 to 1.10.39: the same section in Device sync, and the
+> pairing there accepts a keychain name), and tested against a site that plays this
+> contract. The site's three routes, the `tura://` handler and the mobile application
+> are not built. It moves to `ACTIVE` when a device has paired through a real site. Decision:
 > [ADR-105](decisions.md#adr-105--a-device-gets-its-cloud-connection-by-signing-in-to-the-owners-site-not-by-typing-a-key).
 > It is written first because **half of it is not in this repository**: the site
 > that has the login is the owner's own, and this page is what that site implements

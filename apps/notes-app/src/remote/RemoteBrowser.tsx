@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
-import { errorText } from "../app/StatusBar";
 import { buildTree, useRemote, type RemoteDir } from "../stores/remote";
 import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { Menu, type MenuRow } from "../app/Menu";
@@ -25,6 +24,11 @@ import { useUi } from "../stores/ui";
 import { askText } from "../app/dialog";
 import { remoteFolderPath, remoteNotePath } from "./names";
 import { useRemoteListSync } from "./useRemoteSync";
+import { SignIn } from "../app/SignIn";
+import { remoteErrorText } from "./errorText";
+
+// Other modules import it from here as they always did.
+export { remoteErrorText };
 
 /**
  * The remote folder's panel (ADR-099): the server's notes workspace as a tree,
@@ -431,20 +435,6 @@ function Mark({ mark }: { mark: ipc.LocalMark }) {
 
 /** The remote folder's own sentences for the causes it meets. The device-sync
  *  ones talk about pending revisions and pairing, which mean nothing here. */
-export function remoteErrorText(e: ipc.CoreError): string {
-  if (e.code === "sync") {
-    const said: Partial<Record<ipc.SyncCause, string>> = {
-      offline: t("remote.error.offline"),
-      denied: t("remote.error.denied"),
-      busy: t("remote.error.busy"),
-      limit: t("remote.error.limit"),
-      protocol: t("remote.error.protocol"),
-      invalid: t("remote.error.invalid"),
-    };
-    return said[e.cause] ?? errorText(e);
-  }
-  return errorText(e);
-}
 
 /** Where the remote folder is: the same fields and connection test as the
  *  device-sync form, and nothing else. */
@@ -498,10 +488,19 @@ function RemoteConnect({
   const ready = !!form.origin && !!form.workspace && !!form.token_file;
   return (
     <>
-    <RemoteSignIn
+    <SignIn
       allowPrivate={form.allow_private}
       signedIn={form.token_file.startsWith("keychain:")}
-      onDone={onDone}
+      onPaired={async (paired) => {
+        await useRemote.getState().configure({
+          origin: paired.origin,
+          workspace: paired.workspace,
+          token_file: paired.token_file,
+          allow_private: form.allow_private,
+        });
+        onDone();
+      }}
+      onSignedOut={() => useRemote.getState().configure(null)}
     />
     <fieldset className="remote-connect" disabled={busy}>
       <legend>{t("remote.title")}</legend>
@@ -603,163 +602,5 @@ function RemoteConnect({
       )}
     </fieldset>
     </>
-  );
-}
-
-const SITE_KEY = "tura-site";
-
-/**
- * Signing in to the owner's site to get this device's connection (ADR-105,
- * `docs/PAIRING.md`), instead of typing an address and finding a credential file.
- *
- * The application opens the site in the browser; the person signs in and allows
- * it there; the browser comes back with an address starting `tura://pair`, which
- * is pasted here. The credential goes into the system keychain and is never shown
- * and never returned to this page: what comes back is where to connect, and a
- * `keychain:` name for the credential, which fills the same field a file's path
- * does. The form below stays, for a server that has no site.
- */
-function RemoteSignIn({
-  allowPrivate,
-  signedIn,
-  onDone,
-}: {
-  allowPrivate: boolean;
-  signedIn: boolean;
-  onDone: () => void;
-}) {
-  const [site, setSite] = useState(() => {
-    try {
-      return localStorage.getItem(SITE_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  });
-  const [label, setLabel] = useState(() => t("remote.signin.thisDevice"));
-  const [waiting, setWaiting] = useState(false);
-  const [pasted, setPasted] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function run(work: () => Promise<void>) {
-    setBusy(true);
-    setMessage("");
-    try {
-      await work();
-    } catch (e) {
-      const error = ipc.asCoreError(e);
-      // A code is single-use: whatever went wrong, this sign-in is over and the
-      // next one is a new request.
-      setWaiting(false);
-      setPasted("");
-      setMessage(
-        error.code === "sync" && error.cause === "denied"
-          ? t("remote.signin.denied")
-          : error.code === "sync" && error.cause === "invalid"
-            ? t("remote.signin.invalid")
-            : remoteErrorText(error),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  const start = () =>
-    run(async () => {
-      const url = await ipc.pairBegin(site.trim(), label.trim(), allowPrivate);
-      try {
-        localStorage.setItem(SITE_KEY, site.trim());
-      } catch {
-        /* Only a convenience for next time. */
-      }
-      setWaiting(true);
-      await ipc.shellOpen(url);
-    });
-  const finish = () =>
-    run(async () => {
-      const paired = await ipc.pairFinish(pasted.trim());
-      await useRemote.getState().configure({
-        origin: paired.origin,
-        workspace: paired.workspace,
-        token_file: paired.token_file,
-        allow_private: allowPrivate,
-      });
-      setWaiting(false);
-      setPasted("");
-      setMessage(t("remote.signin.done", { label: paired.label }));
-      onDone();
-    });
-  const signOut = () =>
-    run(async () => {
-      await ipc.pairSignOut();
-      await useRemote.getState().configure(null);
-      setMessage(t("remote.signin.signedOut"));
-    });
-
-  return (
-    <fieldset className="remote-connect" disabled={busy}>
-      <legend>{t("remote.signin.title")}</legend>
-      <p className="muted">{t("remote.signin.explain")}</p>
-      {!waiting ? (
-        <>
-          <label>
-            {t("remote.signin.site")}
-            <input
-              type="url"
-              placeholder="https://example.com"
-              value={site}
-              onChange={(e) => setSite(e.target.value)}
-            />
-          </label>
-          <label>
-            {t("remote.signin.label")}
-            <input value={label} maxLength={80} onChange={(e) => setLabel(e.target.value)} />
-          </label>
-          <div className="device-actions">
-            <button type="button" disabled={!site.trim() || !label.trim()} onClick={() => void start()}>
-              {t("remote.signin.go")}
-            </button>
-            {signedIn && (
-              <button type="button" onClick={() => void signOut()}>
-                {t("remote.signin.out")}
-              </button>
-            )}
-          </div>
-          {signedIn && <p className="muted">{t("remote.signin.outNote")}</p>}
-        </>
-      ) : (
-        <>
-          <p>{t("remote.signin.waiting")}</p>
-          <label>
-            {t("remote.signin.paste")}
-            <input
-              value={pasted}
-              placeholder="tura://pair?code=…&state=…"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(e) => setPasted(e.target.value)}
-            />
-          </label>
-          <div className="device-actions">
-            <button type="button" disabled={!pasted.trim()} onClick={() => void finish()}>
-              {t("remote.signin.finish")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setWaiting(false);
-                setPasted("");
-              }}
-            >
-              {t("remote.cancel")}
-            </button>
-          </div>
-        </>
-      )}
-      {!!message && (
-        <p role="status" aria-live="polite">
-          {message}
-        </p>
-      )}
-    </fieldset>
   );
 }

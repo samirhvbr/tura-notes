@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { DeviceSync, conditions } from "./DeviceSync";
 import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
-vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn(),deviceList:vi.fn(async()=>null),deviceRevoke:vi.fn()}));
+vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn(),deviceList:vi.fn(async()=>null),deviceRevoke:vi.fn(),pairBegin:vi.fn(),pairFinish:vi.fn(),pairSignOut:vi.fn(async()=>{}),shellOpen:vi.fn(async()=>{})}));
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
 const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[],capacity_percent:null};
 const old=useWorkspace.getState();
@@ -230,4 +230,49 @@ it("warns when the server inbox is filling, and only then",async()=>{
   show();
   await waitFor(()=>expect(ipc.deviceStatus).toHaveBeenCalled());
   expect(screen.queryByText(/of what it may keep/)).toBeNull();
+});
+
+// ---- signing in to the site fills the pairing form (ADR-105) -------------------
+
+const signedIn:ipc.Paired={origin:"https://tura.example.com",workspace:"personal",label:"This computer",token_file:"keychain:site"};
+async function signIn(){
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair?x=1");
+  vi.mocked(ipc.pairFinish).mockResolvedValue(signedIn);
+  show();
+  fireEvent.change(screen.getByLabelText("Your site's address"),{target:{value:"https://site.example"}});
+  fireEvent.click(screen.getByRole("button",{name:"Sign in in the browser"}));
+  fireEvent.change(await screen.findByLabelText("Address the browser came back to"),{target:{value:"tura://pair?code=abc&state=xyz"}});
+  fireEvent.click(screen.getByRole("button",{name:"Finish signing in"}));
+  await screen.findByText(/This device is connected/);
+}
+it("signing in fills the server, the workspace and the credential with a keychain name, and touches nothing else",async()=>{
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Local notes folder/}),{target:{value:"/notes"}});
+  cleanup();
+  await signIn();
+  expect(screen.getByRole("textbox",{name:/Credential file/})).toHaveValue("keychain:site");
+  expect(screen.getByLabelText(/Server address/)).toHaveValue("https://tura.example.com");
+  expect(screen.getByLabelText(/^Server workspace$/)).toHaveValue("personal");
+  // The folders are the person's to choose: signing in does not guess them.
+  expect(screen.getByRole("textbox",{name:/Private sync queue folder/})).toHaveValue("");
+  expect(ipc.deviceProbe).not.toHaveBeenCalled();
+  expect(ipc.devicePair).not.toHaveBeenCalled();
+});
+it("the pairing that follows carries the keychain name where the path went",async()=>{
+  await signIn();
+  fireEvent.change(screen.getByRole("textbox",{name:/Local notes folder/}),{target:{value:"/notes"}});
+  fireEvent.change(screen.getByRole("textbox",{name:/Private sync queue folder/}),{target:{value:"/queue"}});
+  fireEvent.click(screen.getByRole("button",{name:"Create pairing and review"}));
+  await waitFor(()=>expect(ipc.devicePair).toHaveBeenCalledWith(expect.objectContaining({token_file:"keychain:site",origin:"https://tura.example.com",workspace:"personal",source:"/notes",state_dir:"/queue"})));
+});
+it("signing out forgets the key on this device and empties a credential field that named it, and only then",async()=>{
+  await signIn();
+  fireEvent.click(screen.getByRole("button",{name:"Sign out of this device"}));
+  await waitFor(()=>expect(ipc.pairSignOut).toHaveBeenCalled());
+  await waitFor(()=>expect(screen.getByRole("textbox",{name:/Credential file/})).toHaveValue(""));
+  cleanup();
+  localStorage.clear();
+  show();
+  fireEvent.change(screen.getByRole("textbox",{name:/Credential file/}),{target:{value:"/private/token"}});
+  expect(screen.queryByRole("button",{name:"Sign out of this device"})).toBeNull();
 });

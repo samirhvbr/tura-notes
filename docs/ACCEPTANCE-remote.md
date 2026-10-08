@@ -37,6 +37,7 @@ open on the desktop. That is this walk.
 | 20 | With the owner's site implementing [PAIRING.md](PAIRING.md): in *Connection*, type the site's address, press **Sign in in the browser**, sign in and allow the device, copy the address the page shows (it starts `tura://pair`) and paste it, then **Finish signing in** | The tree of the server's notes appears; the *Credential file* field reads `keychain:site`; the credential is in the system keychain (look for the entry `cred:site` under `br.com.samirhv.notes`) and is in no file and in no setting; the site's administration screen lists a device with the name you gave | ☐ |
 | 21 | Press **Sign in** again and, on the site, decline | The application says the site did not allow it, and nothing was saved | ☐ |
 | 22 | **Sign out of this device**, then revoke its credential on the site | The tree goes back to the connect form; the keychain entry is gone; before the revoke, the credential still worked from elsewhere, as the note says | ☐ |
+| 23 | In **Device sync** (not the remote folder), press **Sign in in the browser**, allow the device on the site and paste the address | The server, the workspace and the credential fields fill in, the credential reading `keychain:site`; fill in the two folders and **Create pairing and review**: it pairs, with no credential file anywhere | ☐ |
 
 ## Diagnostic evidence from 06/10/2026
 

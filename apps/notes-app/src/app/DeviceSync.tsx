@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { useWorkspace } from "../stores/workspace";
 import { errorText } from "./StatusBar";
 import { DeviceList } from "./DeviceList";
+import { SignIn } from "./SignIn";
 
 /** Network hints are advisory. Unknown power/connection conservatively pauses
  * unless the owner explicitly permits it. Never infer AC power from no API. */
@@ -224,6 +225,12 @@ export function DeviceSync() {
         <button type="button" onClick={()=>setEditing(true)}>{t("device.change")}</button>
       </div>}
       {snapshot?.paired&&snapshot.connection&&!editing&&<DeviceList/>}
+      {(!snapshot?.paired||editing)&&<SignIn
+        allowPrivate={request.allow_private}
+        signedIn={request.token_file.startsWith("keychain:")}
+        onPaired={paired=>setRequest(r=>({...r,origin:paired.origin,workspace:paired.workspace,token_file:paired.token_file}))}
+        onSignedOut={()=>setRequest(r=>r.token_file.startsWith("keychain:")?{...r,token_file:""}:r)}
+      />}
       {(!snapshot?.paired||editing)&&<fieldset disabled={busy}><legend>{t("device.connection")}</legend>
         <div className="device-fields">
           {(["source","state_dir","token_file"] as const).map(key=><label key={key}>{t(`device.${key}`)}<span><input value={request[key]} onChange={e=>setRequest({...request,[key]:e.target.value})}/><button type="button" onClick={()=>void pick(key)} aria-label={t("device.chooseField",{field:t(`device.${key}`)})}>{t("device.choose")}</button></span></label>)}
