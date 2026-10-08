@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.30 - lucide-react 1.49.0 to 1.50.0 (Dependabot #44)
+
+The icon library gains an icon and changes two (nut, nut-off) and fixes attribute escaping in its SVG builder, a function this application does not call; it imports its icons by name. The exact version the pull request named is installed. The icons the interface uses are unchanged, the front end builds and its tests pass, and the notice file, which names the version, is regenerated.
+
 ## 1.10.29 - vite 8.3.1 to 8.3.2 (Dependabot #41)
 
 A patch release of the build tool: bug fixes in the CSS preload when a build returns URLs with queries, in the file watcher and in dependency optimisation, plus its own bundled dependencies. The exact version the pull request named is installed, not the newest the range would allow (8.3.4 exists), because that is the one that pull request's checks ran on. The front end builds and its tests pass, and the notice file, which names vite's version, is regenerated; that stale notice was the only reason the pull request's contracts job was red.
