@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.33 - tauri-plugin-dialog 2.7.3 to 2.8.1, Rust and JavaScript together (Dependabot #42 and #43)
+
+The file dialog the application uses to pick a folder, a credential file and a PDF, in both halves that have to stay on the same version. The sources of the two releases were compared rather than their notes read. The Rust crate is the move to edition 2024 and its formatting, with the dependency on tauri raised to 2.12, which the application has; no permission, no function and no behaviour differs, and the capability file still grants `dialog:allow-open` and nothing else. The JavaScript package is documentation and types, the one substantive change being that the return type of `open` is derived from its options, which the front end's type check covers in the three places it is called. The dialog crate pulls its filesystem sibling along, `tauri-plugin-fs` 2.5.2 to 2.6.0, which is the one place the word could alarm in this project, so it was compared too: the same edition-2024 rewrite and `io::Error::other` in place of the longer spelling, no permission file changed, and the application neither registers that plugin (it initialises the dialog, the shell and the updater) nor grants any `fs:` permission, which the gate checks. The exact versions the pull requests named are installed, and the notice file is regenerated.
+
 ## 1.10.32 - jsdom 30.1.0 to 30.1.1 (Dependabot #47)
 
 The DOM the front-end tests run in, a development dependency that ships nothing. Its release notes are a list of fixes to focus and blur ordering (the 30.1.0 regression of spurious blur and focusout events when the focused element is removed), CSS importance handling, XML serialisation and selector matching. Focus order is what the editor, dialog and menu tests lean on, so the whole front-end suite was the check, and it passes on the exact version the pull request named. The notice file does not change, since it names no development dependency, which is also why this pull request was green when its siblings were not.
