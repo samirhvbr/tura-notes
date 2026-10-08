@@ -33,7 +33,7 @@ makes mandatory for a public repository on `cicd`.
 ```sh
 # 1. Build the image. The checksum is the runner release's own (v2.337.0).
 cd tools/ci-runner
-docker build --build-arg RUNNER_SHA256=70920811a4f8ad4328818682ca5c6469c1c942fab52448868071d0063816613 -t tura-ci-runner:1 .
+docker build --build-arg RUNNER_SHA256=70920811a4f8ad4328818682bca5c6469c1c942fab52448868071d0063816613 -t tura-ci-runner:2 .
 
 # 2. A registration token (valid for an hour), from a machine logged into gh as
 #    someone who administers the repository. It goes into a file only the owner of
@@ -51,7 +51,7 @@ for n in 1 2; do
     --env-file /srv/runners/ci/reg.env \
     -e REPO_URL=https://github.com/samirhvbr/tura-notes \
     -e RUNNER_NAME=cicd-tura-$n -e RUNNER_LABELS=shvia-ci \
-    -v tura-ci-$n:/home/runner/r tura-ci-runner:1
+    -v tura-ci-$n:/home/runner/r tura-ci-runner:2
 done
 shred -u /srv/runners/ci/reg.env
 ```

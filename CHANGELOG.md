@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.40 - the CI runner image has ssh, file and zip, which the packaging tests call
+
+The first full run on the owner's CI server (08/10) passed every job that runs there but one. `contracts` failed in `test_build_linux.py`: the test puts a fake `ssh` first on the path and runs `build-linux.sh --publish` against it, and the script also calls `scp`, which the image did not have and GitHub's hosted image does. A second look at what else the hosted image has that the packaging tests call turned up `file` and `zip`, so they come too. The image is rebuilt as `tura-ci-runner:2` and the two runners were moved onto it with their volumes, which keep the registration: nothing was registered again, and the containers no longer carry the one-time registration token in their environment, which the first start had left there (it was spent and expired within the hour, but a variable that names a secret is better absent).
+
+The README had the runner release's checksum with one character missing, so the documented `docker build` could never have passed its own check; the image itself was built with the right value. The README is corrected, and the document now says `:2`. Nothing in the jobs changed, and the variable that sends them to the runner is still not set: that waits for a whole run to pass on the new image.
+
 ## 1.10.39 - Device sync has the sign-in with the site, from the same component as the remote folder
 
 The sign-in section of the remote folder's panel is lifted out into one component and used by both panels, which differ only in what they do with the answer. The component opens the site, takes the address the browser comes back to, finishes the sign-in and hands the `Paired` it received to the panel; the remote folder configures its connection from it, as before, and Device sync puts the server, the workspace and the `keychain:site` name into the fields of its pairing form and touches nothing else, because the folders to synchronise are the person's to choose and a sign-in has no business guessing them. Signing out forgets the key on the device and empties a credential field only if it named a keychain entry, never one holding a file's path.

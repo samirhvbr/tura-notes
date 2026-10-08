@@ -16,13 +16,17 @@ ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
 
 # What the jobs use and would otherwise install on every run: a C toolchain, the
 # Tauri system libraries (so `apt-get install` in the rust job finds them there
-# and does nothing), git, python and the tools `contracts` calls.
+# and does nothing), git, python and the tools `contracts` calls. `openssh-client`
+# is one of them: the Linux packaging tests run `build-linux.sh --publish` against a
+# fake `ssh` and need the real `scp` to exist (the hosted image has both), which is
+# the one thing the first trial of this image failed on.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl git sudo jq unzip xz-utils zstd tar gnupg \
       build-essential pkg-config libssl-dev \
       libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
       python3 python3-pip python3-venv python3-yaml \
       util-linux mount kmod procps \
+      openssh-client file zip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1001 -s /bin/bash runner \
