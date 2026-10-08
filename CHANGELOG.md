@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.31 - @codemirror/state 6.7.5 to 6.7.6 (Dependabot #45)
+
+A patch release of the editor's state package, the one the selection, the undo history
+and the transactions of this application's editor are built on, so it was read before it
+was taken. Its whole entry is one fix: cursors produced by `changeByRange` are now
+associated with the text they inserted. This application never calls it, but the commands
+it takes from `@codemirror/commands` do, six times (deleting, splitting a line,
+transposing characters, newline with indentation, and the line-wise commands), so that is
+where it could show. The editor tests pass, as do the ones that dispatch the assistant's
+edits as one undoable transaction and swap a remote note's text while keeping the cursor. The exact
+version the pull request named is installed, and the notice file is regenerated.
+
 ## 1.10.30 - lucide-react 1.49.0 to 1.50.0 (Dependabot #44)
 
 The icon library gains an icon and changes two (nut, nut-off) and fixes attribute escaping in its SVG builder, a function this application does not call; it imports its icons by name. The exact version the pull request named is installed. The icons the interface uses are unchanged, the front end builds and its tests pass, and the notice file, which names the version, is regenerated.
