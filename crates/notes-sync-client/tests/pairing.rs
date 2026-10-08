@@ -409,3 +409,71 @@ fn a_good_credential_is_not_overwritten_by_a_sign_in_that_fails() {
     assert!(pending.finish(&redirect, "keep").is_err());
     assert_eq!(store.get("keep").unwrap().as_deref(), Some(SECRET));
 }
+
+// ---- Device sync pairing takes the same reference (ADR-105) -------------------
+
+fn pair_request(
+    dir: &std::path::Path,
+    token_file: &str,
+    origin: &str,
+) -> notes_sync_client::control::SyncPairRequest {
+    let (source, state) = (dir.join("notes"), dir.join("state"));
+    std::fs::create_dir_all(&source).unwrap();
+    notes_sync_client::control::SyncPairRequest {
+        state_dir: state.to_string_lossy().into_owned(),
+        source: source.to_string_lossy().into_owned(),
+        origin: origin.into(),
+        workspace: "personal".into(),
+        scope: None,
+        token_file: token_file.into(),
+        allow_private: true,
+        mode: "upload".into(),
+    }
+}
+
+/// Before the fix, `Controller::pair` asked `validate_state_location` whether the
+/// credential's *path* was outside the synchronized folder, and a keychain name is
+/// not a path, so every sign-in that ended in Device sync was refused as `Invalid`
+/// before a single request was made, while `validate_connection` (the saved
+/// connection) accepted the same name. The credential is in no folder at all.
+#[test]
+fn device_sync_pairing_accepts_a_credential_in_the_keychain() {
+    let store = keychain();
+    let dir = tempfile::tempdir().unwrap();
+    let controller = notes_sync_client::control::Controller::new(&dir.path().join("data"));
+
+    // Nothing under that name: the pairing gets as far as reading the credential,
+    // and says what it says for a missing credential file, which is "denied".
+    let missing = pair_request(dir.path(), "keychain:nobody", "http://127.0.0.1:9");
+    assert!(
+        matches!(controller.pair(missing), Err(Error::Denied)),
+        "a reference must reach the connection step"
+    );
+
+    // A credential kept there, and nothing listening: it is read and used, and the
+    // answer is the network's.
+    store.set("devsync", SECRET).unwrap();
+    let kept = pair_request(dir.path(), "keychain:devsync", "http://127.0.0.1:9");
+    assert!(matches!(controller.pair(kept), Err(Error::Offline)));
+}
+
+#[test]
+fn device_sync_pairing_still_refuses_what_it_always_refused() {
+    keychain();
+    let dir = tempfile::tempdir().unwrap();
+    let controller = notes_sync_client::control::Controller::new(&dir.path().join("data"));
+    // A relative path, a name that is not a token, and a credential file inside the
+    // synchronized folder are all still invalid.
+    for token in ["token.txt", "keychain:a/b", "keychain:", ""] {
+        let request = pair_request(dir.path(), token, "http://127.0.0.1:9");
+        assert!(
+            matches!(controller.pair(request), Err(Error::Invalid)),
+            "{token:?}"
+        );
+    }
+    let inside = dir.path().join("notes").join("nt.secret");
+    std::fs::create_dir_all(inside.parent().unwrap()).unwrap();
+    std::fs::write(&inside, SECRET).unwrap();
+    let request = pair_request(dir.path(), &inside.to_string_lossy(), "http://127.0.0.1:9");
+    assert!(matches!(controller.pair(request), Err(Error::Invalid)));
+}

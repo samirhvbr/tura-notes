@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.38 - Device sync pairing accepts a credential kept in the keychain, which it refused before a request was made
+
+The desktop half of signing in to the owner's site (1.10.24) keeps the credential in the system keychain and hands the application a `keychain:site` name to put where a credential file's path goes. The remote folder and the saved Device sync connection accepted that name from the start. The Device sync pairing did not: `Controller::pair` asked `validate_state_location` whether the credential's path was outside the synchronised folder, a keychain name is not a path, and the question failed on it, so a person who signed in and then paired a folder was told the connection was invalid before anything had been sent. Nothing exercised that path, which is how it was written to be correct for files only and stayed that way for a month; it was found by reading the call sites while planning the Device sync sign-in, not by a failure.
+
+A name in the keychain is now checked as a name, by the same function the saved connection uses, and a path as a path as before: a credential file inside the folder being synchronised, a relative path, a name with a slash and an empty one are all still refused. The test was written first and failed on the first assertion with `Invalid`. It drives the real controller: a name nobody stored reaches the point of reading the credential and is denied, one that was stored is read and used, and with nothing listening the answer is the network's. The saved-connection check and the probe already handled the reference and are untouched.
+
 ## 1.10.37 - the Linux jobs read the fleet's runner switch, CI_RUNNER, and the runner carries its label
 
 When 1.10.20 made the Linux jobs movable to the owner's CI server it invented the switch:

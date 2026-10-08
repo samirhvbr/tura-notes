@@ -487,11 +487,20 @@ impl Controller {
         if !["upload", "download", "reconcile"].contains(&r.mode.as_str()) {
             return Err(Error::Invalid);
         }
-        notes_core::sync::validate_state_location(
-            &[Path::new(&r.source)],
-            Path::new(&r.token_file),
-        )
-        .map_err(|_| Error::Invalid)?;
+        // A credential in the keychain is on no disk, so there is no path to keep
+        // out of the synchronized folder; a name that is not a valid one is not a
+        // path either, and `credential_name` is what refuses it. A reference that
+        // `credential_name` rejects must fall to the path check, which refuses it
+        // as relative, and not slip past both.
+        if crate::remote::is_credential_ref(&r.token_file) {
+            crate::remote::credential_name(&r.token_file).ok_or(Error::Invalid)?;
+        } else {
+            notes_core::sync::validate_state_location(
+                &[Path::new(&r.source)],
+                Path::new(&r.token_file),
+            )
+            .map_err(|_| Error::Invalid)?;
+        }
         let endpoint = Endpoint {
             origin: r.origin,
             name: r.workspace,
