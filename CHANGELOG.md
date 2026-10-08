@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.35 - tauri 2.12.0 to 2.12.1 (Dependabot #48)
+
+A patch release of the framework. The sources of the two releases were compared: the
+only change outside the version strings is that the `transparent` builder methods of the
+webview and window builders stop being compiled out on macOS when the private-API feature
+is off, a build compatibility fix for a method this application does not call (it opens
+opaque windows). No permission file changed.
+
+What the lockfile does is wider than the one crate, and it is only visible by comparing
+the package lists and not from the summary cargo prints: updating `tauri` also reseats
+twelve Windows-facing crates (`errno`, `rustix`, `socket2`, `tempfile`, `os_pipe`,
+`winapi-util`, `dirs-sys`, `uds_windows`, `rustls-platform-verifier`, `muda`, `tray-icon`
+and `window-vibrancy`) from `windows-sys` 0.60.2 to 0.61.2, both of which were already in
+the tree. That affects only the Windows build, which a patch push does not run (ADR-103),
+so it is not covered by this push's CI; the first full run that does cover it is
+requested by hand right after the Rust bumps of this round have landed, and the nightly
+and the 1.11.0 minor repeat it. The exact version the pull request named is installed, and
+the notice file is regenerated.
+
 ## 1.10.34 - tauri-plugin-shell 2.3.6 to 2.4.0 (Dependabot #46)
 
 The plugin the application opens links in the system browser through, which makes it the one place an injected link could reach a shell, so the sources of both releases were compared and not only the notes read. Nothing that decides what `open` accepts moved: the validation expression (`mailto:`, `tel:` and http or https), the scope code and the permission files are identical, and the only edits are the move to edition 2024, formatting, and an `allow(deprecated)` on a use of the `open` API that the plugin has marked deprecated in favour of its opener sibling since 2.1.0. The application's own `shell_open` command, which checks the scheme again in Rust before it calls the plugin, and the capability, which scopes `shell:allow-open` to http and https, are unchanged. The dependency on tauri rises to 2.12, which the application has. The exact version the pull request named is installed, and the notice file is regenerated.
