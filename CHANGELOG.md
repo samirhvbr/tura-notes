@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.32 - jsdom 30.1.0 to 30.1.1 (Dependabot #47)
+
+The DOM the front-end tests run in, a development dependency that ships nothing. Its release notes are a list of fixes to focus and blur ordering (the 30.1.0 regression of spurious blur and focusout events when the focused element is removed), CSS importance handling, XML serialisation and selector matching. Focus order is what the editor, dialog and menu tests lean on, so the whole front-end suite was the check, and it passes on the exact version the pull request named. The notice file does not change, since it names no development dependency, which is also why this pull request was green when its siblings were not.
+
 ## 1.10.31 - @codemirror/state 6.7.5 to 6.7.6 (Dependabot #45)
 
 A patch release of the editor's state package, the one the selection, the undo history
