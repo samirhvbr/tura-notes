@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.28 - the server image builds on rust 1.99.0 (Dependabot #40)
+
+The Rust toolchain image the server is built in moves from 1.98.1 to 1.99.0, on the digest the pull request pinned. The tag has been published again since the pull request was opened (it resolves to another digest today); both digests exist in the registry and carry the platform the build uses, and the one kept is the one the pull request's own run built the server container with, which is the only evidence of a build that exists. Dependabot will propose the newer digest when it next looks. The final image is the Debian slim one and is not changed.
+
 ## 1.10.27 - the queue index is re-measured: one row retired, two corrected, one added
 
 The status line of `.continue/README.md` says every row below it was checked against
