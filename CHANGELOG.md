@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.10.29 - vite 8.3.1 to 8.3.2 (Dependabot #41)
+
+A patch release of the build tool: bug fixes in the CSS preload when a build returns URLs with queries, in the file watcher and in dependency optimisation, plus its own bundled dependencies. The exact version the pull request named is installed, not the newest the range would allow (8.3.4 exists), because that is the one that pull request's checks ran on. The front end builds and its tests pass, and the notice file, which names vite's version, is regenerated; that stale notice was the only reason the pull request's contracts job was red.
+
 ## 1.10.28 - the server image builds on rust 1.99.0 (Dependabot #40)
 
 The Rust toolchain image the server is built in moves from 1.98.1 to 1.99.0, on the digest the pull request pinned. The tag has been published again since the pull request was opened (it resolves to another digest today); both digests exist in the registry and carry the platform the build uses, and the one kept is the one the pull request's own run built the server container with, which is the only evidence of a build that exists. Dependabot will propose the newer digest when it next looks. The final image is the Debian slim one and is not changed.
