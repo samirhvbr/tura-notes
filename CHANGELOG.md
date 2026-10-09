@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.3 - jsdom 30.1.1 to 30.1.2 (Dependabot #47)
+
+jsdom is the DOM the front end's tests run in, a development dependency that is not in the application. The release fixes severe slowdowns when building large DOM trees, which regressed in 30.1.0, computed styles after stylesheet and form-control changes, and updates internationalized domain names to Unicode 18. It raises the ranges of several of its own dependencies (undici, data-urls, whatwg-url, lru-cache, @exodus/bytes and two of the @asamuzakjp packages) and adds none and no install script. The exact version the pull request named is installed, the 342 front-end tests pass under it, and the notice file is regenerated.
+
 ## 1.11.2 - the test that a stop before anything arrives ends the wait no longer fails on a slow container
 
 On the push of 1.10.38 the Arch job failed once in `a_stop_pressed_before_anything_arrives_ends_the_wait`: it asserts that a call whose stop was already pressed returns in under two seconds, and on that run it did not. The test is about a hang, not about speed: the server in it answers at once, so there is nothing to wait for, and a real hang would last the read timeout, which is far longer than any bound here. The rerun of the same commit passed. I could not make it fail here, 0 in 40 runs idle and 0 in 40 with eight busy loops competing for the cores, so what is known is that the bound was tight for a cold process on a loaded hosted container and not why it took that long on that run. The bound is now ten seconds and the assertion prints the time it took, so if it ever fails again the number says whether it was slow or stuck. The sibling test, which does measure a wait (a provider quiet for two seconds, stop in under one and a half), is unchanged and has not failed.
