@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.2 - the test that a stop before anything arrives ends the wait no longer fails on a slow container
+
+On the push of 1.10.38 the Arch job failed once in `a_stop_pressed_before_anything_arrives_ends_the_wait`: it asserts that a call whose stop was already pressed returns in under two seconds, and on that run it did not. The test is about a hang, not about speed: the server in it answers at once, so there is nothing to wait for, and a real hang would last the read timeout, which is far longer than any bound here. The rerun of the same commit passed. I could not make it fail here, 0 in 40 runs idle and 0 in 40 with eight busy loops competing for the cores, so what is known is that the bound was tight for a cold process on a loaded hosted container and not why it took that long on that run. The bound is now ten seconds and the assertion prints the time it took, so if it ever fails again the number says whether it was slow or stuck. The sibling test, which does measure a wait (a provider quiet for two seconds, stop in under one and a half), is unchanged and has not failed.
+
 ## 1.11.1 - the apt steps of the CI are bounded and retried, after one hung for six hours
 
 On the push of 1.10.35 the `server HTTPS container` job sat on the step that installs `minisign` until the job's six-hour limit cancelled it, with every later step skipped; the same step had hung once before, in the 1.10.30 run, which a rerun cleared. Both times the apt call on the hosted image simply never returned. The delivery of every version waits for its CI, so one stuck step held the whole chain for the night. That step and the one that installs the webkit libraries for the Rust job now have a step limit, and each apt call has its own `timeout` and is tried up to three times before the step fails. A real failure still fails the step, after three attempts instead of one, and nothing else in the job changed.

@@ -285,7 +285,15 @@ fn a_stop_pressed_before_anything_arrives_ends_the_wait() {
     let started = Instant::now();
     let result = provider(&base).stream(&request(), &AtomicBool::new(true), &mut |_| {});
     assert!(matches!(result, Err(Error::Cancelled)));
-    assert!(started.elapsed() < Duration::from_secs(2));
+    // Only a hang matters here: the server answers at once, so nothing is being
+    // waited for. Two seconds failed once on a loaded hosted container (the first
+    // connection of a cold process), and a hang would take the read timeout, far
+    // longer than this.
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "waited: {:?}",
+        started.elapsed()
+    );
     let _ = server.join();
 }
 
