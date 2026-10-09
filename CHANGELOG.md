@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.4 - lucide-react 1.50.0 to 1.52.0 (Dependabot #44)
+
+The icon library adds icons (rugby-ball among them) and changes the wifi-cog icon, and moves its own build to vite 8, which does not reach this application: it imports its icons by name from the published package. Its dependency ranges are unchanged and it has no install script. The exact version the pull request named is installed, the icons the interface uses are unchanged, the front end builds and its tests pass, and the notice file, which names the version, is regenerated.
+
 ## 1.11.3 - jsdom 30.1.1 to 30.1.2 (Dependabot #47)
 
 jsdom is the DOM the front end's tests run in, a development dependency that is not in the application. The release fixes severe slowdowns when building large DOM trees, which regressed in 30.1.0, computed styles after stylesheet and form-control changes, and updates internationalized domain names to Unicode 18. It raises the ranges of several of its own dependencies (undici, data-urls, whatwg-url, lru-cache, @exodus/bytes and two of the @asamuzakjp packages) and adds none and no install script. The exact version the pull request named is installed, the 342 front-end tests pass under it, and the notice file is regenerated.
