@@ -29,6 +29,13 @@ Confirmed today: `server/cotenant/notes-server.pub` does not exist yet.
 > page an agent reads to decide what is the owner's. **What recurs is the
 > per-release step below, once per minor: the next one to sign is `1.8.0`.**
 
+> **09/10/2026 — `1.11.0` is signed and is the version the next deploy installs.**
+> The owner authorised it in the session of 08/10; `notes-server-1.11.0-x86_64-linux.tar.gz.minisig`
+> was read back from the Release and verified against `server/cotenant/notes-server.pub`
+> after a fresh download, together with the checksum. The deploy derives the target from
+> the repository's `version.md` (now `1.11.x`), so `bash deploy.sh` installs it. The next
+> one to sign is `1.12.0`.
+
 > **28/09/2026 — the key was replaced ([ADR-098](decisions.md#adr-098--the-server-signing-key-was-replaced-and-the-new-private-half-lives-on-the-linux-desktop)).**
 > The private half that signed `1.7.0` was not on the Linux desktop, so the owner
 > chose a new pair there: `~/.config/tura-notes/notes-server.key`, without a

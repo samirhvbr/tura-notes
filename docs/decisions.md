@@ -3396,7 +3396,7 @@ crate (MIT or Apache-2.0) to `notes-core`.
 
 ## ADR-103 — macOS and Windows run on a minor and every night; the Linux jobs run on every push
 
-**Status:** `ACCEPTED` · 05/10/2026, the owner's choice among three options (“Runner Linux + macOS/Windows só por minor”) · built in 1.10.19
+**Status:** `ACCEPTED` · 05/10/2026, the owner's choice among three options (“Runner Linux + macOS/Windows só por minor”) · built in 1.10.19 · **the runner exists since 08/10/2026**: two containers on the owner's CI server registered on the owner's word (`cicd-tura-1`, `cicd-tura-2`, label `shvia-ci`), the switch aligned to the fleet norm (`vars.CI_RUNNER`, 1.10.37) and set at repository scope on 09/10 after a whole run passed there. Measured: the Linux Rust job takes about 12 minutes there against about 4 on the hosted image, so what this buys is the hosted minutes, not time
 
 **Context.** Every push ran fourteen jobs on GitHub's hosted machines, and the owner
 found the GitHub limits too low to keep doing that for a loop that pushes a version

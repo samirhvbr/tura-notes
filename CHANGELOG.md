@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.5 - the documents say the 1.11.0 server is signed, the runner exists, and the site's routes are a pull request
+
+Three statements had stopped being true in the last two days and sat in the documents that an agent reads to decide what is the owner's. OWNER-ACTS said the next server to sign was 1.8.0 and then 1.9.0, and now says 1.11.0 is signed (read back from the Release after a fresh download, checksum and `.minisig` against the committed public key) and is what the next deploy installs, because the deploy takes its target from the repository's `version.md`. ADR-103 said nothing about the runner existing: it now records the registration of 08/10, the switch set at repository scope on 09/10, and the measurement that the Linux Rust job takes about twelve minutes on the server against about four on the hosted image, so the runner saves GitHub's minutes and not the clock. PAIRING.md said the site's three routes were not built; they are written and open as a pull request on the site's repository, not merged. The queue gets the closing lines of the round.
+
 ## 1.11.4 - lucide-react 1.50.0 to 1.52.0 (Dependabot #44)
 
 The icon library adds icons (rugby-ball among them) and changes the wifi-cog icon, and moves its own build to vite 8, which does not reach this application: it imports its icons by name from the published package. Its dependency ranges are unchanged and it has no install script. The exact version the pull request named is installed, the icons the interface uses are unchanged, the front end builds and its tests pass, and the notice file, which names the version, is regenerated.
