@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.1 - the apt steps of the CI are bounded and retried, after one hung for six hours
+
+On the push of 1.10.35 the `server HTTPS container` job sat on the step that installs `minisign` until the job's six-hour limit cancelled it, with every later step skipped; the same step had hung once before, in the 1.10.30 run, which a rerun cleared. Both times the apt call on the hosted image simply never returned. The delivery of every version waits for its CI, so one stuck step held the whole chain for the night. That step and the one that installs the webkit libraries for the Rust job now have a step limit, and each apt call has its own `timeout` and is tried up to three times before the step fails. A real failure still fails the step, after three attempts instead of one, and nothing else in the job changed.
+
 ## 1.11.0 - a folder made in the remote tree is made on the server when the server can hold it
 
 With the server able to make and list folders (the entry below), the application uses it. `RemoteNotes::tree()` returns the notes and, when the first detailed page carries the key, the folders; `list()` is unchanged for its callers. `create_folder()` posts the path relative to the scope, as every note call does. The `remote_list` command now answers a `RemoteTree` (the marked notes, the folders, whether the server lists folders, whether the list was cut) and `remote_create_folder` is new; both are in the generated types.
