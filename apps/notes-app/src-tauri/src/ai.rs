@@ -19,11 +19,11 @@
 use crate::commands::App;
 use notes_ai::{
     AnthropicProvider, ApiKey, Error as AiFailure, KeyStore, KeychainError, OpenAiProvider,
-    Provider, SystemKeychain,
+    Provider, ShviaProvider, SystemKeychain,
 };
 use notes_core::assistant::{
-    AiError, AiErrorCode, AiKeychainState, AiModel, AiOverview, AiProviderInput, AiProviderView,
-    AiTest,
+    AiCatalog, AiCatalogModel, AiError, AiErrorCode, AiInfra, AiKeychainState, AiModel, AiOverview,
+    AiProviderInput, AiProviderView, AiTest,
 };
 use notes_core::settings::{AiProviderKind, AiProviderSettings, AiSettings};
 use notes_core::Settings;
@@ -96,8 +96,15 @@ fn clean_name(name: &str) -> Result<String, AiError> {
 
 /// A model id as every provider here writes one: `claude-opus-5-5`,
 /// `gpt-4o-mini`, `llama3.1:8b`, `anthropic/claude-opus-4`.
-fn clean_model(model: &str) -> Result<String, AiError> {
+///
+/// A SHVIA provider may be saved with none: its model is picked from the
+/// gateway's catalogue, which can only be asked once the provider and its key
+/// exist. A chat with no model is refused before anything is sent.
+fn clean_model(kind: AiProviderKind, model: &str) -> Result<String, AiError> {
     let model = model.trim();
+    if model.is_empty() && kind == AiProviderKind::Shvia {
+        return Ok(String::new());
+    }
     let valid = !model.is_empty()
         && model.len() <= 100
         && model.bytes().all(|b| {
@@ -111,12 +118,14 @@ fn clean_model(model: &str) -> Result<String, AiError> {
 }
 
 /// The base URL as it will be stored: checked by the same rules the client
-/// enforces, and without a trailing slash. An Anthropic provider may leave it
-/// empty for the official API; the others must name a server.
+/// enforces, and without a trailing slash. An Anthropic or a SHVIA provider may
+/// leave it empty for the official address; the others must name a server. A
+/// SHVIA address is the gateway alone, with no path: the routes are its own.
 fn clean_base(kind: AiProviderKind, base: &str) -> Result<String, AiError> {
     let base = base.trim();
     let base = match (base.is_empty(), kind) {
         (true, AiProviderKind::Anthropic) => AnthropicProvider::DEFAULT_BASE,
+        (true, AiProviderKind::Shvia) => ShviaProvider::DEFAULT_ORIGIN,
         (true, AiProviderKind::OpenAiCompatible) => {
             return Err(AiError::with(
                 AiErrorCode::InvalidEndpoint,
@@ -125,9 +134,14 @@ fn clean_base(kind: AiProviderKind, base: &str) -> Result<String, AiError> {
         }
         (false, _) => base,
     };
-    notes_ai::validate_base(base)
-        .map(|url| url.as_str().trim_end_matches('/').to_owned())
-        .map_err(provider_error)
+    let url = notes_ai::validate_base(base).map_err(provider_error)?;
+    if kind == AiProviderKind::Shvia && url.path() != "/" {
+        return Err(AiError::with(
+            AiErrorCode::InvalidEndpoint,
+            "the SHVIA address has no path",
+        ));
+    }
+    Ok(url.as_str().trim_end_matches('/').to_owned())
 }
 
 pub(crate) fn position(ai: &AiSettings, id: &str) -> Result<usize, AiError> {
@@ -144,7 +158,7 @@ pub(crate) fn save_provider(
 ) -> Result<String, AiError> {
     let name = clean_name(&input.name)?;
     let base_url = clean_base(input.kind, &input.base_url)?;
-    let model = clean_model(&input.model)?;
+    let model = clean_model(input.kind, &input.model)?;
     let id = match &input.id {
         Some(id) => {
             position(ai, id)?;
@@ -245,6 +259,58 @@ pub(crate) fn build(
         AiProviderKind::OpenAiCompatible => {
             Box::new(OpenAiProvider::new(&config.base_url, key).map_err(provider_error)?)
         }
+        AiProviderKind::Shvia => Box::new(shvia(config, key)?),
+    })
+}
+
+/// The SHVIA client: a key is required, because the gateway answers nothing
+/// without one.
+fn shvia(config: &AiProviderSettings, key: Option<ApiKey>) -> Result<ShviaProvider, AiError> {
+    let key = key.ok_or_else(|| AiError::new(AiErrorCode::NoKey))?;
+    ShviaProvider::new(&config.base_url, key).map_err(provider_error)
+}
+
+/// The infrastructures and models of a SHVIA provider, for the two selectors
+/// the screen shows. Opens a connection, so it is refused while the assistant is
+/// off, and a provider of another kind has no such catalogue.
+pub(crate) fn catalog(
+    ai: &AiSettings,
+    id: &str,
+    store: &dyn KeyStore,
+) -> Result<AiCatalog, AiError> {
+    if !ai.enabled {
+        return Err(AiError::new(AiErrorCode::Disabled));
+    }
+    let config = &ai.providers[position(ai, id)?];
+    if config.kind != AiProviderKind::Shvia {
+        return Err(AiError::with(
+            AiErrorCode::InvalidRequest,
+            "this provider has no catalogue",
+        ));
+    }
+    let key = store.get(id).map_err(keychain_error)?;
+    let found = shvia(config, key)?.catalog().map_err(provider_error)?;
+    Ok(AiCatalog {
+        default_infra: found.default_infra,
+        infras: found
+            .infras
+            .into_iter()
+            .map(|i| AiInfra {
+                key: i.key,
+                label: i.label,
+                driver: i.driver,
+                online: i.online,
+                models: i
+                    .models
+                    .into_iter()
+                    .map(|m| AiCatalogModel {
+                        name: m.name,
+                        model: m.model,
+                        parameter_size: m.parameter_size,
+                    })
+                    .collect(),
+            })
+            .collect(),
     })
 }
 
@@ -369,6 +435,14 @@ pub async fn ai_key_clear(app: State<'_, App>, id: String) -> Result<AiOverview,
 pub async fn ai_test(app: State<'_, App>, id: String) -> Result<AiTest, AiError> {
     let ai = read_ai(&app)?;
     blocking(move || build(&ai, &id, &SystemKeychain).and_then(|p| test(p.as_ref()))).await?
+}
+
+/// The infrastructures and models a SHVIA provider's key can use. Needs the
+/// assistant switched on, like every call that opens a connection.
+#[tauri::command]
+pub async fn ai_shvia_catalog(app: State<'_, App>, id: String) -> Result<AiCatalog, AiError> {
+    let ai = read_ai(&app)?;
+    blocking(move || catalog(&ai, &id, &SystemKeychain)).await?
 }
 
 #[cfg(test)]
@@ -724,5 +798,87 @@ mod tests {
         );
         assert_eq!(kept.ai, current.ai);
         assert!(!kept.ai.enabled && kept.ai.providers.len() == 1);
+    }
+
+    fn shvia_input(base: &str, model: &str) -> AiProviderInput {
+        input(AiProviderKind::Shvia, "SHVIA", base, model)
+    }
+
+    #[test]
+    fn a_shvia_address_may_be_left_empty_for_the_official_one_and_is_the_gateway_alone() {
+        let mut ai = AiSettings::default();
+        // The model is picked from the catalogue once the key exists, so a SHVIA
+        // provider may be saved without one; no other kind may.
+        let blank = save_provider(&mut ai, shvia_input("", "")).unwrap();
+        assert_eq!(ai.providers[0].model, "");
+        assert_eq!(
+            code(save_provider(
+                &mut ai,
+                input(AiProviderKind::Anthropic, "n", "", "")
+            )),
+            AiErrorCode::InvalidModel
+        );
+        remove_provider(&mut ai, &blank, &MemoryKeyStore::default()).unwrap();
+        let a = save_provider(&mut ai, shvia_input("", "anna-blue3@gpu1")).unwrap();
+        assert_eq!(ai.providers[0].base_url, "https://ai.shvia.org");
+        assert_eq!(ai.providers[0].model, "anna-blue3@gpu1");
+        let b = save_provider(&mut ai, shvia_input(" https://ai.shvia.org/ ", "m")).unwrap();
+        assert_eq!(
+            ai.providers[position(&ai, &b).unwrap()].base_url,
+            "https://ai.shvia.org"
+        );
+        assert_ne!(a, b);
+        for bad in [
+            "https://ai.shvia.org/v1",
+            "https://ai.shvia.org/api/v1",
+            "http://example.org",
+            "https://u:p@ai.shvia.org",
+            "https://ai.shvia.org/?k=1",
+        ] {
+            assert_eq!(
+                code(save_provider(&mut ai, shvia_input(bad, "m"))),
+                AiErrorCode::InvalidEndpoint,
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_shvia_provider_needs_a_key_even_where_a_local_server_would_not() {
+        let mut ai = AiSettings {
+            enabled: true,
+            ..AiSettings::default()
+        };
+        let s = save_provider(&mut ai, shvia_input("", "m@x")).unwrap();
+        let empty = MemoryKeyStore::default();
+        assert_eq!(code(build(&ai, &s, &empty)), AiErrorCode::NoKey);
+        assert_eq!(
+            code(build(&ai, &s, &MemoryKeyStore::unavailable())),
+            AiErrorCode::KeychainUnavailable
+        );
+        set_key(&ai, &s, "shvia_usr_7_0123456789abcdef", &empty).unwrap();
+        assert!(build(&ai, &s, &empty).is_ok());
+        ai.enabled = false;
+        assert_eq!(code(build(&ai, &s, &empty)), AiErrorCode::Disabled);
+    }
+
+    #[test]
+    fn the_catalogue_is_asked_only_of_a_shvia_provider_with_the_assistant_on_and_a_key() {
+        let mut ai = AiSettings::default();
+        let s = save_provider(&mut ai, shvia_input("", "m@x")).unwrap();
+        let o = save_provider(&mut ai, ollama()).unwrap();
+        let store = MemoryKeyStore::default();
+        assert_eq!(code(catalog(&ai, &s, &store)), AiErrorCode::Disabled);
+        ai.enabled = true;
+        assert_eq!(
+            code(catalog(&ai, "nope", &store)),
+            AiErrorCode::UnknownProvider
+        );
+        assert_eq!(code(catalog(&ai, &o, &store)), AiErrorCode::InvalidRequest);
+        assert_eq!(code(catalog(&ai, &s, &store)), AiErrorCode::NoKey);
+        assert_eq!(
+            code(catalog(&ai, &s, &MemoryKeyStore::unavailable())),
+            AiErrorCode::KeychainUnavailable
+        );
     }
 }

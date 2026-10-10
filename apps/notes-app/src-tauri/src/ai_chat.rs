@@ -300,6 +300,16 @@ pub(crate) fn run_chat(
 
 /// Start one chat turn. Returns at once with what is being sent; the reply
 /// arrives as `ai:delta` events and ends with `ai:done` or `ai:error`.
+/// A SHVIA provider may be saved before its model is picked (`ai::clean_model`);
+/// a chat with none is refused here, before anything is sent.
+fn require_model(model: &str) -> Result<(), AiError> {
+    if model.is_empty() {
+        Err(AiError::new(AiErrorCode::InvalidModel))
+    } else {
+        Ok(())
+    }
+}
+
 #[tauri::command]
 pub async fn ai_chat_start(
     handle: AppHandle,
@@ -336,6 +346,7 @@ pub async fn ai_chat_start(
         }
     }
     let (messages, sent) = compose(&request.messages, &notes, request.selection.as_ref())?;
+    require_model(&config.model)?;
     let chat_request = ChatRequest {
         model: config.model.clone(),
         system: Some(SYSTEM_PROMPT.to_owned()),
@@ -413,6 +424,15 @@ pub fn ai_chat_cancel(app: State<'_, App>, chat: String) -> Result<(), AiError> 
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_chat_with_no_model_is_refused_before_anything_is_sent() {
+        assert_eq!(
+            require_model("").unwrap_err().code,
+            AiErrorCode::InvalidModel
+        );
+        assert!(require_model("anna-blue3@gpu1").is_ok());
+    }
+
     use super::*;
     use notes_ai::ModelInfo;
     use notes_core::assistant::AiSelection;

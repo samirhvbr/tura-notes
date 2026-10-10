@@ -13,6 +13,7 @@ mod anthropic;
 mod endpoint;
 mod keychain;
 mod openai;
+mod shvia;
 mod sse;
 mod transport;
 
@@ -20,6 +21,7 @@ pub use anthropic::AnthropicProvider;
 pub use endpoint::validate_base;
 pub use keychain::{KeyStore, KeychainError, MemoryKeyStore, SystemKeychain, SERVICE};
 pub use openai::{OpenAiProvider, TokenLimit};
+pub use shvia::{Catalog, CatalogModel, Infra, ShviaProvider};
 
 use std::sync::atomic::AtomicBool;
 

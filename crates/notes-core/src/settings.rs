@@ -71,6 +71,10 @@ pub enum AiProviderKind {
     #[serde(rename = "openai_compatible")]
     #[ts(rename = "openai_compatible")]
     OpenAiCompatible,
+    /// The owner's AI gateway (ADR-107): its address, a key, and a model picked
+    /// from the infrastructures it lists. The model is stored as the gateway
+    /// names it (`model@infra`).
+    Shvia,
 }
 
 /// One configured AI provider. **No secret is here.** The API key lives in the

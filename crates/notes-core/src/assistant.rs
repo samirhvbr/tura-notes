@@ -68,6 +68,37 @@ pub struct AiTest {
     pub models: Vec<AiModel>,
 }
 
+/// A model of the SHVIA catalogue. `name` is what a chat request sends and what
+/// a provider stores; `model` is the part a person reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiCatalogModel {
+    pub name: String,
+    pub model: String,
+    pub parameter_size: Option<String>,
+}
+
+/// One infrastructure of the SHVIA gateway. `online` is `None` when the gateway
+/// did not say, and `Some(false)` is shown as down, not hidden.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiInfra {
+    pub key: String,
+    pub label: String,
+    pub driver: Option<String>,
+    pub online: Option<bool>,
+    pub models: Vec<AiCatalogModel>,
+}
+
+/// The infrastructures and models a SHVIA key can use, the gateway's default
+/// infrastructure first.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AiCatalog {
+    pub infras: Vec<AiInfra>,
+    pub default_infra: Option<String>,
+}
+
 /// Why a command did not do what was asked, as a code the interface turns into
 /// a sentence of its own, never one it shows verbatim (the provider's own words
 /// travel in `detail`, shortened).

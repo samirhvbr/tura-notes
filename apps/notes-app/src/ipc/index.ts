@@ -111,6 +111,9 @@ export function asCoreError(e: unknown): CoreError {
 export type { AiError } from "./generated/AiError";
 export type { AiErrorCode } from "./generated/AiErrorCode";
 export type { AiKeychainState } from "./generated/AiKeychainState";
+export type { AiCatalog } from "./generated/AiCatalog";
+export type { AiCatalogModel } from "./generated/AiCatalogModel";
+export type { AiInfra } from "./generated/AiInfra";
 export type { AiModel } from "./generated/AiModel";
 export type { AiOverview } from "./generated/AiOverview";
 export type { AiProviderInput } from "./generated/AiProviderInput";
@@ -140,6 +143,8 @@ export const aiKeySet = (id: string, key: string) =>
 export const aiKeyClear = (id: string) =>
   invoke<import("./generated/AiOverview").AiOverview>("ai_key_clear", { id });
 export const aiTest = (id: string) => invoke<import("./generated/AiTest").AiTest>("ai_test", { id });
+/** The infrastructures and models a SHVIA provider's key can use (ADR-107). */
+export const aiShviaCatalog = (id: string) => invoke<import("./generated/AiCatalog").AiCatalog>("ai_shvia_catalog", { id });
 
 export type { AiChatMessage } from "./generated/AiChatMessage";
 export type { AiChatRequest } from "./generated/AiChatRequest";

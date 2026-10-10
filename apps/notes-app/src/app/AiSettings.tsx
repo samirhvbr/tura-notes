@@ -22,6 +22,12 @@ export function AiSettingsSection() {
   const [asking, setAsking] = useState<string | null>(null);
   const [tests, setTests] = useState<Record<string, ipc.AiTest>>({});
   const [testing, setTesting] = useState<string | null>(null);
+  // SHVIA's infrastructures and models, per provider, asked of the gateway on
+  // request and never stored: a list remembered from yesterday names models the
+  // gateway may no longer serve.
+  const [catalogs, setCatalogs] = useState<Record<string, ipc.AiCatalog>>({});
+  const [loadingCatalog, setLoadingCatalog] = useState<string | null>(null);
+  const [infraKey, setInfraKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -88,6 +94,36 @@ export function AiSettingsSection() {
     }
   };
 
+  const loadCatalog = async (id: string, current: string) => {
+    setLoadingCatalog(id);
+    setMessage("");
+    try {
+      const catalog = await ipc.aiShviaCatalog(id);
+      setCatalogs((all) => ({ ...all, [id]: catalog }));
+      // Start on the infrastructure the saved model belongs to, else the gateway's own.
+      const owner = catalog.infras.find((i) => i.models.some((m) => m.name === current));
+      setInfraKey(owner?.key ?? catalog.default_infra ?? catalog.infras[0]?.key ?? "");
+      const models = catalog.infras.reduce((n, i) => n + i.models.length, 0);
+      setMessage(t("ai.shvia.loaded", { infras: catalog.infras.length, models }));
+    } catch (e) {
+      setMessage(say(e));
+    } finally {
+      setLoadingCatalog(null);
+    }
+  };
+
+  // The address the gateway answers at when the field is left as it is, and no
+  // model carried over from the kind that was chosen before.
+  const changeKind = (next: ipc.AiProviderKind) => {
+    if (!editing) return;
+    setEditing({
+      ...editing,
+      kind: next,
+      base_url: next === "shvia" && !editing.base_url ? "https://ai.shvia.org" : editing.base_url,
+      model: next === "shvia" && !editing.id ? "" : editing.model,
+    });
+  };
+
   const open = (p: ipc.AiProviderView | null) => {
     setKeyText("");
     setEditing(
@@ -99,6 +135,8 @@ export function AiSettingsSection() {
 
   const kind = editing?.kind ?? "anthropic";
   const models = editing?.id ? tests[editing.id]?.models ?? [] : [];
+  const catalog = editing?.id ? catalogs[editing.id] : undefined;
+  const infra = catalog?.infras.find((i) => i.key === infraKey);
 
   return (
     <section className="ai-settings" aria-labelledby="ai-title">
@@ -177,12 +215,11 @@ export function AiSettingsSection() {
               <select
                 id="ai-kind"
                 value={editing.kind}
-                onChange={(e) =>
-                  setEditing({ ...editing, kind: e.target.value as ipc.AiProviderKind })
-                }
+                onChange={(e) => changeKind(e.target.value as ipc.AiProviderKind)}
               >
                 <option value="anthropic">{t("ai.kind.anthropic")}</option>
                 <option value="openai_compatible">{t("ai.kind.openai_compatible")}</option>
+                <option value="shvia">{t("ai.kind.shvia")}</option>
               </select>
 
               <label htmlFor="ai-name">{t("ai.name")}</label>
@@ -203,21 +240,80 @@ export function AiSettingsSection() {
               />
               <p className="note">{t(`ai.baseUrl.hint.${kind}`)}</p>
 
-              <label htmlFor="ai-model">{t("ai.model")}</label>
-              <input
-                id="ai-model"
-                list="ai-models"
-                autoComplete="off"
-                value={editing.model}
-                onChange={(e) => setEditing({ ...editing, model: e.target.value })}
-              />
-              <datalist id="ai-models">
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </datalist>
+              {kind === "shvia" ? (
+                <>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      disabled={!editing.id || loadingCatalog !== null}
+                      onClick={() => void loadCatalog(editing.id as string, editing.model)}
+                    >
+                      {loadingCatalog !== null && loadingCatalog === editing.id
+                        ? t("ai.shvia.loading")
+                        : t("ai.shvia.load")}
+                    </button>
+                  </div>
+                  {!editing.id && <p className="note">{t("ai.shvia.loadFirst")}</p>}
+                  {catalog ? (
+                    <>
+                      <label htmlFor="ai-infra">{t("ai.shvia.infra")}</label>
+                      <select
+                        id="ai-infra"
+                        value={infraKey}
+                        onChange={(e) => {
+                          setInfraKey(e.target.value);
+                          // A model belongs to one infrastructure: the one chosen
+                          // before is not this one's.
+                          setEditing({ ...editing, model: "" });
+                        }}
+                      >
+                        {catalog.infras.map((i) => (
+                          <option key={i.key} value={i.key}>
+                            {i.online === false ? t("ai.shvia.offline", { label: i.label }) : i.label}
+                          </option>
+                        ))}
+                      </select>
+                      <label htmlFor="ai-model">{t("ai.model")}</label>
+                      <select
+                        id="ai-model"
+                        value={editing.model}
+                        onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                      >
+                        <option value="">{t("ai.shvia.choose")}</option>
+                        {(infra?.models ?? []).map((m) => (
+                          <option key={m.name} value={m.name}>
+                            {m.parameter_size ? `${m.model} (${m.parameter_size})` : m.model}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <p className="note">
+                      {editing.model
+                        ? t("ai.shvia.current", { model: editing.model })
+                        : t("ai.shvia.noModel")}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label htmlFor="ai-model">{t("ai.model")}</label>
+                  <input
+                    id="ai-model"
+                    list="ai-models"
+                    autoComplete="off"
+                    value={editing.model}
+                    onChange={(e) => setEditing({ ...editing, model: e.target.value })}
+                  />
+                  <datalist id="ai-models">
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </datalist>
+                </>
+              )}
 
               <label htmlFor="ai-key">{t("ai.key")}</label>
               <input
@@ -228,7 +324,7 @@ export function AiSettingsSection() {
                 value={keyText}
                 onChange={(e) => setKeyText(e.target.value)}
               />
-              <p className="note">{t("ai.key.hint")}</p>
+              <p className="note">{kind === "shvia" ? t("ai.key.hint.shvia") : t("ai.key.hint")}</p>
 
               <div className="actions">
                 <button type="button" className="primary" onClick={() => void save()}>

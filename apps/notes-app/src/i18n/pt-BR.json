@@ -581,5 +581,17 @@
   "remote.signin.invalid": "Esse não é o endereço que este login iniciou. Comece de novo e copie o em que o navegador termina.",
   "remote.signin.out": "Sair neste aparelho",
   "remote.signin.outNote": "Sair apaga a chave deste aparelho. Ela é revogada no seu site, ou na lista de dispositivos, e até lá ainda funciona para quem a tiver.",
-  "remote.signin.signedOut": "Você saiu. Este aparelho já não tem a chave."
+  "remote.signin.signedOut": "Você saiu. Este aparelho já não tem a chave.",
+  "ai.kind.shvia": "SHVIA (o gateway de IA: escolha a infraestrutura e depois o modelo)",
+  "ai.baseUrl.hint.shvia": "Deixe vazio para https://ai.shvia.org. Só o endereço, sem caminho.",
+  "ai.key.hint.shvia": "Uma chave do SHVIA (shvia_usr_…), criada no painel do SHVIA em Conta → Chave. Ela é guardada no chaveiro do sistema e nunca é mostrada de novo.",
+  "ai.shvia.load": "Carregar infraestruturas e modelos",
+  "ai.shvia.loading": "Carregando…",
+  "ai.shvia.loaded": "{infras} infraestruturas e {models} modelos carregados.",
+  "ai.shvia.loadFirst": "Salve antes o provedor com a chave; depois carregue a lista para escolher a infraestrutura e o modelo.",
+  "ai.shvia.infra": "Infraestrutura",
+  "ai.shvia.choose": "Escolha um modelo…",
+  "ai.shvia.offline": "{label} (fora do ar)",
+  "ai.shvia.current": "Modelo salvo: {model}. Carregue a lista para trocá-lo.",
+  "ai.shvia.noModel": "Nenhum modelo escolhido ainda. Carregue a lista e escolha um: o assistente não responde sem ele."
 }

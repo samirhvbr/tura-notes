@@ -17,6 +17,7 @@ vi.mock("../ipc", async (original) => ({
   aiKeySet: vi.fn(),
   aiKeyClear: vi.fn(),
   aiTest: vi.fn(),
+  aiShviaCatalog: vi.fn(),
 }));
 
 const SECRET = "sk-test-0123456789";
@@ -163,16 +164,132 @@ const codes: Record<ipc.AiErrorCode, true> = {
   unreadable_note: true,
 };
 const states: Record<Exclude<ipc.AiKeychainState, "available">, true> = { unavailable: true, failed: true };
-const kinds: Record<ipc.AiProviderKind, true> = { anthropic: true, openai_compatible: true };
+const kinds: Record<ipc.AiProviderKind, true> = { anthropic: true, openai_compatible: true, shvia: true };
 
 it("every error code, keychain state and provider kind has its words in both languages", () => {
   const keys = [
     ...Object.keys(codes).map((c) => `ai.error.${c}`),
     ...Object.keys(states).map((s) => `ai.keychain.${s}`),
     ...Object.keys(kinds).flatMap((k) => [`ai.kind.${k}`, `ai.baseUrl.hint.${k}`]),
+    ...Object.keys(en).filter((k) => k.startsWith("ai.shvia.")),
   ];
   for (const key of keys) {
     expect(en, key).toHaveProperty([key]);
     expect(ptBR, key).toHaveProperty([key]);
   }
+});
+
+const catalog: ipc.AiCatalog = {
+  default_infra: "gpu1",
+  infras: [
+    {
+      key: "gpu1",
+      label: "GPU remota 1",
+      driver: "ollama",
+      online: true,
+      models: [
+        { name: "anna-blue3@gpu1", model: "anna-blue3", parameter_size: "7B" },
+        { name: "zeta@gpu1", model: "zeta", parameter_size: null },
+      ],
+    },
+    {
+      key: "cold",
+      label: "Fria",
+      driver: null,
+      online: false,
+      models: [{ name: "slow@cold", model: "slow", parameter_size: null }],
+    },
+  ],
+};
+const shvia: ipc.AiProviderView = {
+  id: "s1",
+  kind: "shvia",
+  name: "SHVIA",
+  base_url: "https://ai.shvia.org",
+  model: "",
+  key_configured: true,
+};
+const withShvia: ipc.AiOverview = { ...on, default_provider: "s1", providers: [shvia] };
+
+it("SHVIA: the address is filled in, the key is sent once, and the model waits for the list", async () => {
+  // The first answer is the screen opening; the provider's new id is found in
+  // the next one, which has it.
+  vi.mocked(ipc.aiOverview).mockResolvedValueOnce(on).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiProviderSave).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiKeySet).mockResolvedValue(withShvia);
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Add a provider" }));
+  fireEvent.change(screen.getByLabelText("Type"), { target: { value: "shvia" } });
+  expect(screen.getByLabelText("Server address")).toHaveValue("https://ai.shvia.org");
+  expect(screen.getByText(/Save the provider with its key first/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Load infrastructures and models" })).toBeDisabled();
+  expect(screen.queryByLabelText("Infrastructure")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "SHVIA" } });
+  fireEvent.change(screen.getByLabelText("API key"), { target: { value: "shvia_usr_7_abc" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+  await waitFor(() => expect(ipc.aiKeySet).toHaveBeenCalledWith("s1", "shvia_usr_7_abc"));
+  expect(ipc.aiProviderSave).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: "shvia", base_url: "https://ai.shvia.org", model: "" }),
+  );
+});
+
+it("SHVIA: loading the list offers the infrastructures, then the models of the one chosen, and saves the name the gateway gave", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiShviaCatalog).mockResolvedValue(catalog);
+  vi.mocked(ipc.aiProviderSave).mockResolvedValue({
+    ...withShvia,
+    providers: [{ ...shvia, model: "anna-blue3@gpu1" }],
+  });
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  expect(screen.getByText(/No model picked yet/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  expect(await screen.findByText("2 infrastructures and 3 models loaded.")).toBeInTheDocument();
+  expect(ipc.aiShviaCatalog).toHaveBeenCalledWith("s1");
+  const infra = screen.getByLabelText("Infrastructure") as HTMLSelectElement;
+  expect(infra.value, "the gateway's own default first").toBe("gpu1");
+  expect([...infra.options].map((o) => o.textContent)).toEqual(["GPU remota 1", "Fria (offline)"]);
+  const model = screen.getByLabelText("Model") as HTMLSelectElement;
+  expect([...model.options].map((o) => o.textContent)).toEqual([
+    "Choose a model…",
+    "anna-blue3 (7B)",
+    "zeta",
+  ]);
+  fireEvent.change(model, { target: { value: "anna-blue3@gpu1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+  await waitFor(() =>
+    expect(ipc.aiProviderSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "s1", kind: "shvia", model: "anna-blue3@gpu1" }),
+    ),
+  );
+});
+
+it("SHVIA: changing the infrastructure drops the model, which belonged to the other one", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue({
+    ...withShvia,
+    providers: [{ ...shvia, model: "anna-blue3@gpu1" }],
+  });
+  vi.mocked(ipc.aiShviaCatalog).mockResolvedValue(catalog);
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  expect(screen.getByText("Saved model: anna-blue3@gpu1. Load the list to change it.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  const model = (await screen.findByLabelText("Model")) as HTMLSelectElement;
+  expect(model.value, "it starts on the infrastructure the saved model is in").toBe("anna-blue3@gpu1");
+  fireEvent.change(screen.getByLabelText("Infrastructure"), { target: { value: "cold" } });
+  expect((screen.getByLabelText("Model") as HTMLSelectElement).value).toBe("");
+  expect([...(screen.getByLabelText("Model") as HTMLSelectElement).options].map((o) => o.value)).toEqual([
+    "",
+    "slow@cold",
+  ]);
+});
+
+it("SHVIA: a key the gateway refuses is said in words and no list is shown", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiShviaCatalog).mockRejectedValue({ code: "unauthorized" });
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  expect(await screen.findByText(/did not accept|not accept/i)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Infrastructure")).toBeNull();
 });

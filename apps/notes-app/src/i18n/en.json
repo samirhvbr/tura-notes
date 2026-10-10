@@ -581,5 +581,17 @@
   "remote.signin.invalid": "That is not the address this sign-in started. Start again and copy the one the browser ends on.",
   "remote.signin.out": "Sign out of this device",
   "remote.signin.outNote": "Signing out forgets the key on this device. It is revoked on your site, or from the devices list, and until then it still works for anyone who has it.",
-  "remote.signin.signedOut": "Signed out. This device no longer has the key."
+  "remote.signin.signedOut": "Signed out. This device no longer has the key.",
+  "ai.kind.shvia": "SHVIA (the AI gateway: pick the infrastructure, then the model)",
+  "ai.baseUrl.hint.shvia": "Leave empty for https://ai.shvia.org. Only the address, with no path.",
+  "ai.key.hint.shvia": "A SHVIA key (shvia_usr_…), made in the SHVIA panel under Account → Key. It is stored in the system keychain and is never shown again.",
+  "ai.shvia.load": "Load infrastructures and models",
+  "ai.shvia.loading": "Loading…",
+  "ai.shvia.loaded": "{infras} infrastructures and {models} models loaded.",
+  "ai.shvia.loadFirst": "Save the provider with its key first; then load the list to pick the infrastructure and the model.",
+  "ai.shvia.infra": "Infrastructure",
+  "ai.shvia.choose": "Choose a model…",
+  "ai.shvia.offline": "{label} (offline)",
+  "ai.shvia.current": "Saved model: {model}. Load the list to change it.",
+  "ai.shvia.noModel": "No model picked yet. Load the list and pick one: the assistant cannot answer without it."
 }

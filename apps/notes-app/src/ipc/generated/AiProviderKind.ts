@@ -3,4 +3,4 @@
 /**
  * What kind of server a provider is (ADR-100).
  */
-export type AiProviderKind = "anthropic" | "openai_compatible";
+export type AiProviderKind = "anthropic" | "openai_compatible" | "shvia";

@@ -241,6 +241,7 @@ pub fn run() {
             ai::ai_key_set,
             ai::ai_key_clear,
             ai::ai_test,
+            ai::ai_shvia_catalog,
             ai_chat::ai_chat_start,
             ai_chat::ai_chat_cancel,
         ])
