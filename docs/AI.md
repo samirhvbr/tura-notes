@@ -35,6 +35,7 @@ threat model.
 |---|---|---|---|
 | Anthropic | `POST /v1/messages`, `GET /v1/models` on `https://api.anthropic.com` (or the address given) | required | `x-api-key`, `anthropic-version: 2023-06-01`; the default model is `claude-opus-5-5`; `effort` is sent as `medium` only to models that have it, because an older one rejects the field |
 | OpenAI-compatible | `POST {base}/chat/completions`, `GET {base}/models` | optional | OpenAI, OpenRouter, and a local Ollama or LM Studio, which want none; `max_completion_tokens` goes only to `api.openai.com`, the others get `max_tokens` |
+| SHVIA | `POST {origin}/v1/chat/completions` (the OpenAI-compatible route), `GET {origin}/api/v1/profiles` (the catalogue) on `https://ai.shvia.org` or the address given | required | The owner's AI gateway ([ADR-107](decisions.md#adr-107--shvia-is-a-provider-whose-infrastructure-and-model-are-picked-from-the-gateways-own-catalogue)): the key is `shvia_usr_…`, made in the SHVIA panel under *Account → Key*, sent as `Authorization: Bearer`. The settings screen loads the list and offers an **infrastructure** and then a **model** of it; what is saved is the name the gateway gives (`model@infra`, or the plain model for a local one). The address is the gateway alone, with no path. `effort` is not sent. The gateway limits chat to 20 requests a minute by default, and one reply that calls the edit tools is several requests |
 
 An address must be `https`; plain `http` is accepted only for this machine
 (`localhost`, `127.0.0.1`, `::1`), and one with a user name, a password or a query

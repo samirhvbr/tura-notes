@@ -3251,7 +3251,7 @@ the owner chose that the two stay independent and are compared.
 
 ## ADR-100 — An opt-in AI assistant calls the provider from Rust, keeps the key in the system keychain, and edits the open note through the editor
 
-**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · built in 1.10.0 to 1.10.5 (the `notes-ai` crate with both providers, the keychain and the settings section, the chat, the edit tools, and the pages); the owner's walk with a real key is open (`.continue/assistente-ia.md`, `ACCEPTANCE-AI.md`)
+**Status:** `ACCEPTED` · 29/09/2026, the owner's answers on four questions · built in 1.10.0 to 1.10.5 (the `notes-ai` crate with both providers, the keychain and the settings section, the chat, the edit tools, and the pages); the owner's walk with a real key is open; a third provider, SHVIA, joined in 1.11.6 ([ADR-107](#adr-107--shvia-is-a-provider-whose-infrastructure-and-model-are-picked-from-the-gateways-own-catalogue)) (`.continue/assistente-ia.md`, `ACCEPTANCE-AI.md`)
 
 **Context.** The owner wants an AI to help write documents, used through a
 provider's API with keys entered in Settings, and a chat to drive it. Three
@@ -3564,3 +3564,15 @@ ignores `folders`); a newer application with an older server falls back to the
 folder in the window. A credential that can create can now create very many empty
 folders, so the listing is bounded at 2,000 and says when it cut. Moving and
 deleting a folder remain out, as in ADR-099.
+
+## ADR-107 — SHVIA is a provider whose infrastructure and model are picked from the gateway's own catalogue
+
+**Status:** `ACCEPTED` · 10/10/2026, the owner's request (“incluir a api com o SHVIA no provider… poder selecionar a infra e o modelo, pois isso já está modelado no SHVIA”) and two answers: the OpenAI-compatible protocol, and the choice only in Settings · built in 1.11.6; the owner's walk with a real key is open (`ACCEPTANCE-AI.md` A15)
+
+**Context.** The assistant (ADR-100) had two kinds of provider and a model typed by hand. The owner's own gateway, SHVIA, already holds the connections to the model providers and publishes what it has: `GET /api/v1/profiles` lists each profile as `model@infrastructure` with the infrastructure's label, driver and whether it is up, and `POST /v1/chat/completions` answers in the OpenAI protocol, streaming and with tool calls, which is what the two edit tools need.
+
+**Decision.** A third kind, `shvia`. Its address is the gateway's origin (`https://ai.shvia.org` when left empty, with no path), and its key, `shvia_usr_…`, is required and kept in the keychain like every other. Chat goes through the existing OpenAI-compatible client pointed at `{origin}/v1/`, so the stream, the tool calls and the limits are code that was already tested; the model sent is the profile's `name` (`model@infra`). The catalogue is read from `/api/v1/profiles`, bounded (4 MiB, 64 infrastructures, 2,000 models), with unknown fields ignored, names the application cannot send left out, and a disabled infrastructure left out; the gateway's default infrastructure comes first. The settings screen has a **Load infrastructures and models** button, enabled once the provider and its key are saved, and then two selectors: the infrastructure, and the models of it. **Only the model's name is stored**: the infrastructure is what follows the `@`, found again in the next catalogue, so no second field can disagree with the first. A SHVIA provider may be saved with no model, because the list cannot be asked before the key exists, and a chat with none is refused before anything is sent.
+
+**Alternatives set aside.** *The gateway's native chat route* (`/api/v1/code/chat`), which carries `effort` and reasoning events: a second streaming client and a format only SHVIA speaks, for a control the assistant sends to one provider in three. *Choosing in the chat panel*: more surface in a screen that has a model picker nowhere else, and it can come after this. *Signing in to SHVIA with an email and a password*: the answer is a one-hour token, which is the wrong thing to keep, and the long key is what its OpenAI routes accept.
+
+**Consequences.** The key's reach is unchanged: it goes to one host, over https, with no redirect followed. Chat is limited by the gateway (20 requests a minute by default) and a reply with edit tools is several requests, so the limit can be met; the error says so. A model that cannot call tools may refuse the request, and the gateway's own sentence is shown. A settings file that has a `shvia` provider is not read by an older build (the kind is unknown to it), which resets the assistant's section and nothing else.

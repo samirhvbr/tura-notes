@@ -7,6 +7,10 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.6 - the documents and the decision for the SHVIA provider
+
+ADR-107 records why SHVIA is a provider kind and not a preset of the OpenAI-compatible one: the gateway publishes the infrastructures and the models each serves, so the settings screen can offer them instead of asking for `model@infra` typed by hand, and the OpenAI-compatible route it also speaks is the code that already streams and calls tools. The decision is the owner's, with two answers given in the session (the OpenAI-compatible protocol; the choice only in Settings), and what was set aside and why is in the record: the gateway's native chat route (a second streaming client for a control sent to one provider in three), choosing from the chat panel, and signing in with an email and a password (a one-hour token is the wrong thing to keep). AI.md gets the provider row with the key's origin and the gateway's chat limit, which a reply that calls the edit tools can meet; ACCEPTANCE-AI gets row A15, which needs a real key and is the owner's; and security.md says the catalogue the gateway answers is shown and never stored or logged.
+
 ## 1.11.6 - SHVIA is an AI provider, and its infrastructure and model are picked from the gateway's catalogue
 
 The assistant had two kinds of provider and a model typed by hand. SHVIA, the owner's AI gateway, already holds the connections to the model providers and publishes what it has, so it is now a third kind: the settings screen takes its address (the official one when left empty) and its key, and once they are saved a button loads the infrastructures and models, and two selectors offer the infrastructure and then the models of it. The saved model is the name the gateway gives, `model@infra`; the infrastructure is not stored, because it is what follows the `@` and a second field could only disagree with the first.

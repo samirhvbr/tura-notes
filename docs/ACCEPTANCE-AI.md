@@ -32,6 +32,7 @@ The walk costs a few cents of API use.
 | A11 | **Ask it to edit a note you did not attach** by naming it | A card says the note was not shared, and the note is unchanged | ☐ |
 | A12 | **Wrong key, then no network** | A sentence that names the cause (key refused, offline), with no key in it | ☐ |
 | A13 | **An OpenAI-compatible provider**, if you use one (a local Ollama needs no key) | The same walk A4 to A7 works, or the gap is named | ☐ |
+| A15 | **SHVIA**, with a key from the SHVIA panel (*Account → Key*): add a provider of type *SHVIA*, leave the address as it is, paste the key and save; press **Load infrastructures and models**, pick an infrastructure and then a model that can call tools, save, and walk A4 to A7 | The list shows the infrastructures the gateway has, offline ones marked; the models are the picked infrastructure's; the saved model is `model@infra`; the chat answers and the edit cards work, or the gap is named (a model that cannot call tools says so). A wrong key says it was refused, and nothing is shown in the list | ☐ |
 | A14 | **Turn the assistant off** | The icon and the shortcut go; the chat says it is off; nothing is sent | ☐ |
 
 If a row fails, say which provider and model it was and what the card or the chat
