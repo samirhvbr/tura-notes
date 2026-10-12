@@ -7,6 +7,50 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the Xcode project for iOS is generated, with its privacy manifest
+
+`tauri ios init` has produced `apps/notes-app/src-tauri/gen/apple`, committed for the
+reason ADR-042 gives for the Android project: it is source, not build output. Its own
+`.gitignore` keeps `build/`, `Externals/` (the Rust static library, 1 GB in a debug
+tree) and `.tauri/` out. `bundle.iOS` in `tauri.conf.json` names the team
+(`S65UBCTPN5`, BLUE3 TECNOLOGIA LTDA) and the floor (`minimumSystemVersion` 17.0, from
+`docs/SCOPE.md` section 3); the identifier stays `br.com.samirhv.notes`.
+
+The generated `project.yml` was changed in three places, each with its reason written
+in the file. `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace`:
+`docs/SCOPE.md` section 7.2 puts the sandbox workspace in `Documents` and says these two
+keys make it visible in the Files app. `TARGETED_DEVICE_FAMILY: "1,2"`, made explicit:
+iPhone and iPad from one build, which is what "mesma build" in SCOPE means, and the
+generated Info.plist keeps all four iPad orientations a universal build must have.
+And `ITSAppUsesNonExemptEncryption`, deliberately **not** set, with a comment: the app
+carries its own TLS and cryptography (rustls and ring), and whether that is exempt is
+the owner's export-compliance decision, not something a build file should answer. No
+camera, microphone, Face ID, photo-library or local-network string was added: the
+app uses none of those capabilities. Tauri 2.12's template already excludes
+`Externals/**/*.a` from the resources (the "Invalid bundle structure" upload failure the
+SHVIA project hit), so nothing had to be restored there.
+
+`notes-app_iOS/PrivacyInfo.xcprivacy` is new. It is in the target's Copy Bundle
+Resources (`project.pbxproj`) and in the built `.app`. Its required-reason APIs were
+read from the **release** binary, not a debug one, because the two differ: the device
+archive, scanned with `nm -u` and `otool -s __TEXT __objc_methname`, imports `stat`,
+`fstat`, `lstat` and `fstatat` (FileTimestamp, reason C617.1: the app reads note
+modification times, inside its own container) and `statfs` and `fstatfs`, which the
+bundled SQLite uses (DiskSpace, E174.1). It does not import `mach_absolute_time`,
+`systemUptime` or `NSUserDefaults`; the debug build does carry the last two as unused
+objc2 bindings and would have had them declared falsely. Tracking is false and no data
+type is declared as collected: whether notes sent to a server or an AI provider the
+user configured count as "collected" in the App Store Connect questionnaire is the
+owner's answer, and the file says so.
+
+Measured: `tauri ios build --target aarch64 --no-sign --archive-only --build-number 2
+--config '{"version":"1.11.8"}'` ends in an unsigned release archive. Version 1.11.8,
+`CFBundleVersion` 1.11.8.2, minimum OS 17.0, a 19 MB arm64 executable, no `.a` or
+`.dylib` in the bundle, the privacy manifest present, `ITSAppUsesNonExemptEncryption`
+absent. No certificate, profile or keychain item was touched. The Tauri CLI writes the
+real version into the tracked `Info.plist` on every build; the committed value is
+`0.0.0` like every other copy (ADR-035), and `xcodegen generate` restores it.
+
 ## 1.11.8 - the Tauri shell compiles for iOS
 
 `docs/ACCEPTANCE-0.4.md` has said since 1.6.16 that the shell was checked for Android

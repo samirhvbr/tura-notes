@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest of Tura Notes for iOS (required by Apple since 05/2024).
+
+  Written from the RELEASE binary, not from the debug one: the device archive
+  (`tauri ios build --target aarch64 --no-sign --archive-only`) was scanned with
+  `nm -u` and `otool -s __TEXT __objc_methname` on 12/10/2026, and this file
+  declares exactly the required-reason categories that scan found. A debug
+  build is not evidence: it keeps every unused objc2 binding (`systemUptime`,
+  `NSUserDefaults`) that the release link strips.
+
+  - NSPrivacyTracking is false and no tracking domain exists: there is no
+    analytics, advertising or telemetry SDK in the binary (docs/SCOPE.md, section 13).
+  - NSPrivacyCollectedDataTypes is empty. The app collects nothing for itself.
+    Notes stay on the device; what leaves it goes to a server or an AI provider
+    that the USER configures, with the user's own credential. Whether that counts
+    as "collected" in the App Store Connect privacy questionnaire is the owner's
+    decision, answered there and not in this file.
+  - FileTimestamp, C617.1: stat, fstat, lstat and fstatat are imported, and the
+    app reads the modification time of notes to detect an outside change
+    (notes-fs, notes-core). Today every workspace is inside the app container
+    (Documents). When the security-scoped-bookmark adapter lands, files outside
+    it are read too, and 3B52.1 (files the user granted access to) must be added.
+  - DiskSpace, E174.1: statfs and fstatfs are imported by the bundled SQLite
+    (it asks the filesystem which locking it can use), and the app's writes
+    refuse cleanly on a full disk (tools/enospc.sh).
+  - Not declared, on purpose: UserDefaults, SystemBootTime (mach_absolute_time
+    and systemUptime are not imported; clock_gettime is not on Apple's list),
+    ActiveKeyboards. If App Store Connect answers the first upload with
+    ITMS-91053 for any of them, add the block and say so in the changelog.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+      <dict>
+        <key>NSPrivacyAccessedAPIType</key>
+        <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+        <key>NSPrivacyAccessedAPITypeReasons</key>
+        <array>
+          <string>C617.1</string>
+        </array>
+      </dict>
+      <dict>
+        <key>NSPrivacyAccessedAPIType</key>
+        <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+        <key>NSPrivacyAccessedAPITypeReasons</key>
+        <array>
+          <string>E174.1</string>
+        </array>
+      </dict>
+    </array>
+  </dict>
+</plist>

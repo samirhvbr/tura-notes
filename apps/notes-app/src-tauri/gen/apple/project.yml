@@ -1,0 +1,109 @@
+name: notes-app
+options:
+  bundleIdPrefix: br.com.samirhv.notes
+  deploymentTarget:
+    iOS: 17.0
+fileGroups: [../../src]
+configs:
+  debug: debug
+  release: release
+settingGroups:
+  app:
+    base:
+      PRODUCT_NAME: Tura Notes
+      PRODUCT_BUNDLE_IDENTIFIER: br.com.samirhv.notes
+      DEVELOPMENT_TEAM: S65UBCTPN5
+targetTemplates:
+  app:
+    type: application
+    sources:
+      - path: Sources
+    scheme:
+      environmentVariables:
+        RUST_BACKTRACE: full
+        RUST_LOG: info
+    settings:
+      groups: [app]
+targets:
+  notes-app_iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Assets.xcassets
+      # Exclude built static libs: regenerating with xcodegen after a build
+      # otherwise turns the per-configuration libapp.a copies into colliding
+      # resources ("Multiple commands produce …/libapp.a"). They are linked
+      # via LIBRARY_SEARCH_PATHS, never bundled as resources.
+      - path: Externals
+        excludes: ["**/*.a"]
+      - path: notes-app_iOS
+      - path: assets
+        buildPhase: resources
+        type: folder
+      - path: LaunchScreen.storyboard
+    info:
+      path: notes-app_iOS/Info.plist
+      properties:
+        LSRequiresIPhoneOS: true
+        UILaunchStoryboardName: LaunchScreen
+        UIRequiredDeviceCapabilities: [arm64, metal]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleShortVersionString: 0.0.0
+        CFBundleVersion: "0.0.0"
+        # The sandbox workspace lives in the app's Documents folder, and these two
+        # keys are what make it visible and openable in the Files app
+        # (docs/SCOPE.md, section 7.2). Without them the notes are in a place the
+        # user cannot reach, which is the opposite of "the files belong to the user".
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        # ITSAppUsesNonExemptEncryption is deliberately NOT set. It is the owner's
+        # export-compliance decision (the app carries its own TLS/crypto, rustls and
+        # ring), and a missing key only makes App Store Connect ask the question on
+        # each upload; a wrong key is a false declaration.
+    entitlements:
+      path: notes-app_iOS/notes-app_iOS.entitlements
+    scheme:
+      environmentVariables:
+        RUST_BACKTRACE: full
+        RUST_LOG: info
+    settings:
+      base:
+        # iPhone and iPad from one build (docs/SCOPE.md, section 3: "mesma build").
+        # A universal build has to keep all four iPad orientations or declare
+        # UIRequiresFullScreen; the Info.plist above keeps all four.
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_BITCODE: false
+        ARCHS: [arm64]
+        VALID_ARCHS: arm64 
+        LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
+        LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
+        EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+      groups: [app]
+    dependencies:
+      - framework: libapp.a
+        embed: false
+      - sdk: CoreGraphics.framework
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: QuartzCore.framework
+      - sdk: Security.framework
+      - sdk: UIKit.framework
+      - sdk: WebKit.framework
+    preBuildScripts:
+      - script: |
+          npm run -- tauri ios xcode-script -v --platform "${PLATFORM_DISPLAY_NAME:?}" --sdk-root "${SDKROOT:?}" --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration "${CONFIGURATION:?}" ${FORCE_COLOR} ${ARCHS:?}
+        name: Build Rust Code
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
+          - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
