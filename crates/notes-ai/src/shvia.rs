@@ -6,7 +6,7 @@ use crate::{
     StreamEvent,
 };
 use reqwest::Url;
-use std::{io::Read, sync::atomic::AtomicBool};
+use std::{collections::HashSet, io::Read, sync::atomic::AtomicBool};
 
 /// SHVIA, the owner's AI gateway (ADR-107): one address that already holds the
 /// connections to the model providers, and publishes which infrastructures it
@@ -56,7 +56,11 @@ pub struct Infra {
 pub struct Catalog {
     /// The infrastructures, the gateway's default first and the rest by label.
     pub infras: Vec<Infra>,
+    /// The gateway's default infrastructure, when it has a model chat accepts.
     pub default_infra: Option<String>,
+    /// Models the gateway lists that its chat route refuses for this key, left
+    /// out of `infras`: the gateway's own allowlist decides, not this program.
+    pub not_for_chat: usize,
 }
 
 impl ShviaProvider {
@@ -81,13 +85,25 @@ impl ShviaProvider {
         })
     }
 
-    /// The infrastructures and models this key can use, from
-    /// `GET /api/v1/profiles`. A key the gateway refuses fails here with
-    /// [`Error::Unauthorized`], which is what makes it the key test.
+    /// The infrastructures and models this key can **chat** with. The gateway
+    /// has two lists that are not the same one: `GET /api/v1/profiles` is every
+    /// profile it holds, and `GET /v1/models` is the subset its OpenAI-compatible
+    /// chat route accepts (a global allowlist sits in front of that route). A
+    /// model from the first and not the second is refused at chat with
+    /// "does not exist or is not available", so only the intersection is
+    /// offered, and the rest is counted. A key the gateway refuses fails here
+    /// with [`Error::Unauthorized`], which is what makes it the key test.
     pub fn catalog(&self) -> Result<Catalog> {
+        let listed = parse(&self.get("api/v1/profiles")?)?;
+        let accepted = accepted(&self.get("v1/models")?)?;
+        Ok(narrow(listed, &accepted))
+    }
+
+    /// One bounded, authenticated `GET` of the gateway, as JSON.
+    fn get(&self, path: &str) -> Result<serde_json::Value> {
         let url = self
             .origin
-            .join("api/v1/profiles")
+            .join(path)
             .map_err(|_| Error::Endpoint("not a URL"))?;
         let response = self
             .clients
@@ -109,8 +125,36 @@ impl ShviaProvider {
         if body.len() as u64 > MAX_BODY {
             return Err(Error::Protocol);
         }
-        parse(&serde_json::from_slice(&body).map_err(|_| Error::Protocol)?)
+        serde_json::from_slice(&body).map_err(|_| Error::Protocol)
     }
+}
+
+/// The names `GET /v1/models` lists: the OpenAI list, whose `id` is the same
+/// `model@infra` name the catalogue gives a profile.
+fn accepted(value: &serde_json::Value) -> Result<HashSet<String>> {
+    let list = value["data"].as_array().ok_or(Error::Protocol)?;
+    Ok(list.iter().filter_map(|m| text(&m["id"])).collect())
+}
+
+/// What a catalogue is once the models chat refuses are taken out: an
+/// infrastructure left with none goes with them, and so does a default that
+/// no longer has anything to pick.
+fn narrow(mut catalog: Catalog, accepted: &HashSet<String>) -> Catalog {
+    let before: usize = catalog.infras.iter().map(|i| i.models.len()).sum();
+    for infra in &mut catalog.infras {
+        infra.models.retain(|m| accepted.contains(&m.name));
+    }
+    catalog.infras.retain(|i| !i.models.is_empty());
+    let after: usize = catalog.infras.iter().map(|i| i.models.len()).sum();
+    catalog.not_for_chat = before - after;
+    if catalog
+        .default_infra
+        .as_deref()
+        .is_some_and(|d| !catalog.infras.iter().any(|i| i.key == d))
+    {
+        catalog.default_infra = None;
+    }
+    catalog
 }
 
 /// What a model name may be: the same characters the application accepts for a
@@ -201,6 +245,7 @@ fn parse(value: &serde_json::Value) -> Result<Catalog> {
     Ok(Catalog {
         infras,
         default_infra,
+        not_for_chat: 0,
     })
 }
 

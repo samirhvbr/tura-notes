@@ -54,9 +54,35 @@ fn profiles() -> String {
     .to_string()
 }
 
+/// The answer of `GET /v1/models`: the OpenAI list, which is only the profiles
+/// the gateway's chat route accepts. Everything else about a model is absent.
+fn chat_list(ids: &[&str]) -> String {
+    let data: Vec<Value> = ids
+        .iter()
+        .map(|id| json!({"id": id, "object": "model", "created": 1_780_000_000_u64, "owned_by": "shvia"}))
+        .collect();
+    json!({"object": "list", "data": data}).to_string()
+}
+
+/// Every name `profiles()` holds that can be sent, which is a gateway with no
+/// allowlist in front of its chat route.
+fn everything() -> String {
+    chat_list(&[
+        "zeta@gpu1",
+        "anna-blue3@gpu1",
+        "claude-sonnet-5-5@anthropic",
+        "llama3.1:8b",
+        "old-model@retired",
+        "slow@cold",
+    ])
+}
+
 #[test]
 fn the_catalogue_groups_models_by_infrastructure_and_orders_both() {
-    let (base, server) = serve(vec![Canned::json(200, &profiles())]);
+    let (base, server) = serve(vec![
+        Canned::json(200, &profiles()),
+        Canned::json(200, &everything()),
+    ]);
     let catalog = provider(&base).catalog().unwrap();
     assert_eq!(catalog.default_infra.as_deref(), Some("gpu1"));
     let shape: Vec<(&str, &str, Option<bool>, Vec<&str>)> = catalog
@@ -87,15 +113,63 @@ fn the_catalogue_groups_models_by_infrastructure_and_orders_both() {
     assert_eq!(gpu.models[0].model, "anna-blue3");
     assert_eq!(gpu.models[0].parameter_size.as_deref(), Some("7B"));
     assert_eq!(gpu.models[1].parameter_size.as_deref(), Some("7B"));
-    let seen = &server.join().unwrap()[0];
-    assert_eq!(seen.line, "GET /api/v1/profiles HTTP/1.1");
-    assert_eq!(seen.headers["authorization"], format!("Bearer {KEY}"));
+    assert_eq!(catalog.not_for_chat, 0);
+    let seen = server.join().unwrap();
+    assert_eq!(seen[0].line, "GET /api/v1/profiles HTTP/1.1");
+    assert_eq!(seen[1].line, "GET /v1/models HTTP/1.1");
+    for request in &seen {
+        assert_eq!(request.headers["authorization"], format!("Bearer {KEY}"));
+    }
+}
+
+#[test]
+fn only_what_the_chat_route_accepts_is_offered_and_the_rest_is_counted() {
+    // The gateway's allowlist lets two models through. The cloud one and the cold
+    // one are in the catalogue and not in the list chat accepts, which is what
+    // `The model "…" does not exist or is not available` is the answer to.
+    let (base, server) = serve(vec![
+        Canned::json(200, &profiles()),
+        Canned::json(
+            200,
+            &chat_list(&[
+                "anna-blue3@gpu1",
+                "llama3.1:8b",
+                "not-in-the-catalogue@gpu1",
+            ]),
+        ),
+    ]);
+    let catalog = provider(&base).catalog().unwrap();
+    let shape: Vec<(&str, Vec<&str>)> = catalog
+        .infras
+        .iter()
+        .map(|i| {
+            (
+                i.key.as_str(),
+                i.models.iter().map(|m| m.name.as_str()).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        shape,
+        vec![
+            ("gpu1", vec!["anna-blue3@gpu1"]),
+            ("local", vec!["llama3.1:8b"]),
+        ],
+        "an infrastructure with nothing chat accepts goes, and a name only the chat list has is not invented"
+    );
+    assert_eq!(catalog.default_infra.as_deref(), Some("gpu1"));
+    assert_eq!(
+        catalog.not_for_chat, 3,
+        "zeta, claude-sonnet-5-5 and slow: five models can be sent, chat accepts two"
+    );
+    server.join().unwrap();
 }
 
 #[test]
 fn models_is_the_flat_list_with_the_name_a_chat_sends_and_it_is_the_key_test() {
     let (base, server) = serve(vec![
         Canned::json(200, &profiles()),
+        Canned::json(200, &everything()),
         Canned::json(401, r#"{"message":"Unauthenticated."}"#),
     ]);
     let p = provider(&base);
@@ -146,12 +220,55 @@ fn a_catalogue_that_is_far_too_big_is_refused_and_an_empty_one_is_an_empty_catal
     let (base, server) = serve(vec![
         Canned::json(200, &huge),
         Canned::json(200, r#"{"profiles":[]}"#),
+        Canned::json(200, &chat_list(&[])),
     ]);
     let p = provider(&base);
     assert!(matches!(p.catalog(), Err(Error::Protocol)));
     let empty = p.catalog().unwrap();
     assert!(empty.infras.is_empty() && empty.default_infra.is_none());
     server.join().unwrap();
+}
+
+#[test]
+fn a_gateway_whose_chat_accepts_none_gives_an_empty_catalogue_that_says_how_many_it_hid() {
+    let (base, server) = serve(vec![
+        Canned::json(200, &profiles()),
+        Canned::json(200, &chat_list(&[])),
+    ]);
+    let catalog = provider(&base).catalog().unwrap();
+    assert!(catalog.infras.is_empty());
+    assert_eq!(
+        catalog.default_infra, None,
+        "the default has nothing left to pick"
+    );
+    assert_eq!(catalog.not_for_chat, 5);
+    server.join().unwrap();
+}
+
+#[test]
+fn a_chat_list_that_is_refused_or_is_not_a_list_is_named_and_never_carries_the_key() {
+    let cases: Vec<(Canned, Check)> = vec![
+        (Canned::json(401, "{}"), |e| {
+            matches!(e, Error::Unauthorized)
+        }),
+        (
+            Canned::json(404, "{}"),
+            |e| matches!(e, Error::Provider(m) if m == "HTTP 404"),
+        ),
+        (Canned::json(200, "not json"), |e| {
+            matches!(e, Error::Protocol)
+        }),
+        (Canned::json(200, r#"{"profiles":[]}"#), |e| {
+            matches!(e, Error::Protocol)
+        }),
+    ];
+    for (canned, check) in cases {
+        let (base, server) = serve(vec![Canned::json(200, &profiles()), canned]);
+        let error = provider(&base).catalog().unwrap_err();
+        assert!(check(&error), "{error:?}");
+        assert!(!format!("{error} {error:?}").contains(KEY));
+        server.join().unwrap();
+    }
 }
 
 #[test]

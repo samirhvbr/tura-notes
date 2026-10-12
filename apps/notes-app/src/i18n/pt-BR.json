@@ -595,5 +595,8 @@
   "ai.shvia.choose": "Escolha um modelo…",
   "ai.shvia.offline": "{label} (fora do ar)",
   "ai.shvia.current": "Modelo salvo: {model}. Carregue a lista para trocá-lo.",
+  "ai.shvia.hidden": "O gateway lista mais {count} que o chat dele não aceita; quem decide quais é o administrador.",
+  "ai.shvia.none": "O gateway lista {count} modelos, mas o chat dele não aceita nenhum para esta chave. O administrador precisa liberar um antes de o assistente responder.",
+  "ai.shvia.stale": "O modelo salvo “{model}” não é um dos que o chat do gateway aceita, então foi limpo: escolha outro.",
   "ai.shvia.noModel": "Nenhum modelo escolhido ainda. Carregue a lista e escolha um: o assistente não responde sem ele."
 }

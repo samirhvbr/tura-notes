@@ -104,7 +104,23 @@ export function AiSettingsSection() {
       const owner = catalog.infras.find((i) => i.models.some((m) => m.name === current));
       setInfraKey(owner?.key ?? catalog.default_infra ?? catalog.infras[0]?.key ?? "");
       const models = catalog.infras.reduce((n, i) => n + i.models.length, 0);
-      setMessage(t("ai.shvia.loaded", { infras: catalog.infras.length, models }));
+      // A saved model the gateway's chat no longer accepts would sit behind a
+      // selector that reads "Choose a model…" and be saved again as it was.
+      const stale = current !== "" && owner === undefined;
+      if (stale) setEditing((e) => (e && e.id === id ? { ...e, model: "" } : e));
+      setMessage(
+        [
+          models === 0 && catalog.not_for_chat > 0
+            ? t("ai.shvia.none", { count: catalog.not_for_chat })
+            : t("ai.shvia.loaded", { infras: catalog.infras.length, models }),
+          models > 0 && catalog.not_for_chat > 0
+            ? t("ai.shvia.hidden", { count: catalog.not_for_chat })
+            : "",
+          stale ? t("ai.shvia.stale", { model: current }) : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
     } catch (e) {
       setMessage(say(e));
     } finally {

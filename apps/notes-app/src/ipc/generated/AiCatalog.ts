@@ -2,7 +2,8 @@
 import type { AiInfra } from "./AiInfra";
 
 /**
- * The infrastructures and models a SHVIA key can use, the gateway's default
- * infrastructure first.
+ * The infrastructures and models a SHVIA key can chat with, the gateway's
+ * default infrastructure first. `not_for_chat` counts the models the gateway
+ * lists that its chat route refuses; they are not in `infras`.
  */
-export type AiCatalog = { infras: Array<AiInfra>, default_infra: string | null, };
+export type AiCatalog = { infras: Array<AiInfra>, default_infra: string | null, not_for_chat: number, };

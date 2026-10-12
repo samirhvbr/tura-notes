@@ -200,6 +200,7 @@ const catalog: ipc.AiCatalog = {
       models: [{ name: "slow@cold", model: "slow", parameter_size: null }],
     },
   ],
+  not_for_chat: 0,
 };
 const shvia: ipc.AiProviderView = {
   id: "s1",
@@ -282,6 +283,47 @@ it("SHVIA: changing the infrastructure drops the model, which belonged to the ot
     "",
     "slow@cold",
   ]);
+});
+
+it("SHVIA: models the gateway lists and its chat refuses are counted, not offered", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiShviaCatalog).mockResolvedValue({ ...catalog, not_for_chat: 574 });
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  expect(
+    await screen.findByText(
+      "2 infrastructures and 3 models loaded. The gateway lists 574 more that its chat does not accept; its administrator decides which.",
+    ),
+  ).toBeInTheDocument();
+});
+
+it("SHVIA: when chat accepts none of what the gateway lists, it says so and not that nothing was loaded", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue(withShvia);
+  vi.mocked(ipc.aiShviaCatalog).mockResolvedValue({ infras: [], default_infra: null, not_for_chat: 577 });
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  expect(await screen.findByText(/lists 577 models, but its chat accepts none of them/)).toBeInTheDocument();
+  expect(screen.queryByText(/0 infrastructures and 0 models loaded/)).toBeNull();
+});
+
+it("SHVIA: a saved model the chat no longer accepts is cleared and said, not saved again behind 'Choose a model'", async () => {
+  vi.mocked(ipc.aiOverview).mockResolvedValue({
+    ...withShvia,
+    providers: [{ ...shvia, model: "claude-fable-5-1@anthropic" }],
+  });
+  vi.mocked(ipc.aiShviaCatalog).mockResolvedValue({ ...catalog, not_for_chat: 1 });
+  vi.mocked(ipc.aiProviderSave).mockResolvedValue(withShvia);
+  render(<AiSettingsSection />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Load infrastructures and models" }));
+  expect(await screen.findByText(/“claude-fable-5-1@anthropic” is not one the gateway's chat accepts/)).toBeInTheDocument();
+  expect((screen.getByLabelText("Model") as HTMLSelectElement).value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+  await waitFor(() =>
+    expect(ipc.aiProviderSave).toHaveBeenCalledWith(expect.objectContaining({ id: "s1", model: "" })),
+  );
 });
 
 it("SHVIA: a key the gateway refuses is said in words and no list is shown", async () => {

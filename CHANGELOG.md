@@ -7,6 +7,44 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.10 - The SHVIA picker offers only the models the gateway's chat accepts
+
+The owner picked *Anthropic · Claude Fable 5.1* from the list 1.11.6 loads and the
+assistant answered *The provider said: The model “claude-fable-5-1@anthropic”
+does not exist or is not available*. The same screen's **Test** said *It works:
+577 models available*, and the SHVIA app itself used that model, so the model
+existed and the key worked. What was wrong was the list.
+
+The gateway has two. `GET /api/v1/profiles` is every profile the account can see,
+and it is what 1.11.6 offered. `POST /v1/chat/completions` sits behind a second,
+global allowlist (`OPENAI_COMPAT_MODELS`), and `GET /v1/models` is that list;
+anything outside it is answered with 404 and exactly the sentence above. ADR-107
+assumed they were one list and it never ran against a real gateway (A15 is still
+open), which is how the picker came to offer what chat refuses. The cause is read
+in the gateway's source and is consistent with what the owner saw; the value of
+that allowlist in production, and what `/v1/models` returns for the owner's key,
+were **not observed**. If the refused model turns out to be in that list, this
+does not explain the error.
+
+`catalog()` now asks both and offers the intersection. An infrastructure left with
+nothing goes, a default left with nothing is dropped, and the models left out are
+counted (`not_for_chat`, one new field of `AiCatalog`) so the screen says *the
+gateway lists 574 more that its chat does not accept* or, when it is all of them,
+that none is available, instead of an empty list that looks like a failed load. A
+saved model the chat does not accept is cleared when the list loads, with a
+sentence, because the selector showed *Choose a model…* over it and saving would
+have kept it. **Test** now counts what chat can use. ADR-109 records it.
+
+Five new Rust tests and three on the screen; each of five mutations (list not
+narrowed, default kept, count dropped, stale model kept, the "none" sentence
+removed) failed the test that covers it, and the files then hashed identical.
+**What this does not do:** it does not make a Claude model available. If the
+gateway's allowlist leaves Anthropic out, the picker will now say so, and the way
+to get it is `claude-fable-5-1@anthropic` in `OPENAI_COMPAT_MODELS` in the
+gateway's own `.env`: its administrator's decision, since an empty list would
+expose every paid provider's house keys to any holder of an API key. The fix
+reaches the owner by updating.
+
 ## 1.11.9 - A note can be deleted from the server's tree, the way it can be renamed
 
 The owner could not delete a note from the server: the tree's row menu offered

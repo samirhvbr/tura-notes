@@ -292,6 +292,7 @@ pub(crate) fn catalog(
     let found = shvia(config, key)?.catalog().map_err(provider_error)?;
     Ok(AiCatalog {
         default_infra: found.default_infra,
+        not_for_chat: u32::try_from(found.not_for_chat).unwrap_or(u32::MAX),
         infras: found
             .infras
             .into_iter()

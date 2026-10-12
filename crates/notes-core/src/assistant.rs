@@ -90,13 +90,15 @@ pub struct AiInfra {
     pub models: Vec<AiCatalogModel>,
 }
 
-/// The infrastructures and models a SHVIA key can use, the gateway's default
-/// infrastructure first.
+/// The infrastructures and models a SHVIA key can chat with, the gateway's
+/// default infrastructure first. `not_for_chat` counts the models the gateway
+/// lists that its chat route refuses; they are not in `infras`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct AiCatalog {
     pub infras: Vec<AiInfra>,
     pub default_infra: Option<String>,
+    pub not_for_chat: u32,
 }
 
 /// Why a command did not do what was asked, as a code the interface turns into
