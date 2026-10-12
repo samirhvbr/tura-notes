@@ -244,18 +244,46 @@ adb devices                                 # the phone must be listed as "devic
 npm run tauri -- android dev
 ```
 
-### iOS: the project has to be generated first
+### iOS: the project exists; run it on the Simulator
 
-`gen/apple` does not exist in the repository yet — `tauri ios init` only runs on
-macOS. Generate it once, **commit what it creates**, then run on the Simulator:
+`apps/notes-app/src-tauri/gen/apple` is in the repository since 1.11.8: the
+XcodeGen `project.yml`, the generated `.xcodeproj`, `Info.plist`, the privacy
+manifest and the icons. What `tauri ios init` writes is **overwritten** by a second
+`init` (it regenerates `project.yml`, `Info.plist` and the entitlements; the sibling
+SHVIA project recorded on 31/07 that it does not merge `Info.ios.plist` either, which
+was not re-measured here), so after any `init` re-check that `project.yml` still
+carries `UIFileSharingEnabled`, `LSSupportsOpeningDocumentsInPlace`,
+`TARGETED_DEVICE_FAMILY: "1,2"`, the `excludes: ["**/*.a"]` on `Externals`, and that
+`notes-app_iOS/PrivacyInfo.xcprivacy` is still there.
 
 ```bash
-npm run tauri -- ios init                   # creates src-tauri/gen/apple — commit it
+cd apps/notes-app && npm ci
 npm run tauri -- ios dev                    # picks a Simulator
 ```
 
-A physical iPhone additionally needs an Apple development team set in Xcode
-for signing; the Simulator does not.
+**On Xcode 27 that command refuses**, with *"Xcode Simulator SDK 27.0 is not
+installed, please open Xcode"*, when the Simulator runtime installed is older than
+the SDK (the Tauri CLI compares them). Either install the matching runtime (Xcode,
+Settings, Components) and the command above works, or build and run without the CLI:
+
+```bash
+tools/ios-simulator.sh                      # "iPhone 17"; or: tools/ios-simulator.sh "iPad mini (A17 Pro)"
+```
+
+A physical iPhone additionally needs an Apple development team set for signing
+(`bundle.iOS.developmentTeam` is `S65UBCTPN5`); the Simulator does not. The device
+build, **unsigned**, is a compile check that needs nothing from the Apple account:
+
+```bash
+cd apps/notes-app
+npm run tauri -- ios build --target aarch64 --no-sign --archive-only \
+  --build-number 1 --config '{"version":"X.Y.Z"}'
+```
+
+`--config '{"version":...}'` is not optional on `ios build`: `tools/tauri.mjs`
+injects the version only for `dev`, so without it the archive says `0.0.0`. The
+build rewrites `CFBundleShortVersionString` in the tracked `Info.plist`; put it back
+with `xcodegen generate` in `gen/apple` before committing.
 
 ### What to record, and where
 

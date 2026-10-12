@@ -7,6 +7,40 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the iOS Simulator is run by a script, and what it showed is written down
+
+On this Mac (Xcode 27.0, SDK `iphonesimulator27.0`, only the iOS 26.5 Simulator runtime
+installed) `tauri ios build --target aarch64-sim` and `ios dev` stop before building,
+with "Xcode Simulator SDK 27.0 is not installed, please open Xcode". The message
+comes from cargo-mobile2's `Target::validate_sdk`, which wants an installed runtime at
+least as new as the SDK (`-v` shows it: `installed runtimes: 26.5, 26.5`). Running
+`xcodebuild` alone on the generated project does not get around it either: its "Build
+Rust Code" phase calls `tauri ios xcode-script`, which reads the options server of a
+running `ios dev` or `ios build` and says so when there is none.
+
+`tools/ios-simulator.sh` does what that phase does without the server: the frontend, the
+Rust static library for `aarch64-apple-ios-sim` with `tauri/custom-protocol` (so the
+frontend is embedded and the app does not go looking for a dev server), the
+version stamped through `TAURI_CONFIG` so the committed `0.0.0` stays (ADR-035), then
+`xcodebuild` with that phase made a no-op, ad-hoc signing (no identity, no keychain),
+and `simctl` boot, install and launch. First run is a Rust build; a rebuild of the
+shell is about ten seconds. The proper cure needs no script: install the iOS 27
+Simulator runtime (Xcode, Settings, Components) and `npm run tauri -- ios dev` works.
+A device build never reaches the check, which is why the unsigned `--archive-only`
+build in the entry above works on the same machine.
+
+`docs/OWNER-ACTS.md` section 4 now says all of this in place of "`gen/apple` does not exist
+yet", with the commands, the keys to re-check after any `ios init` (it overwrites
+`project.yml`; that it does not merge `Info.ios.plist` is the SHVIA project's
+31/07 finding, not re-measured here) and the fact that
+`ios build` does not stamp the version unless it is given `--config`.
+`docs/ACCEPTANCE-0.4.md` and `docs/MOBILE-0.4.md` stop saying the Apple project needs
+macOS, and `ACCEPTANCE-0.4.md` gains what the Simulator showed on 12/10/2026 and what a
+store build still needs, so the next session starts from the list and not from this
+entry. The `.continue/README.md` row for 0.4 still says the Apple project needs macOS
+and that nothing was seen running; it was not edited, because the file's stamp line
+certifies every row at one version and only that row was re-read.
+
 ## 1.11.8 - API keys and the site credential are kept in the iOS keychain
 
 Compiling for iOS was not enough for the keychain. `keyring`'s `v1` mode, the one this
