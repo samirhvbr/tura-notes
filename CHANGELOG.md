@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - ammonia 4.2.0 to 4.2.3, the release that fixes RUSTSEC-2021-0157
+
+The previous entry removed the first reason `cargo audit --deny warnings` was red.
+The audit then said something different: **`1 vulnerability found`**, in `ammonia`,
+the HTML sanitizer every note's preview goes through. A vulnerability and not an
+unmaintained warning, which is the category `.cargo/audit.toml` says is never
+ignored: it is fixed or the dependency goes.
+
+It came in a *later* update of the advisory database than the first (the earlier
+audit loaded 1299 advisories and saw only `unsafe-libyaml`; this one loaded 1307):
+the advisory file carries the date 2021-10-10, but the RustSec commit that added it ("Assigned
+RUSTSEC-2021-0157 to ammonia…") is dated 18:01 on 12/10, and the patched ranges it
+states, `>= 4.2.3` and `>= 4.1.7, < 4.2.0`, make `4.2.0` through `4.2.2` affected
+— `Cargo.lock` had `4.2.0`. Both patched releases were published the day before,
+11/10. What the advisory looked like before that, I do not know.
+
+**Whether the project was exposed was read, not assumed.** The advisory is exact
+about it: *vulnerable if, and only if, the `style` attribute is allowed and
+`filter_style_properties` is used.* The project allows `style`, on `th` and `td`
+only, and behind its own filter that keeps the three exact alignment strings and
+drops everything else (with `fixtures/xss/style-injection.md` as its test). It never
+calls `filter_style_properties`: the name does not appear in the crate. So the
+note's preview was not exposed, and this is hygiene and policy rather than the
+closing of a hole. That is worth saying plainly because the word *vulnerability*
+invites a worse reading.
+
+`cargo update -p ammonia --precise 4.2.3`, the patched release, published the day
+before. The lock moves two lines (version and checksum) and nothing else. The
+sanitizer's own tests pass, including the one that renders every one of the 22 XSS
+fixtures and compares the bytes to a golden file, which is the test a sanitizer
+upgrade can actually fail. `THIRD-PARTY-NOTICES.md` changes only the version.
+
 ## 1.11.8 - the front matter parser is serde_norway, a drop-in the audit accepts
 
 RustSec published RUSTSEC-2024-0449 on 12/10, after the 07:06 nightly run (its
