@@ -2918,6 +2918,7 @@ version = "0.0.0"
 dependencies = [
  "apple-native-keyring-store",
  "keyring",
+ "keyring-core",
  "reqwest",
  "rustls",
  "serde_json",

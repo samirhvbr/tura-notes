@@ -7,6 +7,32 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - API keys and the site credential are kept in the iOS keychain
+
+Compiling for iOS was not enough for the keychain. `keyring`'s `v1` mode, the one this
+application uses, installs a store on macOS, Windows and Linux and deliberately none on
+iOS or Android: its `Entry::new` answers `NoDefaultStore`. This application maps that to
+"the assistant and the site sign-in are unavailable", which is the right answer for a
+system with no keychain and the wrong one for an iPhone, which has the best one there
+is. So a build that merely compiled would have shipped with the AI assistant's keys and
+the sign-in credential (ADR-100, ADR-105) impossible to store.
+
+On iOS `notes-ai` now sets the "protected data" store up once, through `keyring-core`
+(the layer `keyring` wraps, `keyring-core` 1 being the version `keyring` 4.2 already
+uses, so `Cargo.lock` gains one more edge and no new package), and builds the same
+`keyring::Entry` the rest of the code uses. Every other platform still goes straight
+through `keyring::Entry::new` and `Entry::store_status`, as before. The two places that
+make an entry, the key store in `notes-ai` and `credentials.rs` in the shell, now share
+`notes_ai::new_entry`, and the availability check shares `store_status`, so the one
+platform that differs is handled in one file.
+
+Observed on the iPhone 17 Simulator, on an ad-hoc-signed debug build: the assistant's
+settings opened with no keychain complaint, and a provider added with a throwaway key
+listed as "key saved", which is read back from the keychain. Not observed, and the
+store's own documentation says it needs a provisioning profile for all its features: an
+unsigned build and a build on a device. That is the first thing to look at on
+TestFlight if the assistant says its keychain is unavailable there.
+
 ## 1.11.8 - the top bar clears the status bar on a phone
 
 `index.html` already asks for `viewport-fit=cover`, so on an iPhone the page starts under

@@ -20,6 +20,8 @@ keyring = "4"
 # iOS has one secure store, the "protected data" keychain, and the crate refuses
 # to compile there unless that feature is on (it is a compile_error!, not a
 # runtime failure). `keyring`'s `v1` mode does not pick a store on iOS by
-# itself, so the application has to install a store of its own there.
+# itself, so `keychain.rs` installs this one through `keyring-core`, the layer
+# `keyring` wraps.
 [target.'cfg(target_os = "ios")'.dependencies]
 apple-native-keyring-store = { version = "1", features = ["protected"] }
+keyring-core = "1"

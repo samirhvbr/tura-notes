@@ -24,7 +24,7 @@ fn entry(name: &str) -> Result<keyring::Entry, StoreFailure> {
     if !valid {
         return Err(StoreFailure::Failed);
     }
-    keyring::Entry::new(notes_ai::SERVICE, &format!("cred:{name}")).map_err(map)
+    notes_ai::new_entry(&format!("cred:{name}")).map_err(map)
 }
 
 fn map(error: keyring::Error) -> StoreFailure {

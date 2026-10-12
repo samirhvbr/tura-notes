@@ -51,7 +51,69 @@ pub struct SystemKeychain;
 
 fn entry(provider: &str) -> Result<keyring::Entry, KeychainError> {
     let account = account(provider)?;
-    keyring::Entry::new(SERVICE, &account).map_err(map)
+    new_entry(&account).map_err(map)
+}
+
+/// A keychain entry under this application's service name.
+///
+/// Everything that talks to the keychain goes through here, and through
+/// [`store_status`], so that the one platform `keyring` cannot choose a store for
+/// is handled in one place.
+pub fn new_entry(account: &str) -> keyring::Result<keyring::Entry> {
+    #[cfg(not(target_os = "ios"))]
+    {
+        keyring::Entry::new(SERVICE, account)
+    }
+    #[cfg(target_os = "ios")]
+    {
+        ios::entry(SERVICE, account)
+    }
+}
+
+/// Whether a keychain store could be set up, once, the way `keyring` reports it.
+pub fn store_status() -> &'static keyring::Result<()> {
+    #[cfg(not(target_os = "ios"))]
+    {
+        keyring::Entry::store_status()
+    }
+    #[cfg(target_os = "ios")]
+    {
+        ios::status()
+    }
+}
+
+/// iOS has one secure store, the "protected data" keychain, and `keyring`'s `v1`
+/// mode deliberately picks none there: its `Entry::new` answers
+/// `NoDefaultStore` on iOS and Android, which this application maps to "the
+/// assistant and the site sign-in are unavailable". So on iOS the store is set up
+/// here, through `keyring-core`, which is what `keyring` itself wraps, and the
+/// entry it hands back is the same `keyring::Entry` the rest of the code uses.
+///
+/// The store needs the app to be signed with an application identifier
+/// (a provisioning profile on a device). An unsigned simulator build gets
+/// `-34018` from it, and that surfaces as a refused keychain, not as a crash.
+#[cfg(target_os = "ios")]
+mod ios {
+    use std::sync::LazyLock;
+
+    static STORE: LazyLock<keyring::Result<()>> = LazyLock::new(|| {
+        let store = apple_native_keyring_store::protected::Store::new()?;
+        keyring_core::set_default_store(store);
+        Ok(())
+    });
+
+    pub fn status() -> &'static keyring::Result<()> {
+        &STORE
+    }
+
+    pub fn entry(service: &str, account: &str) -> keyring::Result<keyring::Entry> {
+        if STORE.is_err() {
+            return Err(keyring::Error::NoDefaultStore);
+        }
+        Ok(keyring::Entry {
+            inner: keyring_core::Entry::new(service, account)?,
+        })
+    }
 }
 
 fn map(error: keyring::Error) -> KeychainError {
@@ -65,7 +127,7 @@ fn map(error: keyring::Error) -> KeychainError {
 
 impl KeyStore for SystemKeychain {
     fn available(&self) -> Result<(), KeychainError> {
-        match keyring::Entry::store_status() {
+        match store_status() {
             Ok(()) => Ok(()),
             Err(error) => Err(match error {
                 keyring::Error::NoStorageAccess(_) | keyring::Error::PlatformFailure(_) => {

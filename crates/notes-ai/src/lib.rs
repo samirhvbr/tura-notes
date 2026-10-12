@@ -19,7 +19,9 @@ mod transport;
 
 pub use anthropic::AnthropicProvider;
 pub use endpoint::validate_base;
-pub use keychain::{KeyStore, KeychainError, MemoryKeyStore, SystemKeychain, SERVICE};
+pub use keychain::{
+    new_entry, store_status, KeyStore, KeychainError, MemoryKeyStore, SystemKeychain, SERVICE,
+};
 pub use openai::{OpenAiProvider, TokenLimit};
 pub use shvia::{Catalog, CatalogModel, Infra, ShviaProvider};
 
