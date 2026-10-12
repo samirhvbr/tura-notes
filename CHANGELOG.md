@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the iOS app icons carry no alpha channel
+
+App Store Connect rejects an app whose 1024-pixel marketing icon has an alpha
+channel, and all eighteen files in `apps/notes-app/src-tauri/icons/ios` had one
+(`sips -g hasAlpha`: yes, 18 of 18). They were not transparent. The lowest alpha
+was 254, on 26 to 448 antialiased pixels per file around the edge of the letter,
+over a full-bleed ground, so nothing about how the icon looks depends on it.
+
+Flattened with CoreGraphics: the corner colour is filled first and the image is
+drawn over it, then written without an alpha channel. Read back, `hasAlpha` is `no`
+for all eighteen, the pixel counts are unchanged, and the 1024 icon, opened and
+looked at, is the same picture. The desktop icons keep their alpha, which they are
+meant to have.
+
+**`tauri icon` writes the alpha back.** If `icon-source.png` ever changes and the
+set is regenerated, flatten the iOS set again before the next upload, or App Store
+Connect refuses the build at the icon and not at anything the build did.
+
 ## 1.11.7 - installing an update no longer throws away a remote note's unsent text
 
 Found while updating a status board, not reported from use: reading what
