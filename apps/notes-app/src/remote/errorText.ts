@@ -12,6 +12,9 @@ export function remoteErrorText(e: ipc.CoreError): string {
       limit: t("remote.error.limit"),
       protocol: t("remote.error.protocol"),
       invalid: t("remote.error.invalid"),
+      // `conflict` is worded for device sync ("review the conflicts"). Here it is
+      // a stale tag: the note changed after the list on screen was loaded.
+      conflict: t("remote.error.conflict"),
     };
     return said[e.cause] ?? errorText(e);
   }

@@ -396,6 +396,7 @@
   "remote.disconnect": "Desconectar",
   "remote.empty": "Ainda não há notas no servidor.",
   "remote.error.busy": "O servidor está ocupado ou limitando esta credencial. Tente de novo em um minuto.",
+  "remote.error.conflict": "A nota mudou no servidor depois que esta lista foi carregada. Nada foi alterado e a lista foi atualizada: tente de novo.",
   "remote.error.denied": "O servidor recusou esta credencial, ou ela não permite esta operação.",
   "remote.error.invalid": "As configurações de conexão não são válidas, ou o servidor recusou esse nome.",
   "remote.error.limit": "A nota passa do limite de tamanho do servidor.",

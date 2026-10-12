@@ -396,6 +396,7 @@
   "remote.disconnect": "Disconnect",
   "remote.empty": "No notes on the server yet.",
   "remote.error.busy": "The server is busy or rate-limiting this credential. Try again in a minute.",
+  "remote.error.conflict": "The note changed on the server after this list was loaded. Nothing was changed, and the list was refreshed: try again.",
   "remote.error.denied": "The server refused this credential, or it does not allow this operation.",
   "remote.error.invalid": "The connection settings are not valid, or the server refused that name.",
   "remote.error.limit": "The note is over the server's size limit.",

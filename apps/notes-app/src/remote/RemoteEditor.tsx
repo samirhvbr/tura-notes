@@ -6,14 +6,13 @@ import { Editor } from "../editor/Editor";
 import { Preview } from "../preview/Preview";
 import { Divider } from "../app/Divider";
 import { Menu, type MenuRow } from "../app/Menu";
-import { askConfirm } from "../app/dialog";
 import { diffLines } from "../conflict/diff";
 import { DiffColumns } from "../conflict/Compare";
 import { useRemote } from "../stores/remote";
 import { dirty, saveWarning, useRemoteDoc } from "../stores/remoteDoc";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
-import { askRemoteName, remoteErrorText } from "./RemoteBrowser";
+import { askRemoteName, confirmRemoteDelete, remoteErrorText } from "./RemoteBrowser";
 import { useRemoteSync } from "./useRemoteSync";
 
 /**
@@ -87,13 +86,7 @@ export function RemoteEditor() {
       label: t("remote.delete"),
       danger: true,
       run: async () => {
-        const yes = await askConfirm({
-          title: t("remote.delete.title", { name }),
-          body: t("remote.delete.body"),
-          confirmLabel: t("remote.delete"),
-          danger: true,
-        });
-        if (yes) await run(() => useRemoteDoc.getState().remove());
+        if (await confirmRemoteDelete(doc.path)) await run(() => useRemoteDoc.getState().remove());
       },
     },
   ];

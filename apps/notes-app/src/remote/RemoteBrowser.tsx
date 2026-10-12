@@ -21,7 +21,7 @@ import { buildTree, useRemote, type RemoteDir } from "../stores/remote";
 import { dirty, useRemoteDoc } from "../stores/remoteDoc";
 import { Menu, type MenuRow } from "../app/Menu";
 import { useUi } from "../stores/ui";
-import { askText } from "../app/dialog";
+import { askConfirm, askText } from "../app/dialog";
 import { remoteFolderPath, remoteNotePath } from "./names";
 import { useRemoteListSync } from "./useRemoteSync";
 import { SignIn } from "../app/SignIn";
@@ -303,7 +303,22 @@ function RemoteNoteRow({
         try {
           await useRemoteDoc.getState().renameNote(note.path, to, note.etag);
         } catch (e) {
-          say(remoteErrorText(ipc.asCoreError(e)));
+          reportRemoteRefusal(say, e);
+        }
+      },
+    },
+    { separator: true },
+    {
+      id: "remote-delete",
+      label: t("remote.delete"),
+      danger: true,
+      run: async () => {
+        if (!(await confirmRemoteDelete(note.path))) return;
+        say("");
+        try {
+          await useRemoteDoc.getState().deleteNote(note.path, note.etag);
+        } catch (e) {
+          reportRemoteRefusal(say, e);
         }
       },
     },
@@ -358,6 +373,29 @@ function RemoteNoteRow({
       </div>
     </li>
   );
+}
+
+/**
+ * The question before a note is deleted from the server, asked the same way
+ * whichever door the person came through: the tree's row or the note's own menu.
+ */
+export async function confirmRemoteDelete(path: string): Promise<boolean> {
+  const name = path.split("/").pop() ?? path;
+  return askConfirm({
+    title: t("remote.delete.title", { name }),
+    body: t("remote.delete.body"),
+    confirmLabel: t("remote.delete"),
+    danger: true,
+  });
+}
+
+/** What to say about a refusal, and what to do about the list it was made from. */
+export function reportRemoteRefusal(say: (message: string) => void, e: unknown) {
+  const error = ipc.asCoreError(e);
+  say(remoteErrorText(error));
+  // A stale tag means the list is out of date; trying again must carry the tag
+  // the note has now, and that is only in a fresh list.
+  if (error.code === "sync" && error.cause === "conflict") void useRemote.getState().refresh();
 }
 
 /** Ask for a note's new name or path on the server. Null when the person

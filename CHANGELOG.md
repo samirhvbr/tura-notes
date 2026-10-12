@@ -7,6 +7,42 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.9 - A note can be deleted from the server's tree, the way it can be renamed
+
+The owner could not delete a note from the server: the tree's row menu offered
+*Rename or move on the server* and nothing else. Delete existed, but only in the
+`⋮` menu of a note that was already open, so removing one meant opening it first,
+which is the door the owner did not expect to need.
+
+The row now has **Delete from the server**, below a separator and in the
+destructive style, and it asks first with the sentence the note's own menu has
+(`confirmRemoteDelete`, one function for both doors). A note that is not open is
+deleted at the revision the listing showed, so one somebody changed meanwhile is
+refused by the server and not removed unseen; a listing from an older server with
+no revision asks the note for it. A note that is already gone counts as done,
+because the row on screen is a ghost the next refresh removes and reporting it as
+a failure would ask the person to delete something that no longer exists. A note
+that is open goes through `remove()` at the tag it was saved at, text not yet sent
+included: the question just asked was about exactly that, and it is the one case
+where the buffer is deliberately not the last copy.
+
+One sentence was wrong for this place. A refused stale tag arrives as the
+`conflict` cause, which was worded for device sync ("review the conflicts");
+here it means the note changed after the list on screen was loaded. It now says
+that, says nothing was changed, and refreshes the list, because the tag a second
+try must carry is only in a fresh list. Rename uses the same reporter, so it
+stops telling a person to review conflicts that do not exist.
+
+Nine tests (five on the store, four on the tree) pin it, and each of five
+mutations was applied in turn and failed the test that covers it: `not_found` no
+longer counting as done, the question removed, the refresh removed, an open note
+deleted by path instead of through `remove()`, and the old `conflict` wording
+back. The three files then hashed identical to what they were. **Not proven:** a
+delete against a real server; `ACCEPTANCE-remote.md` row 10 now says what to try
+(the question, the cancel, the open note, a note changed after the list loaded)
+and is not ticked. The fix reaches the owner only by updating: 1.11.6 is
+installed, and the feed serves 1.11.8.
+
 ## 1.11.8 - ammonia 4.2.0 to 4.2.3, the release that fixes RUSTSEC-2021-0157
 
 The previous entry removed the first reason `cargo audit --deny warnings` was red.

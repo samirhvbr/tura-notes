@@ -11,6 +11,7 @@ vi.mock("../ipc", async (original) => ({
   remoteCreateFolder: vi.fn(),
   remoteProbe: vi.fn(),
   remoteRename: vi.fn(),
+  remoteDelete: vi.fn(),
   pairBegin: vi.fn(),
   pairFinish: vi.fn(),
   pairSignOut: vi.fn(),
@@ -20,11 +21,12 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("../app/dialog", async (original) => ({
   ...(await original<typeof import("../app/dialog")>()),
   askText: vi.fn(),
+  askConfirm: vi.fn(),
 }));
 const { RemoteBrowser } = await import("./RemoteBrowser");
 const { useRemote } = await import("../stores/remote");
 const { useRemoteDoc } = await import("../stores/remoteDoc");
-const { askText } = await import("../app/dialog");
+const { askText, askConfirm } = await import("../app/dialog");
 const initial = useRemote.getState();
 afterEach(() => {
   cleanup();
@@ -186,6 +188,72 @@ it("the note that is open with unsent text cannot be renamed from the tree", asy
   render(<RemoteBrowser onOpen={() => {}} />);
   fireEvent.contextMenu(await screen.findByText("only.md"));
   expect(await screen.findByRole("menuitem", { name: "Rename or move on the server" })).toHaveAttribute("aria-disabled", "true");
+});
+
+it("a right-click on a note offers Delete, asks first, and deletes without opening the note", async () => {
+  // The note's row offered only Rename, so a note had to be opened to be removed.
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
+  vi.mocked(askConfirm).mockResolvedValue(true);
+  vi.mocked(ipc.remoteDelete).mockResolvedValue(undefined);
+  const opened: string[] = [];
+  render(<RemoteBrowser onOpen={(e) => opened.push(e.path)} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  const items = (await screen.findAllByRole("menuitem")).map((i) => i.textContent);
+  expect(items).toEqual(["Rename or move on the server", "Delete from the server"]);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete from the server" }));
+  await waitFor(() => expect(ipc.remoteDelete).toHaveBeenCalledWith("only.md", '"a"'));
+  expect(vi.mocked(askConfirm).mock.calls[0][0]).toMatchObject({ title: "Delete “only.md” from the server?", danger: true });
+  expect(opened).toEqual([]);
+  await waitFor(() => expect(ipc.remoteList).toHaveBeenCalledTimes(2));
+});
+
+it("declining the question deletes nothing", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
+  vi.mocked(askConfirm).mockResolvedValue(false);
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from the server" }));
+  await waitFor(() => expect(askConfirm).toHaveBeenCalled());
+  expect(ipc.remoteDelete).not.toHaveBeenCalled();
+  expect(ipc.remoteList).toHaveBeenCalledTimes(1);
+});
+
+it("a delete refused because the note changed says that, in words about the note, and refreshes the list", async () => {
+  // `conflict` was worded for device sync — "review the conflicts" — which says
+  // nothing about a note that someone changed while a list sat on screen.
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
+  vi.mocked(askConfirm).mockResolvedValue(true);
+  vi.mocked(ipc.remoteDelete).mockRejectedValue({ code: "sync", cause: "conflict" });
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from the server" }));
+  expect(await screen.findByText(/changed on the server after this list was loaded/)).toBeInTheDocument();
+  expect(screen.queryByText(/review the conflicts/)).toBeNull();
+  // So that trying again carries the tag the note has now.
+  await waitFor(() => expect(ipc.remoteList).toHaveBeenCalledTimes(2));
+});
+
+it("a note open with unsent text can be deleted from the tree after the question, and its tab goes", async () => {
+  // Rename is greyed there because the text would be left at the old path. Delete
+  // takes the note and its text together, which is what the question says.
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
+  vi.mocked(askConfirm).mockResolvedValue(true);
+  vi.mocked(ipc.remoteDelete).mockResolvedValue(undefined);
+  useRemoteDoc.setState({
+    tabs: ["only.md"],
+    doc: { path: "only.md", text: "x", etag: '"saved"', bufferVersion: 2, savedVersion: 1 } as never,
+  });
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  const item = await screen.findByRole("menuitem", { name: "Delete from the server" });
+  expect(item).not.toHaveAttribute("aria-disabled", "true");
+  fireEvent.click(item);
+  await waitFor(() => expect(ipc.remoteDelete).toHaveBeenCalledWith("only.md", '"saved"'));
+  await waitFor(() => expect(useRemoteDoc.getState().doc).toBeNull());
 });
 
 // ---- folders -----------------------------------------------------------------

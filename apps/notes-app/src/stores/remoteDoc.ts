@@ -110,6 +110,14 @@ interface RemoteDocState {
    * note is open with text not yet sent: that text would be left behind.
    */
   renameNote(from: string, to: string, etag: string | null): Promise<boolean>;
+  /**
+   * Delete a note of the server's tree, open or not — the tree's half of what
+   * the note's own menu does. The open note goes through [`remove`], at the tag
+   * it was saved at; any other is deleted at the revision the listing showed, so
+   * a note someone changed meanwhile is refused by the server and not removed
+   * unseen. One already gone counts as done. Returns `true` once it is.
+   */
+  deleteNote(path: string, etag: string | null): Promise<boolean>;
   remove(): Promise<void>;
 }
 
@@ -485,6 +493,28 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       const tag = etag ?? (await ipc.remoteOpen(from)).etag;
       const note = await ipc.remoteRename(from, to, tag);
       set((s) => ({ tabs: s.tabs.map((p) => (p === from ? note.path : p)) }));
+      void useRemote.getState().refresh();
+      return true;
+    },
+
+    async deleteNote(path, etag) {
+      const d = get().doc;
+      if (d && d.path === path) {
+        await get().remove();
+        return true;
+      }
+      // A listing from an older server carries no tag; the note then says
+      // which revision it is.
+      try {
+        const tag = etag ?? (await ipc.remoteOpen(path)).etag;
+        await ipc.remoteDelete(path, tag);
+      } catch (e) {
+        // The aim was for it to be gone. A note that already is leaves a row on
+        // screen that the next refresh would remove anyway; reporting that as a
+        // failure would ask the person to delete a ghost.
+        if (ipc.asCoreError(e).code !== "not_found") throw e;
+      }
+      await get().close(path, true);
       void useRemote.getState().refresh();
       return true;
     },

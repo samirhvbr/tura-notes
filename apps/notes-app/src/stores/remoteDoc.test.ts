@@ -6,6 +6,7 @@ vi.mock("../ipc", async (original) => ({
   remoteSave: vi.fn(),
   remoteCreate: vi.fn(),
   remoteRename: vi.fn(),
+  remoteDelete: vi.fn(),
   remoteMerge: vi.fn(),
   remoteList: vi.fn(),
   pdfSave: vi.fn(),
@@ -234,6 +235,58 @@ it("a refusal from the server reaches the caller and leaves the tabs as they wer
   useRemoteDoc.setState({ tabs: ["b.md"] });
   await expect(useRemoteDoc.getState().renameNote("b.md", "c.md", '"e2"')).rejects.toBeTruthy();
   expect(useRemoteDoc.getState().tabs).toEqual(["b.md"]);
+});
+
+// ---- deleting from the tree ---------------------------------------------------
+// The note's own menu could delete it; the tree's row could only rename it, so a
+// note had to be opened to be removed. These are the tree's half.
+
+it("deletes a note that is not open, at the tag the listing showed, and takes its tab away", async () => {
+  await opened();
+  useRemoteDoc.setState({ tabs: ["a.md", "b.md"] });
+  vi.mocked(ipc.remoteDelete).mockResolvedValue(undefined);
+  expect(await useRemoteDoc.getState().deleteNote("b.md", '"e2"')).toBe(true);
+  expect(ipc.remoteDelete).toHaveBeenCalledWith("b.md", '"e2"');
+  expect(ipc.remoteOpen).toHaveBeenCalledTimes(1); // only the open of a.md
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md"]);
+  expect(useRemoteDoc.getState().doc?.path, "the open note was not touched").toBe("a.md");
+  expect(ipc.remoteList).toHaveBeenCalled();
+});
+
+it("asks the note for its tag when the listing carried none, before deleting", async () => {
+  vi.mocked(ipc.remoteOpen).mockResolvedValue(note("b.md", "x", '"fresh"'));
+  vi.mocked(ipc.remoteDelete).mockResolvedValue(undefined);
+  await useRemoteDoc.getState().deleteNote("b.md", null);
+  expect(ipc.remoteDelete).toHaveBeenCalledWith("b.md", '"fresh"');
+});
+
+it("deleting the open note uses the tag it was saved at and closes it, whatever the listing said", async () => {
+  await opened();
+  vi.mocked(ipc.remoteDelete).mockResolvedValue(undefined);
+  expect(await useRemoteDoc.getState().deleteNote("a.md", '"stale"')).toBe(true);
+  expect(ipc.remoteDelete).toHaveBeenCalledWith("a.md", '"e1"');
+  expect(useRemoteDoc.getState().doc).toBeNull();
+  expect(useRemoteDoc.getState().tabs).toEqual([]);
+});
+
+it("a note already gone from the server is a delete that is done, and the list is refreshed", async () => {
+  // The goal was for it to be gone. Failing because it already is would leave the
+  // row on screen until the next refresh, asking the person to delete a ghost.
+  useRemoteDoc.setState({ tabs: ["b.md"] });
+  vi.mocked(ipc.remoteDelete).mockRejectedValue({ code: "not_found", path: "b.md" });
+  expect(await useRemoteDoc.getState().deleteNote("b.md", '"e2"')).toBe(true);
+  expect(useRemoteDoc.getState().tabs).toEqual([]);
+  expect(ipc.remoteList).toHaveBeenCalled();
+});
+
+it("a refusal from the server reaches the caller, and nothing is closed or refreshed", async () => {
+  // A stale tag is the usual one: the note changed after the list was loaded, and a
+  // delete that went through anyway would remove text nobody had seen.
+  useRemoteDoc.setState({ tabs: ["b.md"] });
+  vi.mocked(ipc.remoteDelete).mockRejectedValue({ code: "sync", cause: "conflict" });
+  await expect(useRemoteDoc.getState().deleteNote("b.md", '"old"')).rejects.toMatchObject({ cause: "conflict" });
+  expect(useRemoteDoc.getState().tabs).toEqual(["b.md"]);
+  expect(ipc.remoteList).not.toHaveBeenCalled();
 });
 
 // ---- staying in step with the server ----------------------------------------
