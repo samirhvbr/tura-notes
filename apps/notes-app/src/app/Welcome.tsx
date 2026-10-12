@@ -57,9 +57,17 @@ function WelcomeContent() {
   };
 
   const pick = async (create: boolean) => {
-    const picked = await openDialog({ directory: true, multiple: false });
-    if (typeof picked !== "string") return;
     try {
+      // Where there is no folder chooser (iOS) the application's own sandbox is
+      // the folder: "Create" makes one inside it and "Open" opens it, which is the
+      // folder the Files app shows. The dialog plugin refuses a directory pick on
+      // mobile, and that refusal used to be an unhandled rejection, so both buttons
+      // did nothing at all, without a word.
+      // A sandbox that cannot be asked for is not a reason to withhold the
+      // picker where there is one.
+      const sandbox = await ipc.sandboxRoot().catch(() => null);
+      const picked = sandbox ?? (await openDialog({ directory: true, multiple: false }));
+      if (typeof picked !== "string") return;
       if (create) {
         const name = await askText({
           title: t("welcome.create"),

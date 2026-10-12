@@ -168,6 +168,9 @@ export const aiChatCancel = (chat: string) => invoke<void>("ai_chat_cancel", { c
 
 export const envReport = () => invoke<EnvReport>("env_report");
 
+/** The folder a workspace lives in where no folder chooser exists (iOS);
+ *  `null` everywhere else, where the user picks one. */
+export const sandboxRoot = () => invoke<string | null>("sandbox_root");
 export const workspaceOpen = (root: string) =>
   invoke<WorkspaceInfo>("workspace_open", { root });
 export const workspaceCreate = (parent: string, name: string) =>

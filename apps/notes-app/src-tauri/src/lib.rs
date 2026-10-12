@@ -190,6 +190,7 @@ pub fn run() {
             commands::index_status,
             commands::index_cancel,
             commands::recent_notes,
+            commands::sandbox_root,
             commands::workspace_open,
             commands::markdown_render,
             commands::markdown_outline,

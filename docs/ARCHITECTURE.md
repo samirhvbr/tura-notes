@@ -515,6 +515,7 @@ an IPC type.
 |---|---|---|
 | workspace | `workspace_open(root: String)` | `WorkspaceInfo { id, root, caps, case_insensitive, read_only }` |
 | | `workspace_create(parent: String, name: String)` | `WorkspaceInfo` |
+| | `sandbox_root()` | `Option<String>` — the app's `Documents` folder on iOS, where no folder chooser exists; `None` everywhere else (Android still needs its SAF adapter). The welcome screen creates and opens workspaces there until the bookmark adapter exists |
 | | `workspace_recent()` | `Vec<RecentWorkspace>` |
 | | `workspace_close()` | `()` — refuses with `DirtyBuffers` while tabs are dirty |
 | | `workspace_reindex()` `[0.2]` | `()` |

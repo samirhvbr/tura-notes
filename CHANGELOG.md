@@ -7,6 +7,38 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - on iOS a workspace is created in the app's own folder, as there is no folder chooser
+
+First launch on the iPhone 17 Simulator: both welcome buttons did nothing. The dialog
+plugin's `open({ directory: true })` answers `FolderPickerNotImplemented` on mobile
+(`tauri-plugin-dialog` 2.8.1, `commands.rs`: `#[cfg(mobile)] return Err(...)`),
+`Welcome.tsx` awaited it with no catch, and the rejection disappeared without a word.
+`docs/SCOPE.md` section 14 already says what mobile does: "Create Workspace" is the app
+sandbox, and "Open Folder" is a native bookmark adapter that does not exist yet. This is
+the sandbox half and nothing more.
+
+A new command, `sandbox_root`, answers the application's `Documents` folder on iOS and
+`None` everywhere else. Android is left out on purpose: it has the same missing picker,
+but Tauri's `document_dir` there is the shared `Documents` of external storage, not the
+app's own folder, so an Android workspace waits for the SAF adapter and its buttons are
+as they were. The welcome screen asks it first and falls back to the picker only
+on `None`; a failure of the command also falls back, so the picker is never withheld on
+desktop. "Create Workspace" makes a folder inside it, and "Open Folder" opens it, which
+is the folder the Files app shows. That is a stopgap for the second button, not the
+adapter, and `ACCEPTANCE-0.4.md` still lists the adapter as unbuilt. The command is
+in the `ARCHITECTURE.md` command table.
+
+The two existing welcome tests mock the new call as desktop; a third, for mobile,
+asserts the workspace is created and opened under the sandbox path and that the picker
+is never consulted.
+
+Observed on the Simulator afterwards: "Create Workspace" made `Documents/notes`; a
+Markdown file dropped into that folder from outside appeared in the tree and was
+indexed; it opened; typed text reached the file; and quitting and relaunching restored the
+workspace and the open tab. Found on the same run and not fixed here, with the evidence
+in `ACCEPTANCE-0.4.md`: the registry keeps an absolute path, and after a reinstall the
+container's path changed and the workspace read as unreachable.
+
 ## 1.11.8 - the Xcode project for iOS is generated, with its privacy manifest
 
 `tauri ios init` has produced `apps/notes-app/src-tauri/gen/apple`, committed for the

@@ -113,6 +113,40 @@ pub fn env_report(app: State<'_, App>, handle: tauri::AppHandle) -> R<EnvReport>
 
 // ---- workspace ---------------------------------------------------------
 
+/// The folder a workspace lives in on a platform that has no folder chooser.
+///
+/// iOS cannot hand the application a path to a folder the user picked: the dialog
+/// plugin refuses a directory pick on mobile outright
+/// (`FolderPickerNotImplemented`), and the adapter that would replace it, a
+/// security-scoped bookmark, is not built yet (`docs/SCOPE.md` §7.2 and §14,
+/// `docs/ACCEPTANCE-0.4.md`). Until it is, a workspace on iOS is a folder in the
+/// application's own sandbox: `Documents`, which the Files app shows
+/// (`UIFileSharingEnabled` in the generated Info.plist).
+///
+/// `None` everywhere else, so the picker is used. That includes Android, which has
+/// the same missing picker but not this answer: Tauri's `document_dir` there is the
+/// shared `Documents` of external storage, not the app's own, and an Android folder
+/// has to come from the SAF adapter (`docs/MOBILE-0.4.md`).
+#[tauri::command]
+pub fn sandbox_root(handle: tauri::AppHandle) -> R<Option<String>> {
+    #[cfg(target_os = "ios")]
+    {
+        use tauri::Manager;
+        let dir = handle
+            .path()
+            .document_dir()
+            .map_err(|e| CoreError::Internal {
+                message: format!("no documents directory: {e}"),
+            })?;
+        Ok(Some(dir.display().to_string()))
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let _ = handle;
+        Ok(None)
+    }
+}
+
 #[tauri::command]
 pub fn workspace_open(app: State<'_, App>, root: String) -> R<WorkspaceInfo> {
     svc(&app)?.open_workspace(&PathBuf::from(root))
