@@ -420,6 +420,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `serde_derive` | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | Rust: `serde_derive_internals` | 0.29.1 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | Rust: `serde_json` | 1.0.151 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
+| Rust: `serde_norway` | 0.9.42 | MIT OR Apache-2.0 | https://github.com/cafkafk/serde-yaml |
 | Rust: `serde_path_to_error` | 0.1.20 | MIT OR Apache-2.0 | https://github.com/dtolnay/path-to-error |
 | Rust: `serde_repr` | 0.1.21 | MIT OR Apache-2.0 | https://github.com/dtolnay/serde-repr |
 | Rust: `serde_spanned` | 0.6.9 | MIT OR Apache-2.0 | https://github.com/toml-rs/toml |
@@ -427,7 +428,6 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `serde_urlencoded` | 0.7.1 | MIT/Apache-2.0 | https://github.com/nox/serde_urlencoded |
 | Rust: `serde_with` | 3.22.0 | MIT OR Apache-2.0 | https://github.com/jonasbb/serde_with/ |
 | Rust: `serde_with_macros` | 3.22.0 | MIT OR Apache-2.0 | https://github.com/jonasbb/serde_with/ |
-| Rust: `serde_yaml_ng` | 0.10.0 | MIT | https://github.com/acatton/serde-yaml-ng |
 | Rust: `serialize-to-javascript` | 0.1.2 | MIT OR Apache-2.0 | https://github.com/chippers/serialize-to-javascript |
 | Rust: `serialize-to-javascript-impl` | 0.1.2 | MIT OR Apache-2.0 | https://github.com/chippers/serialize-to-javascript |
 | Rust: `servo_arc` | 0.4.3 | MIT OR Apache-2.0 | https://github.com/servo/stylo |
@@ -524,7 +524,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `unicode-normalization` | 0.1.25 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-normalization |
 | Rust: `unicode-properties` | 0.1.4 | MIT/Apache-2.0 | https://github.com/unicode-rs/unicode-properties |
 | Rust: `unicode-segmentation` | 1.13.3 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-segmentation |
-| Rust: `unsafe-libyaml` | 0.2.11 | MIT | https://github.com/dtolnay/unsafe-libyaml |
+| Rust: `unsafe-libyaml-norway` | 0.2.15 | MIT | https://github.com/cafkafk/unsafe-libyaml-norway |
 | Rust: `untrusted` | 0.9.0 | ISC | https://github.com/briansmith/untrusted |
 | Rust: `url` | 2.5.8 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |
 | Rust: `urlencoding` | 2.1.3 | MIT | https://github.com/kornelski/rust_urlencoding |
@@ -1150,7 +1150,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### adler2 2.0.1, anyhow 1.0.104, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, async-trait 0.1.92, atomic-waker 1.1.2, blocking 1.7.0, camino 1.2.5, cargo-platform 0.1.9, cargo_metadata 0.19.2, concurrent-queue 2.5.0, diffy 0.5.2, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, endi 1.1.1, erased-serde 0.4.10, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, futures-lite 2.6.1, hermit-abi 0.5.3, itoa 1.0.18, linux-raw-sys 0.12.1, num_enum 0.7.6, num_enum_derive 0.7.6, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, pin-project-lite 0.2.17, piper 0.2.5, polling 3.11.0, portable-atomic 1.15.0, portable-atomic-util 0.2.8, proc-macro-crate 1.3.1, proc-macro-crate 2.0.2, proc-macro-crate 3.5.0, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustix 1.1.4, rustversion 1.0.23, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_path_to_error 0.1.20, serde_repr 0.1.21, servo_arc 0.4.3, simd_cesu8 1.2.0, syn 1.0.109, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, typeid 1.0.3, unicode-ident 1.0.24, unsafe-libyaml 0.2.11, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-streams 0.5.0, wit-bindgen 0.57.1, x11 2.21.0, x11-dl 2.21.0, zmij 1.0.23, zvariant_utils 4.2.0
+### adler2 2.0.1, anyhow 1.0.104, async-channel 2.5.0, async-executor 1.14.0, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, async-trait 0.1.92, atomic-waker 1.1.2, blocking 1.7.0, camino 1.2.5, cargo-platform 0.1.9, cargo_metadata 0.19.2, concurrent-queue 2.5.0, diffy 0.5.2, displaydoc 0.2.7, dtoa 1.0.11, dyn-clone 1.0.20, endi 1.1.1, erased-serde 0.4.10, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, futures-lite 2.6.1, hermit-abi 0.5.3, itoa 1.0.18, linux-raw-sys 0.12.1, num_enum 0.7.6, num_enum_derive 0.7.6, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, pin-project-lite 0.2.17, piper 0.2.5, polling 3.11.0, portable-atomic 1.15.0, portable-atomic-util 0.2.8, proc-macro-crate 1.3.1, proc-macro-crate 2.0.2, proc-macro-crate 3.5.0, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustix 1.1.4, rustversion 1.0.23, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_norway 0.9.42, serde_path_to_error 0.1.20, serde_repr 0.1.21, servo_arc 0.4.3, simd_cesu8 1.2.0, syn 1.0.109, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, typeid 1.0.3, unicode-ident 1.0.24, unsafe-libyaml-norway 0.2.15, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-streams 0.5.0, wit-bindgen 0.57.1, x11 2.21.0, x11-dl 2.21.0, zmij 1.0.23, zvariant_utils 4.2.0
 
 ```text
 Permission is hereby granted, free of charge, to any
@@ -1769,7 +1769,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### anyhow 1.0.104, async-trait 0.1.92, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, itoa 1.0.18, libc 0.2.189, num_enum 0.7.6, num_enum_derive 0.7.6, osakit 0.3.1, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustversion 1.0.23, ryu 1.0.23, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_path_to_error 0.1.20, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, typeid 1.0.3, unicode-ident 1.0.24, wasm-streams 0.5.0
+### anyhow 1.0.104, async-trait 0.1.92, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, itoa 1.0.18, libc 0.2.189, num_enum 0.7.6, num_enum_derive 0.7.6, osakit 0.3.1, proc-macro2 1.0.107, quote 1.0.47, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.3, rustversion 1.0.23, ryu 1.0.23, semver 1.0.28, serde 1.0.229, serde-untagged 0.1.9, serde_core 1.0.229, serde_derive 1.0.229, serde_derive_internals 0.29.1, serde_json 1.0.151, serde_norway 0.9.42, serde_path_to_error 0.1.20, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.119, syn 3.0.5, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, typeid 1.0.3, unicode-ident 1.0.24, wasm-streams 0.5.0
 
 ```text
 Apache License
@@ -15632,33 +15632,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-```
-
-### serde_yaml_ng 0.10.0
-
-```text
-MIT License
-
-Copyright 2024 Antoine Catton
-Copyright 2016-2024 David Tolnay
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the “Software”), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 
 ### serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2

@@ -3576,3 +3576,30 @@ deleting a folder remain out, as in ADR-099.
 **Alternatives set aside.** *The gateway's native chat route* (`/api/v1/code/chat`), which carries `effort` and reasoning events: a second streaming client and a format only SHVIA speaks, for a control the assistant sends to one provider in three. *Choosing in the chat panel*: more surface in a screen that has a model picker nowhere else, and it can come after this. *Signing in to SHVIA with an email and a password*: the answer is a one-hour token, which is the wrong thing to keep, and the long key is what its OpenAI routes accept.
 
 **Consequences.** The key's reach is unchanged: it goes to one host, over https, with no redirect followed. Chat is limited by the gateway (20 requests a minute by default) and a reply with edit tools is several requests, so the limit can be met; the error says so. A model that cannot call tools may refuse the request, and the gateway's own sentence is shown. A settings file that has a `shvia` provider is not read by an older build (the kind is unknown to it), which resets the assistant's section and nothing else.
+
+## ADR-108 — The front matter parser is `serde_norway`, a drop-in the audit accepts, until a safe-Rust one is chosen on purpose
+
+**Status:** `ACCEPTED` · 12/10/2026, the owner's choice of option 2 (“trocar o analisador por um fork”) · refines [ADR-041](#adr-041--local-knowledge-and-agents-share-the-parser-and-guarded-core), which decided *bounded, read-only YAML interpretation* and named `serde_yaml_ng`; that decision stands and only the crate changes
+
+**Context.** On 12/10/2026, after the 07:06 nightly CI run (the RustSec commits are dated 11:18 and 13:18), RustSec published RUSTSEC-2024-0449: the repository of `unsafe-libyaml`, a machine translation of libyaml's C into unsafe Rust, was archived. `serde_yaml_ng` depends on it, `notes-markdown` reads every note's front matter through it (two call sites in `knowledge.rs`), and the notes include those that arrive from the server. `cargo audit --deny warnings` therefore failed in the gate and, on the next push, in CI's `dependency advisories` job. `docs/security.md` §10 says an unmaintained package is a vulnerability with a delay, and `.cargo/audit.toml` ignores only what is named, sourced and reasoned.
+
+**What was measured, before choosing.** The crate's own `front_matter` was copied verbatim into a scratch program with only the parser calls swapped, and run over 79 inputs: the repository's fixtures, the project's tests, every scalar kind (numbers, 1.1 booleans, hex, octal, non-finite, tagged, quoted), lists, maps, anchors, merge keys, odd and duplicate keys, and every way to break a document. Hostile inputs (a billion-laughs document under 64 KiB, 2000-deep flow nesting, 6000 aliases) ran in a container with no network, 1 GiB of memory, one CPU and a 2 MiB stack.
+
+| | `serde_yaml_ng` | `serde_norway` 0.9.42 | `serde-saphyr` 1.3.0 into `serde_json::Value` |
+|---|---|---|---|
+| Same result as `serde_yaml_ng` | — | **79 of 79** | 57 of 79 |
+| Hostile inputs (the billion-laughs one) | refused, 65–95 ms | refused, 65–95 ms | refused, 430–620 ms |
+| Last release | 05/2024 | 12/2024 | 09/2026 |
+| Code | c2rust, unsafe | c2rust, unsafe | safe Rust |
+
+The 22 differences of the safe-Rust parser are not cosmetic: `.inf`, `.nan` and a null or complex key turn the *whole* front matter into “invalid YAML”, where today the odd key is skipped and the rest survives; `0777` becomes `777.0` and `1_000` becomes `1000`; properties come back in alphabetical order; and `yes`/`no`/`on`/`off` become `true`/`false`. Some of that is fixable with options, and the loss of the original scalar spelling is not.
+
+**Decision.** `notes-markdown` uses `serde_norway`. It is the same API and the same libyaml semantics, so the swap is a change of name and the Properties panel shows exactly what it showed. The `Cargo.lock` change is the four packages involved and nothing else.
+
+**This is a lateral move, and it is recorded as one.** `unsafe-libyaml-norway` is the same c2rust translation, last released 12/2024. It passes the audit because nobody has filed against it, not because it is maintained, and the condition that produced RUSTSEC-2024-0449 can be filed against it too. What it buys is a CI that is not red today and a parser whose behaviour is now pinned.
+
+**What pins it.** Nothing tested how a value that is not text becomes a property, which is the part a parser swap changes silently, because it is the parser's own emitter. `knowledge.rs` now has tests for every kind above, for key order, for the odd-key case, for the error names, and for the hostile inputs at the 2 MiB stack a worker thread has. They were written against `serde_yaml_ng` and pass on `serde_norway`; a parser that differs fails them instead of changing a note's panel.
+
+**Alternatives set aside.** *Ignore the advisory in `.cargo/audit.toml`.* It would have turned CI green in one line and kept an archived parser on untrusted YAML; the file's own rule is that an entry is a reasoned exception, and this one had a replacement that cost nothing. *`serde-saphyr` now.* It is the right direction and it is not a swap: it needs decisions that are the owner's (what a property whose value is `.inf` shows, whether `0777` keeps its spelling), and `saphyr` itself published three versions the day this was measured.
+
+**What would reverse it.** An advisory against `unsafe-libyaml-norway`, or `serde-saphyr` offering the original scalar text — either makes the migration the next step rather than a later one. It is not scheduled; it needs the owner's answers above first.

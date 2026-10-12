@@ -7,6 +7,70 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the front matter parser is serde_norway, a drop-in the audit accepts
+
+RustSec published RUSTSEC-2024-0449 on 12/10, after the 07:06 nightly run (its
+commits are dated 11:18 and 13:18): the repository of `unsafe-libyaml` was archived. `serde_yaml_ng`, which reads the front matter of
+every note, depends on it, so `cargo audit --deny warnings` failed in the local
+gate and in CI's `dependency advisories` job. The nightly run at 07:06 had still
+passed, which is what bounds the time of the advisory from below. The owner chose
+to swap the parser for a fork. This entry is what it took to know the fork was safe to
+swap to, because the answer was less obvious than the question.
+
+**The first plan was wrong, and the numbers said so.** The note that proposed this,
+earlier the same day, called the fork a *maintained* one. `serde_norway` and its `unsafe-libyaml-norway` were last
+released in December 2024 and are the same c2rust translation, so they pass the
+audit only because nobody has filed against them. The crate that is actually
+alive is `serde-saphyr` (1.3.0, 16/09/2026, safe Rust), which the advisory itself
+names. So there were two candidates, and neither was obviously the answer.
+
+**Measured, not assumed.** The crate's own `front_matter` was copied verbatim into
+a scratch program with only the parser calls swapped, and run over 79 inputs. The
+fork is identical to the current parser on **79 of 79**. `serde-saphyr` is
+identical on 57, and the 22 that differ are not cosmetic: `.inf`, `.nan` and a null
+or complex key turn the *whole* front matter into "invalid YAML" where today the
+odd key is skipped; `0777` becomes `777.0` and `1_000` becomes `1000`; properties
+come back alphabetical; `yes` and `on` become booleans. So it is not a swap, and
+`ADR-108` records it as a migration that needs the owner's answers.
+
+**Hostile input was run somewhere it could not hurt anything.** Front matter is
+untrusted, so a billion-laughs document, 2000-deep nesting and 6000 aliases ran
+against all three in a container on the CI server with no network, 1 GiB of
+memory, one CPU and a 2 MiB stack. None crashed, hung or ran out of memory; each
+refused the bomb (65–95 ms for the libyaml pair, 430–620 ms for `serde-saphyr`).
+Two of my five hostile cases (deep block nesting and many keys) exceed 64 KiB and
+were turned away by the project's own guard before any parser ran, so they tested
+the guard and not the parsers; they are not counted.
+
+**What was missing is now there.** Nothing tested how a value that is not text
+becomes a property — the part a parser swap changes silently, because it is the
+parser's own emitter that writes it. `knowledge.rs` gains nine tests: every scalar
+kind, text that must stay as written, non-finite numbers, key order, skipped keys,
+non-text titles, tag forms, the error names, and the hostile inputs on the 2 MiB
+stack a worker thread has. They pass on the old parser and on the new one, and
+each of the differences measured above corresponds to one of them.
+
+The swap itself is a change of name in `Cargo.toml` and two call sites. The
+`Cargo.lock` diff is the four packages involved, 17 lines, and nothing else.
+`THIRD-PARTY-NOTICES.md` is regenerated (the generator needs Python 3.10, which the
+author's machine lacks, so it ran from a temporary copy with one added import; its
+`--check` exits 0 on the file and 1 on a tampered one).
+
+**What this does not do.** It is a lateral move: the new parser is the same unsafe
+code, last released ten months ago. It moves CI off red without changing a
+behaviour, and the migration to safe Rust is an open decision, not a scheduled one.
+**CI is still red after this commit alone**, for a different reason found by the
+same audit — see the next entry.
+
+**Two mistakes on the way, both worth the line.** The hostile run first printed
+`exit 101` for all thirty combinations, the baseline included, which meant the
+fault was in the experiment: the Mac's `tar` had packed the `._*` AppleDouble
+companions into the archive, GNU `tar` on the server extracted them as files, and
+my driver read them as notes. It is the defect of `1.7.3`, which this repository
+documents, made again by the person who wrote that entry. And a `$?` taken after a
+`| tail` measured `tail`, not the check, so the first "exit 0" proved nothing; the
+real one is above.
+
 ## 1.11.7 - installing an update no longer throws away a remote note's unsent text
 
 Found while updating a status board, not reported from use: reading what
