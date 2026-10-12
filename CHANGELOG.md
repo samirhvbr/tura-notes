@@ -7,6 +7,26 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the top bar clears the status bar on a phone
+
+`index.html` already asks for `viewport-fit=cover`, so on an iPhone the page starts under
+the status bar. Only the drawer padded itself for `safe-area-inset-top`; the first bar of
+the application did not. On the Simulator (iPhone 17) that bar, which on the welcome
+screen holds the only thing above the title, "Open received workspace", was drawn under
+the clock and the Dynamic Island.
+
+`.sync-shell`, the one wrapper both the welcome screen and the workspace sit inside,
+now has `padding-top: env(safe-area-inset-top, 0px)` (with `box-sizing: border-box` so
+its `100vh` stays 100vh). The inset is zero wherever there is no notch, so desktop is
+unchanged. Checked on the Simulator before and after, on the same two screens: the bars
+now start below the status bar, and the status bar at the bottom and the rail's settings
+button are still on screen. The contrast gate does not change.
+
+Not fixed, because it is bigger than a padding: when the keyboard opens, WKWebView
+scrolls the document to the caret and `overflow: hidden` on `body` does not stop it, so
+the page ends up shifted sideways until the app restarts. It is written down in
+`docs/ACCEPTANCE-0.4.md`.
+
 ## 1.11.8 - on iOS a workspace is created in the app's own folder, as there is no folder chooser
 
 First launch on the iPhone 17 Simulator: both welcome buttons did nothing. The dialog

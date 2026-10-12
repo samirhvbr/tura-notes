@@ -1063,7 +1063,11 @@ code { font-family: var(--font-mono); }
 .knowledge-graph .node-hit { fill: transparent; pointer-events: all; }
 
 /* Received sync owns an input barrier outside the ordinary app surfaces. */
-.sync-shell { height: 100vh; display: flex; flex-direction: column; }
+/* `env(safe-area-inset-top)` is the notch / Dynamic Island / status bar on a phone
+   and zero everywhere else. Without it the topmost bar sits under the status
+   bar, and on the welcome screen its only button sits under the clock. The
+   drawer pads itself (it is fixed and outside this flow); nothing else did. */
+.sync-shell { height: 100vh; box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); display: flex; flex-direction: column; }
 .sync-content { flex: 1; min-height: 0; }
 .sync-content > .app { height: 100%; }
 .received-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--bg-raised); font-size: 12px; }
