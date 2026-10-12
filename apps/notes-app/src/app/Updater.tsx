@@ -82,7 +82,7 @@ export function UpdateButton() {
   return <div className="update-manual">
     {running && <p className="update-running">{t("update.running", { version: running })}</p>}
     <button type="button" disabled={phase === "checking" || phase === "installing"} onClick={() => void check(true)}>{t("update.check")}</button>
-    {["checking", "current", "unsupported", "relocate", "busy"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
+    {["checking", "current", "unsupported", "relocate", "busy", "remoteUnsent"].includes(phase) && <p role="status">{t(`update.${phase}`)}</p>}
     {phase === "error" && <><p role="status">{t(errorKey)}</p><Detail detail={detail} /></>}
   </div>;
 }
@@ -96,7 +96,7 @@ export function UpdaterShell({ children }: { children: ReactNode }) {
     const periodic = setInterval(() => void check(), 6 * 60 * 60 * 1000);
     return () => { clearTimeout(initial); clearInterval(periodic); };
   }, [check]);
-  const visible = version && ["available", "closeWorkspace", "error", "busy", "installing"].includes(phase);
+  const visible = version && ["available", "closeWorkspace", "error", "busy", "remoteUnsent", "installing"].includes(phase);
   return <>{children}{visible && <aside className="update-banner" aria-label={t("update.title")}>
     <strong>{t("update.title")} {version}</strong>
     {/* Which version is being offered is only half the sentence. Without the

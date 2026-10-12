@@ -524,6 +524,7 @@
   "update.installing": "Downloading and installing… Please keep the app open.",
   "update.later": "Later",
   "update.relocate": "Tura Notes is running from the disk image or a temporary copy macOS made, and cannot update itself from there. Quit, drag it into Applications and open it from there.",
+  "update.remoteUnsent": "Nothing was installed: a note from the server's folder has changes the server did not take. Keep them with “Save a copy to the local folder” in the note's ⋮ menu, or close its tab and discard them, then try again.",
   "update.running": "You are running {version}.",
   "update.title": "Tura Notes update",
   "update.unsupported": "Update this installation through its package manager or download a new installer.",

@@ -1,11 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("./workspace", () => ({ useWorkspace: { getState: vi.fn(() => ({ info: null })) } }));
+// The remote note's buffer is the one thing outside the workspace the install can
+// lose, so it is stubbed the way the workspace is: this suite is about what the
+// installation does around it. `dirty` is the store's own rule, restated.
+vi.mock("./remoteDoc", () => ({
+  useRemoteDoc: { getState: vi.fn(() => ({ doc: null, save: vi.fn(async () => {}) })) },
+  dirty: (d: { bufferVersion: number; savedVersion: number } | null) => !!d && d.bufferVersion !== d.savedVersion,
+}));
 // The barrier is mocked here precisely so this suite can test everything
 // around it; `updater.barrier.test.ts` runs the real one.
 vi.mock("../ipc/barrier", () => ({ acquireSyncBarrier: vi.fn(async () => true), endSyncBarrier: vi.fn() }));
 import { invoke } from "@tauri-apps/api/core";
 import { useWorkspace } from "./workspace";
+import { useRemoteDoc } from "./remoteDoc";
 import { acquireSyncBarrier, endSyncBarrier } from "../ipc/barrier";
 import { useUpdater } from "./updater";
 const available = { supported: true, version: "9.0.0", notes: "New release" };
@@ -20,8 +28,19 @@ function openWorkspace(root = "/notes") {
   vi.mocked(useWorkspace.getState).mockReturnValue(state as never);
   return state;
 }
+/** A remote note open in the main area. `save` is whatever the test says the
+ *  server did with it; the note starts holding text the server does not have. */
+function remoteNote(save: (doc: { bufferVersion: number; savedVersion: number }) => void = () => {}) {
+  const store = {
+    doc: { path: "IP-Server.md", bufferVersion: 2, savedVersion: 1 },
+    save: vi.fn(async () => { save(store.doc); }),
+  };
+  vi.mocked(useRemoteDoc.getState).mockReturnValue(store as never);
+  return store;
+}
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(useRemoteDoc.getState).mockReturnValue({ doc: null, save: vi.fn(async () => {}) } as never);
   const storage = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => storage.get(key) ?? null,
@@ -147,5 +166,60 @@ describe("an app that cannot replace itself from where it runs", () => {
     vi.mocked(invoke).mockResolvedValue({ supported: false, relocate: false, version: null, notes: null });
     await useUpdater.getState().check(false);
     expect(useUpdater.getState().phase).toBe("idle");
+  });
+
+  /**
+   * The install restarts the process, and the window's close guard — the thing
+   * that asks before a remote note's unsent text is lost — does not run on a
+   * restart. So the install has to ask for itself. The only copy of that text is
+   * the editor's buffer; the workspace's own close flow cannot see it.
+   */
+  it("installs nothing while a remote note holds text the server did not take", async () => {
+    const note = remoteNote();                       // the save does not clear it
+    const ws = openWorkspace();
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(note.save).toHaveBeenCalledOnce();        // it tried to send it first
+    expect(invoke).not.toHaveBeenCalledWith("update_install");
+    expect(useUpdater.getState().phase).toBe("remoteUnsent");
+    // And it stopped *before* closing the local workspace, so nothing is undone.
+    expect(ws.leave).not.toHaveBeenCalled();
+    expect(acquireSyncBarrier).not.toHaveBeenCalled();
+  });
+
+  it("sends the remote note first, and installs when the server takes it", async () => {
+    const order: string[] = [];
+    remoteNote((d) => { order.push("saved"); d.savedVersion = d.bufferVersion; });
+    vi.mocked(invoke).mockImplementation(async (c: string) => { order.push(c); });
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(order).toEqual(["saved", "update_install"]);
+  });
+
+  it("a key typed between the check and the lock stops the install and puts everything back", async () => {
+    // The first look finds the note clean. Closing the workspace and waiting for
+    // the calls in flight take time, and a keystroke in that gap is dirty text the
+    // restart would throw away. The barrier is what stops *new* edits, so the
+    // second look has to come after it is held.
+    const store = { doc: { path: "IP-Server.md", bufferVersion: 1, savedVersion: 1 }, save: vi.fn(async () => {}) };
+    vi.mocked(useRemoteDoc.getState).mockReturnValue(store as never);
+    vi.mocked(acquireSyncBarrier).mockImplementation(async () => { store.doc.bufferVersion = 2; return true; });
+    const ws = openWorkspace();
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(invoke).not.toHaveBeenCalledWith("update_install");
+    expect(endSyncBarrier).toHaveBeenCalledOnce();   // the lock was let go
+    expect(ws.switchTo).toHaveBeenCalledWith("/notes"); // and the workspace came back
+    expect(useUpdater.getState().phase).toBe("remoteUnsent");
+  });
+
+  it("the same button tries again once the note is safe", async () => {
+    const note = remoteNote();
+    useUpdater.setState({ phase: "available", version: "9.0.0" });
+    await useUpdater.getState().install();
+    expect(useUpdater.getState().phase).toBe("remoteUnsent");
+    note.save.mockImplementation(async () => { note.doc.savedVersion = note.doc.bufferVersion; });
+    await useUpdater.getState().install();
+    expect(invoke).toHaveBeenCalledWith("update_install");
   });
 });

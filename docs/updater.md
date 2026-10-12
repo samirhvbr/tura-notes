@@ -31,8 +31,25 @@ sidebar footer, so the update looked broken rather than guarded. The native side
 still refuses to install while a workspace is open, so the condition is enforced
 on both sides rather than assumed on one. The closed workspace is reopened by
 `restore_last_workspace` after the restart, and reopened in place when the
-installation fails instead of restarting. The editing/IPC barrier
-blocks new work during installation and is released on failure. The native
+installation fails instead of restarting.
+
+**A note of the server's folder is checked first, before anything is closed**
+(1.11.7). The workspace's close flow cannot see it: its text lives in the editor
+until the server takes it, and the window's close guard — which asks before that
+text is lost — does not run on a restart, because Tauri's `restart()` raises the
+application's exit events rather than a window close request (read in the 2.12
+source, not observed on an installed build). So **Install and restart** first
+tries to send the note; if the server still does not have it — unreachable,
+refused, or changed on the server — nothing is installed, the workspace is left
+open, and the banner says so and names the way out (*Save a copy to the local
+folder*, or close the tab and discard). The check is made again **after** the
+barrier is held, because closing the workspace and waiting for the calls in
+flight take time and a key typed in that gap is text the restart would throw
+away; the barrier is what stops new edits, so that second look is the one that
+counts.
+
+The editing/IPC barrier blocks new work during installation and is released on
+failure. The native
 plugin downloads over HTTPS, verifies the payload against the pinned Tura public
 key, installs and restarts. AppImage replaces the running image; deb/rpm may
 require the system's administrator authentication. AUR packages carry a pacman
@@ -273,7 +290,14 @@ restart, and check version and note bytes. Repeat declining that save, which
 must install nothing and leave the workspace open; offline; with a corrupt
 payload; and with denied administrator authentication — the last three leave the
 workspace closed for an installation that did not happen, so each one also
-checks that it came back. Run separately on macOS, AppImage,
+checks that it came back. Also repeat it **with a note of the server's folder
+open and holding text the server will not take** (a credential with `read` only
+is the simplest way to provoke it, and its state is *Not saved*): *Install and
+restart* must install nothing, leave the workspace open, and say so with the way
+out; then use *Save a copy to the local folder* and install again. This one is
+tested with stubs and with the real stores, but the claim that a restart skips
+the window's close guard comes from reading Tauri's source, so it is the row
+that settles that on an installed build. Run separately on macOS, AppImage,
 deb and rpm; confirm AUR delegates to pacman. Compilation and signature checks
 do not establish this installed acceptance. Remaining work is in `.continue/`.
 

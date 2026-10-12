@@ -524,6 +524,7 @@
   "update.installing": "Baixando e instalando… Mantenha o aplicativo aberto.",
   "update.later": "Mais tarde",
   "update.relocate": "O Tura Notes está rodando da imagem de disco ou de uma cópia temporária feita pelo macOS e não consegue se atualizar dali. Encerre, arraste-o para Aplicativos e abra-o de lá.",
+  "update.remoteUnsent": "Nada foi instalado: uma nota da pasta do servidor tem alterações que o servidor não aceitou. Guarde-as com “Salvar uma cópia na pasta local” no menu ⋮ da nota, ou feche a aba e descarte-as, e tente de novo.",
   "update.running": "Você está na {version}.",
   "update.title": "Atualização do Tura Notes",
   "update.unsupported": "Atualize esta instalação pelo gerenciador de pacotes ou baixe um novo instalador.",

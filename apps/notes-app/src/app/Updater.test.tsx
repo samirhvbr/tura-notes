@@ -74,3 +74,12 @@ it("still shows a plugin error it has no sentence for",async()=>{
   render(<UpdateButton/>);
   await waitFor(()=>expect(screen.getByText("Invalid cross-device link (os error 18)")).toBeInTheDocument());
 });
+it("says why nothing was installed when a remote note holds unsent text, and keeps the button",async()=>{
+  // The sentence has to name the way out: the text exists nowhere but the editor.
+  useUpdater.setState({phase:"remoteUnsent",version:"1.4.0",notes:null,detail:null});
+  render(<UpdaterShell><p>app</p></UpdaterShell>);
+  await waitFor(()=>expect(screen.getByText(/changes the server did not take/)).toBeInTheDocument());
+  expect(screen.getByText(/Save a copy to the local folder/)).toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"Install and restart"})).toBeInTheDocument();
+});
+

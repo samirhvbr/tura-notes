@@ -2,8 +2,9 @@ import { create } from "zustand";
 import { checkUpdate, installUpdate } from "../ipc/updater";
 import { acquireSyncBarrier, endSyncBarrier } from "../ipc/barrier";
 import { useWorkspace } from "./workspace";
+import { dirty as remoteDirty, useRemoteDoc } from "./remoteDoc";
 
-type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "relocate" | "error" | "busy" | "closeWorkspace" | "installing";
+type Phase = "idle" | "checking" | "available" | "current" | "unsupported" | "relocate" | "error" | "busy" | "closeWorkspace" | "remoteUnsent" | "installing";
 interface State {
   phase: Phase;
   version: string | null;
@@ -80,17 +81,38 @@ export const useUpdater = create<State>((set, get) => ({
    * `restore_last_workspace` opens the same workspace on the way back.
    */
   install: async () => {
-    if (!["available", "closeWorkspace", "error", "busy"].includes(get().phase) || !get().version) return;
+    if (!["available", "closeWorkspace", "error", "busy", "remoteUnsent"].includes(get().phase) || !get().version) return;
+    // A note of the server's folder is the one thing outside the workspace that
+    // the restart can lose: its text lives in the editor until the server takes
+    // it, and the window's close guard — the thing that asks before that text is
+    // thrown away — does not run on a restart (Tauri's `restart()` raises the
+    // app's exit events, not a window close request). So the install asks for
+    // itself, and before anything is closed: refusing after the workspace was
+    // closed would mean putting it back for an installation that never began.
+    const unsent = () => remoteDirty(useRemoteDoc.getState().doc);
+    if (unsent()) {
+      await useRemoteDoc.getState().save();
+      if (unsent()) { set({ phase: "remoteUnsent", detail: null }); return; }
+    }
     const root = useWorkspace.getState().info?.root ?? null;
     if (root && !(await useWorkspace.getState().leave())) { set({ phase: "closeWorkspace" }); return; }
     // Waits for the calls in flight instead of losing a coin toss against
     // them. The close was itself one of those calls, and the index poll fires
     // every 500 ms whatever else is happening.
     if (await acquireSyncBarrier()) {
-      set({ phase: "installing", detail: null });
-      try { await installUpdate(); }
-      catch (e) { set({ phase: "error", detail: describe(e) }); }
-      finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
+      if (unsent()) {
+        // The look above found the note clean, and closing the workspace and
+        // waiting for the calls in flight took time: a key typed in that gap is
+        // text the restart would throw away. The barrier is what stops *new*
+        // edits, so this is the look that counts.
+        endSyncBarrier();
+        set({ phase: "remoteUnsent", detail: null });
+      } else {
+        set({ phase: "installing", detail: null });
+        try { await installUpdate(); }
+        catch (e) { set({ phase: "error", detail: describe(e) }); }
+        finally { endSyncBarrier(); if (get().phase === "installing") set({ phase: "idle" }); }
+      }
     } else {
       // Not `error`: nothing was downloaded, nothing was extracted and nothing
       // was renamed, so the platform advice about where the application lives

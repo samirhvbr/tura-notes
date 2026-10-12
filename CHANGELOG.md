@@ -7,6 +7,68 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.7 - installing an update no longer throws away a remote note's unsent text
+
+Found while updating a status board, not reported from use: reading what
+`install()` actually checks before it restarts the process, to answer *what is
+still open*. It closes the **local** workspace through its own flow and looks at
+nothing else. No file of the updater — `updater.ts`, `Updater.tsx`, `updater.rs` —
+mentions a note of the server's folder.
+
+That matters because of where a remote note's text lives. A local note is on disk
+and the workspace's close flow knows about its unsaved buffer. A remote note's
+buffer is the **only** copy until the server takes it (ADR-099), in a store the
+workspace flow cannot see. The thing that does protect it is the window's close
+guard in `App.tsx`, which saves, then asks. A restart is not a window close:
+Tauri's `AppHandle::restart()` raises the application's *exit* events, which is
+all its 2.12 source says it does. So an update could restart over unsent text
+with no question at all. Edits to a remote note were failing to save through the
+production proxy until `1.10.21`, which made unsent text more likely than usual,
+not less.
+
+**Read in the source, not observed.** That the restart skips the window guard is
+a reading of the code and the doc comment, and has not been seen on an installed
+build; the claim is labelled that way in `docs/updater.md` and is the row an
+installed acceptance settles.
+
+`install()` now looks at the open remote note **first**, before anything is
+closed: if it holds text the server does not have, it tries to send it, and if the
+note is still unsent — server unreachable, save refused, changed on the server
+meanwhile — it stops with a new phase, `remoteUnsent`, and a sentence that names
+the way out. Nothing is installed and the workspace is left open; stopping before
+the workspace closes is the point, because refusing after would mean putting back
+a workspace for an installation that never began.
+
+**And it looks again after the barrier is held.** The first look finds the note
+clean; closing the workspace and waiting for the calls in flight take real time
+(the drain can wait up to five seconds), and a key typed in that gap is text the
+restart would discard. The barrier is what stops *new* edits, so only a look made
+after it is held can be trusted. If that look finds text, the barrier is let go,
+the workspace comes back through the existing path, and the same sentence shows.
+
+Tests, each proved against its own part of the fix by removing that part:
+
+- the whole store change reverted fails four;
+- only the **second** look neutralised fails exactly the race test and nothing
+  else;
+- only the first look neutralised fails three;
+- only the component reverted fails the banner test;
+- and one test composes the **real** remote store with the **real** barrier and a
+  server that cannot be reached: it fails with the fix removed and passes with it.
+
+**A mistake of mine on the way, worth the line.** To restore the fixed files
+between those reversions I saved them as `/tmp/u.fixed` and `/tmp/U.fixed`. This
+filesystem ignores case, so they were one file: the second copy overwrote the
+first and the "restoration" wrote the component into the store, which then did not
+parse. Caught because the run printed `no tests` instead of a count, rebuilt from
+`HEAD` with the same edit, and the proof redone with names that cannot collide and
+a check by hash that every file came back byte for byte.
+
+Not done here, and said so: no acceptance row was added to `ACCEPTANCE-remote.md`,
+because the queue quotes that document's row count and editing the queue requires
+restamping a status line that certifies rows this change did not review. The
+installed check is written into `docs/updater.md`'s acceptance section instead.
+
 ## 1.11.6 - the documents and the decision for the SHVIA provider
 
 ADR-107 records why SHVIA is a provider kind and not a preset of the OpenAI-compatible one: the gateway publishes the infrastructures and the models each serves, so the settings screen can offer them instead of asking for `model@infra` typed by hand, and the OpenAI-compatible route it also speaks is the code that already streams and calls tools. The decision is the owner's, with two answers given in the session (the OpenAI-compatible protocol; the choice only in Settings), and what was set aside and why is in the record: the gateway's native chat route (a second streaming client for a control sent to one provider in three), choosing from the chat panel, and signing in with an email and a password (a one-hour token is the wrong thing to keep). AI.md gets the provider row with the key's origin and the gateway's chat limit, which a reply that calls the edit tools can meet; ACCEPTANCE-AI gets row A15, which needs a real key and is the owner's; and security.md says the catalogue the gateway answers is shown and never stored or logged.
