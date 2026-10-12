@@ -28,7 +28,9 @@ pub fn misplaced_path(exe: &std::path::Path) -> bool {
 fn misplaced() -> bool {
     std::env::current_exe().is_ok_and(|p| misplaced_path(&p))
 }
-#[cfg(not(target_os = "macos"))]
+// Desktop only: the updater is, and a mobile build has nobody to call this, so
+// there it would be dead code that `-D warnings` turns into a build failure.
+#[cfg(all(desktop, not(target_os = "macos")))]
 fn misplaced() -> bool {
     false
 }

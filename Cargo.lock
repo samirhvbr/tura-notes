@@ -2916,6 +2916,7 @@ dependencies = [
 name = "notes-ai"
 version = "0.0.0"
 dependencies = [
+ "apple-native-keyring-store",
  "keyring",
  "reqwest",
  "rustls",

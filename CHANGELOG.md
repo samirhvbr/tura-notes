@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.8 - the Tauri shell compiles for iOS
+
+`docs/ACCEPTANCE-0.4.md` has said since 1.6.16 that the shell was checked for Android
+and the core for iOS; the shell itself had never been compiled for iOS. Running
+`cargo check --target aarch64-apple-ios-sim -p notes-app` found one failure and one
+warning, and nothing else.
+
+**The failure.** `keyring` 4 pulls in `apple-native-keyring-store`, which refuses to
+build on iOS unless its `protected` feature is on, and says so with a
+`compile_error!`. `notes-ai` owns the keychain, so it now depends on that crate for
+`target_os = "ios"` with the feature. `Cargo.lock` gains that one edge. This only
+makes the code build: `keyring` still installs no store on iOS, so keys and the site
+credential are not usable yet (the next entry).
+
+**The warning.** `updater::misplaced` is called only from the desktop module and was
+dead code on a phone, which `-D warnings` turns into a build failure. It is now
+`cfg(all(desktop, not(target_os = "macos")))`; its macOS twin and the desktop updater
+are untouched.
+
+Nothing else needed a cfg. `pdf-extract`, `reqwest`, `rustls`/`ring`, `notify` and
+the rest compile for iOS as they are. `cargo clippy --target aarch64-apple-ios-sim
+-p notes-ai -p notes-app -- -D warnings` is clean, and the native clippy and tests
+of both crates still pass. Desktop behaviour is unchanged: the dependency and the gate
+apply to other targets only.
+
 ## 1.11.8 - the iOS app icons carry no alpha channel
 
 App Store Connect rejects an app whose 1024-pixel marketing icon has an alpha
