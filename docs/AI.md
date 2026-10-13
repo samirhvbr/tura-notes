@@ -116,6 +116,25 @@ A read-only note, a note held by a sync barrier, a note the user did not share,
 and a name the core refuses are each a card with a reason, never a silent no-op
 and never a write.
 
+## When the SHVIA list is not the one expected
+
+The assistant keeps no record of what a gateway answered, so there is a script
+that asks it the same questions and writes them down:
+
+```bash
+python3 tools/shvia-diagnose.py --out ~/Desktop/shvia-diagnose.log
+```
+
+It reads the key without echo (or from `SHVIA_KEY`) and sends it only as a
+header: it is never printed, never in the log, never in a URL, and a redirect is
+not followed with it. The log has `GET /api/auth/me` (only `allowed_models` and
+`configured_providers`), the catalogue and `GET /v1/models` with the names in
+one and not the other, and a chat of about ten tokens through the OpenAI route,
+through the same route with a model `/v1/models` lists as a control, and through
+the Anthropic route (`/v1/messages`), each with the gateway's `X-Request-Id`.
+`--no-chat` stops after the lists and bills nothing. It is the record to read;
+it does not say why a gateway refuses a model.
+
 ## Where it stops
 
 - **Android is out**: the keychain crate does not cover it.

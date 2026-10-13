@@ -193,6 +193,7 @@ jobs:
           run "crash loop refuses a writer that never wrote" python3 tools/tests/test_crash_loop.py
           run "the self-hosting guide matches the code" python3 tools/tests/test_selfhosting_doc.py
           run "the env report is not a hand-written IPC shape" python3 tools/tests/test_env_report.py
+          run "the SHVIA diagnostic keeps no key" python3 tools/tests/test_shvia_diagnose.py
           run "every relative documentation link resolves" python3 tools/doc-links.py
           run "every ADR status is one of the four words"  python3 tools/adr-status.py
           run "every docs/ page is in the index"           python3 tools/doc-index.py

@@ -7,6 +7,36 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.11 - A script that records what a SHVIA gateway answers, for when the model list is not the expected one
+
+After 1.11.10 the owner's picker offers 4 models where the catalogue held 577, and
+the owner, who uses the same gateway from other applications without trouble, asked
+for a log to analyze. There was none to give: the assistant shows a sentence and
+keeps nothing of what the gateway said.
+
+`tools/shvia-diagnose.py` asks the gateway what the assistant asks, in the same
+order, and writes it down: `GET /api/auth/me` (only `allowed_models` and
+`configured_providers`), the catalogue, `GET /v1/models` with its names, the two
+compared, and a chat of about ten tokens with the model in question through the
+OpenAI route, with a model `/v1/models` lists as a control, and through the
+Anthropic route that Claude Code speaks. Each call carries its status and the
+gateway's `X-Request-Id`, which is what its audit log can be searched for.
+`--no-chat` stops after the lists and bills nothing.
+
+The key is read without echo, or from `SHVIA_KEY`, and goes only in a header: not
+on the screen, not in the log, not in a URL, and a redirect is not followed with
+it. Five tests against a gateway on loopback check the content of the log, that the
+key and the email `/api/auth/me` carries are in neither the log nor the output,
+that no chat is sent with `--no-chat`, that a redirect is not followed, and that
+an address with a path or plain http to another host is refused before any
+request. Three mutations (the key written to the log, `--no-chat` ignored, redirects
+followed) each failed the test that covers it; the third was not caught at first,
+which is why the redirect test exists.
+
+**What it does not do:** it was run only against that fake gateway, never against
+the owner's, and it says what the gateway answered, not why. It is the record, and
+reading it is the next step.
+
 ## 1.11.10 - The SHVIA picker offers only the models the gateway's chat accepts
 
 The owner picked *Anthropic · Claude Fable 5.1* from the list 1.11.6 loads and the

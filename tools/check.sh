@@ -213,6 +213,7 @@ step "release.sh exit status" python3 tools/tests/test_release_exit.py
 step "macOS build script" python3 tools/tests/test_build_local.py
 step "Windows build script" python3 tools/tests/test_build_windows.py
 step "crash loop refuses a writer that never wrote" python3 tools/tests/test_crash_loop.py
+step "SHVIA diagnostic keeps no key"  python3 tools/tests/test_shvia_diagnose.py
 step "self-hosting guide"  python3 tools/tests/test_selfhosting_doc.py
 step "hand-written IPC shape" python3 tools/tests/test_env_report.py
 step "development version" node --test tools/tauri.test.mjs
