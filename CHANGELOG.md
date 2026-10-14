@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.12 - rustls 0.23.45 to 0.23.46, the release that fixes four advisories published today
+
+Four RUSTSEC advisories on `rustls` appeared in the database this morning
+(RUSTSEC-2026-0346 to 0349, all fixed in 0.23.46) and `cargo audit --deny warnings`, which
+the gate and CI both run, started failing on a tree nobody had touched: a Brotli
+certificate-decompression allocation of up to 1 GiB before the peer is authenticated, data
+buffered to the outer server after an ECH rejection, `Debug` of client session values
+exposing TLS secrets, and an unauthenticated ServerHello that can downgrade later
+connections to classical key exchange. The severities are low (3.7 for the one the
+database prints in full), and the application reaches `rustls` through `reqwest` for the
+provider, server and update calls only, but the gate is a control and a red one is fixed,
+not waived.
+
+`cargo update -p rustls --precise 0.23.46` moves the one package; `THIRD-PARTY-NOTICES.md`
+is regenerated for the new version. Nothing else changes.
+
 ## 1.11.11 - A script that records what a SHVIA gateway answers, for when the model list is not the expected one
 
 After 1.11.10 the owner's picker offers 4 models where the catalogue held 577, and
