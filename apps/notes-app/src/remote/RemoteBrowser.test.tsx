@@ -288,10 +288,21 @@ it("a right-click on a folder offers a note or a subfolder in it, starting from 
   render(<RemoteBrowser onOpen={() => {}} />);
   fireEvent.contextMenu(await screen.findByTitle("work"));
   fireEvent.click(await screen.findByRole("menuitem", { name: "New folder here" }));
-  await waitFor(() => expect(askText).toHaveBeenCalledWith(expect.objectContaining({ initial: "work/" })));
+  await waitFor(() => expect(askText).toHaveBeenCalledWith(expect.objectContaining({ initial: "work/", caret: "end" })));
   fireEvent.contextMenu(screen.getByTitle("work"));
   fireEvent.click(await screen.findByRole("menuitem", { name: "New note here" }));
-  await waitFor(() => expect(askText).toHaveBeenLastCalledWith(expect.objectContaining({ initial: "work/" })));
+  await waitFor(() => expect(askText).toHaveBeenLastCalledWith(expect.objectContaining({ initial: "work/", caret: "end" })));
+});
+
+it("only a prefix keeps its caret at the end: a rename replaces the whole name, so it keeps the selection", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree(listed));
+  vi.mocked(askText).mockResolvedValue(null);
+  render(<RemoteBrowser onOpen={() => {}} />);
+  fireEvent.contextMenu(await screen.findByText("only.md"));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Rename or move on the server" }));
+  await waitFor(() => expect(askText).toHaveBeenCalled());
+  expect(vi.mocked(askText).mock.lastCall![0]).not.toHaveProperty("caret", "end");
 });
 
 it("a folder that only exists here can be forgotten, and one the server has cannot", async () => {

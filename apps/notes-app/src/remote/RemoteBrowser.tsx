@@ -418,6 +418,7 @@ async function newNote(say: (m: string) => void, initial = "") {
     title: t("remote.new"),
     label: t("remote.newPath"),
     initial,
+    caret: "end",
     confirmLabel: t("remote.create"),
     validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
   });
@@ -442,6 +443,7 @@ async function newFolder(say: (m: string) => void, initial: string) {
     title: t("remote.newFolder"),
     label: t("remote.newFolder.prompt"),
     initial,
+    caret: "end",
     confirmLabel: t("remote.create"),
     validate: (v) => (remoteFolderPath(v) ? null : t("remote.folderInvalid")),
   });

@@ -39,6 +39,7 @@ open on the desktop. That is this walk.
 | 22 | **Sign out of this device**, then revoke its credential on the site | The tree goes back to the connect form; the keychain entry is gone; before the revoke, the credential still worked from elsewhere, as the note says | ☐ |
 | 23 | In **Device sync** (not the remote folder), press **Sign in in the browser**, allow the device on the site and paste the address | The server, the workspace and the credential fields fill in, the credential reading `keychain:site`; fill in the two folders and **Create pairing and review**: it pairs, with no credential file anywhere | ☐ |
 | 24 | With the server on **1.11.0** (after the owner's deploy), press **New folder**, type `ideas/2026` and make nothing else. Close and reopen the application, reconnect | The folder is there, **not** marked *empty*, and is in the server's workspace directory (`ideas/2026`). It stays across the restart. Make `con` or a name ending in `.md`: it is refused with a message and nothing is made. With a credential that has `read` only, the same is refused | ☐ |
+| 25 | In the server's tree, right-click a folder (or press its ⋮) and choose **New note here** | The box opens with the folder's path (`work/`) and the cursor **after** it, nothing selected; typing `idea` and pressing Create makes `work/idea.md` inside the folder, not at the top. **New folder here** behaves the same | ☐ |
 
 ## Diagnostic evidence from 06/10/2026
 

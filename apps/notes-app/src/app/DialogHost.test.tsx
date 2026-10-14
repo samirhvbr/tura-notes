@@ -5,10 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Dialog } from "./DialogHost";
 import { askConfirm, askText, useDialog } from "./dialog";
 
-function Harness({ text = false, answered }: { text?: boolean; answered: (v: unknown) => void }) {
+function Harness({ text = false, caret, answered }: { text?: boolean; caret?: "select" | "end"; answered: (v: unknown) => void }) {
   return <>
     <button onClick={() => void (text
-      ? askText({ title: "Rename", label: "Name", initial: "note", confirmLabel: "Save" })
+      ? askText({ title: "Rename", label: "Name", initial: "note", confirmLabel: "Save", caret })
       : askConfirm({ title: "Delete note", confirmLabel: "Delete", danger: true })
     ).then(answered)}>Open</button>
     <Dialog />
@@ -21,10 +21,10 @@ afterEach(() => {
   useDialog.getState().settle(null);
 });
 
-async function open(text = false) {
+async function open(text = false, caret?: "select" | "end") {
   const answers: unknown[] = [];
   const user = userEvent.setup();
-  render(<Harness text={text} answered={(v) => answers.push(v)} />);
+  render(<Harness text={text} caret={caret} answered={(v) => answers.push(v)} />);
   await user.click(screen.getByRole("button", { name: "Open" }));
   await waitFor(() => expect(text ? screen.getByRole("textbox") : screen.getByRole("button", { name: "Delete" })).toHaveFocus());
   return { user, answers };
@@ -67,6 +67,15 @@ describe("Dialog keyboard behavior", () => {
     await user.keyboard("{Escape}");
     expect(answers).toEqual([null]);
     expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
+  });
+
+  it("puts the caret after a prefilled prefix, so typing completes it instead of replacing it", async () => {
+    const { user, answers } = await open(true, "end");
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.selectionStart).toBe(4);
+    expect(input.selectionEnd).toBe(4);
+    await user.keyboard("s{Enter}");
+    expect(answers).toEqual(["notes"]);
   });
 
   it("does not send modal keystrokes to application shortcuts", async () => {

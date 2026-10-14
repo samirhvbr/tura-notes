@@ -19,6 +19,9 @@ interface TextRequest {
   title: string;
   label?: string;
   initial: string;
+  /** Where the caret starts: over all of `initial` (a name to replace, the
+   *  default) or after it (a prefix to complete). */
+  caret: "select" | "end";
   confirmLabel: string;
   /** Returns an error key when the value cannot be accepted. */
   validate?: (value: string) => string | null;
@@ -64,6 +67,9 @@ export function askText(opts: {
   title: string;
   label?: string;
   initial?: string;
+  /** `"end"` when `initial` is the start of what is being typed, such as the
+   *  folder a note is made in: selected, the first keystroke would erase it. */
+  caret?: "select" | "end";
   confirmLabel: string;
   validate?: (value: string) => string | null;
 }): Promise<string | null> {
@@ -73,6 +79,7 @@ export function askText(opts: {
       title: opts.title,
       label: opts.label,
       initial: opts.initial ?? "",
+      caret: opts.caret ?? "select",
       confirmLabel: opts.confirmLabel,
       validate: opts.validate,
       resolve: resolve as (v: string | boolean | null) => void,

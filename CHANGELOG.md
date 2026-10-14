@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.13 - A note or folder made from inside a cloud folder keeps the folder in its path
+
+The owner reported it from the cloud panel: choosing *New note here* on a folder opens
+the box with the folder's name already in it, but highlighted as if selected, so the
+first letter typed erased it and the note was made at the top of the tree instead of
+inside the folder. The box is the application's one text dialog, and it selects its
+starting text whenever it opens. That is right when the text is a name to replace, as in a
+rename, and wrong when it is the start of what is being typed, which is what a folder's
+path is here.
+
+`askText` now takes `caret`: `"select"`, the default, leaves every existing box as it was
+(rename, move, the workspace name), and `"end"` puts the cursor after the text. The cloud
+panel's *New note here* and *New folder here* ask for `"end"`. The local explorer was not
+affected: its new-note and new-folder boxes start empty. Tests pin the cursor in the dialog
+(collapsed at the end, typing completes the text), the two cloud menu entries asking for
+it, and the cloud rename still asking for the selection. Acceptance row 25 in
+`ACCEPTANCE-remote.md` is the walk for it; it is the owner's, like the others.
+
 ## 1.11.12 - rustls 0.23.45 to 0.23.46, the release that fixes four advisories published today
 
 Four RUSTSEC advisories on `rustls` appeared in the database this morning

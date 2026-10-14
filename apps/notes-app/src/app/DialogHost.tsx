@@ -28,7 +28,10 @@ export function Dialog() {
     const id = requestAnimationFrame(() => {
       if (current.kind === "text") {
         input.current?.focus();
-        input.current?.select();
+        if (current.caret === "end") {
+          const end = input.current?.value.length ?? 0;
+          input.current?.setSelectionRange(end, end);
+        } else input.current?.select();
       } else {
         confirm.current?.focus();
       }
