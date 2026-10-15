@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.14 - ADR-109 records what the diagnostic showed of the owner's gateway
+
+1.11.10 said the picker offers only what the gateway's chat accepts, and that the
+premise was read in the gateway's source and not observed. The owner has now run
+the 1.11.11 script against the production gateway, and the premise holds as
+observed: `/v1/models` lists 4 of 599 profiles (`ShvIA:latest@srv1` and three of
+the eight MiniMax ones), the group allowlist is open (`allowed_models: null`), the
+Anthropic key is configured, and a chat for `claude-fable-5-1@anthropic` is
+refused with 404 through both the OpenAI and the Anthropic route while the same
+chat with `ShvIA:latest` answers 200. The picker therefore shows what the gateway
+lets this key use; the 500 it showed before 1.11.10 was the catalogue.
+
+The ADR said "not observed" in a paragraph that is now out of date, so it gets an
+extension paragraph with the observation, the way earlier ADRs carry theirs, and the one
+thing still unknown is written down as such: where the list is set. The code the
+owner's gateway runs as read here takes it only from `OPENAI_COMPAT_MODELS`, the
+owner says it is not the environment, and the effective value is one command on
+the gateway (`php artisan config:show openai_compat`) whatever its origin. Also
+recorded: the native chat route is not a way around it for the assistant, because
+by the gateway's documentation it accepts no `messages`, `system` or client tools,
+and the assistant's two edit tools need them. No code changed.
+
+The 1.11.14 application was built and published (the macOS feed announced it at
+12:27 on 15/10) from this tree before this commit existed, because the version was
+already bumped in the working copy. Its code is that of 1.11.13 plus the
+Dependabot merges already on `master`; what this commit adds is documents only.
+
 ## 1.11.13 - A note or folder made from inside a cloud folder keeps the folder in its path
 
 The owner reported it from the cloud panel: choosing *New note here* on a folder opens
