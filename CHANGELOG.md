@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.15 - ADR-109 records where the gateway's list was and what the owner changed
+
+The unknown 1.11.14 left in ADR-109, where the gateway's chat allowlist is set, was
+answered on 15/10. `php artisan config:show openai_compat` on the gateway's host
+showed the four names the diagnostic had listed, and line 230 of its `.env` holds
+them as `OPENAI_COMPAT_MODELS`: the reading of the code was right. The owner
+replaced the list with five names (the ShvIA model, MiniMax M3 and M2.7 high-speed,
+`claude-haiku-5-5@anthropic` and `deepseek-flash@deepseek`), turned the gateway's
+debug switch off, and re-ran the diagnostic: `/v1/models` lists the five, and a
+chat for Haiku 5.5 answers 200 through both the OpenAI and the Anthropic route.
+
+What the entry says it did not see is written in the ADR rather than here: the
+Tura screen with the five models, and an assistant conversation on one of them. It
+also records one thing the gateway's debug switch taught, since it matters to
+anyone running a gateway for the assistant: with it on, the text of what the
+assistant sends of a note is readable in that gateway's inference log for 60 days,
+masked only for personal data and secrets. Documents only; no code changed.
+
 ## 1.11.14 - ADR-109 records what the diagnostic showed of the owner's gateway
 
 1.11.10 said the picker offers only what the gateway's chat accepts, and that the
