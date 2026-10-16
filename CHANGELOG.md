@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.17 - The npm notices follow the Dependabot merges, and the six merges made without a version are recorded
+
+Six Dependabot pull requests reached `master` as GitHub squash merges, which carry
+no version and no changelog entry, so this is their record. #54 `@vitejs/plugin-react`
+6.1.1 to 6.1.2, #58 `@tauri-apps/plugin-dialog` 2.8.1 to 2.8.2 and #60
+`@codemirror/view` 6.43.13 to 6.43.14 were merged on GitHub by the owner on 15/10
+at 12:23 and 12:24. #52 `@tauri-apps/api` 2.12.1 to 2.12.3, #56 `lucide-react`
+1.52.0 to 1.55.0 and #59 `vite` 8.3.2 to 8.3.4 were merged on 16/10 with
+`gh pr merge --squash`, one at a time, after each was green in CI: the red on #56 was
+an intermittent `Palette.test.tsx` that passed on a rerun, and the red on #59 was the
+CI server's Docker disk being full, which the owner has since fixed. What was read
+in their release notes: `@tauri-apps/api` 2.12.3 keeps delivering Channel messages
+after an `onmessage` handler throws, `lucide-react` adds icons, and `vite` 8.3.4 is
+bug fixes in the dev server, the build preloads and CSS handling.
+
+The notices file now lists the two of those that are runtime npm packages,
+`@tauri-apps/api` 2.12.3 and `lucide-react` 1.55.0; `vite` and
+`@vitejs/plugin-react` are development dependencies and are not in it. The other two
+stale npm rows, `@codemirror/view` and `@tauri-apps/plugin-dialog`, were fixed in
+1.11.16. They had been stale on `master` because the `contracts` job in CI installs
+no `node_modules`, so it compares only the Rust half of the notices: only the local
+gate, which does have them, saw it. Closing that gap, by installing the frontend in
+that job, is not done here.
+
 ## 1.11.16 - Five Rust dependency bumps from Dependabot, landed together with the notices regenerated
 
 Five open Dependabot pull requests, #50 `serde_json`, #51 `uuid`, #53 `tokio`, #55

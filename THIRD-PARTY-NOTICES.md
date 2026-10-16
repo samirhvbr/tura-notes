@@ -677,13 +677,13 @@ here, as MPL-2.0 section 3.2 requires.
 | npm: `@lezer/sass` | 1.1.0 | MIT | https://github.com/lezer-parser/sass.git |
 | npm: `@lezer/xml` | 1.0.6 | MIT | https://github.com/lezer-parser/xml.git |
 | npm: `@lezer/yaml` | 1.0.4 | MIT | https://github.com/lezer-parser/yaml.git |
-| npm: `@tauri-apps/api` | 2.12.1 | Apache-2.0 OR MIT | git+https://github.com/tauri-apps/tauri.git |
+| npm: `@tauri-apps/api` | 2.12.3 | Apache-2.0 OR MIT | git+https://github.com/tauri-apps/tauri.git |
 | npm: `@tauri-apps/plugin-dialog` | 2.8.2 | MIT OR Apache-2.0 | https://github.com/tauri-apps/plugins-workspace |
 | npm: `@types/react` | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git |
 | npm: `codemirror` | 6.0.2 | MIT | https://github.com/codemirror/basic-setup.git |
 | npm: `crelt` | 1.0.7 | MIT | git+https://code.haverbeke.berlin/marijn/crelt.git |
 | npm: `csstype` | 3.2.3 | MIT | https://github.com/frenic/csstype |
-| npm: `lucide-react` | 1.52.0 | ISC | https://github.com/lucide-icons/lucide.git |
+| npm: `lucide-react` | 1.55.0 | ISC | https://github.com/lucide-icons/lucide.git |
 | npm: `react` | 19.3.0 | MIT | https://github.com/react/react.git |
 | npm: `react-dom` | 19.3.0 | MIT | https://github.com/react/react.git |
 | npm: `scheduler` | 0.28.0 | MIT | https://github.com/react/react.git |
@@ -902,7 +902,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### @tauri-apps/api 2.12.1
+### @tauri-apps/api 2.12.3
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -8202,7 +8202,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.1
+### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.3
 
 ```text
 Apache License
@@ -11550,7 +11550,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### lucide-react 1.52.0
+### lucide-react 1.55.0
 
 ```text
 ISC License
@@ -16604,7 +16604,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, @tauri-apps/api 2.12.1
+### tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, @tauri-apps/api 2.12.3
 
 ```text
 MIT License
