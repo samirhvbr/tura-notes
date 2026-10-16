@@ -454,7 +454,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `stringprep` | 0.1.5 | MIT/Apache-2.0 | https://github.com/sfackler/rust-stringprep |
 | Rust: `strsim` | 0.11.1 | MIT | https://github.com/rapidfuzz/strsim-rs |
 | Rust: `subtle` | 2.6.1 | BSD-3-Clause | https://github.com/dalek-cryptography/subtle |
-| Rust: `swift-rs` | 1.0.8 | MIT OR Apache-2.0 | https://github.com/Brendonovich/swift-rs |
+| Rust: `swift-rs` | 1.0.9 | MIT OR Apache-2.0 | https://github.com/Brendonovich/swift-rs |
 | Rust: `syn` | 1.0.109 | MIT OR Apache-2.0 | https://github.com/dtolnay/syn |
 | Rust: `syn` | 2.0.119 | MIT OR Apache-2.0 | https://github.com/dtolnay/syn |
 | Rust: `syn` | 3.0.5 | MIT OR Apache-2.0 | https://github.com/dtolnay/syn |
@@ -466,16 +466,16 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tao-macros` | 0.1.4 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tao |
 | Rust: `tar` | 0.4.46 | MIT OR Apache-2.0 | https://github.com/composefs/tar-rs |
 | Rust: `target-features` | 0.1.6 | MIT OR Apache-2.0 | https://github.com/calebzulawski/target-features |
-| Rust: `tauri` | 2.12.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-codegen` | 2.7.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-macros` | 2.7.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri` | 2.12.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-codegen` | 2.7.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-macros` | 2.7.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-plugin-dialog` | 2.8.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-fs` | 2.7.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-shell` | 2.4.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-updater` | 2.13.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-runtime` | 2.12.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-runtime-wry` | 2.12.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-utils` | 2.10.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-utils` | 2.10.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tempfile` | 3.27.0 | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
 | Rust: `tendril` | 0.5.1 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `termcolor` | 1.4.1 | Unlicense OR MIT | https://github.com/BurntSushi/termcolor |
@@ -8202,7 +8202,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.3
+### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.3, tauri-codegen 2.7.3, tauri-macros 2.7.3, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.2, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.3
 
 ```text
 Apache License
@@ -16217,7 +16217,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### swift-rs 1.0.8
+### swift-rs 1.0.9
 
 ```text
 Apache License
@@ -16423,7 +16423,7 @@ Apache License
    limitations under the License.
 ```
 
-### swift-rs 1.0.8
+### swift-rs 1.0.9
 
 ```text
 Copyright (c) 2023 The swift-rs Developers
@@ -16604,7 +16604,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tauri 2.12.2, tauri-codegen 2.7.1, tauri-macros 2.7.1, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.1, @tauri-apps/api 2.12.3
+### tauri 2.12.3, tauri-codegen 2.7.3, tauri-macros 2.7.3, tauri-plugin-dialog 2.8.2, tauri-plugin-fs 2.7.0, tauri-plugin-shell 2.4.0, tauri-plugin-updater 2.13.1, tauri-runtime 2.12.1, tauri-runtime-wry 2.12.1, tauri-utils 2.10.2, @tauri-apps/api 2.12.3
 
 ```text
 MIT License

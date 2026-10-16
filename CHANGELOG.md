@@ -7,6 +7,37 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.18 - tauri 2.12.2 to 2.12.3 (Dependabot #57), with the notices regenerated
+
+#57 was the last Dependabot pull request open. It had been retargeted by Dependabot
+from 2.12.2 to 2.12.3 after 1.11.16 put 2.12.2 on `master`, and it was red in two
+jobs: `contracts`, because `THIRD-PARTY-NOTICES.md` was stale again, and
+`dependency advisories`, because of the yanked `zip`, which has nothing to do with
+it. The lock is the pull request's own, 21 lines added and 13 removed, taken
+whole because its base is the same lock `master` has: `tauri` 2.12.2 to 2.12.3,
+`tauri-build`, `tauri-codegen` and `tauri-macros` 2.7.1 to 2.7.3, `tauri-utils`
+2.10.1 to 2.10.2, `swift-rs` 1.0.8 to 1.0.9, and one new crate,
+`static_vcruntime` 3.0.0, with `strsim` as a new dependency of one of them.
+`cargo metadata --locked` accepts it.
+
+What was read, since the release notes Dependabot pastes are a `cargo audit` log and
+say nothing: `tauri` 2.12.3 keeps delivering `Channel` messages after an `onmessage`
+handler throws (the same fix as `@tauri-apps/api` 2.12.3, merged in 1.11.17), marks
+the Swift entry points that Rust links on iOS, and fixes NSIS installers not
+blocking downgrades in silent mode. `tauri-build` 2.7.3 switches back to the
+`static_vcruntime` crate to fix a Windows linking problem, which is why a crate
+nobody asked for appears: it is old (2021, about 1.16 million downloads, MIT or
+Apache-2.0 or Zlib, one owner) and only a Windows build uses it. The notices file
+changes five rows and lists neither of the two new crates.
+
+The full gate ran in a clean worktree with Python 3.11: 44 of 45 steps passed, and
+the one red is the known `crash loop` intermittent. `rust advisories` passed this time
+although the lock still holds `zip` 4.6.1, because the maintainers of `zip` restored
+4.6.1 and 5.1.1 on crates.io at 16:48 UTC on 16/10, after yanking every release but
+the latest at 03:34; 4.6.0 and the older ones are still yanked. The updater's own fix,
+`zip` 9 in `tauri-plugin-updater` 2.14.1, is merged upstream and unpublished
+(tauri-apps/plugins-workspace#3712).
+
 ## 1.11.17 - The npm notices follow the Dependabot merges, and the six merges made without a version are recorded
 
 Six Dependabot pull requests reached `master` as GitHub squash merges, which carry
