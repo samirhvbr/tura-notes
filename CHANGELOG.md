@@ -7,6 +7,49 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.16 - Five Rust dependency bumps from Dependabot, landed together with the notices regenerated
+
+Five open Dependabot pull requests, #50 `serde_json`, #51 `uuid`, #53 `tokio`, #55
+`tauri-plugin-dialog` and #57 `tauri`, were each red in `contracts` for the same
+reason, which was read in all five logs: `THIRD-PARTY-NOTICES.md is stale`. A
+Dependabot branch cannot regenerate that file, and all five edit the same
+`Cargo.lock`, so merging one makes the rest conflict. They land together, the way
+1.9.17 and 1.10.35 did.
+
+The lock changes only the version and checksum of six packages, twelve lines, taken
+from the lock of the pull request that bumps each: `serde_json` 1.0.151 to 1.0.154,
+`uuid` 1.26.1 to 1.28.0, `tokio` 1.53.1 to 1.53.2, `tauri-plugin-dialog` 2.8.1 to
+2.8.2 with `tauri-plugin-fs` 2.6.0 to 2.7.0 (the dialog release depends on it), and
+`tauri` 2.12.1 to 2.12.2. The title of #50 says 1.0.152 and its lock says 1.0.154:
+Dependabot re-resolved to the newest release when it rebased and left the title.
+Two things were not taken: unrelated lines in the locks of #50 and #51 (a dependency
+edge `syn 3.0.5` to `2.0.119`, `getrandom 0.4.3` to `0.3.4`), and what
+`cargo update -p` produces for `tokio` and `tauri`, which also moves `windows-sys`
+edges in 5 and 12 places where the pull requests move none. `cargo metadata --locked`
+accepts the result.
+
+From the release notes: `tokio` 1.53.2 is fixes in `sync`, `time` and `fs` with one
+revert; `uuid` 1.27 and 1.28 make the `urn:uuid:` prefix case-insensitive when
+parsing, fix the ordering of V7 values and add serde adapters, and the repository
+uses no V7; `tauri-plugin-dialog` 2.8.2 brings the Rust side to the JS plugin 2.8.2
+that #58 put on `master` this morning.
+
+Regenerating the notices also fixed two npm rows that were already stale on
+`master` (`@codemirror/view` 6.43.14, `@tauri-apps/plugin-dialog` 2.8.2) since #60
+and #58 were merged on GitHub with no version and no changelog entry, as was #54.
+CI did not see it: the `contracts` job has no `node_modules`, so the notices check
+compares only the Rust half. That gap is not closed here.
+
+The full gate ran in a clean worktree with Python 3.11 (the Mac's default 3.9 cannot
+run the notices script): 43 of 45 steps passed. `crash loop` is the known
+intermittent. `rust advisories` fails on `zip 4.6.1: yanked`, which has nothing to do
+with these bumps and fails the same on `master`: every 4.x and 5.x release of `zip`
+was yanked at 03:34 UTC on 16/10 by its maintainers, who say in zip-rs/zip2#1075 it
+is because of three security advisories of theirs, with more to come this month. The
+only dependent here is `tauri-plugin-updater`, whose releases 2.13.1 to 2.14.0 all
+require `zip ^4`, on Windows only, and Windows artifacts are not published
+(ADR-024). That choice is separate and is not made here.
+
 ## 1.11.15 - ADR-109 records where the gateway's list was and what the owner changed
 
 The unknown 1.11.14 left in ADR-109, where the gateway's chat allowlist is set, was
