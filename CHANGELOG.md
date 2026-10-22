@@ -7,6 +7,28 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.20 - The crash loop test no longer depends on a stub starting in under 40 ms
+
+`tools/tests/test_crash_loop.py` failed in every local gate run on the owner's Mac
+from 15/10 to 22/10, nine runs in all, and passed in CI and when run alone. It had
+been called an intermittent. Run alone it passed, and so it did six times in a row
+with the machine's CPUs saturated (the load average reached 160), so a busy
+machine is not what makes it fail. What the code says is certain: the loop starts the
+writer, sleeps a random 1 to 40 ms and sends SIGKILL, and the test for a writer that
+exits on its own, the stub `exit 101`, expects at least one of its three rounds to
+end before the kill. A stub that takes longer than that window to exit loses all
+three, and then the loop prints `the note never left its seed ... 1/3 FAILED`, which is
+exactly what the gate printed. A stub that sleeps 200 ms before `exit 101` reproduces it
+on demand. **What is not shown** is why the stub is slow in the gate and not alone; the
+guess is that starting a new script on macOS right after the build steps is slow,
+and it is only a guess.
+
+`CRASH_KILL_MS` (1 to 999, refused otherwise) fixes the delay instead of the random
+window; only the tests set it, and the 1000-round loop that CI and the nightly run is
+unchanged. The exit-on-its-own test uses 600 ms, and a new one runs the 200 ms stub with
+900 ms and still expects the verdict. Five tests; removing the knob and removing the
+validation each failed the test that covers it.
+
 ## 1.11.19 - `ammonia`, `rustls-webpki` and `webpki-root-certs` updated for three RustSec vulnerabilities
 
 On 22/10 `cargo audit --deny warnings` on `master` reported six vulnerabilities and

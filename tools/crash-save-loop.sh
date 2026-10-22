@@ -9,6 +9,10 @@
 #   tools/crash-save-loop.sh            1000 kills
 #   ROUNDS=50 tools/crash-save-loop.sh  a quick local pass
 #   CRASH_WRITER=/path/to/bin ...       another writer, for tools/tests/test_crash_loop.py
+#   CRASH_KILL_MS=300 ...               one fixed delay (1-999) before the kill instead of a random
+#                                       1-40 ms, for tools/tests/test_crash_loop.py: a stub that is
+#                                       slow to start must be judged by what it does, not by how
+#                                       fast the machine started it
 #
 # THE LOOP HAS TO PROVE THE WRITER RAN (R6-30a). It used to discard the exit
 # status and check whatever was on disk against its own header -- and the seed
@@ -22,6 +26,10 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROUNDS="${ROUNDS:-1000}"
+case "${CRASH_KILL_MS:-1}" in
+  ''|*[!0-9]*|0*) echo "CRASH_KILL_MS must be a number from 1 to 999" >&2; exit 2 ;;
+esac
+[ "${CRASH_KILL_MS:-1}" -le 999 ] || { echo "CRASH_KILL_MS must be a number from 1 to 999" >&2; exit 2; }
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -89,7 +97,7 @@ for i in $(seq 1 "$ROUNDS"); do
   pid=$!
   winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
   # 1–40 ms: long enough to be mid-write, short enough for 1000 rounds.
-  sleep "0.$(printf '%03d' $(( (RANDOM % 40) + 1 )))"
+  sleep "0.$(printf '%03d' "${CRASH_KILL_MS:-$(( (RANDOM % 40) + 1 ))}")"
   stop "$pid" "$winpid"
   wait "$pid" 2>/dev/null
   rc=$?
