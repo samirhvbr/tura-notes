@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.20 - The three unmaintained zbus crates are named in audit.toml, with the reason
+
+`cargo audit --deny warnings` still reported three warnings of 16/10, RUSTSEC-2026-0370,
+0371 and 0372: `zvariant`, `zbus_names` and `zvariant_derive` are no longer maintained
+as standalone crates and were merged into `zbus` from 6.0.0. They are unmaintained, not
+vulnerable, and they are ours only through `keyring` 4.2.0, `zbus-secret-service-keyring-store`,
+`secret-service` 5.2.0 and `zbus` 5.19.0, the Linux Secret Service store that `notes-ai`
+and `notes-app` use, so the way out is that chain moving to `zbus` 6, not something to
+do here. They go into `.cargo/audit.toml` under their own heading, with that path and
+the condition for deleting them, the way the earlier unmaintained crates are. A
+vulnerability would not be allowed in that file, and none is: what `cargo audit` still
+reports after this is the three `zip` 4.6.1 advisories, 0367, 0368 and 0369, which wait for
+the updater plugin release.
+
 ## 1.11.20 - tools/third-party.py runs on the Python 3.9 that macOS ships
 
 The `third-party notices` step of the gate failed on every run on the owner's Mac

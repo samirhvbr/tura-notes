@@ -57,4 +57,17 @@ ignore = [
   # Tauri's, and the question is whether `pdf-extract` is still the right
   # crate — not whether to keep ignoring this.
   "RUSTSEC-2026-0192",  # ttf-parser unmaintained
+
+  # --- Ours, through `keyring` ----------------------------------------------
+  # `keyring` 4.2.0 -> `zbus-secret-service-keyring-store` -> `secret-service`
+  # 5.2.0 -> `zbus` 5.19.0: the Linux Secret Service store that `notes-ai` and
+  # `notes-app` use for the system keychain. All three advisories are dated
+  # 16/10/2026 and say the same thing: `zvariant`, `zbus_names` and
+  # `zvariant_derive` are no longer maintained as standalone crates and were
+  # merged into `zbus` from 6.0.0. They are unmaintained, not vulnerable; the
+  # way out is `keyring` or `secret-service` moving to `zbus` 6, which is not
+  # ours to do. Delete the three lines when that lands and let the check answer.
+  "RUSTSEC-2026-0370",  # zvariant unmaintained
+  "RUSTSEC-2026-0371",  # zbus_names unmaintained
+  "RUSTSEC-2026-0372",  # zvariant_derive unmaintained
 ]
