@@ -19,11 +19,18 @@ const { useRemoteDoc, resetRemoteDocTimers } = await import("../stores/remoteDoc
 const { useEditor } = await import("../stores/editor");
 const { useUi } = await import("../stores/ui");
 const initial = useRemoteDoc.getState();
+const initialAutosave = useEditor.getState().autosaveMs;
 afterEach(() => {
   cleanup();
   resetRemoteDocTimers();
   useRemoteDoc.setState(initial, true);
+  useEditor.setState({ autosaveMs: initialAutosave });
   vi.clearAllMocks();
+  // clearAllMocks keeps an implementation a test gave with mockResolvedValue, and
+  // the next test then saw it: a save that "worked" in a test that never asked.
+  for (const f of [ipcMod.remoteSave, ipcMod.remoteOpen, ipcMod.remoteMerge, ipcMod.remoteRename]) {
+    vi.mocked(f).mockReset();
+  }
 });
 
 const base = {
@@ -282,6 +289,10 @@ it.each(["invalid", "offline", "busy"] as const)(
   async (cause) => {
     const error = { code: "sync", cause } as const;
     useEditor.setState({ doc: null });
+    // The test drives save() itself. The 750 ms autosave debounce, left armed by the
+    // first keystroke, fires mid-test on a slow machine, sends the edit and takes the
+    // banner away: it failed in CI with the test at 1.5 s, and fails here at 900 ms.
+    useEditor.setState({ autosaveMs: 3_600_000 });
     useUi.setState({ view: "source" });
     useRemoteDoc.setState({
       doc: { ...base, bufferVersion: 1, status: cause === "invalid" ? "error" : "offline", lastError: error },

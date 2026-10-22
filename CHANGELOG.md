@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.21 - Two frontend tests stop depending on the wall clock
+
+The `frontend` job of CI failed on the push of 1.11.19, which touched no frontend code:
+`RemoteEditor.test.tsx`, the case `keeps the offline warning mounted while typing and
+retrying`, 365 of 366 passing, with the test at 1.5 s. Before that the
+`refreshes quick open when its initial path index is still building` case of
+`Palette.test.tsx` had failed on #56 on 13/10, when the CI server's disk was full. Both
+are timing, and both are reproduced here on demand rather than guessed.
+
+`RemoteEditor.test.tsx`: the first keystroke arms the 750 ms autosave debounce, and the
+test drives `save()` itself. Left armed, the debounce fires mid-test on a slow
+machine and sends the edit, and the mock it reaches is not the one the test set: a
+test earlier in the file gave `remoteSave` a `mockResolvedValue`, and `clearAllMocks`
+keeps implementations, so the save "worked" and took the banner away. Run alone, the
+three cases did not fail even with a 900 ms stall, because the sticky implementation
+only exists after the earlier test; run as the whole file with the same stall, all three
+(`invalid`, `offline` and `busy`) failed with the CI's message, `expected null to be
+<div class="banner warn">`. The test now freezes the autosave and resets the four
+`vi.fn()` mocks after each test; with the same 900 ms stall the file passes 14 of 14.
+
+`Palette.test.tsx`: the palette asks again 100 ms after an answer that says the index is
+still building, and the test waited with `findByText`'s default 1000 ms, which is the whole
+budget, first render included. A first answer made 1.2 s late fails it with the CI's
+`Unable to find an element with the text: a.md`; with a 5 s wait it passes, and a passing
+run waits no longer than before. No production code changed.
+
+**Not shown:** why the CI reported only the `offline` case of the three, and whether other
+tests among the 366 wait on a timer; that was not audited.
+
 ## 1.11.20 - The three unmaintained zbus crates are named in audit.toml, with the reason
 
 `cargo audit --deny warnings` still reported three warnings of 16/10, RUSTSEC-2026-0370,
