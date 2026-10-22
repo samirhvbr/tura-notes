@@ -16,6 +16,8 @@ that ship. npm: the production dependency closure of `apps/notes-app`, read
 from `node_modules`; `--check` without `node_modules` checks the Rust half and
 says so.
 """
+from __future__ import annotations
+
 import hashlib
 import json
 import pathlib

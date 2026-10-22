@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.20 - tools/third-party.py runs on the Python 3.9 that macOS ships
+
+The `third-party notices` step of the gate failed on every run on the owner's Mac
+with `TypeError: unsupported operand type(s) for |` at `def npm() -> list[dict] |
+None`: Python 3.9 evaluates a function's annotations when it defines the function,
+and `X | None` between types only exists from 3.10. CI runs a newer Python, so it
+never showed, and until now it was worked around by putting a 3.11 first in `PATH`.
+`from __future__ import annotations`, which exists since 3.7, makes the annotations
+lazy and is the whole fix. Run under the Mac's own `python3` (3.9.6), `--check` passes
+with `node_modules` installed and regenerating leaves no difference in the notices;
+without the line the same command fails with that `TypeError`.
+
 ## 1.11.20 - The crash loop test no longer depends on a stub starting in under 40 ms
 
 `tools/tests/test_crash_loop.py` failed in every local gate run on the owner's Mac
