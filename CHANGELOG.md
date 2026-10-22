@@ -7,6 +7,47 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.19 - `ammonia`, `rustls-webpki` and `webpki-root-certs` updated for three RustSec vulnerabilities
+
+On 22/10 `cargo audit --deny warnings` on `master` reported six vulnerabilities and
+three denied warnings. The CI had been red every night since 16/10 (the runs of
+20, 21 and 22/10 on `b57f4e9`), and a check that is red every day is not read, which
+is the failure `.cargo/audit.toml` describes in its own header: three of the six
+had been fixable for days without anyone seeing them, the `ammonia` fix since
+17/10, `webpki-root-certs` since 19/10 and `rustls-webpki` since 20/10. Dependabot
+opens no pull request for a lock-only security update here, so none was waiting.
+
+RUSTSEC-2026-0373, `ammonia` 4.2.3 to 4.2.4: a quoted CSS `url("")` is matched
+case-sensitively, so `URL("")` escapes the URL filtering. The advisory's own example
+needs `filter_style_properties` and a `style` attribute, and says the effect is a
+tracking pixel, not script. This project allows `style` only on `th` and `td`, behind a
+filter that keeps three exact alignment strings, and calls `filter_style_properties`
+nowhere (`grep` over `crates/`, `server/` and the app's Rust finds none), so it was
+not exposed; it is updated anyway, because the file's rule is that a vulnerability is
+fixed and not argued away.
+
+RUSTSEC-2026-0382 and RUSTSEC-2026-0383, `rustls-webpki` 0.103.15 to 0.103.16 and
+`webpki-root-certs` 1.0.9 to 1.0.10: certificate paths through emSign intermediates
+whose private keys are now public were accepted, and the second crate bundled an
+emSign root. `reqwest` reaches both through `rustls`, from `notes-ai` and
+`notes-sync-client`, so the AI provider calls, the device sync and the remote folder
+all use them. The lock changes six lines, version and checksum of the three packages;
+`cargo metadata --locked` accepts it and the notices file changes three rows.
+
+What is left in `cargo audit` is not touched here: three RUSTSEC advisories on `zip`
+4.6.1 (0367, 0368 and 0369, fixed from 9.0.0), whose fix is `tauri-plugin-updater`
+2.14.1, merged upstream and not published (tauri-apps/plugins-workspace#3712); and
+three unmaintained crates, `zbus_names`, `zvariant` and `zvariant_derive`, which come
+from our own `keyring` 4.2.0 through its Secret Service store. `cargo tree -i zip` per
+target says the `zip` is in the build graph of `x86_64-pc-windows-msvc`, through the
+updater, and in neither `aarch64-apple-darwin` nor `x86_64-unknown-linux-gnu`: the
+two targets that are published carry no vulnerable `zip`.
+
+The gate ran in a clean worktree: 42 of 45 steps. `crash loop` is the known
+intermittent and `rust advisories` fails on exactly the six items above. The third red,
+`third-party notices`, was the gate's `python3` being the Mac's 3.9 because the 3.11
+shim had been cleaned from `/tmp`: the same check run with 3.11 passes.
+
 ## 1.11.18 - tauri 2.12.2 to 2.12.3 (Dependabot #57), with the notices regenerated
 
 #57 was the last Dependabot pull request open. It had been retargeted by Dependabot

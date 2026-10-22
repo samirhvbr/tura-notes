@@ -28,7 +28,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `aho-corasick` | 1.1.5 | Unlicense OR MIT | https://github.com/BurntSushi/aho-corasick |
 | Rust: `alloc-no-stdlib` | 3.0.0 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
 | Rust: `alloc-stdlib` | 0.3.0 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
-| Rust: `ammonia` | 4.2.3 | MIT OR Apache-2.0 | https://github.com/rust-ammonia/ammonia |
+| Rust: `ammonia` | 4.2.4 | MIT OR Apache-2.0 | https://github.com/rust-ammonia/ammonia |
 | Rust: `android_system_properties` | 0.1.6 | MIT OR Apache-2.0 | https://github.com/nical/android_system_properties |
 | Rust: `anyhow` | 1.0.104 | MIT OR Apache-2.0 | https://github.com/dtolnay/anyhow |
 | Rust: `apple-native-keyring-store` | 1.0.2 | MIT OR Apache-2.0 | https://github.com/open-source-cooperative/apple-native-keyring-store.git |
@@ -399,7 +399,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `rustls-pki-types` | 1.15.1 | MIT OR Apache-2.0 | https://github.com/rustls/pki-types |
 | Rust: `rustls-platform-verifier` | 0.7.0 | MIT OR Apache-2.0 | https://github.com/rustls/rustls-platform-verifier |
 | Rust: `rustls-platform-verifier-android` | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rustls/rustls-platform-verifier |
-| Rust: `rustls-webpki` | 0.103.15 | ISC | https://github.com/rustls/webpki |
+| Rust: `rustls-webpki` | 0.103.16 | ISC | https://github.com/rustls/webpki |
 | Rust: `rustversion` | 1.0.23 | MIT OR Apache-2.0 | https://github.com/dtolnay/rustversion |
 | Rust: `ryu` | 1.0.23 | Apache-2.0 OR BSL-1.0 | https://github.com/dtolnay/ryu |
 | Rust: `same-file` | 1.0.6 | Unlicense/MIT | https://github.com/BurntSushi/same-file |
@@ -547,7 +547,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `web_atoms` | 0.3.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `webkit2gtk` | 2.0.2 | MIT | https://github.com/tauri-apps/webkit2gtk-rs |
 | Rust: `webkit2gtk-sys` | 2.0.2 | MIT | https://github.com/tauri-apps/webkit2gtk-rs |
-| Rust: `webpki-root-certs` | 1.0.9 | CDLA-Permissive-2.0 | https://github.com/rustls/webpki-roots |
+| Rust: `webpki-root-certs` | 1.0.10 | CDLA-Permissive-2.0 | https://github.com/rustls/webpki-roots |
 | Rust: `webview2-com` | 0.39.1 | MIT | https://github.com/wravery/webview2-rs |
 | Rust: `webview2-com-macros` | 0.8.1 | MIT | https://github.com/wravery/webview2-rs |
 | Rust: `webview2-com-sys` | 0.39.1 | MIT | https://github.com/wravery/webview2-rs |
@@ -1496,7 +1496,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### ammonia 4.2.3, crc32fast 1.5.1, ctor 1.0.13, dpi 0.1.2, fallible-iterator 0.3.0, fallible-streaming-iterator 0.1.9, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, jni-sys 0.3.1, jni-sys 0.4.1, json-patch 4.2.0, serde_spanned 0.6.9, serde_spanned 1.1.1, stringprep 0.1.5, tao 0.37.1, toml 1.1.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.19.15, toml_edit 0.20.2, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
+### ammonia 4.2.4, crc32fast 1.5.1, ctor 1.0.13, dpi 0.1.2, fallible-iterator 0.3.0, fallible-streaming-iterator 0.1.9, foreign-types 0.5.0, foreign-types-macros 0.2.4, foreign-types-shared 0.3.1, hex 0.4.3, jni-sys 0.3.1, jni-sys 0.4.1, json-patch 4.2.0, serde_spanned 0.6.9, serde_spanned 1.1.1, stringprep 0.1.5, tao 0.37.1, toml 1.1.5+spec-1.1.0, toml_datetime 1.1.1+spec-1.1.0, toml_edit 0.19.15, toml_edit 0.20.2, toml_edit 0.25.13+spec-1.1.0, toml_parser 1.1.3+spec-1.1.0, toml_writer 1.1.2+spec-1.1.0, winapi 0.3.9
 
 ```text
 Apache License
@@ -1702,7 +1702,7 @@ Apache License
    limitations under the License.
 ```
 
-### ammonia 4.2.3
+### ammonia 4.2.4
 
 ```text
 Copyright (c) 2015-2022 The ammonia Developers
@@ -15379,7 +15379,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### rustls-webpki 0.103.15
+### rustls-webpki 0.103.16
 
 ```text
 Except as otherwise noted, this project is licensed under the following
@@ -18156,7 +18156,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### webpki-root-certs 1.0.9
+### webpki-root-certs 1.0.10
 
 ```text
 # Community Data License Agreement - Permissive - Version 2.0
