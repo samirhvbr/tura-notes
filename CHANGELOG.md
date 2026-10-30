@@ -7,6 +7,33 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.23 - tauri-plugin-updater 2.13.1 to 2.14.1, which takes the zip with three advisories out of the build
+
+Version 2.14.1 of the plugin was published on 28/10, after its release PR was merged on
+27/10, and it is the fix this repository had been waiting for: `zip` 4.6.1 (RUSTSEC-2026-0367,
+0368 and 0369, fixed from 9.0.0) becomes `zip` 9.1.3. `cargo tree -i zip` per target puts
+it in the Windows graph only, which is tested and not published, and in neither the
+macOS nor the Linux one, before and after. With this the whole of `cargo audit` is
+clean for the first time since 16/10: no vulnerability and no warning.
+
+**It is not only a security bump.** It crosses four releases of the code that replaces
+this application, and the plugin's changelog for them was read: on macOS a failed
+install no longer deletes the installed app (2.13.2); `minisign-verify` 0.3, which
+rejects signatures with a non-canonical Ed25519 `S` value (2.13.3, `minisign-verify`
+0.2.5 to 0.3.0 in the lock); AppImage fixes on Linux, `Update::install` verifying the
+package bytes before installing, and `check` resolving to `None` rather than a target error
+when the release has no entry for the current target (2.14.0); `base64` 0.23 and `zip` 9
+(2.14.1). The lock gains `nix`, `cfg_aliases` and `typed-path` and loses `arbitrary` and
+`derive_arbitrary`; the notices change by forty-six lines added and fifty-five removed.
+Nothing in this application's Rust names the error variants that changed
+(`grep` for `Minisign`, `Extract` and `restore_update` finds none) and it builds and
+tests unchanged.
+
+**Not walked:** the update between two installed versions, which is the owner's row in
+`docs/updater.md` and has never been ticked. This is the one change of this batch that
+touches a path a person depends on, which is why it is its own commit, and why it can be
+reverted alone. Dependabot's #69, which proposed 2.14.0, is thereby done.
+
 ## 1.11.23 - pulldown-cmark 0.13.5 closes an exponential blowup in wikilinks, with ctutils and tokio
 
 On 30/10 `cargo audit` on `master` reported five vulnerabilities and one denied
