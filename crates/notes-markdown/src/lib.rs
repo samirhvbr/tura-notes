@@ -1073,6 +1073,29 @@ mod tests {
         "00000000-0000-0000-0000-000000000000".parse().unwrap()
     }
 
+    /// RUSTSEC-2026-0414, `pulldown-cmark` 0.13.4 with `ENABLE_WIKILINKS`: a
+    /// wikilink with a pipe and an empty label, `[[a|]]`, leaked its child's
+    /// siblings into everything after it, so each one doubled the events for the
+    /// rest of the document. Sixteen of them (112 bytes) made 327,676 events and a few
+    /// kilobytes were enough to exhaust memory. The renderer parses untrusted
+    /// notes with that option on; the fixed parser (0.13.5) yields 65 events for the
+    /// same text, so the bound below is generous and still a thousand times short of
+    /// the failure.
+    #[test]
+    fn a_wikilink_with_an_empty_label_does_not_multiply_what_follows() {
+        let src = "[[a|]] ".repeat(16);
+        let started = std::time::Instant::now();
+        let html = render_html(&src, &opts()).html;
+        assert!(
+            html.len() < 4_000,
+            "16 empty-label wikilinks rendered to {} bytes: the event growth is back",
+            html.len()
+        );
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        // And what it is for a person: sixteen links, in the order written.
+        assert_eq!(html.matches("data-wiki-target").count(), 16, "{html}");
+    }
+
     #[test]
     fn front_matter_is_reported_and_not_rendered() {
         let src = "---\ntitle: x\n---\n\n# Título\n";

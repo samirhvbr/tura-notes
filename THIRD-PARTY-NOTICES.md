@@ -113,7 +113,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `cssparser` | 0.38.0 | MPL-2.0 | https://github.com/servo/rust-cssparser |
 | Rust: `cssparser-macros` | 0.7.1 | MPL-2.0 | https://github.com/servo/rust-cssparser |
 | Rust: `ctor` | 1.0.13 | Apache-2.0 OR MIT | https://github.com/mmastrac/linktime |
-| Rust: `ctutils` | 0.4.2 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
+| Rust: `ctutils` | 0.4.4 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | Rust: `darling` | 0.23.0 | MIT | https://github.com/TedDriggs/darling |
 | Rust: `darling_core` | 0.23.0 | MIT | https://github.com/TedDriggs/darling |
 | Rust: `darling_macro` | 0.23.0 | MIT | https://github.com/TedDriggs/darling |
@@ -369,7 +369,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `proc-macro-error` | 1.0.4 | MIT OR Apache-2.0 | https://gitlab.com/CreepySkeleton/proc-macro-error |
 | Rust: `proc-macro-error-attr` | 1.0.4 | MIT OR Apache-2.0 | https://gitlab.com/CreepySkeleton/proc-macro-error |
 | Rust: `proc-macro2` | 1.0.107 | MIT OR Apache-2.0 | https://github.com/dtolnay/proc-macro2 |
-| Rust: `pulldown-cmark` | 0.13.4 | MIT | https://github.com/raphlinus/pulldown-cmark |
+| Rust: `pulldown-cmark` | 0.13.5 | MIT | https://github.com/raphlinus/pulldown-cmark |
 | Rust: `pulldown-cmark-escape` | 0.11.0 | MIT | https://github.com/raphlinus/pulldown-cmark |
 | Rust: `pxfm` | 0.1.30 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/pxfm |
 | Rust: `quick-xml` | 0.42.0 | MIT | https://github.com/tafia/quick-xml |
@@ -489,7 +489,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tinystr` | 0.8.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | Rust: `tinyvec` | 1.13.2 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/tinyvec |
 | Rust: `tinyvec_macros` | 0.1.1 | MIT OR Apache-2.0 OR Zlib | https://github.com/Soveu/tinyvec_macros |
-| Rust: `tokio` | 1.53.2 | MIT | https://github.com/tokio-rs/tokio |
+| Rust: `tokio` | 1.53.3 | MIT | https://github.com/tokio-rs/tokio |
 | Rust: `tokio-macros` | 2.7.2 | MIT | https://github.com/tokio-rs/tokio |
 | Rust: `tokio-rustls` | 0.26.5 | MIT OR Apache-2.0 | https://github.com/rustls/tokio-rustls |
 | Rust: `tokio-util` | 0.7.19 | MIT | https://github.com/tokio-rs/tokio |
@@ -4431,7 +4431,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### cmov 0.5.4, ctutils 0.4.2, embed_plist 1.2.2, encoding_rs 0.8.40, multiversion 0.8.0, multiversion-macros 0.8.0, multiversion_no_op 1.0.0, rustls-platform-verifier 0.7.0, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, target-features 0.1.6, tinyvec 1.13.2, utf8_iter 1.0.4, zeroize 1.9.0, zune-core 0.5.3, zune-jpeg 0.5.15
+### cmov 0.5.4, ctutils 0.4.4, embed_plist 1.2.2, encoding_rs 0.8.40, multiversion 0.8.0, multiversion-macros 0.8.0, multiversion_no_op 1.0.0, rustls-platform-verifier 0.7.0, serialize-to-javascript 0.1.2, serialize-to-javascript-impl 0.1.2, target-features 0.1.6, tinyvec 1.13.2, utf8_iter 1.0.4, zeroize 1.9.0, zune-core 0.5.3, zune-jpeg 0.5.15
 
 ```text
 Apache License
@@ -6252,7 +6252,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### ctutils 0.4.2
+### ctutils 0.4.4
 
 ```text
 Copyright (c) 2025-2026 The RustCrypto Project Developers
@@ -13723,7 +13723,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### pulldown-cmark 0.13.4, pulldown-cmark-escape 0.11.0
+### pulldown-cmark 0.13.5, pulldown-cmark-escape 0.11.0
 
 ```text
 The MIT License
@@ -16995,7 +16995,7 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### tokio 1.53.2, tokio-util 0.7.19
+### tokio 1.53.3, tokio-util 0.7.19
 
 ```text
 MIT License

@@ -7,6 +7,31 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.23 - pulldown-cmark 0.13.5 closes an exponential blowup in wikilinks, with ctutils and tokio
+
+On 30/10 `cargo audit` on `master` reported five vulnerabilities and one denied
+warning. Three advisories were new since 22/10, and the one that matters most is ours:
+RUSTSEC-2026-0414, in `pulldown-cmark` 0.13.4 with `ENABLE_WIKILINKS`, which the
+renderer turns on. A wikilink with a pipe and an empty label, `[[a|]]`, leaks its
+child's siblings into everything after it, so each one doubles what follows. This
+application parses note text it did not write, since notes arrive from the server and
+from other devices and the preview, the outline and the index all parse them, so a note
+of a few kilobytes was enough to exhaust the memory of whatever renders it.
+
+It was measured here before it was fixed. The new test renders sixteen `[[a|]]`, 112
+bytes, and on 0.13.4 gets **197,204 bytes of HTML** (the advisory counts 327,676 events
+for the same text); on 0.13.5, published on 21/10, it gets sixteen links. The test fails
+on the vulnerable version and passes on the fixed one, and the 72 tests of the crate and
+its golden fixtures are unchanged, so nothing the renderer draws for an ordinary note moved.
+
+The other two, in the same lock-only update: `ctutils` 0.4.2 to 0.4.4 (RUSTSEC-2026-0385,
+mask generation and `u128` comparisons that were not constant-time, reached through
+`digest` 0.11.3; whether any of our paths depends on that property was not examined) and
+`tokio` 1.53.2 to 1.53.3 (RUSTSEC-2026-0386, `AsyncFd::new` and its siblings unsound about
+I/O safety). The `tokio` lines are taken from Dependabot's #62, version and checksum, since
+`cargo update -p tokio` moves `windows-sys` edges in fifteen places, as it did in 1.11.16;
+#62 is thereby done. The lock changes seven lines and `cargo metadata --locked` accepts it.
+
 ## 1.11.22 - Help ▸ Markdown guide shows every construct the preview understands, drawn by the preview's own renderer
 
 Nothing in the interface told a person that `#` in front of a line is a heading, so
