@@ -268,7 +268,15 @@ export default function App() {
     { id: "settings", label: "command.settings", hint: "Ctrl+,", run: () => setSettingsOpen(true) },
   ];
 
-  if (!info) return <Welcome />;
+  // The Help menu is there before a workspace is: About has to open from the
+  // welcome screen too, and not later, when a folder opens and the state is still true.
+  if (!info)
+    return (
+      <>
+        <Welcome />
+        {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      </>
+    );
 
   return (
     <div className="app">

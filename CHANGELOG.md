@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.22 - Help ▸ About opens from the welcome screen too
+
+The Help menu is there before any folder is open, but `App` returns `<Welcome />`
+early and mounted About only in the branch that has a workspace. A click on Help ▸
+About on the welcome screen set the state and drew nothing, and the dialog then
+appeared by itself the next time a folder was opened, because the state was still
+true. Both Help dialogs now mount in the welcome branch as well. `App.help.test.tsx`
+mounts the real `App` with only the Tauri `invoke` and `listen` replaced and opens
+About from the welcome screen; with the old early return it fails, which was checked.
+It was found while adding the Markdown guide to the same place.
+
 ## 1.11.21 - Two frontend tests stop depending on the wall clock
 
 The `frontend` job of CI failed on the push of 1.11.19, which touched no frontend code:
