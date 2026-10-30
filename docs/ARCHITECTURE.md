@@ -535,6 +535,7 @@ an IPC type.
 | | `entry_delete(path)` | `DeleteOutcome { Trashed \| Permanent }` |
 | preview | `markdown_render(note_id, text)` | `Rendered { html, outline }` — text passed so unsaved buffers preview |
 | | `markdown_outline(note_id, text)` | `Vec<Heading>` |
+| | `markdown_guide()` | `Vec<GuideEntry { id, group, source, html }>` — Help ▸ Markdown guide: every construct the preview understands, rendered by the preview's own renderer; needs no workspace |
 | search | `search_quick(query)` | `Vec<QuickMatch { path, score }>` — in-memory fuzzy |
 | | `search_global_start(query, opts)` | `SearchId`; results arrive as events |
 | | `search_cancel(id)` | `()` |
@@ -770,8 +771,21 @@ per document, because `pulldown-cmark` will otherwise swallow any `---`-fenced
 block anywhere in the note.
 
 Pipeline: strip front matter (span kept) → `pulldown-cmark` with `TABLES |
-STRIKETHROUGH | TASKLISTS | FOOTNOTES` → event rewrite pass → HTML →
+STRIKETHROUGH | TASKLISTS | FOOTNOTES | WIKILINKS` → event rewrite pass → HTML →
 `ammonia` with an allowlist → `Rendered`.
+
+**The Markdown guide is a third reader of this pipeline** (since 1.11.22). Help ▸
+Markdown guide shows each construct the preview understands, with what to type and
+what the preview draws for it, to a person who has never written Markdown. The
+drawing is not written beside the renderer: `markdown_guide` calls `render_html`
+over a fixed list of examples in `notes-markdown::guide`, so the frontend still has
+no parser and the guide cannot promise what the renderer does not do. Each claim
+that a hand-written cheat sheet would get wrong is a test beside the list — raw HTML
+is shown as text, `www.` alone is not a link, an address in angle brackets is
+refused, a picture from the web is blocked until the workspace allows it, and math,
+highlight and definition lists are shown as typed — and so is the check that every
+entry has its words in both languages. The one `innerHTML` assignment stays in
+`preview/Preview.tsx`, which exports `RenderedHtml` for it.
 
 **There are two layers on purpose.** The rewrite pass decides what each
 destination may become; `ammonia` then applies a closed allowlist that knows

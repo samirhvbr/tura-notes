@@ -1,5 +1,5 @@
 import {openWiki} from "../app/Knowledge";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
@@ -14,7 +14,9 @@ import { useWorkspace } from "../stores/workspace";
  * allowed: the string came from `markdown_render`, which is `notes-markdown`
  * behind `ammonia` (docs/ARCHITECTURE.md §10). **Nothing else in this
  * application may assign `innerHTML`**, and this component must never render a
- * string it did not get from that command.
+ * string it did not get from that command. [`RenderedHtml`], below, is the same
+ * rule for the Markdown guide: its HTML comes from `markdown_guide`, which is the
+ * same renderer behind the same `ammonia`.
  *
  * Rendering is debounced 300 ms and **skipped while the pane is hidden**, so
  * typing in Source mode costs nothing (§13).
@@ -153,4 +155,30 @@ export function Preview({
       <div className="preview" ref={host} onClick={onClick} />
     </div>
   );
+}
+
+/**
+ * A string of HTML that a Rust render command produced, drawn as it is.
+ *
+ * The Markdown guide (Help ▸ Markdown guide) shows each construct as the preview
+ * draws it, and the only way to be sure of that is to draw what the preview's own
+ * renderer returned. The string comes from `markdown_guide`, which is
+ * `notes-markdown` behind `ammonia`, the same boundary as `markdown_render`; it is
+ * assigned here because this file is the one place allowed to assign `innerHTML`.
+ * **Never pass it a string from anywhere else.**
+ */
+export function RenderedHtml({
+  html,
+  className,
+  onClick,
+}: {
+  html: string;
+  className?: string;
+  onClick?: (e: MouseEvent<HTMLDivElement>) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (host.current) host.current.innerHTML = html;
+  }, [html]);
+  return <div className={className} ref={host} onClick={onClick} />;
 }

@@ -11,7 +11,8 @@ function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> 
 }
 import type { BufferSnapshot } from "./generated/BufferSnapshot";
 import type { SyncApplyResult } from "./generated/SyncApplyResult";
-export type { BufferSnapshot, SyncApplyResult };
+import type { GuideEntry } from "./generated/GuideEntry";
+export type { BufferSnapshot, SyncApplyResult, GuideEntry };
 // Only the barrier owner may use these entry points while ordinary IPC is gated.
 export const syncOpen = (stateDir: string) => rawInvoke<WorkspaceInfo>("sync_open", { stateDir });
 export const syncApply = (buffers: BufferSnapshot[]) => rawInvoke<SyncApplyResult>("sync_apply", { buffers });
@@ -257,6 +258,13 @@ export const markdownRender = (path: RelPath, text: string) =>
 /** The outline, links and front-matter span, with no HTML rendered. */
 export const markdownOutline = (text: string) =>
   invoke<Document>("markdown_outline", { text });
+
+/**
+ * Every Markdown construct the preview understands, each with what to type and
+ * the HTML the preview draws for it (Help ▸ Markdown guide). The HTML comes from
+ * the same renderer and sanitizer as `markdownRender`, and needs no workspace.
+ */
+export const markdownGuide = () => invoke<GuideEntry[]>("markdown_guide");
 
 /**
  * Turn remote images on or off for *this* workspace. `null` falls back to the

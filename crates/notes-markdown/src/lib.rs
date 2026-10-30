@@ -20,6 +20,7 @@
 //! Either one alone would be enough on a good day. Together, a mistake in the
 //! rewrite pass has to coincide with a hole in the allowlist to reach a user.
 
+pub mod guide;
 pub mod knowledge;
 pub mod rewrite;
 mod slug;
@@ -30,6 +31,7 @@ use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, TagEnd};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+pub use guide::{guide, GuideEntry};
 pub use url::LinkKind;
 use url::{ImagePolicy, LinkPolicy};
 

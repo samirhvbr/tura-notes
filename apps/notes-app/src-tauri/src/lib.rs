@@ -87,9 +87,11 @@ pub fn run() {
             // with a problem — which engine is drawing this, where is the data,
             // which folder is open — have no surface at all (ADR-079).
             //
-            // So Help is emptied and given one item, which is the same item on
-            // every platform. macOS keeps its own About in the application menu;
-            // that one is the system's and is left alone.
+            // So Help is emptied and given its own items, the same on every
+            // platform: the Markdown guide, which is how a person who has never
+            // written Markdown learns that `#` makes a heading, and About. macOS
+            // keeps its own About in the application menu; that one is the
+            // system's and is left alone.
             #[cfg(desktop)]
             {
                 use tauri::menu::{Menu, MenuItem, MenuItemKind, HELP_SUBMENU_ID};
@@ -101,6 +103,13 @@ pub fn run() {
                 // a WebView whose menu loses those loses the shortcuts too.
                 if let Some(MenuItemKind::Submenu(help)) = menu.get(HELP_SUBMENU_ID) {
                     while help.remove_at(0)?.is_some() {}
+                    help.append(&MenuItem::with_id(
+                        handle,
+                        "markdown-guide",
+                        "Markdown Guide",
+                        true,
+                        None::<&str>,
+                    )?)?;
                     help.append(&MenuItem::with_id(
                         handle,
                         "about",
@@ -116,6 +125,8 @@ pub fn run() {
                 app.on_menu_event(|app, event| {
                     if event.id() == "about" {
                         let _ = app.emit("menu://about", ());
+                    } else if event.id() == "markdown-guide" {
+                        let _ = app.emit("menu://markdown-guide", ());
                     }
                 });
             }
@@ -193,6 +204,7 @@ pub fn run() {
             commands::workspace_open,
             commands::markdown_render,
             commands::markdown_outline,
+            commands::markdown_guide,
             commands::markdown_remote_images_set,
             commands::workspace_create,
             commands::workspace_restore_last,

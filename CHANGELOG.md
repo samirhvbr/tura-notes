@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.22 - Help ▸ Markdown guide shows every construct the preview understands, drawn by the preview's own renderer
+
+Nothing in the interface told a person that `#` in front of a line is a heading, so
+a new user had to find out alone. Help ▸ **Markdown guide**, and a *Markdown guide*
+command in the palette, open a dialog with 27 constructs in seven sections:
+headings, text, lists, links and pictures, blocks, what is specific to this
+application (properties and tags), and what is *shown as typed* (HTML, formulas,
+highlight, definition lists). Each has a title, a note, **what to type**, a *Copy*
+button and **what you get**. A search box narrows it by title, note, syntax or section,
+without regard to accents, and a link inside an example never opens anything. The words
+are in English and Brazilian Portuguese.
+
+What a construct becomes is not written beside the renderer. `notes-markdown::guide`
+holds the list of examples and renders each with `render_html`, the preview's own
+renderer and `ammonia`; the shell exposes it as the `markdown_guide` command, which
+needs no workspace, and the frontend, which has no Markdown parser, draws the HTML
+through `RenderedHtml`, added to `preview/Preview.tsx` because that file is the one
+place allowed to assign `innerHTML`. The point is that a cheat sheet typed by hand
+promises what the application does not do, so each line a hand-written one would get
+wrong is a test: raw HTML is shown as text, `www.` alone is not a link, an address in
+angle brackets is refused, a picture from the web is blocked until the workspace allows
+it, and formulas, highlight and definition lists are not drawn. Another test reads both
+language files and fails if an entry or a section has no words. The architecture
+document gains the command and a paragraph, and its pipeline list now includes the
+`[[wiki]]` links, which the code has enabled for a long time.
+
+Twelve Rust tests, ten component tests and the three `App` tests. Six deliberate
+breakages of the component (a link that navigates, a search that cares about accents,
+a copy of the drawing instead of the syntax, a wrong menu event, a heading kept for an
+emptied section, an Escape that does not close) each failed the test that covers it.
+The dialog was looked at in a browser with the real renderer's output behind a stubbed
+bridge, in English and Portuguese, wide and at 390 px, which found two defects fixed
+before this commit: dimmed text in the examples, and checkboxes that took the whole line.
+
+**Not done, on purpose:** an *Insert in the note* button. The editor can only insert
+at the cursor, and a heading inserted in the middle of a line is wrong; Copy is offered
+until the editor can put a block on a line of its own. **Not seen:** the application
+itself. The native Help item and the real round trip of the command were not run;
+row I17 of `ACCEPTANCE-0.1d.md` is the walk, and it is not ticked.
+
 ## 1.11.22 - undici 8.11.2 to 8.12.3, the test environment's HTTP client, for eight advisories
 
 On 30/10 the `frontend advisories` step of the gate, which is `npm audit`, reported

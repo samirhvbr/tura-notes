@@ -372,6 +372,17 @@ pub fn markdown_outline(app: State<'_, App>, text: String) -> R<Document> {
     svc(&app)?.outline(&text)
 }
 
+/// Every Markdown construct the preview understands, each with what to type and
+/// the sanitized HTML the preview draws for it (Help ▸ Markdown guide).
+///
+/// No workspace and no state: the guide has to open from the welcome screen too,
+/// and its HTML comes from the same renderer and `ammonia` as `markdown_render`,
+/// which is what lets the preview component assign it (`docs/ARCHITECTURE.md` §10).
+#[tauri::command]
+pub fn markdown_guide() -> Vec<notes_markdown::GuideEntry> {
+    notes_markdown::guide()
+}
+
 /// Turn remote images on or off for **this** workspace, and nothing else.
 /// Raw HTML has no command: nothing in the interface turns it on.
 #[tauri::command]

@@ -619,6 +619,59 @@ code { font-family: var(--font-mono); }
 .dialog.pdf-import { width: min(760px, calc(100vw - 32px)); }
 .dialog.pdf-import textarea { width: 100%; min-height: 45vh; resize: vertical; box-sizing: border-box; }
 
+/* ---- Markdown guide (Help ▸ Markdown guide) ---------------------------- */
+/* What a construct becomes is drawn with the preview's own `.preview` rules, so
+   the guide cannot show a heading the preview would draw differently; the two
+   overrides below only take the pane's padding, scrolling and centred column off. */
+
+.dialog.guide {
+  width: min(940px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+.guide-intro { margin-bottom: 10px; }
+.guide-body { overflow: auto; min-height: 0; flex: 1 1 auto; margin-top: 12px; padding-right: 6px; }
+.guide-body:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.guide-group { margin: 0 0 20px; }
+.guide-group > h3 {
+  position: sticky; top: 0; z-index: 1;
+  margin: 0 0 4px; padding: 6px 0;
+  background: var(--bg-raised);
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--fg-dim);
+}
+.guide-entry { border-top: 1px solid var(--line); padding: 12px 0 14px; }
+.guide-entry h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.guide-note { margin: 0 0 10px; }
+.guide-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 640px) { .guide-cols { grid-template-columns: minmax(0, 1fr); } }
+.guide-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-dim); margin-bottom: 4px; }
+.guide-source {
+  margin: 0 0 6px; padding: 8px 10px;
+  background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 6px;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.guide-source code { font: inherit; }
+.guide-actions { display: flex; gap: 8px; }
+.guide-result.preview {
+  flex: none; overflow: visible; padding: 8px 12px; line-height: 1.6;
+  border: 1px dashed var(--line); border-radius: 6px;
+}
+.guide-result.preview > * { max-width: none; margin-inline: 0; }
+/* `.dialog p` greys a paragraph of the dialog's own; the drawing is the preview's, and the
+   preview's text is the normal colour. */
+.guide-result.preview { color: var(--fg); }
+.guide-result.preview p { color: inherit; margin: 0 0 .8em; }
+.guide-result.preview li > p { margin: 0; }
+/* `.dialog input` makes a field of any input: full width, padded. A task's checkbox in
+   the drawing is not a field. */
+.guide-result.preview input[type="checkbox"] { width: auto; padding: 0; margin: 0 6px 0 0; }
+.guide-result.preview > :last-child { margin-bottom: 0; }
+.guide-nopic { margin: 0; font-style: italic; }
+.guide-status { min-height: 1.2em; margin: 8px 0 0; font-size: 12px; }
+
 /* ---- tabs (0.1c) ------------------------------------------------------- */
 /* The dirty marker is a dot, not a colour: state never rides on colour alone. */
 

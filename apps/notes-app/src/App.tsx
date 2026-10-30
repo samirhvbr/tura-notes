@@ -20,6 +20,7 @@ import { WorkspaceMenu } from "./app/WorkspaceMenu";
 import { Palette, type Command, type PaletteMode } from "./app/Palette";
 import { SettingsPanel } from "./app/Settings";
 import { AboutDialog, useAboutMenu } from "./app/About";
+import { MarkdownGuideDialog, useMarkdownGuideMenu } from "./app/MarkdownGuide";
 import { SearchPanel } from "./search/SearchPanel";
 import { AiChat } from "./app/AiChat";
 import { useAi } from "./stores/ai";
@@ -66,6 +67,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   useAboutMenu(setAboutOpen);
+  const [guideOpen, setGuideOpen] = useState(false);
+  useMarkdownGuideMenu(setGuideOpen);
   const applySettings = useSettings((s) => s.apply);
   const loadSettings = useSettings((s) => s.load);
   const aiOn = useAi((s) => s.overview?.enabled === true);
@@ -266,15 +269,18 @@ export default function App() {
     { id: "cycle-view", label: "command.cycleView", hint: "Ctrl+E", run: cycleView },
     { id: "save", label: "command.save", hint: "Ctrl+S", run: () => void save(true) },
     { id: "settings", label: "command.settings", hint: "Ctrl+,", run: () => setSettingsOpen(true) },
+    { id: "markdown-guide", label: "command.markdownGuide", run: () => setGuideOpen(true) },
   ];
 
-  // The Help menu is there before a workspace is: About has to open from the
-  // welcome screen too, and not later, when a folder opens and the state is still true.
+  // The Help menu is there before a workspace is: About and the Markdown guide
+  // have to open from the welcome screen too, and the guide is most needed by
+  // the person who has just arrived.
   if (!info)
     return (
       <>
         <Welcome />
         {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+        {guideOpen && <MarkdownGuideDialog onClose={() => setGuideOpen(false)} />}
       </>
     );
 
@@ -434,6 +440,7 @@ export default function App() {
         <SettingsPanel onClose={() => setSettingsOpen(false)} onChanged={applySettings} />
       )}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {guideOpen && <MarkdownGuideDialog onClose={() => setGuideOpen(false)} />}
       <StatusBar />
     </div>
   );
