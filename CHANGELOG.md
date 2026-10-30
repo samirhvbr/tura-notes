@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.22 - undici 8.11.2 to 8.12.3, the test environment's HTTP client, for eight advisories
+
+On 30/10 the `frontend advisories` step of the gate, which is `npm audit`, reported
+`undici` 8.0.0 to 8.12.1 as high severity with eight advisories: an EventSource parser
+that grows without bound, a Subresource Integrity bypass, a TLS certificate validation
+bypass when an Agent's `tls` options are dropped, cache poisoning through cross-origin
+redirects, and four more. `undici` reaches this project only through `jsdom`
+(`jsdom` 30.1.2 to `undici` 8.11.2), the DOM the component tests run in. `jsdom` is a
+development dependency and `npm ls --omit=dev undici` is empty, so nothing of it is in
+the application's bundle or in a shipped build. `npm audit fix` changes the one package
+in `package-lock.json`, three lines, and nothing else; `npm audit` then finds none, and
+the frontend tests pass.
+
 ## 1.11.22 - Help ▸ About opens from the welcome screen too
 
 The Help menu is there before any folder is open, but `App` returns `<Welcome />`
