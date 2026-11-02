@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.24 - Record the eleven Dependabot merges of 02/11 and refresh the notices they left stale
+
+On 02/11 eleven Dependabot pull requests were merged on GitHub in a row (#61, #63, #64,
+#66, #68, #70, #72, #73, #74, #75, #76) and the Release stayed at 1.11.23. That is not a
+fault in the merges: a Release is created from a change to `version.md`
+(`.github/workflows/release.yml` on a push that touches it, or `./tools/release.sh` by hand),
+and a squash merge made in GitHub's interface changes `Cargo.lock`,
+`package-lock.json` and the Dockerfile and nothing else. So the default branch moved eleven
+commits past the tag, `version.md` and the Release said 1.11.23, and nothing on either side
+said the application was different. This entry is the record that was missing, and
+`version.md` moves to 1.11.24 so that the Release says what `master` is.
+
+What the eleven changed. Rust, in `Cargo.lock`: `tauri` 2.12.3 to 2.12.5 with `tauri-codegen`
+and `tauri-macros` 2.7.3 to 2.7.4, `tauri-runtime` 2.12.1 to 2.12.2 and `tauri-runtime-wry`
+2.12.1 to 2.12.3; `tauri-build` 2.7.3 to 2.7.4; `tauri-plugin-dialog` 2.8.2 to 2.8.4,
+`tauri-plugin-fs` 2.7.0 to 2.7.1 and `tauri-plugin-shell` 2.4.0 to 2.6.0; `tokio` 1.53.3
+to 1.54.1. Underneath them the lock moves `ico` 0.5.0 to 0.6.0 and `rfd` 0.16.0 to 0.17.2
+and drops `png` 0.17.16, `sigchld` and `signal-hook`. npm, in `apps/notes-app`:
+`@tauri-apps/cli` 2.12.1 to 2.12.3, `@tauri-apps/plugin-dialog` 2.8.2 to 2.8.3, `vitest`
+5.0.3 to 5.0.5, `jsdom` 30.1.2 to 30.1.3 and `@testing-library/user-event` 14.6.7 to 14.6.8.
+Container: the `rust` build image of `server/Dockerfile` from 1.99.0 to 1.99.1, digest
+pinned as before.
+
+What was read: the changelogs of `tauri-plugin-shell` 2.5.0 and 2.6.0 (the iOS entry point
+becomes public, a `processGroup` option, `Command::kill_on_drop`) and of `tokio` 1.54.0 and
+1.54.1 (a minimum Rust of 1.85, and a revert in the time code). Nothing in either names
+a surface this repository calls differently.
+
+What was measured: the whole gate, `tools/check.sh`, on `master` as merged. Forty-three of
+its forty-five steps pass, which includes the frontend suite on the new `vitest`, `jsdom`
+and `user-event`, every Rust test on the new `tauri` and `tokio`, and the build. The two
+that fail are the ones this release exists to close: `third-party notices`, because the
+merges changed the lock and nobody regenerated the file (twenty-one lines added and
+twenty-four removed here), and `rust advisories`, which the next entry explains.
+
+**Not verified:** the hosted CI jobs, which cannot start while the GitHub account is
+locked for billing, so the server container on the new `rust` image, the Android core and
+the other-architecture builds have not run on this tree. The installed application is
+unchanged until a build is published with `tools/build-local.sh --publish`.
+
 ## 1.11.23 - tauri-plugin-updater 2.13.1 to 2.14.1, which takes the zip with three advisories out of the build
 
 Version 2.14.1 of the plugin was published on 28/10, after its release PR was merged on
