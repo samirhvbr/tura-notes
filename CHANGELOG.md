@@ -7,6 +7,39 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.24 - pulldown-cmark 0.13.6 ends the quadratic nested image wikilinks, and async-executor 1.14.1 replaces a yanked release
+
+`cargo audit` on `master` reported one vulnerability and one denied warning, both new
+since 1.11.23. The vulnerability is ours: RUSTSEC-2026-0433, in `pulldown-cmark` up to
+0.13.5 with the wikilinks extension this application turns on. On `![[![[ ... ]]]]` every
+enclosing `![[` stays open on the parser's wikilink stack and is resolved in turn, each
+resolution rescanning what is inside it, so the work grows with the square of the nesting
+depth while the output stays small. It is the second shape of the same extension: the one
+closed in 1.11.23 multiplied the output, this one multiplies only the time.
+
+Measured on 0.13.5 in a release build, for `![[` repeated n times and `]]` repeated n times:
+2,000 levels in 4.9 ms, 5,000 in 22 ms, 10,000 in 65 ms, 20,000 in 232 ms and 40,000 in
+927 ms, which is four times for every doubling. Extrapolating the curve, and that is
+arithmetic and not a measurement, a one-megabyte note would take on the order of fifteen
+seconds to render. The parser is the same one the preview and the guide use, so
+the fix is in the one place: 0.13.6 is the release that patches it, and the lock moves by
+that crate's version and checksum and nothing else.
+
+The regression test, `nested_image_wikilinks_are_parsed_in_linear_time`, renders fifty
+thousand levels and requires it to finish in three seconds. It was written first and run
+against 0.13.5, where it fails after 10.2 s in a debug build (41.3 s at a hundred thousand
+levels, which is why the size was brought down), and against 0.13.6, where the whole
+`notes-markdown` suite of seventy-three tests finishes in 0.22 s. The bound is far enough
+from both numbers that a slow machine does not trip it and the quadratic parse cannot hide
+behind it.
+
+The warning is `async-executor` 1.14.0, which its author yanked; 1.14.1 was published on
+02/11. It is reached through `zbus`, `secret-service` and `keyring`, so it is the Linux
+credential store's. The lock moves by that crate and nothing else. A yanked release has no
+ignore-by-ID in `cargo audit`, and this repository does not ignore a vulnerability, so
+this is a bump and not an exception. The notices lose two lines and gain two. With this the
+whole of `cargo audit` is clean again.
+
 ## 1.11.24 - Record the eleven Dependabot merges of 02/11 and refresh the notices they left stale
 
 On 02/11 eleven Dependabot pull requests were merged on GitHub in a row (#61, #63, #64,

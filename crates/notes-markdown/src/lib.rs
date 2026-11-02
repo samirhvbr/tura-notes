@@ -1081,6 +1081,28 @@ mod tests {
     /// notes with that option on; the fixed parser (0.13.5) yields 65 events for the
     /// same text, so the bound below is generous and still a thousand times short of
     /// the failure.
+    /// RUSTSEC-2026-0433, `pulldown-cmark` up to 0.13.5 with `ENABLE_WIKILINKS`:
+    /// on `![[![[…]]]]` every enclosing `![[` stays live on the wikilink stack and
+    /// resolves in turn, rescanning everything inside it, so the work grows with the
+    /// square of the nesting depth while the output stays small. Measured on 0.13.5 in
+    /// a release build: 5,000 levels 22 ms, 20,000 levels 232 ms, 40,000 levels 927 ms,
+    /// which is four times for every doubling. At 50,000 levels (a third of a megabyte)
+    /// that is about ten seconds there in a debug build and milliseconds on 0.13.6; the
+    /// bound is generous for a slow machine and still far short of the failure.
+    #[test]
+    fn nested_image_wikilinks_are_parsed_in_linear_time() {
+        let n = 50_000;
+        let src = format!("{}{}", "![[".repeat(n), "]]".repeat(n));
+        let started = std::time::Instant::now();
+        let html = render_html(&src, &opts()).html;
+        let took = started.elapsed();
+        assert!(
+            took < std::time::Duration::from_secs(3),
+            "{n} nested image wikilinks took {took:?}: the quadratic parse is back"
+        );
+        assert!(!html.is_empty());
+    }
+
     #[test]
     fn a_wikilink_with_an_empty_label_does_not_multiply_what_follows() {
         let src = "[[a|]] ".repeat(16);
