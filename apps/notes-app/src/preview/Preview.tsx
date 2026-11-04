@@ -1,5 +1,5 @@
 import {openWiki} from "../app/Knowledge";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { useEditor } from "../stores/editor";
@@ -177,7 +177,10 @@ export function RenderedHtml({
   onClick?: (e: MouseEvent<HTMLDivElement>) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  // A layout effect, not an effect: the picture is in the DOM in the same commit as
+  // the entry that holds it. With `useEffect` a first paint (and a test that waits
+  // for the entry's title) could see the box empty until React got round to it.
+  useLayoutEffect(() => {
     if (host.current) host.current.innerHTML = html;
   }, [html]);
   return <div className={className} ref={host} onClick={onClick} />;

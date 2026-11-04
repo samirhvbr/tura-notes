@@ -7,6 +7,41 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.25 - the Markdown guide's pictures are drawn in the same commit as their entry, so its test no longer races them
+
+The scheduled CI run of 03/11 at 14:22 UTC failed on `master` at 7349e15, in the
+frontend suite, in one test and one assertion: `shows each construct with what to type
+and what the preview draws` in `MarkdownGuide.test.tsx`, `expected undefined to be 'bold
+text'`. The run of 04/11 at 06:30 UTC passed on the same commit, which is what a race
+looks like and not what a regression does. It is the test written for 1.11.22, and the
+cause was in the component, not in the machine.
+
+`RenderedHtml`, the one place besides the preview that assigns `innerHTML`, did it in a
+`useEffect`. The test waits for the title of the first entry with `findByText`, which
+resolves as soon as that text is in the DOM; React runs a passive effect some time after
+the commit that put the text there, so on a slow machine the test looked for
+`.guide-result strong` while the box was still empty. The same gap is a real, if tiny,
+defect for a person: the first paint of a guide entry could show the box with nothing in
+it. The component now uses `useLayoutEffect`, which runs inside the commit, so the
+picture and its entry arrive together. Nothing else about it changes, and it is still
+the only code allowed to assign that string.
+
+Measured, not argued: on the old code the guide's test file failed once in ten runs
+with eight busy loops on the machine and never in ten runs on an idle one, with the same
+assertion as the CI's; on the new code it passed thirty times in thirty under the same
+load. Thirty clean runs after a one-in-ten failure is strong evidence and not a proof,
+and the guide has no other test that reads a picture before something else has made it
+wait.
+
+One more finding, from reading the same runs: the nightly of 04/11 at 06:30 UTC ran
+**every hosted job** on 7349e15 and they all passed, `server HTTPS container` (the
+`rust:1.99.1` image of 1.11.24), `Android core`, `iOS simulator core`, `rust (arch,
+rolling webkit2gtk)`, `rust (macos-latest)`, `rust (ubuntu-latest)` and `rust
+(windows-latest)` among them. The billing lock of the GitHub account that kept them from
+starting on 02/11 and 03/11 is gone, so what 1.11.24 listed as not verified is verified,
+and `release.yml` should be able to publish again without `tools/release.sh` by hand:
+the push of this version is its first test, and it has not run since 02/11.
+
 ## 1.11.24 - pulldown-cmark 0.13.6 ends the quadratic nested image wikilinks, and async-executor 1.14.1 replaces a yanked release
 
 `cargo audit` on `master` reported one vulnerability and one denied warning, both new
