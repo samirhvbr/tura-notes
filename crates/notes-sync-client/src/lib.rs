@@ -19,6 +19,12 @@ pub enum Error {
     UnsupportedApplication,
     #[error("invalid client configuration or state")]
     Invalid,
+    /// The server answered 400: it refused the request itself (a malformed
+    /// ETag, JSON, path or query), which says nothing about this device's
+    /// settings. Folded into `Invalid` until now, so a refused save read as a
+    /// configuration problem for a day.
+    #[error("the server rejected the request as malformed")]
+    Rejected,
     #[error("client state cannot be read or saved; preserve it for recovery")]
     Storage,
     #[error("client or server is busy; retained revisions can be retried")]
@@ -57,6 +63,7 @@ impl From<Error> for notes_model::CoreError {
             Error::ApplicationBlocked { .. } => (C::ApplicationBlocked, None),
             Error::UnsupportedApplication => (C::UnsupportedApplication, None),
             Error::Invalid => (C::Invalid, None),
+            Error::Rejected => (C::Rejected, None),
             Error::Storage => (C::Storage, None),
             Error::Busy => (C::Busy, None),
             Error::Offline => (C::Offline, None),

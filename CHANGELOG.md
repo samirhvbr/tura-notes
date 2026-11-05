@@ -7,6 +7,35 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.26 - a 400 from the server is reported as the server refusing the request, not as invalid sync settings
+
+When the server answers 400, the remote folder and the sync client mapped it to
+`Error::Invalid`, whose sentence is "The sync settings or the saved sync state are not
+valid". The status code was kept and the body's error code (`invalid_etag`,
+`invalid_json`, `invalid_query`, `invalid_path`) was thrown away at that boundary, so a
+save refused for its ETag read, for a day in October, as a configuration problem on the
+owner's side. It was the same class as `ApplicationBlocked` with no cause (1.6.10) and
+the update that failed without saying why (1.6.69).
+
+A 400 now has a cause of its own: `Error::Rejected` in `notes-sync-client`, `SyncCause::
+Rejected` in `notes-model` (the generated TypeScript type follows), and a sentence in both
+languages, "The server rejected this request as malformed. Nothing was changed there; try
+again, and report it if it keeps happening." `Invalid` keeps meaning what it says: this
+device's configuration or saved state, the pairing's own checks included. The body's code
+is still not carried to the interface, on purpose: the interface switches on typed causes
+and never on a string the server chose.
+
+One Rust test pins the mapping from the status to the interface's cause. It fails when
+`400` is mapped back to `Invalid`, and passes with the change; that was run both ways.
+`StatusBar.test.ts`'s list of every cause gained `rejected`, which is what makes the
+test for the two languages require its sentence. The full frontend suite passes (379
+tests), `tsc` is clean and the workspace checks.
+
+Not done, and named so it is not read as done: a 400 that the server sends for a note the
+client built itself is a client bug, and the new sentence tells the owner to report it but
+does not say which code the server sent. If the owner reports one, carrying the code into
+a log line is the next step, and it needs a place to put it that is not the sentence.
+
 ## 1.11.25 - the Markdown guide's pictures are drawn in the same commit as their entry, so its test no longer races them
 
 The scheduled CI run of 03/11 at 14:22 UTC failed on `master` at 7349e15, in the

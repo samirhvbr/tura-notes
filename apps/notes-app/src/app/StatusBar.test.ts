@@ -10,6 +10,7 @@ const causes: Record<SyncCause, true> = {
   application_blocked: true,
   unsupported_application: true,
   invalid: true,
+  rejected: true,
   storage: true,
   busy: true,
   offline: true,

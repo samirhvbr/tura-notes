@@ -294,6 +294,7 @@
   "error.sync.own_device": "Um dispositivo não pode revogar a própria credencial. Revogue no servidor, ou a partir de outro dispositivo.",
   "error.sync.protocol": "A resposta do servidor não foi aceita. As alterações esperando envio estão guardadas.",
   "error.sync.receiving": "Ainda recebendo do servidor ({received} revisões até agora). O pareamento pode ser revisado quando tudo tiver chegado.",
+  "error.sync.rejected": "O servidor recusou este pedido por considerá-lo malformado. Nada foi alterado lá; tente de novo e avise se continuar acontecendo.",
   "error.sync.storage": "O estado de sincronização não pôde ser lido ou salvo. Mantenha a pasta dele como está para recuperação.",
   "error.sync.unsupported_application": "Esta etapa ainda não aplica renomeações nem exclusões. O que foi recebido está guardado.",
   "error.unavailable": "A pasta do workspace não está acessível.",

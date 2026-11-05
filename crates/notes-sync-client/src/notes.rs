@@ -517,7 +517,7 @@ fn refusal(status: u16) -> Error {
         401 | 403 => Error::Denied,
         404 => Error::Missing,
         409 => Error::Exists,
-        400 => Error::Invalid,
+        400 => Error::Rejected,
         412 => Error::Conflict,
         413 | 507 => Error::Limit,
         429 | 503 => Error::Busy,
@@ -644,6 +644,24 @@ mod revision_tag_tests {
         ] {
             assert_eq!(revision_tag(&unchanged), unchanged);
             assert_eq!(revision_tag(&format!("W/{unchanged}")), unchanged);
+        }
+    }
+}
+
+#[cfg(test)]
+mod refusal_tests {
+    use super::*;
+    use notes_model::{CoreError, SyncCause};
+
+    /// A 400 is the server refusing the request, and reaches the interface as
+    /// its own cause: `Invalid` says "your settings are wrong", which an
+    /// `invalid_etag` is not.
+    #[test]
+    fn a_400_is_not_reported_as_a_settings_problem() {
+        assert!(matches!(refusal(400), Error::Rejected));
+        match CoreError::from(refusal(400)) {
+            CoreError::Sync { cause, .. } => assert_eq!(cause, SyncCause::Rejected),
+            other => panic!("expected a sync cause, got {other:?}"),
         }
     }
 }

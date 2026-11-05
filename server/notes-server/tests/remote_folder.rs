@@ -147,11 +147,12 @@ fn an_empty_folder_is_made_on_the_server_listed_and_made_again_without_harm() {
     let tree = r.tree().unwrap();
     assert_eq!(tree.notes.len(), 1);
     assert_eq!(tree.folders, Some(vec![p("ideas"), p("ideas/2026")]));
-    // What a note may not be named, a folder may not either; nothing is made.
-    assert!(matches!(r.create_folder(&p("con")), Err(Error::Invalid)));
+    // What a note may not be named, a folder may not either; nothing is made, and
+    // the server's 400 reaches the caller as a refusal, not as bad settings.
+    assert!(matches!(r.create_folder(&p("con")), Err(Error::Rejected)));
     assert!(matches!(
         r.create_folder(&p("ideas/2026/first.md/deeper")),
-        Err(Error::Invalid)
+        Err(Error::Rejected)
     ));
     assert!(!s.data.join("workspaces/home/notes/con").exists());
 }

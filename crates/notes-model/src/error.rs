@@ -55,6 +55,9 @@ pub enum SyncCause {
     ApplicationBlocked,
     UnsupportedApplication,
     Invalid,
+    /// The server answered 400: it refused the request itself, which is not a
+    /// problem with this device's settings (`Invalid`).
+    Rejected,
     Storage,
     Busy,
     Offline,
