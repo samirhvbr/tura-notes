@@ -7,6 +7,27 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.27 - the queue index is re-measured at 1.11.27: its stamp said 1.11.6 while the repository moved twenty versions
+
+`.continue/README.md` said "last reviewed 08/10/2026, repository at `1.11.6`" with the
+repository at 1.11.26, on the page every session is told to read first. `tools/queue-stamp.sh`
+only looks when the file changes, so the date aged with no alarm (finding S22-03 on the owner
+board). The rows were read against what they name, and four were wrong or stale.
+
+What was measured today: the Linux feeds (`.deb`, AppImage) answer `1.11.25` and the macOS
+feed `1.11.24`, versions only (the signatures and `/p/tura-notes` were last read on 08/10 and
+the row says so); release 1.4.0 still has no attachments while 1.5.0 and 1.6.0 have fourteen each; the Windows `ignore` on
+`received_bytes_remain_pending_until_explicit_application` is still in `control.rs`; and no
+row of any `ACCEPTANCE-*.md` is ticked. What was corrected: the remote-folder row still
+listed the 1.11.0 server deploy and the site's pull request as open, and both are done (the
+PR, #7 of the site, merged on 09/10 and its routes answer; what is open is the walk through
+them); the AI row now says that the owner's report of 16/10 that it works is not a tick.
+
+Not re-measured, and therefore carried as they were: the mobile rows (they wait for a
+device), the sync row's decisions, and the updater's installed-upgrade walks. A stamp that
+says every row was checked means the rows that can be checked from here were, and the rows
+that need the owner's hands say so in their own text.
+
 ## 1.11.26 - a 400 from the server is reported as the server refusing the request, not as invalid sync settings
 
 When the server answers 400, the remote folder and the sync client mapped it to
