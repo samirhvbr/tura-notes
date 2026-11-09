@@ -7,6 +7,30 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.29 - rusqlite 0.41.1 brings SQLite 3.54.0 into the index, which closes RUSTSEC-2026-0459
+
+`cargo audit` on `master` reported one vulnerability that was not there on 05/11:
+RUSTSEC-2026-0459, `libsqlite3-sys` 0.38.2, "via C SQLite CVE-2026-119375" (published
+30/10, medium, 6.8), patched from `libsqlite3-sys` 0.39.0. It failed the gate's `rust
+advisories` step while the other 44 passed, on the 1.11.28 run, with nothing in the tree
+touched by it. We are exposed in kind: `notes-index` opens `rusqlite` with `bundled`, so the C
+library is compiled into every binary, and the advisory is a bug in that C code. Whether the
+defect can be reached from a note's text through the queries we write was not investigated; the
+fix is cheaper than the question.
+
+`rusqlite` 0.40.2 to 0.41.1 is the release that carries it (0.41.0 bumps the bundled SQLite to
+3.54.0, 0.41.1 is two small fixes). It is a minor version of a 0.x crate, so `Cargo.toml` of
+`notes-index` moved from "0.40" to "0.41". The release notes were read: the entries that could
+touch this code are the check of `PRAGMA` names against `pragma_list`, the backup/restore
+discrepancy fix and the dropped `SQLITE_ENABLE_MEMORY_MANAGEMENT`; the rest is bindings,
+virtual tables, SQLCipher and an edition bump. The lock moves two packages, `libsqlite3-sys`
+0.38.2 to 0.39.1 and `rusqlite` 0.40.2 to 0.41.1, and `THIRD-PARTY-NOTICES.md` follows.
+
+Measured: the tests of `notes-index`, `notes-core`, `notes-mcp` and `notes-server` pass, and
+`cargo audit` is clean again. Not measured: an existing index database written by the older
+SQLite opened by the new one in the installed app; the index is rebuildable (ADR-004) and
+the code opens it as it did before, so the cost of being wrong is a reindex, not a lost note.
+
 ## 1.11.28 - the nightly crash loop ends a writer that outlives its kill, and its jobs stop at thirty minutes instead of six hours
 
 The `crash-save-loop` runs of 05/11, 06/11, 07/11, 08/11 and 09/11 were all `cancelled`, and

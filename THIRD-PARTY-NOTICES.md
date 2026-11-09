@@ -270,7 +270,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `libdbus-sys` | 0.2.7 | Apache-2.0/MIT | https://github.com/diwic/dbus-rs |
 | Rust: `libloading` | 0.7.4 | ISC | https://github.com/nagisa/rust_libloading/ |
 | Rust: `libredox` | 0.1.23 | MIT | https://gitlab.redox-os.org/redox-os/libredox.git |
-| Rust: `libsqlite3-sys` | 0.38.2 | MIT | https://github.com/rusqlite/rusqlite |
+| Rust: `libsqlite3-sys` | 0.39.1 | MIT | https://github.com/rusqlite/rusqlite |
 | Rust: `linux-raw-sys` | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/sunfishcode/linux-raw-sys |
 | Rust: `litemap` | 0.8.3 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | Rust: `lock_api` | 0.4.14 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
@@ -389,7 +389,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `rfd` | 0.17.2 | MIT | https://github.com/PolyMeilex/rfd |
 | Rust: `ring` | 0.17.14 | Apache-2.0 AND ISC | https://github.com/briansmith/ring |
 | Rust: `rsqlite-vfs` | 0.1.1 | MIT | https://crates.io/crates/rsqlite-vfs |
-| Rust: `rusqlite` | 0.40.2 | MIT | https://github.com/rusqlite/rusqlite |
+| Rust: `rusqlite` | 0.41.1 | MIT | https://github.com/rusqlite/rusqlite |
 | Rust: `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | Rust: `rustix` | 1.1.4 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/rustix |
 | Rust: `rustls` | 0.23.46 | Apache-2.0 OR ISC OR MIT | https://github.com/rustls/rustls |
@@ -11212,7 +11212,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### libsqlite3-sys 0.38.2, rusqlite 0.40.2
+### libsqlite3-sys 0.39.1, rusqlite 0.41.1
 
 ```text
 Copyright (c) 2014 The rusqlite developers
