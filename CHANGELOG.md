@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
+
+`tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
+
+The job now sets up Node 24 with the same cache key the `frontend` job uses and runs `npm ci` in `apps/notes-app` before the contracts step. The cost is one cached install on a job that already fetches full history. The comment that called the job's checks "no network" is corrected, since the install needs it. Locally `third-party.py --check` exits 0 against the committed notices, so this changes what CI can see and not what it says today. `ci-parity.py` and `action-pins.py` pass.
+
 ## 1.11.29 - rusqlite 0.41.1 brings SQLite 3.54.0 into the index, which closes RUSTSEC-2026-0459
 
 `cargo audit` on `master` reported one vulnerability that was not there on 05/11:

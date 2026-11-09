@@ -86,6 +86,18 @@ jobs:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
 
+      # `tools/third-party.py --check` reads the webview bundle's licenses from
+      # `node_modules`, and without it says "checks the Rust half" and passes:
+      # this job compared half of THIRD-PARTY-NOTICES.md (S16-02) while
+      # `tools/check.sh` compared all of it. The install is the whole cost.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/notes-app/package-lock.json
+      - run: npm ci
+        working-directory: apps/notes-app
+
       # docs/ARCHITECTURE.md §12: "No `fs:*` permission exists in the file. A PR
       # that adds one is rejected by a CI grep." The frontend has no filesystem
       # capability; every read and write goes through a command that validates
@@ -169,8 +181,8 @@ jobs:
       # They are grouped in one step on purpose. As separate steps the first
       # failure hides the rest, and the answer to "what else is broken" costs
       # another push; here every one of them reports, and the step fails if any
-      # did. All are pure python3/bash — no toolchain, no system package, no
-      # network — which is why they belong in the job that deliberately does not
+      # did. All are pure python3/bash — no toolchain, no system package —
+      # which is why they belong in the job that deliberately does not
       # build the application.
       - name: the contracts the local gate checks and this job did not
         run: |
