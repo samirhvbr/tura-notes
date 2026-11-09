@@ -7,6 +7,46 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.28 - the nightly crash loop ends a writer that outlives its kill, and its jobs stop at thirty minutes instead of six hours
+
+The `crash-save-loop` runs of 05/11, 06/11, 07/11, 08/11 and 09/11 were all `cancelled`, and
+nobody was told: the nightly workflow was never part of what the owner is notified about, and
+the push-time `CI` run beside it was green every day. Each of the five had the Windows leg
+sitting in the loop until GitHub's limit of six hours ("The job has exceeded the maximum
+execution time of 6h0m0s") while the Linux, macOS and Arch legs finished in under two minutes.
+The legs trace every round, so the last line of each log says where it stopped: round 3, 13, 49,
+135, and 11 on the run that was read first. The Windows leg had passed fifteen nights in a row
+(24/09 to 08/10) and once more on 04/11, when it took 7.5 minutes; from 05/11 it hung in every
+run, at a random round, which is what a per-round fault of about one in a hundred looks like
+and not a changed script (`tools/crash-save-loop.sh` had not been edited since 1.8.46).
+
+Cost, stated and not measured: four nights of six hours is about twenty-four hours of a hosted
+Windows runner, and GitHub bills a Windows minute at twice a Linux one. The account's billing
+lock lifted this week; this is a plausible way to meet it again, and it is why this is not
+left for the next acceptance pass.
+
+What is not known, and the change is built around that: whether the round hangs because the
+writer survived `taskkill` (so `wait` on it blocks for good) or because the writer died and
+`wait` itself never returned. Both end in the same silence. So the Windows leg now writes a line
+before the wait ("kill sent", then "dead, waiting for its status"), and the next hang says which.
+The loop no longer waits without a limit for a writer it has killed: it polls for five seconds,
+asks the platform to end it again every second, and if it is still running stops the run with
+`FAIL round N: the writer (pid, winpid) was still running 5 s after the kill` and, on Windows,
+the `tasklist` line for it. If the hang is the other kind, in `wait`, nothing in the script can
+bound it, and the job's own limit is what catches it. That limit is the other half:
+`timeout-minutes: 30` on the `crash` and `arch` jobs in `crash.yml`, when a run takes 1.5 to 8
+minutes. A hang is now a red job after half an hour, not a lost night.
+
+Proof, with what it does and does not cover. The loop's own test file gained one case: a copy
+of the loop whose `stop` does nothing runs a writer that never dies, and the run must end in
+seconds with that message. On the loop as it was, the same test fails (it waits for the writer
+to end by itself, and the run reports eight-second writers as having exited before the kill);
+on the new loop it passes, and the five existing cases and 200 rounds of the real writer still
+pass on Linux, so the poll does not mistake a killed child for a living one. **Not proven:**
+that this removes the Windows hang. It was not reproduced here, there is no Windows machine in
+reach of this tree, and the evidence will be the next nightly, at 03:41 UTC: green, or red in
+thirty minutes with a line that names the cause.
+
 ## 1.11.27 - the queue index is re-measured at 1.11.27: its stamp said 1.11.6 while the repository moved twenty versions
 
 `.continue/README.md` said "last reviewed 08/10/2026, repository at `1.11.6`" with the

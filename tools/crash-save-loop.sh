@@ -57,6 +57,11 @@ case "$(uname -s)" in
     # there -- the MSYS pid, the Windows pid behind it, and the status -- so the
     # next such death leaves its last round in the job log.
     trace() { echo "  round $1: pid $2 (winpid ${3:-?}) -> status $4" >&2; }
+    # Written before the wait, and only here: since 05/11 the nightly Windows leg
+    # stops at a random round (3, 13, 49, 135...) and sits there until GitHub's
+    # six-hour limit. The last line of the log then says whether the writer never
+    # died (`kill sent`) or was dead and `wait` never returned (`dead`).
+    stage() { echo "  round $1: $2" >&2; }
     # The writer is ended by its Windows pid, with Windows' own tool. Git Bash's
     # `kill -9` was the only thing in this loop that sends SIGKILL, and the shell
     # died of one twice in two runs on 1.8.25 (R7-14); a signal sent to a native
@@ -66,6 +71,7 @@ case "$(uname -s)" in
   *)
     killed() { [ "$1" -eq 137 ]; }
     trace() { :; }
+    stage() { :; }
     stop() { kill -9 "$1" 2>/dev/null; }
     ;;
 esac
@@ -98,7 +104,26 @@ for i in $(seq 1 "$ROUNDS"); do
   winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
   # 1–40 ms: long enough to be mid-write, short enough for 1000 rounds.
   sleep "0.$(printf '%03d' "${CRASH_KILL_MS:-$(( (RANDOM % 40) + 1 ))}")"
+  stage "$i" "kill sent (pid $pid, winpid ${winpid:-none})"
   stop "$pid" "$winpid"
+  # A writer that outlives its kill used to make this `wait` block for good: the
+  # round never ended and the job ran into GitHub's six-hour limit, four nights
+  # running. It is waited for here for five seconds, asked again every second,
+  # and then the run stops saying so, because a loop that cannot end its writer
+  # has nothing more to measure.
+  waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    waited=$((waited + 1))
+    if [ "$waited" -gt 100 ]; then
+      echo "FAIL round $i: the writer (pid $pid, winpid ${winpid:-none}) was still running 5 s after the kill"
+      [ -z "$winpid" ] || tasklist //FI "PID eq $winpid" 2>&1 || true
+      stop "$pid" "$winpid"
+      exit 1
+    fi
+    [ $((waited % 20)) -ne 0 ] || stop "$pid" "$winpid"
+    sleep 0.05
+  done
+  stage "$i" "dead, waiting for its status"
   wait "$pid" 2>/dev/null
   rc=$?
   trace "$i" "$pid" "$winpid" "$rc"
