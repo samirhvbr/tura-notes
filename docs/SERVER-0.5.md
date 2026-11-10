@@ -401,9 +401,10 @@ The archive is created exclusively; an existing destination is never replaced.
 Backup refuses a running server, symlinks and special files. From 0.18.1,
 regenerable process lock files are excluded while their guards remain held;
 user files and SQLite operational state are included. Restore extracts
-into a private staging directory, rejects links/traversal and unknown backup
-schemas, and publishes only to a new destination. Failed extraction leaves the
-previous data untouched. The restored core enrollment is rebound to the new
+into a private staging directory, verifies the gzip checksum, rejects
+links/traversal and unknown backup schemas, and publishes only to a new
+destination. Failed extraction leaves the previous data untouched. The restored
+core enrollment is rebound to the new
 workspace paths with a preserved pre-restore index, keeping workspace and note
 identities. Source note bytes are never rewritten. Review the restored data,
 then set `NOTES_SERVER_DATA` to the restored directory and start the server.

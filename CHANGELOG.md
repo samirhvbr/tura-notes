@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.32 - restore verifies the backup's gzip checksum before publishing data
+
+The tar reader stopped at the first end block and dropped the gzip decoder
+before it could verify the trailer. Removing the eight-byte trailer from a
+fresh server backup still let restore publish a destination. Restore now reads
+the second end block written by `notes-server backup` and verifies the checksum
+of the native archive's single gzip member before publishing staged data.
+
+The regression covers a missing trailer, an altered checksum, and a clean
+retry at the same destination. The server tests also exercise valid restores
+with original note bytes, enrollment identity, revocations and sync history.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
