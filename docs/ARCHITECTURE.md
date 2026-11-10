@@ -373,7 +373,7 @@ UI asks: restore draft / keep disk / compare.
 
 ### 4.3 Conflicts
 
-`conflicts/<NoteId>/<iso-ts>-<local|disk>.md` plus a sidecar with `path`,
+`conflicts/<NoteId>/<iso-ts>-<id>-<local|disk>.md` plus a sidecar with `path`,
 `base_rev`, and `reason`. Retention: **unresolved conflicts are never
 auto-deleted**; resolved ones are kept 30 days (setting) then pruned; the
 directory warns at 200 MB per workspace and never deletes to make room.
