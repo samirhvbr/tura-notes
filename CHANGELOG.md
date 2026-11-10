@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.39 - retain drafts newer than a completed save
+
+A save of buffer version 6 removed a recovery draft at version 7. Draft
+cleanup now compares the persisted buffer version under the same app-data
+lock as draft publication. A clean editor leaves an existing draft alone
+when asked to flush. A recovered buffer resumes the recorded version so a
+confirmed save can retire its draft. The draft format is unchanged. Offline
+server backups exclude the regenerable lock and still include notes and
+user-owned files with the same name.
+
+The Rust regression and two editor regressions failed on the previous
+version. Forty focused Rust tests and all 381 frontend tests passed on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

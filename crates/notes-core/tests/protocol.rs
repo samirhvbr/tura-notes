@@ -325,6 +325,31 @@ fn an_ordinary_save_writes_and_clears_the_draft() {
 }
 
 #[test]
+fn an_older_save_leaves_the_newer_draft_recoverable() {
+    let mut f = setup();
+    let opened = f.svc.open_note(&rel("nota.md")).unwrap();
+    let id = opened.note_id;
+    let draft = "newer edits that only exist in the draft\n";
+    f.svc
+        .write_draft(id, draft, 7, &opened.base_rev, DraftReason::Stale)
+        .unwrap();
+
+    let saved = f
+        .svc
+        .save_note(id, "older edits\n", 6, &opened.base_rev)
+        .unwrap();
+    let SaveResult::Saved { base_rev, .. } = saved else {
+        panic!("expected a confirmed save: {saved:?}");
+    };
+    let restored = f.svc.resolve_draft(id, DraftChoice::Restore).unwrap();
+    assert_eq!(restored.text, draft);
+    assert_eq!(restored.draft.unwrap().buffer_version, 7);
+
+    f.svc.save_note(id, draft, 7, &base_rev).unwrap();
+    assert!(f.svc.list_drafts().unwrap().is_empty());
+}
+
+#[test]
 fn convergence_is_not_a_conflict() {
     let mut f = setup();
     let opened = f.svc.open_note(&rel("nota.md")).unwrap();

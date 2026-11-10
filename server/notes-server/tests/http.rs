@@ -1057,6 +1057,10 @@ fn restore_to_another_directory_preserves_workspace_and_note_identity() {
 fn backup_omits_only_operational_locks_and_keeps_user_files_with_similar_names() {
     let f = Fixture::new(&all());
     fs::write(f.data.join("workspaces/home/server.lock"), "user-owned").unwrap();
+    fs::write(f.data.join("workspaces/home/drafts.lock"), "user-owned").unwrap();
+    let state = f.data.join("state/workspaces/example");
+    fs::create_dir_all(&state).unwrap();
+    fs::write(state.join("drafts.lock"), "").unwrap();
     let archive = f._dir.path().join("locks.tar.gz");
     backup::backup(&f.data, &archive).unwrap();
     let gzip = flate2::read::GzDecoder::new(fs::File::open(archive).unwrap());
@@ -1071,6 +1075,12 @@ fn backup_omits_only_operational_locks_and_keeps_user_files_with_similar_names()
     assert!(!paths.contains(&std::path::PathBuf::from("data/audit/lock")));
     assert!(paths.contains(&std::path::PathBuf::from(
         "data/workspaces/home/server.lock"
+    )));
+    assert!(paths.contains(&std::path::PathBuf::from(
+        "data/workspaces/home/drafts.lock"
+    )));
+    assert!(!paths.contains(&std::path::PathBuf::from(
+        "data/state/workspaces/example/drafts.lock"
     )));
     assert!(paths.contains(&std::path::PathBuf::from("data/admin/tokens.json")));
 }

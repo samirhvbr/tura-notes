@@ -36,7 +36,7 @@ fn process_lock(relative: &Path) -> bool {
         || (relative.starts_with("state")
             && relative
                 .file_name()
-                .is_some_and(|n| n == "write.lock" || n == "workspaces.lock"))
+                .is_some_and(|n| n == "write.lock" || n == "workspaces.lock" || n == "drafts.lock"))
 }
 fn append_tree<W: Write>(archive: &mut tar::Builder<W>, root: &Path, path: &Path) -> Result<()> {
     let relative = path.strip_prefix(root)?;
