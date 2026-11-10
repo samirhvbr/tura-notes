@@ -36,10 +36,10 @@ interface EditorState {
   doc: OpenDoc | null;
   autosaveMs: number;
 
-  open: (path: RelPath) => Promise<void>;
+  open: (path: RelPath, shouldOpen?: () => boolean) => Promise<boolean>;
   edit: (text: string) => void;
   save: (flush?: boolean) => Promise<void>;
-  keepDraft: (reason: "stale" | "exit" | "conflict") => Promise<void>;
+  keepDraft: (reason: "stale" | "exit" | "conflict") => Promise<boolean>;
   resolveDraft: (restore: boolean) => Promise<void>;
   /** Keep mine · use the disk's · save as a copy. The core keeps whichever
    *  version this does not choose (docs/ARCHITECTURE.md §4.3). */
@@ -135,6 +135,13 @@ function replacing(prev: OpenDoc, o: OpenedNote): OpenDoc {
   return { ...fromOpened(o), externalRev: prev.externalRev + 1 };
 }
 
+function sameBuffer(left: OpenDoc | null, right: OpenDoc | null): boolean {
+  return left === right || (left !== null && right !== null &&
+    left.noteId === right.noteId && left.path === right.path &&
+    left.bufferVersion === right.bufferVersion && left.externalRev === right.externalRev &&
+    left.text === right.text);
+}
+
 /**
  * One save, at the moment the queue reaches it.
  *
@@ -196,12 +203,20 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   setAutosave: (ms) => set({ autosaveMs: ms }),
 
-  async open(path) {
-    if (debounce) clearTimeout(debounce);
+  async open(path, shouldOpen = () => true) {
+    const before = get().doc;
     try {
-      set({ doc: fromOpened(await ipc.noteOpen(path)) });
+      const opened = await ipc.noteOpen(path);
+      // Loading another note can take longer than the next keystroke.
+      // Leave both the new edit and its autosave timer in place.
+      if (!sameBuffer(get().doc, before) || !shouldOpen()) return false;
+      if (debounce) clearTimeout(debounce);
+      set({ doc: fromOpened(opened) });
+      return true;
     } catch (e) {
-      set((s) => ({ doc: s.doc && { ...s.doc, lastError: ipc.asCoreError(e), status: "error" } }));
+      set((s) => s.doc && sameBuffer(s.doc, before)
+        ? { doc: { ...s.doc, lastError: ipc.asCoreError(e), status: "error" } }
+        : s);
       throw e;
     }
   },
@@ -237,12 +252,18 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   async keepDraft(reason) {
     const doc = get().doc;
-    if (!doc) return;
+    if (!doc) return false;
     try {
       const info = await ipc.draftWrite(doc.noteId, doc.text, doc.bufferVersion, doc.baseRev, reason);
-      set((s) => ({ doc: s.doc && { ...s.doc, draft: info } }));
+      const current = get().doc;
+      if (!current || !sameBuffer(current, doc)) return false;
+      set({ doc: { ...current, draft: info } });
+      return true;
     } catch (e) {
-      set((s) => ({ doc: s.doc && { ...s.doc, lastError: ipc.asCoreError(e) } }));
+      set((s) => s.doc && sameBuffer(s.doc, doc)
+        ? { doc: { ...s.doc, lastError: ipc.asCoreError(e) } }
+        : s);
+      return false;
     }
   },
 

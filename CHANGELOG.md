@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.33 - local tabs stay open when their latest edits cannot be preserved
+
+A tab switch or close flushes the active local note, then falls back to a draft if the buffer is still dirty. The editor used to hide a failed draft write from the caller, so if both writes failed, the tab could close over the only copy of the text. The tab also replaced text entered while a draft write or the next note's read was pending.
+
+Leaving now requires a confirmed save or a draft of the current buffer. If the draft fails, the tab stays open and the status bar shows the write error. If the buffer changes while the destination loads, the editor keeps the latest text and its autosave timer. Four Vitest regressions fail on the previous code and pass with the fix. A fifth exercises closing the neighbor while its read is pending. The full frontend suite and lint pass on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
