@@ -19,6 +19,8 @@ pub enum Error {
     UnsupportedApplication,
     #[error("invalid client configuration or state")]
     Invalid,
+    #[error("invalid or stale prune continuation; start a new prune-client scan")]
+    PruneCursor,
     /// The server answered 400: it refused the request itself (a malformed
     /// ETag, JSON, path or query), which says nothing about this device's
     /// settings. Folded into `Invalid` until now, so a refused save read as a
@@ -62,7 +64,7 @@ impl From<Error> for notes_model::CoreError {
         let (cause, received) = match e {
             Error::ApplicationBlocked { .. } => (C::ApplicationBlocked, None),
             Error::UnsupportedApplication => (C::UnsupportedApplication, None),
-            Error::Invalid => (C::Invalid, None),
+            Error::Invalid | Error::PruneCursor => (C::Invalid, None),
             Error::Rejected => (C::Rejected, None),
             Error::Storage => (C::Storage, None),
             Error::Busy => (C::Busy, None),

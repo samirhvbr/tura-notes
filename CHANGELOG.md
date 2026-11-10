@@ -7,6 +7,24 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.44 - resume client pruning within the request budget
+
+`prune-client` bounded successful compactions, but each unchanged candidate
+also consumed a request. With enough unchanged notes before a prunable one,
+each retry hit the server rate limit and restarted from the beginning (#94).
+
+The command now checks at most 20 candidates per invocation and returns a
+continuation bound to the queue and its acknowledged sequence. It saves only
+exact matches to the server's metadata-only envelopes. If the server becomes
+busy after progress, the next pass resumes at the first unchecked candidate.
+The queue and receipt formats are unchanged. Repeated scans skip resolutions
+whose branch payloads have already been compacted.
+
+The loopback regression reached the production HTTP request limit on 1.11.42.
+With the fix it resumes, keeps a compaction when the next fetch is rate-limited,
+and rejects a cursor after the acknowledged sequence changes. The source note
+bytes and application receipts are preserved.
+
 ## 1.11.43 - preserve unsaved edits before quitting the desktop app
 
 The macOS application menu used native Quit, which could terminate Tura Notes

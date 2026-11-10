@@ -834,6 +834,9 @@ fn client_prunes_only_server_confirmed_applied_branches_and_keeps_future_sync() 
     let report = receiver.prune_client(&mut peer).unwrap();
     assert_eq!(report.pruned_resolutions, 1);
     assert!(report.pruned_payload_bytes > 0);
+    let repeat = receiver.prune_client(&mut peer).unwrap();
+    assert_eq!(repeat.pruned_resolutions, 0);
+    assert!(repeat.next.is_none());
     assert!(receiver.export(branch).is_err());
     assert_eq!(fs::read(target.join("test.md")).unwrap(), b"chosen");
     assert!(receiver.conflicts().unwrap().is_empty());
