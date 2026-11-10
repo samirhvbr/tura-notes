@@ -2,13 +2,13 @@
 # 0.1a acceptance: "Matar o processo durante 1000 saves em loop nunca deixa
 # arquivo truncado ou vazio."
 #
-# Spawns `crash-writer`, kills it with SIGKILL at a random point, and checks
-# that what is on disk is a *complete* payload — old or new, never a prefix.
+# Spawns `crash-writer`, terminates it at a random point, and checks that what
+# is on disk is a *complete* payload — old or new, never a prefix.
 # A temp file left behind is also a failure: it would show up in the user's tree.
 #
 #   tools/crash-save-loop.sh            1000 kills
 #   ROUNDS=50 tools/crash-save-loop.sh  a quick local pass
-#   CRASH_WRITER=/path/to/bin ...       another writer, for tools/tests/test_crash_loop.py
+#   CRASH_WRITER=/path/to/bin ...       another writer (a native executable on Windows)
 #   CRASH_KILL_MS=300 ...               one fixed delay (1-999) before the kill instead of a random
 #                                       1-40 ms, for tools/tests/test_crash_loop.py: a stub that is
 #                                       slow to start must be judged by what it does, not by how
@@ -20,7 +20,7 @@
 # `write_atomic` failed (ENOSPC, a read-only or noexec TMPDIR, a stale binary)
 # or panicked with 101 left the seed in place, and 1000 rounds came back green
 # without one atomic write having happened. Reproduced with a stub: 5/5 green.
-# So every round must end by the SIGKILL this script sent (status 137), and at
+# So every round must end by the termination requested by the test, and at
 # least one round must find something other than the seed on disk.
 set -uo pipefail
 
@@ -33,48 +33,58 @@ esac
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ -n "${CRASH_WRITER:-}" ]; then
-  BIN="$CRASH_WRITER"
-else
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) windows=1 ;;
+  *) windows=0 ;;
+esac
+driver="$ROOT/target/debug/crash-writer"
+[ "$windows" -eq 0 ] || driver="$driver.exe"
+if [ "$windows" -eq 1 ] || [ -z "${CRASH_WRITER:-}" ]; then
   echo "building crash-writer…" >&2
   cargo build --quiet -p notes-fs --bin crash-writer || exit 1
-  BIN="$ROOT/target/debug/crash-writer"
 fi
+BIN="${CRASH_WRITER:-$driver}"
 [ -x "$BIN" ] || [ ! -x "$BIN.exe" ] || BIN="$BIN.exe" # Windows
 [ -x "$BIN" ] || { echo "crash-writer not built" >&2; exit 1; }
 
-# How a round must end. On Linux and macOS the kill is a real SIGKILL and bash
-# reports 128 + 9. Git Bash terminates a native Windows process instead, and the
-# status it reports for that is not a signal number, so there the rule is the
-# negative one: not the writer's own exits (0 never happens, 2 is a failed
-# write, 101 a panic).
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*)
-    killed() { [ "$1" -ne 0 ] && [ "$1" -ne 2 ] && [ "$1" -ne 101 ]; }
-    # R7-14: on 1.8.25 the Windows job died between rounds 100 and 200 with exit
-    # code 2304 (a SIGKILL of the shell itself) and printed nothing, so nothing
-    # said which round, which process, or what the kill hit. Each round is traced
-    # there -- the MSYS pid, the Windows pid behind it, and the status -- so the
-    # next such death leaves its last round in the job log.
-    trace() { echo "  round $1: pid $2 (winpid ${3:-?}) -> status $4" >&2; }
-    # Written before the wait, and only here: since 05/11 the nightly Windows leg
-    # stops at a random round (3, 13, 49, 135...) and sits there until GitHub's
-    # six-hour limit. The last line of the log then says whether the writer never
-    # died (`kill sent`) or was dead and `wait` never returned (`dead`).
-    stage() { echo "  round $1: $2" >&2; }
-    # The writer is ended by its Windows pid, with Windows' own tool. Git Bash's
-    # `kill -9` was the only thing in this loop that sends SIGKILL, and the shell
-    # died of one twice in two runs on 1.8.25 (R7-14); a signal sent to a native
-    # Windows process goes through MSYS's pid table, `taskkill` does not.
-    stop() { if [ -n "$2" ]; then taskkill //F //PID "$2" >/dev/null 2>&1; else kill -9 "$1" 2>/dev/null; fi; }
-    ;;
-  *)
-    killed() { [ "$1" -eq 137 ]; }
-    trace() { :; }
-    stage() { :; }
-    stop() { kill -9 "$1" 2>/dev/null; }
-    ;;
-esac
+# Git Bash's PID table can outlive a terminated native child. Let the Windows
+# supervisor own the writer's handle and verify its exit before checking disk.
+if [ "$windows" -eq 1 ]; then
+  [ -x "$driver" ] || { echo "Windows crash supervisor not built" >&2; exit 1; }
+  run_round() {
+    echo "  round $1: native Windows crash supervisor" >&2
+    if ! "$driver" --windows-round "$2" "$BIN" "$WORK"; then
+      echo "FAIL round $1: Windows writer supervision failed"
+      return 1
+    fi
+  }
+else
+  stop() { kill -9 "$1" 2>/dev/null; }
+  run_round() {
+    local round="$1" delay="$2" pid waited=0 rc
+    "$BIN" "$WORK" crash.md >/dev/null 2>&1 &
+    pid=$!
+    sleep "0.$(printf '%03d' "$delay")"
+    stop "$pid"
+    while kill -0 "$pid" 2>/dev/null; do
+      waited=$((waited + 1))
+      if [ "$waited" -gt 100 ]; then
+        echo "FAIL round $round: the writer (pid $pid) was still running 5 s after the kill"
+        stop "$pid"
+        return 1
+      fi
+      [ $((waited % 20)) -ne 0 ] || stop "$pid"
+      sleep 0.05
+    done
+    wait "$pid" 2>/dev/null
+    rc=$?
+    # 137 is 128 + SIGKILL. A writer that stopped on its own cannot prove crash safety.
+    if [ "$rc" -ne 137 ]; then
+      echo "FAIL round $round: the writer exited by itself with status $rc before the kill"
+      fails=$((fails + 1))
+    fi
+  }
+fi
 
 # Seed the note so the very first kill has a previous complete version to
 # fall back to.
@@ -99,41 +109,8 @@ check() {
 fails=0
 wrote=0
 for i in $(seq 1 "$ROUNDS"); do
-  "$BIN" "$WORK" crash.md >/dev/null 2>&1 &
-  pid=$!
-  winpid=$(cat "/proc/$pid/winpid" 2>/dev/null)
   # 1–40 ms: long enough to be mid-write, short enough for 1000 rounds.
-  sleep "0.$(printf '%03d' "${CRASH_KILL_MS:-$(( (RANDOM % 40) + 1 ))}")"
-  stage "$i" "kill sent (pid $pid, winpid ${winpid:-none})"
-  stop "$pid" "$winpid"
-  # A writer that outlives its kill used to make this `wait` block for good: the
-  # round never ended and the job ran into GitHub's six-hour limit, four nights
-  # running. It is waited for here for five seconds, asked again every second,
-  # and then the run stops saying so, because a loop that cannot end its writer
-  # has nothing more to measure.
-  waited=0
-  while kill -0 "$pid" 2>/dev/null; do
-    waited=$((waited + 1))
-    if [ "$waited" -gt 100 ]; then
-      echo "FAIL round $i: the writer (pid $pid, winpid ${winpid:-none}) was still running 5 s after the kill"
-      [ -z "$winpid" ] || tasklist //FI "PID eq $winpid" 2>&1 || true
-      stop "$pid" "$winpid"
-      exit 1
-    fi
-    [ $((waited % 20)) -ne 0 ] || stop "$pid" "$winpid"
-    sleep 0.05
-  done
-  stage "$i" "dead, waiting for its status"
-  wait "$pid" 2>/dev/null
-  rc=$?
-  trace "$i" "$pid" "$winpid" "$rc"
-  # 137 is 128 + SIGKILL: the kill landed. Anything else means the writer
-  # stopped on its own before it -- 2 is a failed write, 101 a panic -- and the
-  # file on disk says nothing about crash safety.
-  if ! killed "$rc"; then
-    echo "FAIL round $i: the writer exited by itself with status $rc before the kill"
-    fails=$((fails + 1))
-  fi
+  run_round "$i" "${CRASH_KILL_MS:-$(( (RANDOM % 40) + 1 ))}" || exit 1
 
   check "$i" || fails=$((fails + 1))
   [ "$(head -n1 "$WORK/crash.md")" = "LEN=1" ] || wrote=1

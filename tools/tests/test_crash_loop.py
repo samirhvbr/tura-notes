@@ -69,7 +69,7 @@ class CrashLoop(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             loop = Path(d) / 'loop.sh'
             text = LOOP.read_text()
-            line = '    stop() { kill -9 "$1" 2>/dev/null; }\n'
+            line = '  stop() { kill -9 "$1" 2>/dev/null; }\n'
             self.assertEqual(text.count(line), 1)
             loop.write_text(text.replace(line, '    stop() { :; }\n'))
             stub = Path(d) / 'writer'

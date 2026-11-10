@@ -24,7 +24,8 @@ trash = { workspace = true }
 libc = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true }
+# Only the crash-writer test binary uses the process APIs.
+windows-sys = { workspace = true, features = ["Win32_System_Threading"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

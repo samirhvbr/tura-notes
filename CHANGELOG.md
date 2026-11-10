@@ -7,6 +7,25 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.1 - verify Windows crash-test termination on the native process handle
+
+The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At
+rounds 989 and 66, Git Bash still reported the child as live while Windows
+could no longer find the process by its native PID. The failure was in process
+supervision and did not report a truncated note.
+
+On Windows the crash writer's test-only supervisor now starts each writer and
+terminates it through the child process handle it owns. It waits up to five
+seconds for that handle to signal and verifies the requested exit code. An
+early exit, including a write error or panic, still fails. The same
+1,000 rounds check note completeness, the temporary-file bound, and that a
+write replaced the initial seed.
+
+On macOS, the package tests, six shell-harness regression tests, and a 50-round
+randomized crash loop passed. Windows GNU Clippy passed for all targets in
+the package and the supervisor's test executable linked in a cross-build.
+Executing the Windows tests requires the hosted Windows runner.
+
 ## 1.12.0 - refresh indexed words after timestamp-preserving edits
 
 A replacement with different text and the original size and modification time left the old Words result in the index. Core now combines the filesystem's native identity and status-change time with size and modification time before skipping a read. If those signals are missing or coarse, it hashes the file and keeps the parsed document and search row when the hash matches.
