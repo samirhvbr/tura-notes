@@ -2,7 +2,7 @@
 use crate::{admin, Result};
 use std::{
     fs::{self, File},
-    io::Write,
+    io::{Read, Write},
     path::{Component, Path},
 };
 
@@ -146,6 +146,15 @@ pub fn restore_as(archive: &Path, destination: &Path, mounted_root: Option<&Path
         if !entry.unpack_in(stage.path())? {
             return Err("unsafe archive entry".into());
         }
+    }
+    // The tar iterator stops at the first zero block. Read the second block
+    // written by our backup command, then read through the gzip trailer so
+    // a missing or bad checksum fails before the destination is published.
+    let mut gzip = tar.into_inner();
+    let mut end = [0; 512];
+    gzip.read_exact(&mut end)?;
+    if end != [0; 512] || gzip.read(&mut [0])? != 0 {
+        return Err("invalid backup archive ending".into());
     }
     let restored = stage.path().join("data");
     check_tree(&restored)?;

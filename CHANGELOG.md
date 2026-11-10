@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.32 - restore verifies the backup's gzip checksum before publishing data
+
+The tar reader stopped at the first end block and dropped the gzip decoder
+before it could verify the trailer. Removing the eight-byte trailer from a
+fresh server backup still let restore publish a destination. Restore now reads
+the second end block written by `notes-server backup` and verifies the checksum
+of the native archive's single gzip member before publishing staged data.
+
+The regression covers a missing trailer, an altered checksum, and a clean
+retry at the same destination. The server tests also exercise valid restores
+with original note bytes, enrollment identity, revocations and sync history.
+
 ## 1.11.31 - enforce the workspace search result limit across parallel scans
 
 Literal and regex search collected an entire file's hits before checking the documented 2,000-result limit. A single Markdown file with 2,001 matching lines returned 2,001 hits on 1.11.30. Several workers could overshoot further, and a poll could report completion after draining the queue but before receiving the final hits.
