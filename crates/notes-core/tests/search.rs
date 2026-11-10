@@ -86,6 +86,51 @@ fn a_literal_search_reports_path_line_column_and_the_line() {
 }
 
 #[test]
+fn a_scan_caps_hits_across_files_and_polls_and_reports_if_any_were_omitted() {
+    for (mode, files, lines, count, truncated) in [
+        (SearchMode::Literal, 1, 2_001, 2_000, true),
+        (SearchMode::Regex, 4, 1_000, 2_000, true),
+        (SearchMode::Literal, 4, 500, 2_000, false),
+    ] {
+        let mut f = setup();
+        for file in 0..files {
+            std::fs::write(
+                f.work.path().join(format!("hits-{file}.md")),
+                "needle\n".repeat(lines),
+            )
+            .unwrap();
+        }
+        let id = f
+            .svc
+            .search_start(
+                "needle",
+                SearchOpts {
+                    mode,
+                    case_sensitive: true,
+                },
+            )
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut hits = 0;
+        loop {
+            let p = f.svc.search_poll(id).unwrap();
+            hits += p.hits.len();
+            if p.done {
+                assert_eq!(hits, count);
+                assert_eq!(p.total_hits, count);
+                assert_eq!(p.truncated, truncated);
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "search did not finish within the ceiling"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+#[test]
 fn only_notes_are_searched_and_the_ignore_list_is_honoured() {
     let mut f = setup();
     let hits = run(&mut f.svc, "firewall", SearchOpts::default());

@@ -64,8 +64,9 @@ id, which is a feature nothing asks for and a way to have four walks running.
 
 ## D-03 — The scan stops at 2 000 hits, and says that it did
 
-**Decided.** `MAX_HITS = 2_000`; the walk quits and `SearchProgress.truncated`
-is set. Files over 8 MB are skipped by content search.
+**Decided.** `MAX_HITS = 2_000` across all files, workers and polls. The walk
+quits when it finds an additional hit and sets `SearchProgress.truncated`.
+Files over 8 MB are skipped by content search.
 
 **Gap closed.** Neither limit was specified.
 
