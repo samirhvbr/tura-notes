@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.38 - remote tabs keep edits made while a note or conflict copy is on the wire
+
+Opening another remote note checked for unsent text before fetching the destination. Typing while that fetch was pending could still replace the only copy of the new text. Saving a remote conflict as a copy had the same window: after copying the earlier text, the response replaced edits made while it was on the wire.
+
+A remote open now checks the active buffer again before replacing it. If the buffer is dirty, the existing unsent-edits warning explains why the switch stayed on the current note. A conflict copy replaces the buffer only while it still holds the text and conflict that the user asked to copy. Deferred responses reproduce both losses in Vitest on the previous code. The regressions and the full frontend suite and lint pass on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

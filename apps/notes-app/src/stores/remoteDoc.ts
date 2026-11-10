@@ -324,6 +324,11 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         throw { code: "unsupported", cap: REMOTE_UNSENT } as ipc.CoreError;
       }
       const note = await ipc.remoteOpen(path);
+      const active = get().doc;
+      // An open can finish after another navigation or a new edit. Its
+      // earlier flush only protected the text present before the network read.
+      if (active?.path !== current?.path) return;
+      if (dirty(active)) throw { code: "unsupported", cap: REMOTE_UNSENT } as ipc.CoreError;
       set((s) => ({
         doc: fromNote(note),
         tabs: s.tabs.includes(path) ? s.tabs : [...s.tabs, path],
@@ -392,6 +397,9 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
           }
         }
         void useRemote.getState().refresh();
+        // The copy only contains the text sent with that request. Any edit
+        // made while it was pending still needs a conflict decision.
+        if (get().doc !== d) return;
       }
       // Take the server's version into the buffer ("theirs", and "copy" once
       // this text is safe in its own note).

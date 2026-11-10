@@ -11,7 +11,7 @@ vi.mock("../ipc", async (original) => ({
   remoteList: vi.fn(),
   pdfSave: vi.fn(),
 }));
-const { useRemoteDoc, resetRemoteDocTimers, backoff, dirty, syncDelay, SYNC_MS } = await import("./remoteDoc");
+const { useRemoteDoc, resetRemoteDocTimers, backoff, dirty, syncDelay, REMOTE_UNSENT, SYNC_MS } = await import("./remoteDoc");
 const { useUi } = await import("./ui");
 const { useRemote } = await import("./remote");
 const initial = useRemoteDoc.getState();
@@ -134,6 +134,29 @@ it("saving mine as a copy finds a free name beside the note, then takes the serv
   expect(useRemoteDoc.getState().doc!.text).toBe("theirs\n");
 });
 
+it("keeps a newer edit when the conflict copy only captured the earlier text", async () => {
+  await opened();
+  vi.mocked(ipc.remoteSave).mockResolvedValueOnce({
+    outcome: "conflict",
+    current: note("a.md", "theirs\n", '"s2"'),
+  });
+  useRemoteDoc.getState().edit("mine\n");
+  await useRemoteDoc.getState().save();
+
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteCreate).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const copying = useRemoteDoc.getState().resolve("copy");
+  expect(ipc.remoteCreate).toHaveBeenCalledWith("a (conflict).md", "mine\n");
+  useRemoteDoc.getState().edit("mine plus another edit\n");
+  answer(note("a (conflict).md", "mine\n", '"copy"'));
+  await copying;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "a.md", text: "mine plus another edit\n", status: "conflict",
+  });
+  expect(dirty(useRemoteDoc.getState().doc)).toBe(true);
+});
+
 it("offline keeps the edit and tries again later, backing off", async () => {
   vi.useFakeTimers();
   await opened();
@@ -192,6 +215,21 @@ it("switching to another remote note flushes this one first, and stays when it c
   await expect(useRemoteDoc.getState().open("b.md")).rejects.toBeTruthy();
   expect(useRemoteDoc.getState().doc!.path).toBe("a.md");
   expect(useRemote.getState()).toBeTruthy();
+});
+
+it("keeps a remote edit made while the next tab is loading", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteOpen).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const switching = useRemoteDoc.getState().open("b.md");
+  await vi.waitFor(() => expect(ipc.remoteOpen).toHaveBeenLastCalledWith("b.md"));
+
+  useRemoteDoc.getState().edit("unsent\n");
+  answer(note("b.md", "b\n", '"b"'));
+  await expect(switching).rejects.toEqual({ code: "unsupported", cap: REMOTE_UNSENT });
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({ path: "a.md", text: "unsent\n" });
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md"]);
 });
 
 // ---- renaming from the tree --------------------------------------------------
