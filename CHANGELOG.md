@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.31 - enforce the workspace search result limit across parallel scans
+
+Literal and regex search collected an entire file's hits before checking the documented 2,000-result limit. A single Markdown file with 2,001 matching lines returned 2,001 hits on 1.11.30. Several workers could overshoot further, and a poll could report completion after draining the queue but before receiving the final hits.
+
+Each worker now checks a shared result count before allocating a hit. Polls drain the results and read completion together, and the first omitted hit marks the response truncated. The regression covers a single file, parallel files and exactly 2,000 hits. On macOS, the search suite passed and the generated 10,000-note corpus returned its first result in 3.2 ms with 2,000 hits total.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

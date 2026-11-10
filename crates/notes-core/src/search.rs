@@ -96,13 +96,18 @@ const MAX_FILE_BYTES: u64 = 8 * 1024 * 1024;
 const CONTEXT_MAX: usize = 200;
 
 struct Shared {
-    hits: Mutex<Vec<SearchHit>>,
+    results: Mutex<Results>,
     cancel: AtomicBool,
-    done: AtomicBool,
     scanned: AtomicUsize,
-    total: AtomicUsize,
-    truncated: AtomicBool,
     partial: bool,
+}
+
+#[derive(Default)]
+struct Results {
+    hits: Vec<SearchHit>,
+    total: usize,
+    truncated: bool,
+    done: bool,
 }
 
 pub struct Search {
@@ -120,12 +125,14 @@ impl Search {
         Self {
             id: SearchId(NEXT_ID.fetch_add(1, Ordering::Relaxed)),
             shared: Arc::new(Shared {
-                hits: Mutex::new(hits),
+                results: Mutex::new(Results {
+                    hits,
+                    total: count,
+                    truncated,
+                    done: true,
+                }),
                 cancel: AtomicBool::new(false),
-                done: AtomicBool::new(true),
                 scanned: AtomicUsize::new(count),
-                total: AtomicUsize::new(count),
-                truncated: AtomicBool::new(truncated),
                 partial,
             }),
         }
@@ -158,12 +165,9 @@ impl Search {
             })?;
 
         let shared = Arc::new(Shared {
-            hits: Mutex::new(Vec::new()),
+            results: Mutex::default(),
             cancel: AtomicBool::new(false),
-            done: AtomicBool::new(false),
             scanned: AtomicUsize::new(0),
-            total: AtomicUsize::new(0),
-            truncated: AtomicBool::new(false),
             partial: false,
         });
         let id = SearchId(NEXT_ID.fetch_add(1, Ordering::Relaxed));
@@ -172,7 +176,7 @@ impl Search {
         let bg = Arc::clone(&shared);
         std::thread::spawn(move || {
             scan(&root, &re, &bg);
-            bg.done.store(true, Ordering::Release);
+            bg.results.lock().unwrap().done = true;
         });
 
         Ok(Self { id, shared })
@@ -180,15 +184,17 @@ impl Search {
 
     /// Take everything found since the last call.
     pub fn poll(&self) -> SearchProgress {
-        let hits = std::mem::take(&mut *self.shared.hits.lock().unwrap());
+        // Drain hits and read `done` together. Otherwise the final hits can
+        // arrive between the drain and the caller seeing `done: true`.
+        let mut results = self.shared.results.lock().unwrap();
         SearchProgress {
             id: self.id,
-            hits,
+            hits: std::mem::take(&mut results.hits),
             files_scanned: self.shared.scanned.load(Ordering::Relaxed),
-            total_hits: self.shared.total.load(Ordering::Relaxed),
-            done: self.shared.done.load(Ordering::Acquire),
+            total_hits: results.total,
+            done: results.done,
             cancelled: self.shared.cancel.load(Ordering::Relaxed),
-            truncated: self.shared.truncated.load(Ordering::Relaxed),
+            truncated: results.truncated,
             partial: self.shared.partial,
         }
     }
@@ -232,7 +238,7 @@ fn scan(root: &std::path::Path, re: &regex::Regex, shared: &Arc<Shared>) {
         let re = re.clone();
         let root = root.to_path_buf();
         Box::new(move |entry| {
-            if shared.cancel.load(Ordering::Relaxed) || shared.done.load(Ordering::Acquire) {
+            if shared.cancel.load(Ordering::Relaxed) {
                 return ignore::WalkState::Quit;
             }
             let Ok(entry) = entry else {
@@ -272,26 +278,23 @@ fn scan(root: &std::path::Path, re: &regex::Regex, shared: &Arc<Shared>) {
                 return ignore::WalkState::Continue;
             };
 
-            let mut found = Vec::new();
             for (i, line) in text.lines().enumerate() {
                 if let Some(m) = re.find(line) {
-                    found.push(SearchHit {
+                    // Reserve space before allocating a hit. The total is
+                    // shared by every worker and survives draining a poll.
+                    let mut results = shared.results.lock().unwrap();
+                    if results.total == MAX_HITS {
+                        results.truncated = true;
+                        return ignore::WalkState::Quit;
+                    }
+                    results.hits.push(SearchHit {
                         path: rel.clone(),
                         line: i as u32 + 1,
                         col: line[..m.start()].chars().count() as u32 + 1,
                         context: trim_context(line),
                     });
+                    results.total += 1;
                 }
-            }
-            if found.is_empty() {
-                return ignore::WalkState::Continue;
-            }
-
-            let total = shared.total.fetch_add(found.len(), Ordering::Relaxed) + found.len();
-            shared.hits.lock().unwrap().extend(found);
-            if total >= MAX_HITS {
-                shared.truncated.store(true, Ordering::Relaxed);
-                return ignore::WalkState::Quit;
             }
             ignore::WalkState::Continue
         })
