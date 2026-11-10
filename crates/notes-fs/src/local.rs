@@ -123,7 +123,7 @@ impl LocalFs {
         }
     }
 
-    fn tmp_path(target: &Path) -> Result<PathBuf> {
+    fn open_temp(target: &Path, prefix: &str, path: &RelPath) -> Result<(PathBuf, fs::File)> {
         let dir = target.parent().ok_or_else(|| CoreError::Internal {
             message: "target has no parent directory".into(),
         })?;
@@ -147,26 +147,33 @@ impl LocalFs {
         // Two of our processes writing the same note are serialised by
         // `write.lock`, so the shared name cannot collide; a third-party editor
         // does not use our naming.
-        let mut tmp = std::ffi::OsString::from(".");
-        tmp.push(name);
-        tmp.push(".tmp");
-        Ok(dir.join(tmp))
-    }
+        let mut temp_name = std::ffi::OsString::from(prefix);
+        temp_name.push(name);
+        temp_name.push(".tmp");
+        let mut temp = dir.join(temp_name);
 
-    /// `create_new`'s temporary name: deterministic per target, like
-    /// [`Self::tmp_path`], and carrying [`CREATE_TMP_PREFIX`] so a leftover
-    /// can be recognised and swept.
-    fn create_tmp_path(target: &Path) -> Result<PathBuf> {
-        let dir = target.parent().ok_or_else(|| CoreError::Internal {
-            message: "target has no parent directory".into(),
-        })?;
-        let name = target.file_name().ok_or_else(|| CoreError::Internal {
-            message: "target has no file name".into(),
-        })?;
-        let mut tmp = std::ffi::OsString::from(CREATE_TMP_PREFIX);
-        tmp.push(name);
-        tmp.push(".tmp");
-        Ok(dir.join(tmp))
+        // Unlink a leftover without following it. Exclusive creation then
+        // refuses anything that appears in its place, including a symlink.
+        let create = |temp: &Path| {
+            let _ = fs::remove_file(temp);
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(temp)
+        };
+        let file = match create(&temp) {
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidFilename => {
+                // The prefix and suffix may push a valid name past the
+                // filesystem limit. Keep the same directory, deterministic
+                // naming, and the create prefix used to sweep leftovers.
+                let digest = blake3::hash(name.as_encoded_bytes());
+                temp = dir.join(format!("{prefix}{digest}.tmp"));
+                create(&temp)
+            }
+            result => result,
+        }
+        .map_err(|e| CoreError::io("create_temp", path, &e))?;
+        Ok((temp, file))
     }
 }
 
@@ -238,26 +245,7 @@ impl FileSystem for LocalFs {
         expect: Option<&BaseRev>,
     ) -> Result<WriteOutcome> {
         let abs = self.resolve(path)?;
-        let tmp = Self::tmp_path(&abs)?;
-
-        // `File::create` is `O_CREAT|O_TRUNC`, and it FOLLOWS a symlink. This
-        // name is deterministic on purpose (see `tmp_path`), so it is also
-        // predictable: a `.note.md.tmp` left in the workspace as a link — by a
-        // sync client, a restore, anything that writes here — would send the
-        // next save's bytes wherever it points, out of the root, through a jail
-        // that had already approved the path.
-        //
-        // `remove_file` unlinks the link itself and never its target;
-        // `create_new` is `O_CREAT|O_EXCL`, which refuses a symlink outright.
-        // Losing the race between the two means `create_new` fails and the
-        // write is refused — never redirected. The pair keeps the "at most one
-        // leftover temp per note" property the deterministic name exists for.
-        let _ = fs::remove_file(&tmp);
-        let mut f = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp)
-            .map_err(|e| CoreError::io("create_temp", path, &e))?;
+        let (tmp, mut f) = Self::open_temp(&abs, ".", path)?;
         let write_then_sync = (|| -> std::io::Result<()> {
             f.write_all(bytes)?;
             f.sync_all()
@@ -326,7 +314,7 @@ impl FileSystem for LocalFs {
         // Publish complete bytes without replacing a concurrently created note.
         //
         // **The temporary name is deterministic** (R6-36), for the reason
-        // `tmp_path` gives: this used a random suffix, so every create killed
+        // `open_temp` gives: this used a random suffix, so every create killed
         // between write and publish left a *new* file in the user's folder,
         // where nothing in Tura shows it. Repeating a create of one path -- a
         // sync `apply` rerun after a kill, the same note name made again --
@@ -334,16 +322,7 @@ impl FileSystem for LocalFs {
         // name can bound (an attachment's one-off target) are recognisable:
         // the path walk removes `.notes-create-*.tmp` files that have sat for
         // ten minutes (`notes_core::index`).
-        //
-        // `remove_file` then `create_new` for the same reason as in
-        // `write_atomic`: a predictable name must not be followable as a link.
-        let tmp = Self::create_tmp_path(&abs)?;
-        let _ = fs::remove_file(&tmp);
-        let mut f = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&tmp)
-            .map_err(|e| CoreError::io("create_temp", path, &e))?;
+        let (tmp, mut f) = Self::open_temp(&abs, CREATE_TMP_PREFIX, path)?;
         let written = (|| -> std::io::Result<()> {
             f.write_all(bytes)?;
             f.sync_all()
