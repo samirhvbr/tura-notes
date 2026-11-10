@@ -114,6 +114,29 @@ fn use_disk_throws_the_buffer_away_into_conflicts_rather_than_away() {
 }
 
 #[test]
+fn consecutive_resolutions_keep_each_discarded_buffer() {
+    let mut f = setup();
+    let count = 4;
+    for n in 0..count {
+        let mine = format!("local version {n}\n");
+        let theirs = format!("external version {n}\n");
+        let (id, base) = conflicted(&mut f, &mine, &theirs);
+        f.svc
+            .resolve_conflict(id, &mine, &base, ConflictChoice::UseDisk)
+            .unwrap();
+    }
+
+    let mut kept: Vec<_> = snapshots(&f).iter().map(snapshot_text).collect();
+    kept.sort();
+    assert_eq!(
+        kept,
+        (0..count)
+            .map(|n| format!("local version {n}\n"))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn save_as_copy_leaves_both_versions_on_disk_where_the_user_can_see_them() {
     let mut f = setup();
     let (id, base) = conflicted(&mut f, "# meu\n", "# deles\n");

@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.40 - keep every conflict snapshot when resolutions share a timestamp
+
+Two resolutions for the same note and side in one second wrote to the same
+snapshot and sidecar paths. The later resolution replaced the only preserved
+copy of the earlier one. Each snapshot now has a unique name and creates its
+payload exclusively before publishing the sidecar. Existing snapshot paths
+are still read from their sidecars and retention still uses file timestamps.
+
+The regression retained only two of four discarded buffers on the previous
+version. All four are recoverable with this change. The conflict, private
+storage, and write protocol suites passed on macOS.
+
 ## 1.11.39 - retain drafts newer than a completed save
 
 A save of buffer version 6 removed a recovery draft at version 7. Draft
