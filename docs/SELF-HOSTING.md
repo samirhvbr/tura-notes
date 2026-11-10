@@ -242,6 +242,11 @@ anything that does not verify — without stopping the server already running,
 because a signature that does not match is far more often a publishing mistake
 than an attack.
 
+The script marks a service restart pending before changing the binary or the
+systemd unit. If reloading systemd, restarting the service or checking loopback
+health fails, rerun the deploy. It retries those steps even when the files on
+disk are already current and clears the marker after the loopback check passes.
+
 ### Signing a release (maintainer)
 
 Only the person holding the private half does this, and it is why the deploy can
