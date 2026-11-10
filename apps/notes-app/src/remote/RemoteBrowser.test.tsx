@@ -253,6 +253,9 @@ it("a note open with unsent text can be deleted from the tree after the question
   expect(item).not.toHaveAttribute("aria-disabled", "true");
   fireEvent.click(item);
   await waitFor(() => expect(ipc.remoteDelete).toHaveBeenCalledWith("only.md", '"saved"'));
+  expect(askConfirm).toHaveBeenCalledWith(expect.objectContaining({
+    body: expect.stringContaining("Any unsent edits already in this note's open tab will be discarded."),
+  }));
   await waitFor(() => expect(useRemoteDoc.getState().doc).toBeNull());
 });
 

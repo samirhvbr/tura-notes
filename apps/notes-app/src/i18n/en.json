@@ -392,7 +392,7 @@
   "remote.copyToLocal": "Save a copy to the local folder",
   "remote.create": "Create",
   "remote.delete": "Delete from the server",
-  "remote.delete.body": "The server moves it to its own trash when it has one. The local folder is not touched.",
+  "remote.delete.body": "The server moves it to its own trash when it has one. Any unsent edits already in this note's open tab will be discarded. The local folder is not touched.",
   "remote.delete.title": "Delete “{name}” from the server?",
   "remote.disconnect": "Disconnect",
   "remote.empty": "No notes on the server yet.",
