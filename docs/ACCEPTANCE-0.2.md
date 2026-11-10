@@ -11,7 +11,7 @@
 | Contract | Evidence |
 |---|---|
 | Reindexing changes neither note bytes nor identity | `notes-core/tests/milestone02.rs`: BOM/CRLF, forced rebuild, deletion/recreation of index.db, restart, stable NoteId and recent history |
-| Incremental refresh sees changes and removals | Same suite: unchanged files skip content work; changed content replaces FTS entries; removed paths disappear |
+| Incremental refresh sees changes and removals | Same suite covers unchanged files, timestamp-preserving replacements and edits, and removal from FTS. Storage tests cover schema 2 migration without replacing parser documents or FTS rows. |
 | Registry migration preserves operational identity | Same suite: legacy JSON migrates with byte-exact backup; `notes-index/tests/storage.rs`: separate DB lifecycle, newer-schema refusal, stale snapshot merge and conflict refusal |
 | Search semantics stay distinct | Existing literal/regex core suites and `notes-index/tests/storage.rs`: whole tokens, accent/case folding, no stemming or implicit FTS operators; `SearchPanel.test.tsx` covers the three modes and cancellation during startup |
 | Rename/move is reviewed and recoverable | Core integration tests cover incoming/outgoing links, selected vs unselected files, concurrent modification refusal and originals; `notes-markdown::rewrite` tests cover code, images, definitions and folder boundaries |
@@ -42,10 +42,10 @@ measures from this date rather than from 0.16.0.
 | # | Flow and expected result | Installed release | Next minor (`X.Y.0`) |
 |---|---|---|---|
 | X1 | Open a workspace; index progress finishes while editing remains available | ☐ | ☐ |
-| X2 | Reopen unchanged files; the index reports unchanged files without reprocessing their content | ☐ | ☐ |
+| X2 | Reopen unchanged files. The index reports them unchanged and keeps their existing parser documents and search entries. | ☐ | ☐ |
 | X3 | Search the same expression in Words, Literal and Regex; each named mode keeps its documented meaning | ☐ | ☐ |
 | X4 | Cancel indexing; results are explicitly partial; Rebuild resumes usable search | ☐ | ☐ |
-| X5 | Change/create/delete a file externally; the next scan updates Words results | ☐ | ☐ |
+| X5 | Change, create and delete files externally, including replacing one with different text of the same length and modification time. The next scan updates Words results. | ☐ | ☐ |
 | X6 | Delete only index.db with the app closed; reopen/rebuild; notes, IDs, recents and tabs survive | ☐ | ☐ |
 | X7 | Files → Recent opens previously visited notes, including after a rename | ☐ | ☐ |
 | X8 | Files → Outline follows live Markdown headings and jumps to the correct line | ☐ | ☐ |
@@ -96,6 +96,20 @@ in a temporary directory. This is a measured incremental improvement, not the
 historical 56,622-note / 15.8-second result from a different dataset/build.
 Reproduce with `NOTES_BENCH_ROOT=/path cargo test -p notes-core --test milestone02
 measure_real_workspace -- --ignored --nocapture`.
+
+On 2026-11-10, the same debug test ran on macOS arm64 with the deterministic
+`tools/gen-large.sh` corpus of 10,000 notes (197.2 MiB). Each row is one run
+with a fresh index database. The first pass may use the OS file cache.
+
+| Cache behavior | Empty index | Unchanged pass |
+|---|---:|---:|
+| 1.11.42 baseline | 24.021 s | 0.259 s |
+| 1.12.0 fingerprint | 21.563 s | 0.212 s |
+| 1.12.0 with the fingerprint deliberately unavailable | 18.572 s | 3.292 s |
+
+All three unchanged passes reported 10,000 unchanged notes and no skipped
+files. The last row exercises the read-and-hash fallback on the same APFS
+corpus. It does not measure the I/O of a removable disk or network share.
 
 ## Development smoke test
 

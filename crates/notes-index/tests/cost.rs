@@ -24,6 +24,7 @@ fn forced_rebuild_of_three_thousand_notes() {
             path: format!("n{i:05}.md"),
             size: body.len() as u64,
             mtime: "1".into(),
+            fingerprint: None,
         })
         .collect();
 

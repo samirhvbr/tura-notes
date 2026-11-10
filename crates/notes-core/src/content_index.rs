@@ -1,7 +1,7 @@
 //! Derived indexing runs independently of the UI service lock. Only LocalFs reads notes.
 use crate::{Result, WorkspaceService};
 use notes_fs::{FileSystem, LocalFs};
-use notes_model::{CoreError, EntryKind, RelPath, TextProfile};
+use notes_model::{CoreError, EntryKind, NativeId, RelPath, Stat, TextProfile};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -159,26 +159,28 @@ fn build_locked(
             let path = entry.path;
             seen.insert(path.to_string());
             status.lock().unwrap().scanned += 1;
-            let stat = match fs.stat(&path) {
+            let (stat, changed_ns) = match fs.stat_with_change_time(&path) {
                 Ok(s) => s,
                 Err(_) => {
                     status.lock().unwrap().skipped += 1;
                     continue;
                 }
             };
+            if stat.kind != EntryKind::File || stat.size > 8 * 1024 * 1024 {
+                index.remove(&[path.to_string()])?;
+                status.lock().unwrap().skipped += 1;
+                continue;
+            }
             let current = notes_index::Seen {
                 path: path.to_string(),
                 size: stat.size,
                 mtime: stat.mtime_ns.to_string(),
+                fingerprint: cache_fingerprint(&stat, changed_ns)?,
             };
             let cached = old.get(path.as_str());
-            if !force && cached.is_some_and(|p| p.size == stat.size && p.mtime == current.mtime) {
+            let metadata_matches = cached.is_some_and(|p| p.matches_metadata(&current));
+            if !force && current.fingerprint.is_some() && metadata_matches {
                 status.lock().unwrap().unchanged += 1;
-                continue;
-            }
-            if stat.size > 8 * 1024 * 1024 {
-                index.remove(&[path.to_string()])?;
-                status.lock().unwrap().skipped += 1;
                 continue;
             }
             let bytes = match fs.read(&path) {
@@ -190,8 +192,11 @@ fn build_locked(
                 }
             };
             // A raced write is retried on the next pass; never label it current.
-            let after = fs.stat(&path)?;
-            if after.size != stat.size || after.mtime_ns != stat.mtime_ns {
+            if bytes.len() as u64 != stat.size
+                || !fs
+                    .stat_with_change_time(&path)
+                    .is_ok_and(|after| after == (stat, changed_ns))
+            {
                 status.lock().unwrap().skipped += 1;
                 continue;
             }
@@ -200,13 +205,25 @@ fn build_locked(
                     message: e.to_string(),
                 }
             })?;
-            let (_, text) = TextProfile::detect(&bytes);
-            let Some(text) = text else {
-                index.remove(&[path.to_string()])?;
-                status.lock().unwrap().skipped += 1;
-                continue;
-            };
             let changed = force || cached.is_none_or(|p| p.hash != hash);
+            if !changed && metadata_matches {
+                // A weak stamp requires a read, but an equal hash requires
+                // neither parsing nor a database write.
+                status.lock().unwrap().unchanged += 1;
+                continue;
+            }
+            let text = if changed {
+                let (_, text) = TextProfile::detect(&bytes);
+                let Some(text) = text else {
+                    index.remove(&[path.to_string()])?;
+                    status.lock().unwrap().skipped += 1;
+                    continue;
+                };
+                text
+            } else {
+                // apply only refreshes metadata when the hash matched.
+                String::new()
+            };
             index.apply(
                 notes_index::Indexed {
                     seen: &current,
@@ -227,6 +244,22 @@ fn build_locked(
         index.remove(&gone)?;
     }
     Ok(())
+}
+
+fn cache_fingerprint(stat: &Stat, changed_ns: Option<i128>) -> Result<Option<String>> {
+    // FAT-like timestamps and unavailable IDs do not justify skipping I/O.
+    let change = changed_ns.filter(|ns| ns % 1_000_000 != 0);
+    let id = stat.native_id.as_ref().filter(|id| match id {
+        NativeId::Unix { ino, .. } => *ino != 0,
+        NativeId::Windows { index, .. } => *index != 0,
+        NativeId::Provider(_) => false,
+    });
+    id.zip(change)
+        .map(|(id, change)| serde_json::to_string(&(id, stat.born_ns, change)))
+        .transpose()
+        .map_err(|e| CoreError::Internal {
+            message: e.to_string(),
+        })
 }
 
 impl WorkspaceService {
@@ -306,5 +339,31 @@ impl WorkspaceService {
             hits,
             status.running || status.stale || status.cancelled || status.skipped > 0,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cache_needs_a_native_identity_and_a_fine_grained_change_time() {
+        let mut stat = Stat {
+            size: 10,
+            mtime_ns: 100,
+            native_id: Some(NativeId::Unix { dev: 1, ino: 2 }),
+            kind: EntryKind::File,
+            born_ns: None,
+        };
+        assert!(cache_fingerprint(&stat, None).unwrap().is_none());
+        assert!(cache_fingerprint(&stat, Some(1_000_000)).unwrap().is_none());
+        let first = cache_fingerprint(&stat, Some(1_000_001)).unwrap().unwrap();
+        let later = cache_fingerprint(&stat, Some(1_000_002)).unwrap().unwrap();
+        assert_ne!(first, later);
+        stat.native_id = Some(NativeId::Unix { dev: 1, ino: 3 });
+        let replacement = cache_fingerprint(&stat, Some(1_000_001)).unwrap().unwrap();
+        assert_ne!(first, replacement);
+        stat.native_id = None;
+        assert!(cache_fingerprint(&stat, Some(1_000_001)).unwrap().is_none());
     }
 }
