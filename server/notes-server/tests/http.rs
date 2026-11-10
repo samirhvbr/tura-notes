@@ -188,6 +188,74 @@ async fn conditional_lifecycle_and_append_retry_preserve_original_bytes() {
     );
 }
 #[tokio::test]
+async fn updates_and_appends_refuse_results_over_the_on_disk_read_limit() {
+    let f = Fixture::new(&all());
+    let path = f.data.join("workspaces/home/allowed/test.md");
+    let original = b"\xef\xbb\xbfstart\r\n";
+    fs::write(&path, original).unwrap();
+    let (status, headers, _) = f.request("GET", NOTE, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let base = headers["etag"].to_str().unwrap();
+
+    // The request text fits, but preserving the note's CRLF format expands it.
+    let text = "0123456\n".repeat(1_000_000);
+    for method in ["PUT", "PATCH"] {
+        let (status, _, _) = f
+            .request(
+                method,
+                NOTE,
+                Some(json!({"text":text})),
+                &[("if-match", base)],
+            )
+            .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{method}");
+        assert!(
+            fs::read(&path).unwrap() == original,
+            "{method} changed the note"
+        );
+    }
+
+    // A valid append on the same revision succeeds: rejection left no receipt.
+    let (status, headers, _) = f
+        .request(
+            "PATCH",
+            NOTE,
+            Some(json!({"text":"ok\n"})),
+            &[("if-match", base)],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fs::read(&path).unwrap(), b"\xef\xbb\xbfstart\r\nok\r\n");
+    let base = headers["etag"].to_str().unwrap();
+
+    // The exact limit is still writable and readable, including the BOM and CRLF.
+    let limit = 8 * 1024 * 1024;
+    let text = format!("{}\n", "a".repeat(limit - 5));
+    let (status, _, _) = f
+        .request(
+            "PUT",
+            NOTE,
+            Some(json!({"text":text})),
+            &[("if-match", base)],
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(fs::metadata(&path).unwrap().len(), limit as u64);
+    assert_eq!(f.request("GET", NOTE, None, &[]).await.0, StatusCode::OK);
+
+    // Existing files can still exceed the REST limit if written outside it.
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_len((limit + 1) as u64)
+        .unwrap();
+    assert_eq!(
+        f.request("GET", NOTE, None, &[]).await.0,
+        StatusCode::BAD_REQUEST
+    );
+}
+#[tokio::test]
 async fn scopes_permissions_revocation_and_logs_do_not_leak() {
     let f = Fixture::new(&[Permission::Read, Permission::Search]);
     assert_eq!(

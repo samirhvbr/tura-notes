@@ -7,6 +7,20 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.35 - API writes enforce the note size limit after preserving line endings
+
+REST and MCP edits checked the normalized text against 8 MiB before adding the
+note's original line endings, final newline and BOM. A REST replacement with
+8,000,000 bytes of text could therefore write 9,000,003 bytes to a CRLF note.
+The read guard then refused the note, which also blocked later guarded edits,
+moves and deletion through the API.
+
+The shared agent service checks the encoded size before writing the note or an
+append receipt. REST regression coverage exercises replacement and append,
+retrying a valid append on the same revision and reading back a note written
+at exactly 8 MiB. Externally written notes above that limit are still refused.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

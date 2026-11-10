@@ -319,7 +319,8 @@ neither key. **The key being there is how a client knows the server can make
 folders**: a server older than 1.11.0 has no `folders`, and no route either. The
 plain list, without `detail`, is unchanged.
 
-JSON rejects unknown fields. Text and final note size are limited to 8 MiB,
+JSON rejects unknown fields. Text and final on-disk note size (including the
+preserved BOM and line endings) are limited to 8 MiB,
 HTTP bodies to 16 MiB, body delivery to 15 seconds, query text to 4096 UTF-8
 bytes, URI paths to 4096 bytes, result pages to 200 items and cursor to 1,000,000.
 The default page size is 100. Follow `next_cursor` until null; cursors are offsets
