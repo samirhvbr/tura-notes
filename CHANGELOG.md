@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.36 - refresh note identities before moving or deleting entries
+
+When two processes opened the same workspace, a rename could miss a note ID
+assigned by the other process after the first one opened the workspace. The file
+moved, but reopening it assigned a new ID and no longer offered the existing
+draft. Deletion had the same stale view and could omit notes from the returned
+list of removed IDs. Both operations now refresh the registry under `write.lock`
+before touching the filesystem. The two-service regressions reproduce both
+failures on the previous version and pass with the fix on macOS, along with the
+entry and link-review suites.
+
 ## 1.11.35 - API writes enforce the note size limit after preserving line endings
 
 REST and MCP edits checked the normalized text against 8 MiB before adding the

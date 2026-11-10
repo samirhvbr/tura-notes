@@ -50,7 +50,7 @@ pub use reconcile::{ChangeKind, ConflictKind, CoreEvent, Reconciled};
 pub use registry::{Registry, WorkspaceEntry, WorkspacesIndex};
 pub use settings::{Session, Settings, Tab};
 
-use state::Loaded;
+use state::{Loaded, Schemad};
 
 type Result<T> = std::result::Result<T, CoreError>;
 
@@ -1024,6 +1024,9 @@ impl WorkspaceService {
                 });
             }
         }
+        let dir = self.open()?.dir.clone();
+        self.refresh_entry_registry(&dir)?;
+
         // The name has to be legal on every platform the workspace might be
         // carried to, and free by the root's own case and normalisation rules —
         // the same two checks `note_create` makes (scope §7.6). A rename that
@@ -1036,7 +1039,6 @@ impl WorkspaceService {
             self.check_collision(to)?;
         }
 
-        let dir = self.open()?.dir.clone();
         let kind = self.open()?.fs.stat(from)?.kind;
         self.open()?.fs.rename(from, to)?;
 
@@ -1180,6 +1182,7 @@ impl WorkspaceService {
             });
         }
         let dir = self.open()?.dir.clone();
+        self.refresh_entry_registry(&dir)?;
         let outcome = self.open()?.fs.delete(path)?;
 
         let open = self.open_mut()?;
@@ -1202,6 +1205,29 @@ impl WorkspaceService {
             },
             note_ids,
         })
+    }
+
+    // Read under write.lock before moving or deleting a path. A second
+    // process may have assigned identities after this workspace opened.
+    fn refresh_entry_registry(&mut self, dir: &Path) -> Result<()> {
+        let path = paths::registry_file(dir);
+        self.open_mut()?.registry = match state::load::<Registry>(&path)? {
+            Loaded::Ok(registry) => registry,
+            Loaded::Fresh => {
+                return Err(CoreError::StateUnreadable {
+                    store: Registry::NAME.into(),
+                    path: path.display().to_string(),
+                });
+            }
+            Loaded::TooNew { found } => {
+                return Err(CoreError::SchemaAhead {
+                    store: Registry::NAME.into(),
+                    found,
+                    supported: Registry::CURRENT,
+                });
+            }
+        };
+        Ok(())
     }
 
     // ---- conflicts ------------------------------------------------------
