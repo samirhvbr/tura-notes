@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.0 - refresh indexed words after timestamp-preserving edits
+
+A replacement with different text and the original size and modification time left the old Words result in the index. Core now combines the filesystem's native identity and status-change time with size and modification time before skipping a read. If those signals are missing or coarse, it hashes the file and keeps the parsed document and search row when the hash matches.
+
+Derived schema 3 adds the fingerprint to existing indexes without clearing their search text or parser documents. The first incremental scan verifies legacy rows by hash. Tests cover replacements and in-place edits that preserve timestamps, migration without recreating a search row, and refusal of a newer schema. The 10,000-note macOS debug corpus measured a 212 ms unchanged pass with fingerprints and 3.292 s with them deliberately unavailable. See ADR-110 and the 0.2 acceptance document for the measurements and their scope.
+
 ## 1.11.44 - resume client pruning within the request budget
 
 `prune-client` bounded successful compactions, but each unchanged candidate

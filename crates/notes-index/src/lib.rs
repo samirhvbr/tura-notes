@@ -42,10 +42,7 @@ fn private_file(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn open(path: &Path, schema: &str, supported: u32) -> Result<Connection> {
-    private_file(path)?;
-    let mut db = Connection::open(path).map_err(sql)?;
-    db.busy_timeout(Duration::from_secs(5)).map_err(sql)?;
+fn schema_version(db: &Connection, path: &Path, supported: u32) -> Result<u32> {
     let found: u32 = db
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .map_err(sql)?;
@@ -60,15 +57,33 @@ fn open(path: &Path, schema: &str, supported: u32) -> Result<Connection> {
             supported,
         });
     }
+    Ok(found)
+}
+
+fn open(
+    path: &Path,
+    supported: u32,
+    migration: impl FnOnce(u32) -> &'static str,
+) -> Result<Connection> {
+    private_file(path)?;
+    let mut db = Connection::open(path).map_err(sql)?;
+    db.busy_timeout(Duration::from_secs(5)).map_err(sql)?;
+    let found = schema_version(&db, path, supported)?;
     db.pragma_update(None, "journal_mode", "WAL").map_err(sql)?;
     db.pragma_update(None, "synchronous", "NORMAL")
         .map_err(sql)?;
     db.pragma_update(None, "foreign_keys", "ON").map_err(sql)?;
     if found < supported {
-        let tx = db.transaction().map_err(sql)?;
-        tx.execute_batch(schema).map_err(sql)?;
-        tx.pragma_update(None, "user_version", supported)
+        let tx = db
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(sql)?;
+        // A reader or another process may have migrated while we waited.
+        let found = schema_version(&tx, path, supported)?;
+        if found < supported {
+            tx.execute_batch(migration(found)).map_err(sql)?;
+            tx.pragma_update(None, "user_version", supported)
+                .map_err(sql)?;
+        }
         tx.commit().map_err(sql)?;
     }
     Ok(db)
@@ -79,11 +94,9 @@ fn open(path: &Path, schema: &str, supported: u32) -> Result<Connection> {
 pub struct RegistryStore(Connection);
 impl RegistryStore {
     pub fn open(path: &Path) -> Result<Self> {
-        open(
-            path,
-            "CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL);",
-            1,
-        )
+        open(path, 1, |_| {
+            "CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL);"
+        })
         .map(Self)
     }
     pub fn read(&self) -> Result<Option<Vec<u8>>> {
@@ -150,11 +163,18 @@ pub struct Seen {
     pub path: String,
     pub size: u64,
     pub mtime: String,
+    pub fingerprint: Option<String>,
 }
 pub struct Cached {
     pub size: u64,
     pub mtime: String,
     pub hash: String,
+    pub fingerprint: Option<String>,
+}
+impl Cached {
+    pub fn matches_metadata(&self, seen: &Seen) -> bool {
+        self.size == seen.size && self.mtime == seen.mtime && self.fingerprint == seen.fingerprint
+    }
 }
 pub struct Indexed<'a> {
     pub seen: &'a Seen,
@@ -187,8 +207,13 @@ pub struct Index {
 }
 impl Index {
     pub fn open(path: &Path) -> Result<Self> {
-        open(path, "DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS fts; CREATE TABLE notes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime TEXT NOT NULL, hash TEXT NOT NULL, document TEXT NOT NULL);
-            CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, text, tokenize='unicode61 remove_diacritics 2');", 2).map(|conn| Self { conn, fts_rowids: None })
+        open(path, 3, |found| match found {
+            2 => "ALTER TABLE notes ADD COLUMN fingerprint TEXT;",
+            _ => "DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS fts;
+                CREATE TABLE notes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime TEXT NOT NULL, hash TEXT NOT NULL, document TEXT NOT NULL, fingerprint TEXT);
+                CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, text, tokenize='unicode61 remove_diacritics 2');",
+        })
+        .map(|conn| Self { conn, fts_rowids: None })
     }
     pub fn documents(&self) -> Result<Vec<(String, notes_markdown::Document)>> {
         let mut q = self
@@ -222,7 +247,7 @@ impl Index {
         self.fts_rowids = Some(rowids);
         let mut q = self
             .conn
-            .prepare("SELECT path,size,mtime,hash FROM notes")
+            .prepare("SELECT path,size,mtime,hash,fingerprint FROM notes")
             .map_err(sql)?;
         let rows = q
             .query_map([], |r| {
@@ -240,6 +265,7 @@ impl Index {
                         size: r.get::<_, i64>(1)? as u64,
                         mtime: r.get(2)?,
                         hash: r.get(3)?,
+                        fingerprint: r.get(4)?,
                     },
                 ))
             })
@@ -258,7 +284,12 @@ impl Index {
                         message: e.to_string(),
                     }
                 })?;
-            tx.execute("INSERT INTO notes VALUES(?1,?2,?3,?4,?5) ON CONFLICT(path) DO UPDATE SET size=excluded.size,mtime=excluded.mtime,hash=excluded.hash,document=excluded.document", params![note.seen.path,note.seen.size as i64,note.seen.mtime,note.hash,document]).map_err(sql)?;
+            tx.execute(
+                "INSERT INTO notes(path,size,mtime,hash,document,fingerprint) VALUES(?1,?2,?3,?4,?5,?6)
+                 ON CONFLICT(path) DO UPDATE SET size=excluded.size,mtime=excluded.mtime,
+                 hash=excluded.hash,document=excluded.document,fingerprint=excluded.fingerprint",
+                params![note.seen.path,note.seen.size as i64,note.seen.mtime,note.hash,document,note.seen.fingerprint],
+            ).map_err(sql)?;
             match fts_rowids.as_mut() {
                 Some(map) => {
                     if let Some(rowid) = map.remove(&note.seen.path) {
@@ -284,8 +315,13 @@ impl Index {
             }
         } else {
             tx.execute(
-                "UPDATE notes SET size=?2,mtime=?3 WHERE path=?1",
-                params![note.seen.path, note.seen.size as i64, note.seen.mtime],
+                "UPDATE notes SET size=?2,mtime=?3,fingerprint=?4 WHERE path=?1",
+                params![
+                    note.seen.path,
+                    note.seen.size as i64,
+                    note.seen.mtime,
+                    note.seen.fingerprint
+                ],
             )
             .map_err(sql)?;
         }
