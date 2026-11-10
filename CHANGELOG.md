@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.35 - API writes enforce the note size limit after preserving line endings
+
+REST and MCP edits checked the normalized text against 8 MiB before adding the
+note's original line endings, final newline and BOM. A REST replacement with
+8,000,000 bytes of text could therefore write 9,000,003 bytes to a CRLF note.
+The read guard then refused the note, which also blocked later guarded edits,
+moves and deletion through the API.
+
+The shared agent service checks the encoded size before writing the note or an
+append receipt. REST regression coverage exercises replacement and append,
+retrying a valid append on the same revision and reading back a note written
+at exactly 8 MiB. Externally written notes above that limit are still refused.
+
 ## 1.11.34 - retry an interrupted co-tenant server restart
 
 The deploy records the binary version on disk before restarting the service. A failure from systemd or the loopback health check could leave that stamp and the updated unit in place. Running the deploy again for the same version reported that there was nothing to do without retrying the service activation.

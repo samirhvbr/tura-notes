@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::PathBuf};
 
+const MAX_NOTE_BYTES: usize = 8 * 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Permission {
@@ -127,7 +129,7 @@ impl AgentService {
         if !path.is_note() {
             return Err(invalid("agent operations require a Markdown note"));
         }
-        if self.service.open()?.fs.stat(path)?.size > 8 * 1024 * 1024 {
+        if self.service.open()?.fs.stat(path)?.size > MAX_NOTE_BYTES as u64 {
             return Err(invalid("note exceeds 8 MiB"));
         }
         self.service.open_note(path)
@@ -183,7 +185,7 @@ impl AgentService {
         let mut page = vec![];
         for path in paths.into_iter().skip(offset).take(limit) {
             let stat = open.fs.stat(&path)?;
-            let rev = if stat.size > 8 * 1024 * 1024 {
+            let rev = if stat.size > MAX_NOTE_BYTES as u64 {
                 None
             } else {
                 // Read, then stat again: the revision pairs these bytes with
@@ -371,7 +373,7 @@ impl AgentService {
             let mut skipped = 0;
             let open = self.service.open()?;
             for path in self.paths()? {
-                if open.fs.stat(&path)?.size > 8 * 1024 * 1024 {
+                if open.fs.stat(&path)?.size > MAX_NOTE_BYTES as u64 {
                     continue;
                 }
                 let bytes = open.fs.read(&path)?;
@@ -410,7 +412,7 @@ impl AgentService {
             return Err(invalid("text is required"));
         }
         let text = args.text.unwrap_or_default();
-        if text.len() > 8 * 1024 * 1024 {
+        if text.len() > MAX_NOTE_BYTES {
             return Err(invalid("text exceeds 8 MiB"));
         }
         let dir = self.service.open()?.dir.clone();
@@ -497,10 +499,13 @@ impl AgentService {
             } else {
                 text.clone()
             };
-            if next.len() > 8 * 1024 * 1024 {
+            if next.len() > MAX_NOTE_BYTES {
                 return Err(invalid("result exceeds 8 MiB"));
             }
             let encoded = profile.encode(&next);
+            if encoded.len() > MAX_NOTE_BYTES {
+                return Err(invalid("result exceeds 8 MiB"));
+            }
             let output_hash = notes_fs::hash(&encoded);
             let mut receipt = AppendReceipt {
                 request_hash,
