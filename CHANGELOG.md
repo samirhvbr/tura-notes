@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.37 - keep temporary names short enough to save long filenames
+
+An existing Markdown file with a valid 255-character ASCII name opened on
+macOS but could not be saved. New files with equally long names also failed.
+The temporary file added a prefix and suffix to the name and exceeded the
+filesystem limit. When the filesystem refuses that temporary name, the writer
+now retries with a deterministic filename digest in the same directory. It
+still creates the temporary file exclusively and publishes new files without
+clobbering an existing destination. Both regressions fail with `NameTooLong`
+on the previous version and pass with the full `notes-fs` suite on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
