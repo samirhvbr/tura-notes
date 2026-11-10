@@ -25,6 +25,7 @@ vi.mock("../ipc", () => ({
 
 async function defaultOpen(path: RelPath) {
   editor.doc = { noteId: idFor(path), path, bufferVersion: 0, savedVersion: 0, conflict: null };
+  return true;
 }
 
 const editor = {
@@ -42,7 +43,7 @@ const editor = {
   save: vi.fn(async () => {
     if (editor.doc) editor.doc.savedVersion = editor.doc.bufferVersion;
   }),
-  keepDraft: vi.fn(async () => {}),
+  keepDraft: vi.fn(async () => true),
 };
 
 vi.mock("./editor", () => ({
@@ -230,6 +231,7 @@ describe("the cursor", () => {
     editor.open = vi.fn(async (path: RelPath) => {
       useTabs.getState().noteCursor(idFor(path), 1, 1, 0);
       editor.doc = { noteId: idFor(path), path, bufferVersion: 0, savedVersion: 0, conflict: null };
+      return true;
     });
 
     await useTabs.getState().restore();
