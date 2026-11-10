@@ -915,6 +915,25 @@ fn backup_restore_keeps_bytes_and_revocation_and_refuses_live_or_existing_data()
     assert!(backup::restore(&archive, &restored).is_err());
 }
 #[test]
+fn restore_refuses_invalid_gzip_trailers() {
+    let f = Fixture::new(&all());
+    let archive = f._dir.path().join("backup.tar.gz");
+    backup::backup(&f.data, &archive).unwrap();
+    let original = fs::read(&archive).unwrap();
+    let trailer = original.len() - 8;
+    let mut bad_crc = original.clone();
+    bad_crc[trailer] ^= 1;
+
+    let destination = f._dir.path().join("restored");
+    for bytes in [&original[..trailer], &bad_crc] {
+        fs::write(&archive, bytes).unwrap();
+        assert!(backup::restore(&archive, &destination).is_err());
+        assert!(!destination.exists());
+    }
+    fs::write(&archive, original).unwrap();
+    backup::restore(&archive, &destination).unwrap();
+}
+#[test]
 fn future_schema_is_never_overwritten() {
     let f = Fixture::new(&all());
     let path = f.data.join("admin/tokens.json");
