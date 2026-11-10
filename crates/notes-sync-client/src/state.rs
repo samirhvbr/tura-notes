@@ -19,6 +19,7 @@ use uuid::Uuid;
 // workspace's received history, so it has to fit what the server may hold.
 const MAX_STATE: usize = 128 * 1024 * 1024;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
+const CLIENT_PRUNE_FETCHES: usize = 20;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -177,6 +178,9 @@ pub struct ClientPruneReport {
     pub pruned_resolutions: usize,
     pub pruned_payload_bytes: usize,
     pub retained_revisions: usize,
+    pub checked_revisions: usize,
+    pub server_busy: bool,
+    pub next: Option<String>,
 }
 pub struct Store {
     dir: PathBuf,
@@ -635,33 +639,97 @@ impl Store {
     /// after the server returns the exact metadata-only form. This never sends
     /// traffic that mutates the server and never touches source files.
     pub fn prune_client(&self, transport: &mut impl Transport) -> Result<ClientPruneReport> {
+        self.prune_client_from(transport, None)
+    }
+
+    /// Scan a bounded batch, optionally resuming a previous report's `next`.
+    pub fn prune_client_from(
+        &self,
+        transport: &mut impl Transport,
+        resume: Option<&str>,
+    ) -> Result<ClientPruneReport> {
         let mut lock = self.lock()?;
         let _guard = lock.try_write().map_err(|_| Error::Busy)?;
         let mut state = self.load()?;
         let app = self.application(&state)?.ok_or(Error::Invalid)?;
+        let mut fingerprint = blake3::Hasher::new_derive_key("tura-notes client prune cursor v1");
+        fingerprint.update(
+            &serde_json::to_vec(&(
+                state.device,
+                state.local.workspace,
+                &state.endpoint,
+                &state.source,
+                app.acknowledged,
+                app.superseded.range(..app.acknowledged).collect::<Vec<_>>(),
+            ))
+            .map_err(|_| Error::Invalid)?,
+        );
+        // Keep cursors valid across the payload removals made by a pass. The
+        // acknowledged order and queue identity must still match on resume.
+        for publication in &state.received[..app.acknowledged] {
+            fingerprint.update(publication.revision.id.as_bytes());
+        }
+        let cursor_at = |index| {
+            let position = format!("v1:{index}");
+            let mut hash = fingerprint.clone();
+            hash.update(position.as_bytes());
+            format!("{position}:{}", hash.finalize().to_hex())
+        };
+        let mut index = match resume {
+            Some(cursor) => {
+                let index = cursor
+                    .strip_prefix("v1:")
+                    .and_then(|rest| rest.split_once(':'))
+                    .and_then(|(index, _)| index.parse::<usize>().ok())
+                    .filter(|index| (1..app.acknowledged).contains(index))
+                    .ok_or(Error::PruneCursor)?;
+                if cursor != cursor_at(index) {
+                    return Err(Error::PruneCursor);
+                }
+                index
+            }
+            None => 0,
+        };
         let mut pruned_resolutions = 0usize;
         let mut pruned_payload_bytes = 0usize;
-        for index in 0..app.acknowledged {
+        let mut checked_revisions = 0usize;
+        let mut server_busy = false;
+        while index < app.acknowledged {
             let publication = &state.received[index];
-            let mut compacted = publication.clone();
-            let bytes = if !compacted.branches.is_empty() {
-                notes_sync::transfer::prune_resolved_payloads(&mut compacted)
-                    .map_err(|_| Error::Invalid)?
-            } else if compacted.revision.content.is_some() && !compacted.payload_pruned {
-                notes_sync::transfer::prune_linear_payload(&mut compacted)
-                    .map_err(|_| Error::Invalid)?
-            } else {
-                continue;
-            };
-            if transport.fetch(compacted.revision.id)? != compacted {
+            let is_resolution = !publication.branches.is_empty();
+            if !is_resolution
+                && (publication.revision.content.is_none()
+                    || publication.payload_pruned
+                    || !publication.history.is_empty())
+            {
+                index += 1;
                 continue;
             }
-            state.received[index] = compacted;
-            pruned_payload_bytes += bytes;
-            pruned_resolutions += 1;
-            if pruned_resolutions == 20 {
+            if checked_revisions == CLIENT_PRUNE_FETCHES {
                 break;
             }
+            let mut compacted = publication.clone();
+            let bytes = if is_resolution {
+                notes_sync::transfer::prune_resolved_payloads(&mut compacted)
+            } else {
+                notes_sync::transfer::prune_linear_payload(&mut compacted)
+            }
+            .map_err(|_| Error::Invalid)?;
+            let remote = match transport.fetch(compacted.revision.id) {
+                Ok(remote) => remote,
+                Err(Error::Busy) if checked_revisions > 0 => {
+                    server_busy = true;
+                    break;
+                }
+                Err(error) => return Err(error),
+            };
+            checked_revisions += 1;
+            if remote == compacted {
+                state.received[index] = compacted;
+                pruned_payload_bytes += bytes;
+                pruned_resolutions += 1;
+            }
+            index += 1;
         }
         if pruned_resolutions > 0 {
             self.save(&state, false)?;
@@ -670,6 +738,9 @@ impl Store {
             pruned_resolutions,
             pruned_payload_bytes,
             retained_revisions: state.local.revisions.len(),
+            checked_revisions,
+            server_busy,
+            next: (index < app.acknowledged).then(|| cursor_at(index)),
         })
     }
 
