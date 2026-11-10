@@ -12,7 +12,10 @@
 //! one moment a user can lose work by answering a dialog quickly, so the answer
 //! they did not give is written to `conflicts/` first (`ARCHITECTURE.md` §4.3).
 
-use std::path::{Path, PathBuf};
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use notes_model::{BaseRev, CoreError, NoteId, RelPath};
 use serde::{Deserialize, Serialize};
@@ -105,16 +108,33 @@ pub fn snapshot(
     let d = note_dir(dir, note_id);
     std::fs::create_dir_all(&d).map_err(|e| CoreError::io("mkdir", d.display(), &e))?;
 
-    // `<iso-ts>-<local|disk>.md`, with the colons of an ISO timestamp removed:
-    // they are legal on ext4 and illegal on NTFS, and app data is as portable
-    // as a workspace is.
-    let stamp = crate::now().replace(':', "");
-    let name = match side {
-        Side::Local => format!("{stamp}-local.md"),
-        Side::Disk => format!("{stamp}-disk.md"),
+    // The timestamp only has second precision. Keep distinct snapshots even
+    // when the same note is resolved twice in one second.
+    let written_at = crate::now();
+    let stamp = written_at.replace(':', "");
+    let suffix = match side {
+        Side::Local => "local",
+        Side::Disk => "disk",
     };
-    let file = d.join(&name);
-    crate::state::write_atomic(&file, bytes)?;
+    let file = d.join(format!("{stamp}-{}-{suffix}.md", uuid::Uuid::new_v4()));
+    // The sidecar publishes the snapshot only after its bytes are complete.
+    // Reserve the payload exclusively so it cannot replace another snapshot.
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut snapshot = options
+        .open(&file)
+        .map_err(|e| CoreError::io("create_snapshot", file.display(), &e))?;
+    let written = snapshot.write_all(bytes).and_then(|()| snapshot.sync_all());
+    drop(snapshot);
+    if let Err(e) = written {
+        let _ = std::fs::remove_file(&file);
+        return Err(CoreError::io("write_snapshot", file.display(), &e));
+    }
 
     let info = ConflictSnapshot {
         schema: SCHEMA,
@@ -123,7 +143,7 @@ pub fn snapshot(
         side,
         base_rev: base_rev.clone(),
         resolved_as,
-        written_at: crate::now(),
+        written_at,
         file: file.display().to_string(),
         size: bytes.len() as u64,
     };
@@ -189,7 +209,7 @@ pub fn list(dir: &Path) -> Conflicts {
 /// **Everything under `conflicts/` is by definition a *resolved* conflict** —
 /// an unresolved one is a draft, in `drafts/`, and nothing prunes those
 /// (`ARCHITECTURE.md` §4.2, §4.3). So retention here needs no state beyond the
-/// timestamp in the name.
+/// modification time of each file.
 ///
 /// `days == 0` disables pruning rather than deleting everything, which is the
 /// reading a user typing a zero into a settings field means.

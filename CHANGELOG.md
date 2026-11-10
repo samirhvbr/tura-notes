@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.40 - keep every conflict snapshot when resolutions share a timestamp
+
+Two resolutions for the same note and side in one second wrote to the same
+snapshot and sidecar paths. The later resolution replaced the only preserved
+copy of the earlier one. Each snapshot now has a unique name and creates its
+payload exclusively before publishing the sidecar. Existing snapshot paths
+are still read from their sidecars and retention still uses file timestamps.
+
+The regression retained only two of four discarded buffers on the previous
+version. All four are recoverable with this change. The conflict, private
+storage, and write protocol suites passed on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
