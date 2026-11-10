@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.34 - retry an interrupted co-tenant server restart
+
+The deploy records the binary version on disk before restarting the service. A failure from systemd or the loopback health check could leave that stamp and the updated unit in place. Running the deploy again for the same version reported that there was nothing to do without retrying the service activation.
+
+Mark a restart pending before changing the binary or systemd unit. Keep the marker until systemd applies the changes and the server passes its loopback check. The deploy can then retry without downloading a binary it already installed. The orchestration regression simulates a failed daemon reload, restart and loopback check, verifies recovery on the next run, and checks that a third run returns to the usual no-op.
+
 ## 1.11.33 - local tabs stay open when their latest edits cannot be preserved
 
 A tab switch or close flushes the active local note, then falls back to a draft if the buffer is still dirty. The editor used to hide a failed draft write from the caller, so if both writes failed, the tab could close over the only copy of the text. The tab also replaced text entered while a draft write or the next note's read was pending.
