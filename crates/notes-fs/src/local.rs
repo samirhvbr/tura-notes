@@ -88,20 +88,33 @@ impl LocalFs {
 
     /// A complete `Stat`, native id included.
     fn stat_at(path: &Path) -> Result<Stat> {
+        Self::stat_at_with_change_time(path, false).map(|(stat, _)| stat)
+    }
+
+    /// Local cache observation. The optional status-change time is separate
+    /// from creation time and does not form part of the `Stat` wire contract.
+    pub fn stat_with_change_time(&self, path: &RelPath) -> Result<(Stat, Option<i128>)> {
+        Self::stat_at_with_change_time(&self.resolve(path)?, true)
+    }
+
+    fn stat_at_with_change_time(path: &Path, observe_change: bool) -> Result<(Stat, Option<i128>)> {
         let meta =
             fs::symlink_metadata(path).map_err(|e| CoreError::io("stat", path.display(), &e))?;
-        Ok(Stat {
-            native_id: native_id(path, &meta),
-            born_ns: born_ns(&meta),
-            ..Self::stat_from(&meta)
-        })
+        let (native_id, changed_ns) = native_metadata(path, &meta, observe_change);
+        Ok((
+            Stat {
+                native_id,
+                born_ns: born_ns(&meta),
+                ..Self::stat_from(&meta)
+            },
+            changed_ns,
+        ))
     }
 
     /// Size, mtime and kind — everything except the native id.
     ///
     /// The identity is left out because it is not free: on Windows it costs an
-    /// opened handle per file, and the only caller that wants it is identity
-    /// correlation, one path at a time. `Entry` does not carry one at all, so
+    /// opened handle per file. `Entry` does not carry one at all, so
     /// paying for it while listing a directory would be paying for nothing.
     fn stat_from(meta: &fs::Metadata) -> Stat {
         let ft = meta.file_type();
@@ -490,19 +503,27 @@ fn born_ns(meta: &fs::Metadata) -> Option<i128> {
     })
 }
 
-/// The filesystem's own identity for a file: what survives a rename and what a
-/// copy does not share.
+/// The filesystem's own identity for a file, plus its status-change stamp
+/// when requested. The identity survives renames and distinguishes copies.
 ///
 /// Correlation after an external rename asks one question — *is this the same
 /// file under a different name?* — and a content hash cannot answer it for two
 /// notes with identical text. The native id can.
 #[cfg(unix)]
-fn native_id(_: &Path, meta: &fs::Metadata) -> Option<NativeId> {
+fn native_metadata(
+    _: &Path,
+    meta: &fs::Metadata,
+    observe_change: bool,
+) -> (Option<NativeId>, Option<i128>) {
     use std::os::unix::fs::MetadataExt;
-    Some(NativeId::Unix {
-        dev: meta.dev(),
-        ino: meta.ino(),
-    })
+    (
+        Some(NativeId::Unix {
+            dev: meta.dev(),
+            ino: meta.ino(),
+        }),
+        observe_change
+            .then(|| i128::from(meta.ctime()) * 1_000_000_000 + i128::from(meta.ctime_nsec())),
+    )
 }
 
 /// Windows: `GetFileInformationByHandle`, which needs a handle rather than a
@@ -514,54 +535,91 @@ fn native_id(_: &Path, meta: &fs::Metadata) -> Option<NativeId> {
 /// against them, which is why this returned `None` from 0.1a until now
 /// (`docs/DECISIONS-0.1a.md` D-24).
 ///
-/// The open is a query, not a read: `access_mode(0)` asks for no access at all,
-/// which is the documented way to read metadata for a file another process holds
-/// open exclusively. `FILE_FLAG_BACKUP_SEMANTICS` is what allows a **directory**
-/// to be opened this way; `FILE_FLAG_OPEN_REPARSE_POINT` makes a symlink report
-/// its own identity rather than its target's, so that this agrees with the
-/// `symlink_metadata` the rest of `stat_at` is built on.
+/// Identity alone needs no access rights. The additional `FileBasicInfo`
+/// query needs `FILE_READ_ATTRIBUTES`, which still grants no access to the
+/// file's contents. Share read, write and delete access in both cases.
+/// `FILE_FLAG_BACKUP_SEMANTICS` allows directory handles and
+/// `FILE_FLAG_OPEN_REPARSE_POINT` keeps metadata about the named entry.
 ///
 /// A failure is `None` — the file vanished, or the volume does not keep an
 /// index. That is the same degradation `ARCHITECTURE.md` §11 already specifies
 /// for a backend without ids, and it is the safe direction: correlation falls
 /// back to the hash and mints a new `NoteId` rather than reusing the wrong one.
 #[cfg(windows)]
-fn native_id(path: &Path, meta: &fs::Metadata) -> Option<NativeId> {
+fn native_metadata(
+    path: &Path,
+    meta: &fs::Metadata,
+    observe_change: bool,
+) -> (Option<NativeId>, Option<i128>) {
     use std::os::windows::fs::OpenOptionsExt;
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_FLAG_OPEN_REPARSE_POINT,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ,
+        FILE_SHARE_WRITE,
     };
 
+    let access = if observe_change {
+        FILE_READ_ATTRIBUTES
+    } else {
+        0
+    };
     let mut flags = FILE_FLAG_BACKUP_SEMANTICS;
-    if meta.file_type().is_symlink() {
+    if observe_change || meta.file_type().is_symlink() {
         flags |= FILE_FLAG_OPEN_REPARSE_POINT;
     }
-    let file = fs::OpenOptions::new()
-        .access_mode(0)
+    let Ok(file) = fs::OpenOptions::new()
+        .access_mode(access)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         .custom_flags(flags)
         .open(path)
-        .ok()?;
+    else {
+        return (None, None);
+    };
 
     // SAFETY: `info` is written by the call and only read when it returns
     // non-zero; the handle is owned by `file` and outlives the call.
     let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
     let ok = unsafe { GetFileInformationByHandle(file.as_raw_handle() as _, &mut info) };
-    if ok == 0 {
-        return None;
-    }
-
-    Some(NativeId::Windows {
+    let id = (ok != 0).then(|| NativeId::Windows {
         volume: u64::from(info.dwVolumeSerialNumber),
         // One 64-bit index, delivered in two halves.
         index: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
-    })
+    });
+    let change = if observe_change {
+        windows_change_time(&file)
+    } else {
+        None
+    };
+    (id, change)
+}
+
+#[cfg(windows)]
+fn windows_change_time(file: &fs::File) -> Option<i128> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        FileBasicInfo, GetFileInformationByHandleEx, FILE_BASIC_INFO,
+    };
+
+    let mut info = FILE_BASIC_INFO::default();
+    // SAFETY: the borrowed handle is live and the output buffer is exactly
+    // the type and size selected by FileBasicInfo.
+    let ok = unsafe {
+        GetFileInformationByHandleEx(
+            file.as_raw_handle() as _,
+            FileBasicInfo,
+            (&mut info as *mut FILE_BASIC_INFO).cast(),
+            std::mem::size_of::<FILE_BASIC_INFO>() as u32,
+        )
+    };
+    // FILETIME uses 100 ns ticks since 1601. The index compares stamps only
+    // from the same native identity, so the epoch does not need conversion.
+    (ok != 0 && info.ChangeTime > 0).then(|| i128::from(info.ChangeTime) * 100)
 }
 
 #[cfg(not(any(unix, windows)))]
-fn native_id(_: &Path, _: &fs::Metadata) -> Option<NativeId> {
-    None
+fn native_metadata(_: &Path, _: &fs::Metadata, _: bool) -> (Option<NativeId>, Option<i128>) {
+    (None, None)
 }
 
 /// Open a jailed path for reading, refusing a symlink **at the final component**.

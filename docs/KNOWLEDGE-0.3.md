@@ -32,8 +32,9 @@ reports unresolved targets, offers path filtering and an accessible note list,
 and opens a note by click or keyboard. Responses are bounded to 1,000 notes,
 5,000 edges and 1,000 unresolved links; the graph draws at most 80 filtered
 nodes. Limits, stale/cancelled/running indexes and skipped files are labeled
-partial. Rebuild refreshes these derived facts; index schema 2 rebuilds schema
-1 rather than trusting pre-wiki/tag documents. Registry schema is unchanged.
+partial. Rebuild refreshes these derived facts. Indexes from before the wiki
+and tag parser are rebuilt. Schema 3 keeps existing schema 2 documents and
+verifies their hashes on the next scan. Registry schema is unchanged.
 
 Reviewed rename/move extends the 0.2 flow to unambiguous wiki destinations.
 The preview preserves aliases/fragments and emits an explicit root-qualified

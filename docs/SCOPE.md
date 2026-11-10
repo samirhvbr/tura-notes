@@ -146,7 +146,7 @@ NoteId        uuid, gerado na primeira vez que a nota é vista; persiste em regi
 RelPath       relativo à raiz, como está no disco (nunca reescrito)
 CompareKey    NFC + case-fold conforme o FS da raiz; só para comparar e detectar colisão
 Size, Mtime   sinais
-ContentHash   blake3; recalculado quando size/mtime mudam ou em reindex
+ContentHash   BLAKE3 of the file bytes, checked by the read and write contracts below
 NativeId      inode (Unix) / FileIndex (Windows) quando o FS fornece; sinal forte, não prova
 BaseRev       versão do arquivo que o buffer aberto viu (size + mtime + hash)
 Rev           inteiro local monotônico por nota
@@ -286,7 +286,7 @@ Perfil 0.1: CommonMark + GFM (tabelas, tasklists, strikethrough, autolinks). Foo
 ## 11. Índice (0.2)
 
 - SQLite em app data. Tabelas: `notes` (id, path, size, mtime, hash, rev), `links`, `tags`, `fts` (unicode61, `remove_diacritics`).
-- Incremental: `(size, mtime)` mudou → rehash; hash mudou → reparse. Alteração externa invalida derivados. Reindex sob comando, com indicador de progresso; resultado parcial é marcado como parcial.
+- An incremental scan checks file identity and change time along with size and modification time. If the cache fingerprint differs or is unavailable, it hashes the file and reparses it when the hash changes. External changes invalidate derived results. A manual rebuild reports progress and labels partial results. See [ADR-110](decisions.md#adr-110--the-index-checks-native-identity-and-change-time-before-skipping-content).
 - Reindexar não altera notas nem `NoteId`.
 
 ## 12. Concorrência e conflito (0.1a)

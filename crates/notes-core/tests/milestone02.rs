@@ -52,6 +52,49 @@ fn incremental_rebuild_preserves_bytes_and_identity_and_recents() {
     indexed(&mut s, false);
     assert!(s.word_hits("replacement").unwrap().0.is_empty());
 }
+
+#[test]
+fn incremental_index_notices_timestamp_preserving_changes() {
+    for replace in [true, false] {
+        let root = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let note = root.path().join("case.md");
+        fs::write(&note, "hearing monday\n").unwrap();
+        let modified = fs::metadata(&note).unwrap().modified().unwrap();
+        let mut s = WorkspaceService::with_data_dir(data.path()).unwrap();
+        s.open_workspace(root.path()).unwrap();
+        assert_eq!(indexed(&mut s, false).indexed, 1);
+        assert_eq!(s.word_hits("monday").unwrap().0.len(), 1);
+        drop(s);
+
+        let target = if replace {
+            root.path().join("replacement")
+        } else {
+            note.clone()
+        };
+        fs::write(&target, "hearing friday\n").unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&target)
+            .unwrap()
+            .set_modified(modified)
+            .unwrap();
+        if replace {
+            fs::rename(&target, &note).unwrap();
+        }
+        assert_eq!(fs::metadata(&note).unwrap().modified().unwrap(), modified);
+
+        let mut s = WorkspaceService::with_data_dir(data.path()).unwrap();
+        s.open_workspace(root.path()).unwrap();
+        assert_eq!(indexed(&mut s, false).indexed, 1, "replace={replace}");
+        assert!(s.word_hits("monday").unwrap().0.is_empty());
+        let (hits, partial) = s.word_hits("friday").unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(!partial);
+        assert_eq!(indexed(&mut s, false).unchanged, 1);
+    }
+}
+
 #[test]
 fn reviewed_move_updates_both_directions_and_keeps_backup() {
     let root = tempfile::tempdir().unwrap();

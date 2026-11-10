@@ -8,6 +8,7 @@ fn fts_words_are_tokens_and_not_a_query_language() {
         path: "a.md".into(),
         size: 42,
         mtime: "1".into(),
+        fingerprint: None,
     };
     index
         .apply(
@@ -102,7 +103,85 @@ fn upgrading_derived_parser_schema_clears_only_index_data() {
     assert_eq!(
         db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        2
+        3
+    );
+}
+
+#[test]
+fn fingerprint_migration_preserves_fts_and_parser_documents() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("index.db");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(
+        "CREATE TABLE notes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime TEXT NOT NULL,
+           hash TEXT NOT NULL, document TEXT NOT NULL);
+         CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, text, tokenize='unicode61 remove_diacritics 2');
+         INSERT INTO fts(rowid,path,text) VALUES(77,'old.md','# Original');
+         PRAGMA user_version=2;",
+    )
+    .unwrap();
+    let document = serde_json::to_string(&notes_markdown::parse("# Original")).unwrap();
+    db.execute(
+        "INSERT INTO notes VALUES('old.md',10,'1','same',?1)",
+        [&document],
+    )
+    .unwrap();
+    drop(db);
+
+    let mut index = Index::open(&path).unwrap();
+    let cached = &index.plan().unwrap()["old.md"];
+    assert!(cached.fingerprint.is_none());
+    assert_eq!(cached.hash, "same");
+    assert_eq!(index.words("original", 10).unwrap().len(), 1);
+    let seen = Seen {
+        path: "old.md".into(),
+        size: 10,
+        mtime: "1".into(),
+        fingerprint: Some("native stamp".into()),
+    };
+    assert!(!cached.matches_metadata(&seen));
+    index
+        .apply(
+            Indexed {
+                seen: &seen,
+                hash: "same",
+                text: "",
+            },
+            false,
+        )
+        .unwrap();
+    assert!(index.plan().unwrap()["old.md"].matches_metadata(&seen));
+    assert_eq!(index.words("original", 10).unwrap().len(), 1);
+    drop(index);
+    let db = rusqlite::Connection::open(&path).unwrap();
+    let preserved: (i64, String) = db
+        .query_row(
+            "SELECT fts.rowid,document FROM fts JOIN notes USING(path)",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(preserved, (77, document));
+}
+
+#[test]
+fn future_index_schema_is_refused_without_changing_it() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("index.db");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.pragma_update(None, "user_version", 4).unwrap();
+    assert!(matches!(
+        Index::open(&path),
+        Err(CoreError::SchemaAhead {
+            found: 4,
+            supported: 3,
+            ..
+        })
+    ));
+    assert_eq!(
+        db.pragma_query_value::<u32, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        4
     );
 }
 
@@ -118,6 +197,7 @@ fn deleting_by_rowid_touches_only_the_note_it_names() {
         path: p.into(),
         size: 1,
         mtime: "1".into(),
+        fingerprint: None,
     };
     let (a, b, c) = (seen("a.md"), seen("b.md"), seen("c.md"));
     let put = |index: &mut Index, s: &Seen, text: &str| {
@@ -180,6 +260,7 @@ fn without_a_plan_the_delete_by_path_still_keeps_one_row_per_note() {
         path: "a.md".into(),
         size: 1,
         mtime: "1".into(),
+        fingerprint: None,
     };
     index
         .apply(

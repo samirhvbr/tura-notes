@@ -3627,3 +3627,17 @@ The 22 differences of the safe-Rust parser are not cosmetic: `.inf`, `.nan` and 
 **Not observed.** The Tura screen itself with the five models, and a conversation in the assistant on one of them. The gateway's documentation warns that a cloud model with no provider key can be answered by the account's default model with the headers still naming the model asked for; here the control (`ShvIA:latest`) gave an empty answer to the same prompt that Haiku answered with `OK`, which suggests the default model did not answer, and is not proof.
 
 **A consequence for whoever runs a gateway for this assistant.** With the gateway's `OPENAI_COMPAT_DEBUG` on, every call to `/v1/chat/completions` is written to `storage/logs/inference-*.log` (the client's IP and user-agent, the whole request body, the answer, and the provider's error), kept 60 days by default. The gateway masks personal data and secrets before writing, which a record read on that server confirmed, and it does not hide the text itself: what the assistant sends of a note is readable there. The comment in the gateway's `config/openai_compat.php` still says the body is written raw, which its own code no longer does.
+
+## ADR-110 — The index checks native identity and change time before skipping content
+
+**Status:** `ACCEPTED` · 10/11/2026 · implemented in 1.12.0.
+
+**Context.** An external restore can replace a note with different bytes of
+the same size and modification time. The next scan kept the old search entry
+and reported the note unchanged. [Issue #98](https://github.com/samirhvbr/tura-notes/issues/98)
+
+**Decision.** Require an available native identity and a usable status-change
+time for a metadata-only cache hit. Otherwise compare content hashes and reuse
+the parser and search entries when the bytes match. A matching fingerprint is
+a fast path for the derived cache. Rebuild still reads the saved bytes, and the
+index has no authority over file identity or write safety. [ADR-039](#adr-039--sqlite-stores-facts-the-core-owns-workspace-io)

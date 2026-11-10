@@ -1302,10 +1302,20 @@ numbers continue from the last ADR there.
 
 ADR-039 settles the crate boundary deferred by ADR-003. `notes-index` receives
 facts and text; only core traverses and reads notes through `notes-fs`. Its
-`plan()` returns cached metadata; core compares `(size, mtime)`, reads/hashes
-changed files and invokes `apply()` with whether parsing is required. An
-unchanged hash updates metadata only. The derived schema stores path metadata,
-serialized parser documents (including links/images and headings), and FTS5.
+`plan()` returns cached metadata. Core skips a content read when the size,
+modification time and cache fingerprint all match. The fingerprint combines
+the native file ID, birth time when available, and status-change time (`ctime`
+on Unix, `FILE_BASIC_INFO.ChangeTime` on Windows). A missing identity or a
+change stamp that is unavailable or rounded to whole milliseconds makes the
+scan read and hash the file. An equal hash refreshes metadata only when it
+changed. A different hash replaces the parser document and FTS5 entry.
+Rebuild always reads the content. See [ADR-110](decisions.md#adr-110--the-index-checks-native-identity-and-change-time-before-skipping-content).
+
+Derived schema 3 adds a nullable fingerprint to schema 2 in one transaction.
+The next scan rechecks rows without a fingerprint and preserves their parsed
+documents and FTS5 text when their hashes still match. An older build refuses
+the newer derived schema. The index also stores path metadata and serialized
+parser documents, including links, images and headings.
 NoteIds/revisions stay authoritative in the operational registry; independent
 SQL tag/graph tables are deferred to 0.3 rather than maintained empty.
 
@@ -1331,7 +1341,8 @@ limits and measured performance; this section supersedes earlier proposed
 
 [KNOWLEDGE-0.3.md](KNOWLEDGE-0.3.md) specifies the implemented parser, wiki
 resolution, bounded graph, attachments and scoped stdio MCP surfaces. Index
-schema 2 invalidates old derived parser documents; registry schema stays 1.
+schema 2 introduced invalidation of old derived parser documents. Registry
+schema stays 1.
 `notes-mcp` depends on core and has no Tauri or frontend dependency. Both
 processes use the same app-data directory, enrollment lock, identity lock and
 guarded save protocol. ADR-041 records these choices and their limits.

@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.0 - refresh indexed words after timestamp-preserving edits
+
+A replacement with different text and the original size and modification time left the old Words result in the index. Core now combines the filesystem's native identity and status-change time with size and modification time before skipping a read. If those signals are missing or coarse, it hashes the file and keeps the parsed document and search row when the hash matches.
+
+Derived schema 3 adds the fingerprint to existing indexes without clearing their search text or parser documents. The first incremental scan verifies legacy rows by hash. Tests cover replacements and in-place edits that preserve timestamps, migration without recreating a search row, and refusal of a newer schema. The 10,000-note macOS debug corpus measured a 212 ms unchanged pass with fingerprints and 3.292 s with them deliberately unavailable. See ADR-110 and the 0.2 acceptance document for the measurements and their scope.
+
 ## 1.11.42 - refresh the reviewed Rust, frontend, and server build dependencies
 
 Integrates the eleven updates proposed in #77 through #87. The server builder keeps the `rust:1.99.1-bookworm` tag and takes the new pinned digest. The Rust lockfile resolves `libc` 0.2.191, `uuid` 1.29.2, `ignore` 0.4.34, `notify` 8.2.2, and `flate2` 1.1.11. The frontend resolves Tauri API and CLI 2.12.4, dialog 2.8.4, Vitest 5.1.0, and jsdom 31.0.0. The aggregate lock changes match the original pull requests, including their resolved patch versions.
