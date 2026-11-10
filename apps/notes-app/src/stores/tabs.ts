@@ -81,8 +81,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     const existing = get().tabs.find((t) => t.path === path);
     if (existing) return get().activate(existing.noteId);
 
-    await leaveCurrent();
-    await useEditor.getState().open(path);
+    if (!(await leaveCurrent()) || !(await useEditor.getState().open(path))) return;
     const doc = useEditor.getState().doc;
     if (!doc) return;
     // Opening from the palette, a search hit or the history is the same act as
@@ -126,8 +125,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     const tab = get().tabs.find((t) => t.noteId === noteId);
     if (!tab) return;
 
-    await leaveCurrent();
-    await useEditor.getState().open(tab.path);
+    if (!(await leaveCurrent()) || !(await useEditor.getState().open(tab.path))) return;
     set({ activeId: noteId });
     // Every route that shows a note lands here - the tree, the palette, search,
     // a link - so the drawer is handed back to the note in one place instead of
@@ -139,26 +137,30 @@ export const useTabs = create<TabsState>((set, get) => ({
 
   async close(noteId) {
     const { tabs, activeId } = get();
-    const i = tabs.findIndex((t) => t.noteId === noteId);
-    if (i < 0) return;
-
-    if (activeId === noteId) await leaveCurrent();
-    const rest = tabs.filter((t) => t.noteId !== noteId);
+    if (!tabs.some((t) => t.noteId === noteId)) return;
 
     if (activeId !== noteId) {
-      set({ tabs: rest });
+      set({ tabs: tabs.filter((t) => t.noteId !== noteId) });
       schedulePersist(get);
       return;
     }
+    if (!(await leaveCurrent()) || get().activeId !== noteId) return;
+    const current = get().tabs;
+    const i = current.findIndex((t) => t.noteId === noteId);
     // Closing the active tab activates its neighbour — the one to the right,
     // then the one to the left, which is what every editor does.
-    const next = rest[i] ?? rest[i - 1] ?? null;
-    set({ tabs: rest, activeId: next?.noteId ?? null });
+    const next = current[i + 1] ?? current[i - 1] ?? null;
     if (next) {
-      await useEditor.getState().open(next.path);
+      const neighborStillOpen = () => get().activeId === noteId &&
+        get().tabs.some((tab) => tab.noteId === next.noteId && tab.path === next.path);
+      if (!(await useEditor.getState().open(next.path, neighborStillOpen))) return;
     } else {
       useEditor.getState().close();
     }
+    set((s) => ({
+      tabs: s.tabs.filter((t) => t.noteId !== noteId),
+      activeId: next?.noteId ?? null,
+    }));
     schedulePersist(get);
   },
 
@@ -259,11 +261,10 @@ export const useTabs = create<TabsState>((set, get) => ({
     const tab = tabs.find((t) => t.noteId === active) ?? tabs[0];
     if (tab) {
       try {
-        await useEditor.getState().open(tab.path);
-        // The session restores the editor and the tab strip; without this the
-        // sidebar came back with every folder shut, so a note inside one was
-        // the only thing on screen with no visible home.
-        await useWorkspace.getState().reveal(tab.path);
+        if (await useEditor.getState().open(tab.path)) {
+          // Show the restored note's location in the tree.
+          await useWorkspace.getState().reveal(tab.path);
+        }
       } catch {
         // The note is gone. Its tab goes with it rather than sitting there
         // failing to open every time it is clicked.
@@ -297,29 +298,17 @@ function visited(path: RelPath) {
 }
 
 /** Leave the current document safely before another takes its place. */
-async function leaveCurrent(): Promise<void> {
+async function leaveCurrent(): Promise<boolean> {
   const doc = useEditor.getState().doc;
-  if (!doc) return;
-  if (doc.bufferVersion !== doc.savedVersion) {
-    if (doc.conflict) {
-      // Suspended: the buffer goes to the draft, never to the note.
-      await useEditor.getState().keepDraft("conflict");
-    } else {
-      await useEditor.getState().save(true);
-    }
-  }
+  if (!doc || doc.bufferVersion === doc.savedVersion) return true;
+  if (!doc.conflict) await useEditor.getState().save(true);
 
-  // The flush having returned is not the same as the buffer being on disk. It
-  // refuses under the sync barrier, it fails on I/O, and it lands stale when
-  // the user types during it — and the caller replaces the document either way.
-  // Re-reading is the whole point: the buffer this checks is the one that
-  // exists now, not the one captured before the await. A draft costs nothing
-  // and is the floor, which is the guard `reviewedMove` already applies before
-  // it acts on a document it did not flush itself.
+  // A flush can fail or land stale. Require a confirmed draft of the latest
+  // text before dropping the buffer in either case.
   const after = useEditor.getState().doc;
-  if (after && after.noteId === doc.noteId && after.bufferVersion !== after.savedVersion) {
-    await useEditor.getState().keepDraft("exit");
-  }
+  if (!after || after.noteId !== doc.noteId) return false;
+  if (after.bufferVersion === after.savedVersion) return true;
+  return useEditor.getState().keepDraft(after.conflict ? "conflict" : "exit");
 }
 
 function schedulePersist(get: () => TabsState) {
