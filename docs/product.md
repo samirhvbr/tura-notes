@@ -371,10 +371,11 @@ runs, openable and editable in place.
   on the server in the meantime is a conflict the user resolves: compare, keep
   mine, use the server's, or save mine as a copy. It is never overwritten.
 - **An unsent edit stays in the buffer until it is sent or the user confirms
-  discarding it.** Offline, it waits and retries. A tab and the window ask before
-  closing over it. Deleting a note from the server also asks before discarding
-  the edits already in the tab. Edits made while the delete request is pending
-  remain in the tab and can be put back on the server or saved as a local note.
+  discarding it.** Offline, it waits and retries. A tab, the window close control
+  and the app's Quit menu ask before closing over it. Deleting a note from the
+  server also asks before discarding the edits already in the tab. Edits made
+  while the delete request is pending remain in the tab and can be put back on
+  the server or saved as a local note.
   There is no hidden cache and no draft of a remote note anywhere.
 - **Not in this version:** editing offline with an upload queue, the remote
   folder with no local folder open, images and attachments on the server,

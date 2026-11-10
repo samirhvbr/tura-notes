@@ -364,12 +364,25 @@ the buffer cannot be, or has not been, written to the note. Sidecar:
 ```
 
 Written when: a save is refused (conflict) or fails (I/O); a buffer has been
-dirty for more than 30 s without a confirmed save; the app exits with dirty
-buffers. Removed only after a confirmed write of a `buffer_version` ≥ the
-draft's. A separate app-data lock serializes draft writes with that removal,
-so a draft can still be written when the workspace write lock is unavailable.
+dirty for more than 30 s without a confirmed save; a desktop close request
+cannot flush the latest buffer. Removed only after a confirmed write of a
+`buffer_version` ≥ the draft's. A separate app-data lock serializes draft writes
+with that removal, so a draft can still be written when the workspace write
+lock is unavailable.
 On `note_open`, an existing draft is returned alongside the disk text and the
 UI asks: restore draft / keep disk / compare.
+
+The desktop window control and the app's Quit menu use the same native close
+request. The native window stays open while the editor flushes the local note
+or confirms that its latest text is in a draft. The remote note is saved to the
+server or the user confirms discarding the exact unsent buffer (ADR-099).
+The editor drains in-flight IPC and freezes input before checking those
+buffers once more and closing the window. If it cannot verify them, it keeps
+the window and explains why. A request also stays held if the webview has not
+registered its close listener yet. macOS Dock Quit, system shutdown, and forced
+termination can bypass the window close request. The `beforeunload` fallback
+is best effort on those paths. Updater and sync recovery restarts keep their
+own guards (ADR-074 and ADR-094).
 
 ### 4.3 Conflicts
 

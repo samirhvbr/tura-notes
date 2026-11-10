@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as ipc from "../ipc";
 import type { NoteId, RelPath, Session, Tab } from "../ipc";
-import { useEditor } from "./editor";
+import { type OpenDoc, useEditor } from "./editor";
 // `workspace.ts` imports this module too. The cycle is safe because every use
 // here is `getState()` inside an async action — by the time one runs, both
 // modules have finished evaluating. A top-level read would not be.
@@ -81,7 +81,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     const existing = get().tabs.find((t) => t.path === path);
     if (existing) return get().activate(existing.noteId);
 
-    if (!(await leaveCurrent()) || !(await useEditor.getState().open(path))) return;
+    if ((await preserveLocalBuffer()) === false || !(await useEditor.getState().open(path))) return;
     const doc = useEditor.getState().doc;
     if (!doc) return;
     // Opening from the palette, a search hit or the history is the same act as
@@ -125,7 +125,7 @@ export const useTabs = create<TabsState>((set, get) => ({
     const tab = get().tabs.find((t) => t.noteId === noteId);
     if (!tab) return;
 
-    if (!(await leaveCurrent()) || !(await useEditor.getState().open(tab.path))) return;
+    if ((await preserveLocalBuffer()) === false || !(await useEditor.getState().open(tab.path))) return;
     set({ activeId: noteId });
     // Every route that shows a note lands here - the tree, the palette, search,
     // a link - so the drawer is handed back to the note in one place instead of
@@ -144,7 +144,7 @@ export const useTabs = create<TabsState>((set, get) => ({
       schedulePersist(get);
       return;
     }
-    if (!(await leaveCurrent()) || get().activeId !== noteId) return;
+    if ((await preserveLocalBuffer()) === false || get().activeId !== noteId) return;
     const current = get().tabs;
     const i = current.findIndex((t) => t.noteId === noteId);
     // Closing the active tab activates its neighbour — the one to the right,
@@ -297,18 +297,19 @@ function visited(path: RelPath) {
   void import("./history").then((m) => m.useHistoryStore.getState().visited(path));
 }
 
-/** Leave the current document safely before another takes its place. */
-async function leaveCurrent(): Promise<boolean> {
-  const doc = useEditor.getState().doc;
-  if (!doc || doc.bufferVersion === doc.savedVersion) return true;
-  if (!doc.conflict) await useEditor.getState().save(true);
+/** The buffer that may be left behind, or false if its text is still at risk. */
+export async function preserveLocalBuffer(): Promise<OpenDoc | null | false> {
+  const { doc, save, keepDraft } = useEditor.getState();
+  if (!doc || doc.bufferVersion === doc.savedVersion) return doc;
+  if (!doc.conflict) await save(true);
 
   // A flush can fail or land stale. Require a confirmed draft of the latest
   // text before dropping the buffer in either case.
-  const after = useEditor.getState().doc;
-  if (!after || after.noteId !== doc.noteId) return false;
-  if (after.bufferVersion === after.savedVersion) return true;
-  return useEditor.getState().keepDraft(after.conflict ? "conflict" : "exit");
+  const current = useEditor.getState().doc;
+  if (!current || current.noteId !== doc.noteId) return false;
+  if (current.bufferVersion !== current.savedVersion &&
+      !(await keepDraft(current.conflict ? "conflict" : "exit"))) return false;
+  return current;
 }
 
 function schedulePersist(get: () => TabsState) {

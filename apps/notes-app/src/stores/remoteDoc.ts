@@ -37,7 +37,7 @@ import { useUi } from "./ui";
  * edit is this buffer, so it is never dropped:
  * - offline, it retries with backoff;
  * - a tab refuses to close over it without asking;
- * - the window refuses to close over it (`App.tsx`);
+ * - the window refuses to close over it (`app/DesktopClose.ts`);
  * - the way out when the server will not take it is "save a copy to the local
  *   folder", as an ordinary note.
  */
