@@ -81,6 +81,29 @@ fn renaming_a_folder_carries_the_notes_inside_it() {
     );
 }
 
+#[test]
+fn renaming_a_folder_preserves_a_note_and_draft_opened_in_another_service() {
+    let mut f = setup();
+    let mut other = WorkspaceService::with_data_dir(f.svc.data_dir()).unwrap();
+    other.open_workspace(f.work.path()).unwrap();
+    let opened = other.open_note(&rel("pasta/dentro/b.md")).unwrap();
+    other
+        .write_draft(
+            opened.note_id,
+            "recoverable text",
+            3,
+            &opened.base_rev,
+            notes_core::DraftReason::Stale,
+        )
+        .unwrap();
+
+    f.svc.rename_entry(&rel("pasta"), "renamed").unwrap();
+
+    let renamed = f.svc.open_note(&rel("renamed/dentro/b.md")).unwrap();
+    assert_eq!(renamed.note_id, opened.note_id);
+    assert!(renamed.draft.is_some());
+}
+
 /// A sibling whose name merely *starts with* the renamed folder's name is not
 /// inside it. A naive prefix test moves it and silently corrupts the registry.
 #[test]
@@ -279,6 +302,18 @@ fn deleting_a_folder_forgets_every_note_beneath_it() {
         "a note outside the folder is not touched"
     );
     assert!(f.work.path().join("nota.md").exists());
+}
+
+#[test]
+fn deleting_a_folder_forgets_notes_opened_in_another_service() {
+    let mut f = setup();
+    let mut other = WorkspaceService::with_data_dir(f.svc.data_dir()).unwrap();
+    other.open_workspace(f.work.path()).unwrap();
+    let opened = other.open_note(&rel("pasta/a.md")).unwrap();
+
+    let deleted = f.svc.delete_entry(&rel("pasta")).unwrap();
+
+    assert_eq!(deleted.note_ids, vec![opened.note_id]);
 }
 
 /// A note deleted while it held unsaved edits is precisely the case where the

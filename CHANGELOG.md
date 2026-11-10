@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.36 - refresh note identities before moving or deleting entries
+
+When two processes opened the same workspace, a rename could miss a note ID
+assigned by the other process after the first one opened the workspace. The file
+moved, but reopening it assigned a new ID and no longer offered the existing
+draft. Deletion had the same stale view and could omit notes from the returned
+list of removed IDs. Both operations now refresh the registry under `write.lock`
+before touching the filesystem. The two-service regressions reproduce both
+failures on the previous version and pass with the fix on macOS, along with the
+entry and link-review suites.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).
