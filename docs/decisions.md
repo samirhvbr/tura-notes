@@ -1974,6 +1974,11 @@ without changing source files and applies the later live baseline. Cursor values
 and revision identities never move. This is payload retention, not history
 deletion or restored-application identity repair.
 
+The explicit client command now bounds candidate fetches per pass. Its optional
+continuation is tied to the queue and its acknowledged sequence and starts at
+the next unchecked candidate. It carries scan position only. The exact
+server-envelope check still authorizes each local payload removal.
+
 
 ## ADR-067 — Reconcile restored application identity explicitly
 

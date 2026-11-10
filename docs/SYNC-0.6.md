@@ -1218,17 +1218,34 @@ notes-sync-client prune-client /absolute/queue /absolute/credential.secret
 The queue checks its durable local acknowledgment cursor, constructs the exact
 metadata-only form, and fetches the server envelope before saving anything. A
 mismatch, unresolved branch or locally unacknowledged resolution stays unchanged
-and exportable. Each invocation compacts at most 20 resolutions and reports
-decoded bytes removed. It makes read requests only, does not alter application
-receipts, and never reads or writes source files. Later revisions still fetch and
-apply through the retained graph. Run it for every retained receive queue after
-the server operation; uploader queues keep their original recovery payloads.
+and exportable. Each invocation fetches at most 20 candidate revisions and
+reports revisions checked and decoded bytes removed. It makes read requests
+only and leaves application receipts and source files alone. Later revisions
+still fetch and apply through the retained graph.
+
+The first JSON line is the prune report and the second is the queue status.
+When the report has a non-null `next` cursor, pass that value to the next
+invocation even if the pass compacted zero revisions.
+
+```sh
+notes-sync-client prune-client /absolute/queue /absolute/credential.secret --resume "$CURSOR"
+```
+
+The scan is complete when `next` is null. If `server_busy` is true, the pass
+saved any verified compactions and the cursor points to the candidate it could
+not check. Wait for the server to accept requests again and resume. If the
+command reports busy before making progress, retry the same command and cursor.
+The cursor is bound to the queue's device, workspace, endpoint and acknowledged
+sequence. If the command rejects a stale cursor, start again without `--resume`.
+Start a fresh scan after each offline prune and for each retained receive queue.
+Uploader queues keep their original recovery payloads.
 
 Tests cover multiple devices at different causal positions, a tombstone after a
 resolution, an original-envelope retry after pruning, stopped-server enforcement,
 vault backup/restore, client/server mismatch, branch export removal and continued
-receive application. Linear publication content, current resolution bytes,
-whole-log cursor compaction and automatic scheduling remain queued.
+receive application. A loopback test exercises the production request limiter,
+resumption and cursor validation. Whole-log cursor compaction and automatic
+scheduling remain queued.
 
 ### Device-confirmed linear payload retention (0.20.22)
 

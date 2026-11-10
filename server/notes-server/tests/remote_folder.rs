@@ -24,6 +24,10 @@ struct Served {
 }
 
 fn serve(scope: &str, permissions: &[Permission]) -> Served {
+    serve_with_clock(scope, permissions, api::Clock::system())
+}
+
+fn serve_with_clock(scope: &str, permissions: &[Permission], clock: api::Clock) -> Served {
     let dir = tempfile::tempdir().unwrap();
     let data = admin::data_root(&dir.path().join("data")).unwrap();
     fs::create_dir_all(data.join("workspaces/home/notes")).unwrap();
@@ -42,7 +46,7 @@ fn serve(scope: &str, permissions: &[Permission]) -> Served {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
     let address = listener.local_addr().unwrap();
-    let app = api::router(api::Server::new(data.clone(), None));
+    let app = api::router(api::Server::new(data.clone(), None).with_clock(clock));
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
@@ -83,6 +87,178 @@ fn all() -> Vec<Permission> {
 }
 fn p(s: &str) -> RelPath {
     RelPath::parse(s).unwrap()
+}
+
+#[test]
+fn client_prune_can_reach_eligible_history_behind_the_http_rate_budget() {
+    use notes_sync_client::{
+        remote::{Endpoint, Remote, Transport},
+        state::{Mode, Store},
+    };
+    use std::{
+        path::Path,
+        sync::{Arc, Mutex},
+        time::Instant,
+    };
+
+    let clock = Arc::new(Mutex::new(Instant::now()));
+    let new_window = || *clock.lock().unwrap() += Duration::from_secs(61);
+    let server = serve_with_clock(".", &all(), api::Clock::manual(clock.clone()));
+    let endpoint = Endpoint {
+        scope: None,
+        origin: server.config.origin.clone(),
+        name: server.config.workspace.clone(),
+        allow_private: true,
+    };
+    let token_file = Path::new(&server.config.token_file);
+    let mut remote = Remote::connect(&endpoint, token_file, None).unwrap();
+    let root = server._dir.path();
+    let source = root.join("sender");
+    fs::create_dir(&source).unwrap();
+    let sender = Store::open(&root.join("sender-queue")).unwrap();
+    sender
+        .initialize(&source, endpoint.clone(), Mode::Upload, &mut remote)
+        .unwrap();
+    for i in 0..59 {
+        fs::write(source.join(format!("note-{i:02}.md")), "head").unwrap();
+    }
+    fs::write(source.join("target.md"), "prunable original").unwrap();
+    sender.stage().unwrap();
+    for _ in 0..3 {
+        new_window();
+        sender.transfer(&mut remote).unwrap();
+    }
+    fs::write(source.join("target.md"), "live head").unwrap();
+    sender.stage().unwrap();
+    new_window();
+    sender.transfer(&mut remote).unwrap();
+
+    let target = root.join("receiver");
+    fs::create_dir(&target).unwrap();
+    let queue = root.join("receiver-queue");
+    let receiver = Store::open(&queue).unwrap();
+    receiver
+        .initialize(&target, endpoint.clone(), Mode::Receive, &mut remote)
+        .unwrap();
+    for _ in 0..4 {
+        new_window();
+        receiver.fetch(&mut remote).unwrap();
+    }
+    let core_data = root.join("receiver-data");
+    while receiver.apply(&core_data).unwrap() > 0 {}
+    loop {
+        new_window();
+        if receiver.acknowledge(&mut remote).unwrap() == 0 {
+            break;
+        }
+    }
+    assert_eq!(receiver.status().unwrap().acknowledged_revisions, 61);
+    assert_eq!(
+        notes_server::sync::prune_resolved(&server.data, &endpoint.name)
+            .unwrap()
+            .pruned_resolutions,
+        1
+    );
+
+    new_window();
+    let mut remote = Remote::connect(&endpoint, token_file, None).unwrap();
+    let client_state = queue.join("client.json");
+    let application = queue.join("application.json");
+    let before = fs::read(&client_state).unwrap();
+    let receipts = fs::read(&application).unwrap();
+    let first = receiver.prune_client(&mut remote).unwrap();
+    assert_eq!(first.pruned_resolutions, 0);
+    assert_eq!(first.checked_revisions, 20);
+    assert!(!first.server_busy);
+    let next = first.next.as_deref().unwrap();
+
+    let (_, fingerprint) = next.rsplit_once(':').unwrap();
+    let altered = format!("v1:1:{fingerprint}");
+    assert!(matches!(
+        receiver.prune_client_from(&mut remote, Some(&altered)),
+        Err(Error::PruneCursor)
+    ));
+    // A second device with the same history and acknowledgment bound still
+    // cannot use the first device's cursor.
+    let other = root.join("other-queue");
+    fs::create_dir(&other).unwrap();
+    let mut other_state: serde_json::Value = serde_json::from_slice(&before).unwrap();
+    other_state["device"] = serde_json::json!(uuid::Uuid::new_v4());
+    fs::write(
+        other.join("client.json"),
+        serde_json::to_vec(&other_state).unwrap(),
+    )
+    .unwrap();
+    fs::write(other.join("application.json"), &receipts).unwrap();
+    assert!(matches!(
+        Store::open(&other)
+            .unwrap()
+            .prune_client_from(&mut remote, Some(next)),
+        Err(Error::PruneCursor)
+    ));
+
+    let second = receiver.prune_client_from(&mut remote, Some(next)).unwrap();
+    assert_eq!(second.pruned_resolutions, 0);
+    assert_eq!(second.checked_revisions, 20);
+    assert!(!second.server_busy);
+    let third = receiver
+        .prune_client_from(&mut remote, second.next.as_deref())
+        .unwrap();
+    assert_eq!(third.pruned_resolutions, 0);
+    assert_eq!(third.checked_revisions, 19);
+    assert!(third.server_busy);
+    let interrupted = third.next.as_deref().unwrap();
+    assert_eq!(fs::read(&client_state).unwrap(), before);
+    assert!(matches!(
+        receiver.prune_client_from(&mut remote, Some(interrupted)),
+        Err(Error::Busy)
+    ));
+
+    // Leave one request for the prunable revision. The following 429 must
+    // keep the completed compaction and resume at the next revision.
+    new_window();
+    for _ in 0..59 {
+        assert!(remote.page(61).unwrap().revisions.is_empty());
+    }
+    let partial = receiver
+        .prune_client_from(&mut remote, Some(interrupted))
+        .unwrap();
+    assert_eq!(partial.pruned_resolutions, 1);
+    assert_eq!(partial.pruned_payload_bytes, "prunable original".len());
+    assert_eq!(partial.checked_revisions, 1);
+    assert!(partial.server_busy);
+    let after = fs::read(&client_state).unwrap();
+    assert_ne!(after, before);
+    assert_eq!(fs::read(&application).unwrap(), receipts);
+    assert_eq!(fs::read(target.join("target.md")).unwrap(), b"live head");
+
+    new_window();
+    let receiver = Store::open(&queue).unwrap();
+    let done = receiver
+        .prune_client_from(&mut remote, Some(partial.next.as_deref().unwrap()))
+        .unwrap();
+    assert_eq!(done.pruned_resolutions, 0);
+    assert_eq!(done.checked_revisions, 1);
+    assert!(!done.server_busy);
+    assert!(done.next.is_none());
+    // A lost response can leave the operator with the previous continuation.
+    let replay = receiver
+        .prune_client_from(&mut remote, Some(interrupted))
+        .unwrap();
+    assert_eq!(replay.pruned_resolutions, 0);
+    assert!(replay.next.is_none());
+    assert_eq!(fs::read(&client_state).unwrap(), after);
+
+    fs::write(source.join("new.md"), "new publication").unwrap();
+    sender.stage().unwrap();
+    sender.transfer(&mut remote).unwrap();
+    receiver.fetch(&mut remote).unwrap();
+    assert_eq!(receiver.apply(&core_data).unwrap(), 1);
+    assert_eq!(receiver.acknowledge(&mut remote).unwrap(), 1);
+    assert!(matches!(
+        receiver.prune_client_from(&mut remote, Some(interrupted)),
+        Err(Error::PruneCursor)
+    ));
 }
 
 #[test]
