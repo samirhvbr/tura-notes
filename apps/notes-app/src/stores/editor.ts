@@ -135,7 +135,7 @@ function replacing(prev: OpenDoc, o: OpenedNote): OpenDoc {
   return { ...fromOpened(o), externalRev: prev.externalRev + 1 };
 }
 
-function sameBuffer(left: OpenDoc | null, right: OpenDoc | null): boolean {
+export function sameBuffer(left: OpenDoc | null, right: OpenDoc | null): boolean {
   return left === right || (left !== null && right !== null &&
     left.noteId === right.noteId && left.path === right.path &&
     left.bufferVersion === right.bufferVersion && left.externalRev === right.externalRev &&

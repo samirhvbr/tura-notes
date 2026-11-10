@@ -3,7 +3,7 @@ import {Graph,WikiDialog} from "./app/Knowledge";
 import { ReferenceReview } from "./app/ReferenceReview";
 import { RemoteBrowser } from "./remote/RemoteBrowser";
 import { RemoteEditor } from "./remote/RemoteEditor";
-import { dirty as remoteDirty, useRemoteDoc } from "./stores/remoteDoc";
+import { useRemoteDoc } from "./stores/remoteDoc";
 import { WorkspaceBrowser } from "./explorer/WorkspaceBrowser";
 import { IndexControls } from "./app/IndexControls";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +12,7 @@ import { StatusBar, errorText } from "./app/StatusBar";
 import { ReadOnlyBanner } from "./app/ReadOnlyBanner";
 import { Welcome } from "./app/Welcome";
 import { Dialog } from "./app/DialogHost";
+import { useDesktopClose } from "./app/DesktopClose";
 import { Tabs } from "./app/Tabs";
 import { Rail } from "./app/Rail";
 import { NoteHeader } from "./app/NoteHeader";
@@ -26,7 +27,7 @@ import { AiChat } from "./app/AiChat";
 import { useAi } from "./stores/ai";
 import { useTabs } from "./stores/tabs";
 import { useSettings } from "./stores/settings";
-import { askConfirm, askText } from "./app/dialog";
+import { askText } from "./app/dialog";
 import { Preview } from "./preview/Preview";
 import { Compare } from "./conflict/Compare";
 import { t } from "./i18n";
@@ -46,7 +47,7 @@ export default function App() {
   const clearNote = useWorkspace((s) => s.clearNote);
   const doc = useEditor((s) => s.doc);
   const save = useEditor((s) => s.save);
-  const keepDraft = useEditor((s) => s.keepDraft);
+  const quitProblem = useDesktopClose();
   const resolveDraft = useEditor((s) => s.resolveDraft);
   const convertEol = useEditor((s) => s.convertEol);
   const setAutosave = useEditor((s) => s.setAutosave);
@@ -161,56 +162,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [save, cycleView, closeActiveTab]);
 
-  // Closing with a dirty buffer keeps it: the draft is written on the way out.
-  useEffect(() => {
-    const onLeave = () => {
-      const d = useEditor.getState().doc;
-      if (d && d.bufferVersion !== d.savedVersion) void keepDraft("exit");
-    };
-    window.addEventListener("beforeunload", onLeave);
-    return () => window.removeEventListener("beforeunload", onLeave);
-  }, [keepDraft]);
-
-  // A remote note's unsent edit exists only in its buffer: there is no draft
-  // for it (ADR-099). The window asks before it closes over one, and says the
-  // way out is a copy in the local folder.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let live = true;
-    void import("@tauri-apps/api/window")
-      .then(({ getCurrentWindow }) => {
-        const win = getCurrentWindow();
-        return win.onCloseRequested(async (event) => {
-          const d = useRemoteDoc.getState().doc;
-          if (!remoteDirty(d)) return;
-          event.preventDefault();
-          await useRemoteDoc.getState().save();
-          if (!remoteDirty(useRemoteDoc.getState().doc)) {
-            await win.destroy();
-            return;
-          }
-          const leave = await askConfirm({
-            title: t("remote.unsent.title", { name: d!.path }),
-            body: t("remote.unsent.window"),
-            confirmLabel: t("remote.unsent.quit"),
-            danger: true,
-          });
-          if (leave) await win.destroy();
-        });
-      })
-      .then((u) => {
-        if (live) unlisten = u;
-        else u?.();
-      })
-      .catch(() => {
-        /* Outside Tauri (tests, a browser preview): nothing to guard. */
-      });
-    return () => {
-      live = false;
-      unlisten?.();
-    };
-  }, []);
-
   // A note that leaves conflict has nothing left to compare.
   useEffect(() => {
     if (!doc?.conflict && comparing) setComparing(false);
@@ -275,9 +226,11 @@ export default function App() {
   // The Help menu is there before a workspace is: About and the Markdown guide
   // have to open from the welcome screen too, and the guide is most needed by
   // the person who has just arrived.
+  const quitWarning = quitProblem && <div className="banner warn" role="alert">{quitProblem}</div>;
   if (!info)
     return (
       <>
+        {quitWarning}
         <Welcome />
         {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
         {guideOpen && <MarkdownGuideDialog onClose={() => setGuideOpen(false)} />}
@@ -332,6 +285,7 @@ export default function App() {
         )}
 
         <main className="main">
+          {quitWarning}
           {panel === "graph" ? <Graph/> : mainView === "remote" ? <>
           <Tabs onNew={newNote} />
           <RemoteEditor />

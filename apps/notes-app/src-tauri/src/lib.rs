@@ -48,8 +48,20 @@ pub fn run() {
         // outside. This says which, and who asked — without it the next
         // occurrence is as undiagnosable as the first.
         .on_window_event(|window, event| match event {
-            tauri::WindowEvent::CloseRequested { .. } => {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 eprintln!("[notes] window {}: close requested", window.label());
+                #[cfg(desktop)]
+                if window.label() == "main" {
+                    use tauri::Emitter;
+                    // Hold close even before the webview's listener is ready.
+                    // The editor destroys the window after protecting its text.
+                    api.prevent_close();
+                    if let Err(error) = window.emit("notes://close-requested", ()) {
+                        eprintln!("[notes] could not notify the editor of close: {error}");
+                    }
+                }
+                #[cfg(not(desktop))]
+                let _ = api;
             }
             tauri::WindowEvent::Destroyed => {
                 eprintln!("[notes] window {}: destroyed", window.label());
@@ -98,6 +110,29 @@ pub fn run() {
                 use tauri::Emitter;
                 let handle = app.handle();
                 let menu = Menu::default(handle)?;
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
+                {
+                    // Tauri's default starts with the macOS application menu
+                    // or the Windows File menu, and Quit is its last item.
+                    // Keep its platform label and accelerator but route it
+                    // through the same close guard as the window button.
+                    let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next()
+                    else {
+                        return Err("missing desktop application menu".into());
+                    };
+                    let Some(MenuItemKind::Predefined(quit)) = app_menu.items()?.pop() else {
+                        return Err("missing native Quit menu item".into());
+                    };
+                    let label = quit.text()?;
+                    app_menu.remove(&quit)?;
+                    app_menu.append(&MenuItem::with_id(
+                        handle,
+                        "guarded-quit",
+                        label,
+                        true,
+                        Some("CmdOrCtrl+Q"),
+                    )?)?;
+                }
                 // Appending to the default rather than building a menu: the
                 // default carries Edit with cut, copy, paste and select-all, and
                 // a WebView whose menu loses those loses the shortcuts too.
@@ -119,10 +154,18 @@ pub fn run() {
                     )?)?;
                 }
                 app.set_menu(menu)?;
-                // The one place the shell speaks to the frontend instead of
-                // answering it. A command cannot carry this: the menu is on this
-                // side and nothing in the webview knows it was clicked.
+                // The shell routes native menu actions to the window or webview.
                 app.on_menu_event(|app, event| {
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    if event.id() == "guarded-quit" {
+                        use tauri::Manager;
+                        if let Some(window) = app.get_webview_window("main") {
+                            if let Err(error) = window.close() {
+                                eprintln!("[notes] could not request window close: {error}");
+                            }
+                        }
+                        return;
+                    }
                     if event.id() == "about" {
                         let _ = app.emit("menu://about", ());
                     } else if event.id() == "markdown-guide" {

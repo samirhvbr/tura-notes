@@ -37,10 +37,8 @@ export function engine(os: string, ua: string = navigator.userAgent): string {
 /**
  * Open on the native Help ▸ About item.
  *
- * The only place the shell speaks to the frontend instead of answering it. No
- * command can do this: the menu lives on the other side and nothing in the
- * webview knows it was clicked. `listen` is rejected where there is no Tauri
- * bus — a browser, a test — and that is the catch, not an error worth showing.
+ * The native shell sends the menu click over the Tauri event bus. `listen`
+ * is rejected in a browser preview, where the native menu is unavailable.
  */
 export function useAboutMenu(open: (value: boolean) => void) {
   useEffect(() => {
