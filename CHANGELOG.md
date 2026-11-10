@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.42 - refresh the reviewed Rust, frontend, and server build dependencies
+
+Integrates the eleven updates proposed in #77 through #87. The server builder keeps the `rust:1.99.1-bookworm` tag and takes the new pinned digest. The Rust lockfile resolves `libc` 0.2.191, `uuid` 1.29.2, `ignore` 0.4.34, `notify` 8.2.2, and `flate2` 1.1.11. The frontend resolves Tauri API and CLI 2.12.4, dialog 2.8.4, Vitest 5.1.0, and jsdom 31.0.0. The aggregate lock changes match the original pull requests, including their resolved patch versions.
+
+The Rust updates left the committed notices stale, and the two shipped Tauri npm updates also change the notices now that CI installs npm dependencies before comparing them. Regenerate the whole notice file with both ecosystems available. The batch passed 408 focused Rust tests, 379 frontend tests, lint, the frontend build, the Windows GNU cross-check, and a native TCP smoke test. A Linux arm64 container built from the pinned server image completed an offline backup and restore with the same note bytes. Installed-client acceptance and production deployment were outside these checks.
+
 ## 1.11.41 - a remote delete keeps edits made after the request starts
 
 The remote delete contract allows a confirmation to discard edits already in an open tab. The dialog only described the server copy, and the delete response also closed the tab over any text typed while the request was pending, even if the tab had been opened after the request started.
