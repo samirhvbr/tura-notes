@@ -307,6 +307,77 @@ it("deleting the open note uses the tag it was saved at and closes it, whatever 
   expect(useRemoteDoc.getState().tabs).toEqual([]);
 });
 
+it("keeps text entered after remote deletion was requested", async () => {
+  await opened();
+  let done!: () => void;
+  vi.mocked(ipc.remoteDelete).mockReturnValueOnce(new Promise((resolve) => { done = resolve; }));
+
+  const deleting = useRemoteDoc.getState().remove();
+  useRemoteDoc.getState().edit("edit during deletion");
+  done();
+  await deleting;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "a.md", text: "edit during deletion", status: "gone",
+  });
+});
+
+it("keeps the newly active tab when a delete finishes after switching away", async () => {
+  await opened();
+  let done!: () => void;
+  vi.mocked(ipc.remoteDelete).mockReturnValueOnce(new Promise((resolve) => { done = resolve; }));
+
+  const deleting = useRemoteDoc.getState().remove();
+  vi.mocked(ipc.remoteOpen).mockResolvedValueOnce(note("b.md", "other note", '"b"'));
+  await useRemoteDoc.getState().open("b.md");
+  useRemoteDoc.getState().edit("edit in the other note");
+  done();
+  await deleting;
+
+  expect(useRemoteDoc.getState().tabs).toEqual(["b.md"]);
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "b.md", text: "edit in the other note", status: "pending",
+  });
+});
+
+it("keeps an edit to the deleted note if it was opened while the tree deletion was pending", async () => {
+  await opened();
+  let done!: () => void;
+  vi.mocked(ipc.remoteDelete).mockReturnValueOnce(new Promise((resolve) => { done = resolve; }));
+
+  const deleting = useRemoteDoc.getState().deleteNote("b.md", '"b"');
+  vi.mocked(ipc.remoteOpen).mockResolvedValueOnce(note("b.md", "other note", '"b"'));
+  await useRemoteDoc.getState().open("b.md");
+  useRemoteDoc.getState().edit("edit in the deleted note");
+  done();
+  await deleting;
+
+  expect(useRemoteDoc.getState().tabs).toContain("b.md");
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "b.md", text: "edit in the deleted note", status: "gone",
+  });
+});
+
+it("keeps recovery available when an earlier save fails after the delete succeeds", async () => {
+  await opened();
+  let rejectSave!: (error: ipc.CoreError) => void;
+  vi.mocked(ipc.remoteSave).mockReturnValueOnce(new Promise((_, reject) => { rejectSave = reject; }));
+  vi.mocked(ipc.remoteDelete).mockResolvedValueOnce(undefined);
+  useRemoteDoc.getState().edit("unsent edit");
+  const saving = useRemoteDoc.getState().save();
+  await vi.waitFor(() => expect(ipc.remoteSave).toHaveBeenCalledTimes(1));
+
+  const deleting = useRemoteDoc.getState().remove();
+  useRemoteDoc.getState().edit("newer edit");
+  await deleting;
+  rejectSave({ code: "sync", cause: "offline" });
+  await saving;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "a.md", text: "newer edit", status: "gone",
+  });
+});
+
 it("a note already gone from the server is a delete that is done, and the list is refreshed", async () => {
   // The goal was for it to be gone. Failing because it already is would leave the
   // row on screen until the next refresh, asking the person to delete a ghost.
