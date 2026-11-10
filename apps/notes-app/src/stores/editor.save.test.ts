@@ -13,6 +13,7 @@ import { useEditor } from "./editor";
 import type { OpenDoc } from "./editor";
 
 vi.mock("../ipc", () => ({
+  draftResolve: vi.fn(),
   noteSave: vi.fn(),
   noteFlush: vi.fn(),
   asCoreError: (e: unknown) => ({ code: "internal", message: String(e) }),
@@ -41,6 +42,37 @@ function doc(over: Partial<OpenDoc> = {}): OpenDoc {
 
 beforeEach(() => { useEditor.setState({ doc: doc() }); });
 afterEach(() => { useEditor.setState({ doc: null }); vi.clearAllMocks(); });
+
+const draft = { reason: "stale", buffer_version: 7 } as ipc.DraftInfo;
+
+it("a clean flush leaves a pending recovery draft alone", async () => {
+  useEditor.setState({ doc: doc({ bufferVersion: 0, savedVersion: 0, draft }) });
+
+  await useEditor.getState().save(true);
+
+  expect(ipc.noteFlush).not.toHaveBeenCalled();
+  expect(useEditor.getState().doc?.draft).toBe(draft);
+});
+
+it("a restored draft saves at its recovered version and clears the banner", async () => {
+  const current = doc({ bufferVersion: 0, savedVersion: 0, draft });
+  useEditor.setState({ doc: current });
+  vi.mocked(ipc.draftResolve).mockResolvedValue({
+    note_id: current.noteId,
+    path: current.path,
+    text: "recovered edits",
+    base_rev: rev,
+    read_only: null,
+    draft,
+  } as ipc.OpenedNote);
+  vi.mocked(ipc.noteFlush).mockResolvedValue(savedAt(7));
+
+  await useEditor.getState().resolveDraft(true);
+  await useEditor.getState().save(true);
+
+  expect(ipc.noteFlush).toHaveBeenCalledWith(current.noteId, "recovered edits", 7, rev);
+  expect(useEditor.getState().doc?.draft).toBeNull();
+});
 
 it("a flush asked while an autosave is running still reaches the core", async () => {
   const first = held<ipc.SaveResult>();

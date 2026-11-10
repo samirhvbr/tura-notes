@@ -366,8 +366,10 @@ the buffer cannot be, or has not been, written to the note. Sidecar:
 Written when: a save is refused (conflict) or fails (I/O); a buffer has been
 dirty for more than 30 s without a confirmed save; the app exits with dirty
 buffers. Removed only after a confirmed write of a `buffer_version` ≥ the
-draft's. On `note_open`, an existing draft is returned alongside the disk text
-and the UI asks: restore draft / keep disk / compare.
+draft's. A separate app-data lock serializes draft writes with that removal,
+so a draft can still be written when the workspace write lock is unavailable.
+On `note_open`, an existing draft is returned alongside the disk text and the
+UI asks: restore draft / keep disk / compare.
 
 ### 4.3 Conflicts
 

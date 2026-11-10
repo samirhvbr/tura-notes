@@ -58,7 +58,8 @@ pub fn write(dir: &Path, draft: &Draft) -> Result<(), CoreError> {
     })?;
     header.push(b'\n');
     header.extend_from_slice(&draft.bytes);
-    crate::state::write_atomic(&path_for(dir, draft.info.note_id), &header)
+    let mut lock = crate::lock::acquire(&dir.with_extension("lock"))?;
+    lock.with(|| crate::state::write_atomic(&path_for(dir, draft.info.note_id), &header))?
 }
 
 pub fn read(dir: &Path, id: NoteId) -> Result<Option<Draft>, CoreError> {
@@ -105,10 +106,26 @@ pub fn read(dir: &Path, id: NoteId) -> Result<Option<Draft>, CoreError> {
     }))
 }
 
-/// Remove a draft — **only** once a write of at least its `buffer_version` has
-/// been confirmed. It is the only copy of something the user typed, so it never
-/// expires and no cleanup touches it.
+/// Remove a draft after an explicit resolution.
 pub fn discard(dir: &Path, id: NoteId) -> Result<(), CoreError> {
+    discard_through(dir, id, u64::MAX)
+}
+
+/// Remove a draft only when the confirmed save covers its buffer version.
+pub(crate) fn discard_through(dir: &Path, id: NoteId, version: u64) -> Result<(), CoreError> {
+    if matches!(
+        std::fs::symlink_metadata(path_for(dir, id)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound
+    ) {
+        return Ok(());
+    }
+    // Draft writes need to work even when the workspace write lock timed out.
+    // Use a separate lock, outside the drafts directory that sync checks.
+    let mut lock = crate::lock::acquire(&dir.with_extension("lock"))?;
+    lock.with(|| discard_locked(dir, id, version))?
+}
+
+fn discard_locked(dir: &Path, id: NoteId, version: u64) -> Result<(), CoreError> {
     let p = path_for(dir, id);
     // Deleting a draft whose header never parsed is deleting bytes nobody has
     // read. `read` now refuses that file rather than calling it absent, so the
@@ -117,10 +134,15 @@ pub fn discard(dir: &Path, id: NoteId) -> Result<(), CoreError> {
     // unreadable draft is set aside instead, under a name that says why. It is
     // the same choice `conflicts` already makes at the 200 MB mark, where the
     // application says so and deletes nothing.
-    if p.exists() && read(dir, id).is_err() {
-        let aside = p.with_extension("draft.unreadable");
-        return std::fs::rename(&p, &aside)
-            .map_err(|e| CoreError::io("set_aside_draft", aside.display(), &e));
+    match read(dir, id) {
+        Ok(None) => return Ok(()),
+        Ok(Some(draft)) if draft.info.buffer_version > version => return Ok(()),
+        Err(_) if p.exists() => {
+            let aside = p.with_extension("draft.unreadable");
+            return std::fs::rename(&p, &aside)
+                .map_err(|e| CoreError::io("set_aside_draft", aside.display(), &e));
+        }
+        _ => {}
     }
     match std::fs::remove_file(&p) {
         Ok(()) => Ok(()),
