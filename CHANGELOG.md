@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.39 - retain drafts newer than a completed save
+
+A save of buffer version 6 removed a recovery draft at version 7. Draft
+cleanup now compares the persisted buffer version under the same app-data
+lock as draft publication. A clean editor leaves an existing draft alone
+when asked to flush. A recovered buffer resumes the recorded version so a
+confirmed save can retire its draft. The draft format is unchanged. Offline
+server backups exclude the regenerable lock and still include notes and
+user-owned files with the same name.
+
+The Rust regression and two editor regressions failed on the previous
+version. Forty focused Rust tests and all 381 frontend tests passed on macOS.
+
 ## 1.11.38 - remote tabs keep edits made while a note or conflict copy is on the wire
 
 Opening another remote note checked for unsent text before fetching the destination. Typing while that fetch was pending could still replace the only copy of the new text. Saving a remote conflict as a copy had the same window: after copying the earlier text, the response replaced edits made while it was on the wire.

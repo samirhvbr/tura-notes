@@ -830,8 +830,8 @@ impl WorkspaceService {
                 }
                 let registry = open.registry.clone();
                 state::store(&paths::registry_file(dir), &registry)?;
-                // Only now: the buffer is on disk, so the draft is redundant.
-                drafts::discard(&paths::drafts_dir(dir), note_id)?;
+                // A draft can hold edits made after this save was sent.
+                drafts::discard_through(&paths::drafts_dir(dir), note_id, buffer_version)?;
             }
             SaveResult::Conflict { .. } => {
                 self.write_draft_inner(

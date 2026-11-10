@@ -160,7 +160,7 @@ async function runSave(
 ): Promise<void> {
   const doc = get().doc;
   if (isSyncLocked() || !doc || doc.noteId !== noteId || doc.readOnly || doc.conflict) return;
-  if (doc.bufferVersion === doc.savedVersion && !flush) return;
+  if (doc.bufferVersion === doc.savedVersion && (!flush || doc.draft)) return;
 
   const sending = doc.bufferVersion;
   set({ doc: { ...doc, status: "writing" } });
@@ -180,6 +180,7 @@ async function runSave(
               baseRev: r.base_rev,
               savedVersion: r.buffer_version,
               status: current ? "saved" : "pending",
+              draft: d.draft && d.draft.buffer_version > r.buffer_version ? d.draft : null,
               lastError: null,
             },
           };
@@ -271,7 +272,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     const doc = get().doc;
     if (!doc) return;
     const opened = await ipc.draftResolve(doc.noteId, restore ? "restore" : "discard");
-    set({ doc: { ...replacing(doc, opened), bufferVersion: restore ? 1 : 0 } });
+    const bufferVersion = restore ? Math.max(1, opened.draft?.buffer_version ?? 0) : 0;
+    set({ doc: { ...replacing(doc, opened), bufferVersion } });
   },
 
   async resolveConflict(choice) {
