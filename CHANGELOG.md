@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.34 - retry an interrupted co-tenant server restart
+
+The deploy records the binary version on disk before restarting the service. A failure from systemd or the loopback health check could leave that stamp and the updated unit in place. Running the deploy again for the same version reported that there was nothing to do without retrying the service activation.
+
+Mark a restart pending before changing the binary or systemd unit. Keep the marker until systemd applies the changes and the server passes its loopback check. The deploy can then retry without downloading a binary it already installed. The orchestration regression simulates a failed daemon reload, restart and loopback check, verifies recovery on the next run, and checks that a third run returns to the usual no-op.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

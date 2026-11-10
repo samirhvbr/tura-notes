@@ -29,6 +29,7 @@ WRAPPER=/usr/local/bin/tura-credential
 UNIT=/etc/systemd/system/notes-server.service
 VHOST=/etc/apache2/sites-available/tura.samirhv.com.br.conf
 STAMP=/usr/local/share/tura-notes/installed-version
+PENDING="$STAMP.pending-restart"
 HEALTH_URL="${TURA_HEALTH_URL:-https://tura.samirhv.com.br/healthz}"
 
 log() { printf '[%(%H:%M:%S)T] %s\n' -1 "$*"; }
@@ -99,16 +100,25 @@ log "==> Repositório $before → $after | versão $version | binário alvo $tar
 # reiniciar um serviço que guarda notas por causa de um commit que não o tocou é
 # custo sem contrapartida.
 changed=0
+restart_service=0
+[ ! -f "$PENDING" ] || restart_service=1
+request_restart() {
+    # O stamp diz o que está no disco. O marcador sobrevive a uma falha antes
+    # de o systemd aplicar a unidade/binário e o processo responder.
+    mkdir -p "$(dirname "$PENDING")" || fail "não consegui criar $(dirname "$PENDING")"
+    touch "$PENDING" || fail "não consegui gravar $PENDING"
+    restart_service=1
+}
 sync_file() {  # origem destino modo -> 1 quando escreveu
     local src=$1 dst=$2 mode=$3
     cmp -s "$src" "$dst" 2>/dev/null && return 1
+    if [ "${4:-}" = restart ]; then request_restart; fi
     install -m "$mode" "$src" "$dst" || fail "não consegui instalar $dst"
     log "  ✎ $dst atualizado"
     return 0
 }
 
-restart_service=0
-sync_file "$REPO/server/cotenant/notes-server.service" "$UNIT" 0644 && { restart_service=1; changed=1; }
+sync_file "$REPO/server/cotenant/notes-server.service" "$UNIT" 0644 restart && changed=1
 sync_file "$REPO/server/cotenant/tura-credential" "$WRAPPER" 0755 && changed=1
 
 # O VHOST É AVISO, NUNCA ESCRITA, e a razão é o certbot. Ele CLONA o vhost HTTP
@@ -188,17 +198,14 @@ if [ "$installed" != "$target" ]; then
     log "  ✓ assinatura de $name confere com a chave fixada"
 
     ( cd "$tmp" && tar -xzf "$name" ) || fail "não consegui extrair $name"
+    request_restart
     install -m 0755 "$tmp/notes-server" "$BINARY" || fail "não consegui instalar $BINARY"
-    # Sem isto, um `mkdir` que falha pula o `printf` e não falha nada: o stamp
-    # fica ausente, e o deploy seguinte rebaixa e reinstala o binário e reinicia
-    # o serviço de novo, achando que nunca instalou.
-    mkdir -p "$(dirname "$STAMP")" || fail "não consegui criar $(dirname "$STAMP")"
     printf '%s\n' "$target" > "$STAMP" || fail "não consegui gravar o stamp $STAMP"
     log "  ✎ $BINARY → $target"
-    restart_service=1; changed=1
+    changed=1
 fi
 
-if [ "$changed" -eq 0 ] && [ "$before" = "$after" ]; then
+if [ "$changed" -eq 0 ] && [ "$before" = "$after" ] && [ "$restart_service" -eq 0 ]; then
     log "✓ nada novo — repositório, arquivos e binário já estão no lugar."
     exit 0
 fi
@@ -222,6 +229,9 @@ for _ in $(seq 1 20); do
 done
 curl -fsS -m 3 -H 'X-Forwarded-Proto: https' http://127.0.0.1:8787/healthz >/dev/null \
     || fail "o serviço não respondeu em loopback após o restart"
+if [ "$restart_service" -eq 1 ]; then
+    rm -f -- "$PENDING" || fail "não consegui remover $PENDING"
+fi
 log "  ✓ serviço saudável em loopback"
 
 # Depois pelo nome público, que é a pergunta "o caminho inteiro está de pé?".

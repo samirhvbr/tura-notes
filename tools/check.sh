@@ -208,6 +208,7 @@ step "one drawer breakpoint" bash -c '
   [ -n "$q" ] && grep -q "@media $q" apps/notes-app/src/styles.css'
 step "i18n keys resolve"   python3 tools/i18n-keys.py
 step "Linux packaging orchestration" python3 tools/tests/test_build_linux.py
+step "co-tenant deploy retry" python3 tools/tests/test_deploy_server.py
 step "updater publication" python3 tools/tests/test_updater_release.py
 step "release.sh exit status" python3 tools/tests/test_release_exit.py
 step "macOS build script" python3 tools/tests/test_build_local.py
