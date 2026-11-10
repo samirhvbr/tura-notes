@@ -462,8 +462,9 @@ and re-added by `profile.bom` on save. CodeMirror is configured with
 
 ### 5.2 Atomic replace (`LocalFs`)
 
-1. `tmp` in the same directory: `.<name>.tmp-<8 random>` — same volume, so
-   rename is atomic and `same_volume_move` holds.
+1. `tmp` in the same directory: `.<name>.tmp`, with a digest of the filename
+   when that component is too long. The temporary and the note share a volume,
+   so rename is atomic and `same_volume_move` holds.
 2. write, `fsync(tmp)`.
 3. if `caps.preserve_mode`: copy mode bits from the original.
 4. if `expect` is `Some`: `stat(path)`; mismatch → remove tmp, return

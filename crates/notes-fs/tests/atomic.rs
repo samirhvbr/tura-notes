@@ -78,6 +78,42 @@ fn a_write_leaves_no_temporary_behind() {
 }
 
 #[test]
+fn valid_long_names_support_atomic_saves() {
+    let (d, fs) = ws();
+    let name = format!("{}.md", "a".repeat(252));
+    let path = RelPath::parse(&name).unwrap();
+    std::fs::write(d.path().join(&name), b"before").unwrap();
+    let stat = fs.stat(&path).unwrap();
+    let base = BaseRev {
+        size: stat.size,
+        mtime_ns: stat.mtime_ns,
+        hash: notes_fs::hash(b"before"),
+    };
+
+    assert!(matches!(
+        fs.write_atomic(&path, b"after", Some(&base)).unwrap(),
+        WriteOutcome::Written(_)
+    ));
+    assert_eq!(fs.read(&path).unwrap(), b"after");
+    assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn valid_long_names_support_creation_without_clobbering() {
+    let (d, fs) = ws();
+    let name = format!("{}.md", "a".repeat(252));
+    let path = RelPath::parse(&name).unwrap();
+
+    fs.create_new(&path, b"first").unwrap();
+    assert!(matches!(
+        fs.create_new(&path, b"second"),
+        Err(notes_model::CoreError::AlreadyExists { .. })
+    ));
+    assert_eq!(fs.read(&path).unwrap(), b"first");
+    assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 1);
+}
+
+#[test]
 fn expect_matching_lets_the_write_through() {
     let (_d, fs) = ws();
     let p = RelPath::parse("n.md").unwrap();

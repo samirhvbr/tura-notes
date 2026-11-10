@@ -7,6 +7,17 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.11.37 - keep temporary names short enough to save long filenames
+
+An existing Markdown file with a valid 255-character ASCII name opened on
+macOS but could not be saved. New files with equally long names also failed.
+The temporary file added a prefix and suffix to the name and exceeded the
+filesystem limit. When the filesystem refuses that temporary name, the writer
+now retries with a deterministic filename digest in the same directory. It
+still creates the temporary file exclusively and publishes new files without
+clobbering an existing destination. Both regressions fail with `NameTooLong`
+on the previous version and pass with the full `notes-fs` suite on macOS.
+
 ## 1.11.36 - refresh note identities before moving or deleting entries
 
 When two processes opened the same workspace, a rename could miss a note ID
