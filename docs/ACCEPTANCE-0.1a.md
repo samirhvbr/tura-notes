@@ -69,7 +69,9 @@ crash-save-loop: 1000 rounds, no truncated or empty note; temp files never excee
 ```
 
 Each payload is self-describing (`LEN=<n>`, body, `END`), so the checker can tell
-a complete note from a truncated one without knowing where the kill landed. It
+a complete note from a truncated one without knowing when the process was killed.
+Unix verifies `SIGKILL`. On Windows the test supervisor verifies termination
+through the writer's native process handle before reading the note. It
 also asserts the temporary-file bound, and **that assertion found the defect
 recorded as D-12**: `SIGKILL` inevitably leaves the temporary file behind, and
 with a random suffix they accumulated in the user's folder. The name is now
