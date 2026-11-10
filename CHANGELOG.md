@@ -7,6 +7,13 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.11.41 - a remote delete keeps edits made after the request starts
+
+The remote delete contract allows a confirmation to discard edits already in an open tab. The dialog only described the server copy, and the delete response also closed the tab over any text typed while the request was pending, even if the tab had been opened after the request started.
+
+Both menus now explain the discard in English and Brazilian Portuguese. A successful delete still closes a tab whose buffer was covered by the confirmation. A later unsent edit stays open with the existing actions to put the note back on the server or save a local copy. Responses from an earlier save or reconciliation cannot replace that recovery state, and deleting an inactive note leaves the current tab alone. Three deterministic regressions fail on the previous code. The frontend suite and lint pass on macOS.
+
 ## 1.11.30 - the contracts job installs the npm packages, so the third-party notices are compared whole
 
 `tools/third-party.py --check` reads the webview bundle's licenses from `apps/notes-app/node_modules`, and when the folder is missing it checks the Rust half, says so, and exits 0. The `contracts` job in `ci.yml` never ran `npm ci`, so on every push CI compared half of `THIRD-PARTY-NOTICES.md` while `tools/check.sh` on the owner's machine compared all of it. A stale npm half would have reached `master` green and been caught only by whoever next ran the local gate (S16-02).

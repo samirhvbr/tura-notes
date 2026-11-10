@@ -185,6 +185,25 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     set((s) => (s.doc && s.doc.path === path ? { doc: { ...s.doc, ...patch(s.doc) } } : s));
   }
 
+  async function finishDelete(path: string, confirmed: RemoteDoc | null) {
+    const active = get().doc;
+    if (active?.path !== path) {
+      set((s) => ({ tabs: s.tabs.filter((tab) => tab !== path) }));
+    } else if (dirty(active) &&
+               (active.bufferVersion !== confirmed?.bufferVersion || active.text !== confirmed.text)) {
+      // The confirmation covered the buffer present when the request began.
+      update(path, () => ({ status: "gone", conflict: null, lastError: null }));
+    } else {
+      await get().close(path, true);
+    }
+    void useRemote.getState().refresh();
+  }
+
+  function acceptsSaveResponse(path: string) {
+    const active = get().doc;
+    return active?.path === path && active.status !== "gone";
+  }
+
   async function runSave(): Promise<void> {
     const d = get().doc;
     if (!d || d.readOnly || d.conflict || d.status === "gone") return;
@@ -195,6 +214,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     try {
       r = await ipc.remoteSave(d.path, d.text, d.etag);
     } catch (e) {
+      if (!acceptsSaveResponse(d.path)) return;
       const error = ipc.asCoreError(e);
       if (transient(error)) {
         failures += 1;
@@ -206,6 +226,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       }
       return;
     }
+    if (!acceptsSaveResponse(d.path)) return;
     failures = 0;
     if (r.outcome === "saved") {
       update(d.path, (now) => ({
@@ -235,7 +256,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
    */
   async function reconcile(theirs: ipc.RemoteNote): Promise<void> {
     const d = get().doc;
-    if (!d || d.path !== theirs.path || theirs.etag === d.etag) return;
+    if (!d || d.path !== theirs.path || d.status === "gone" || theirs.etag === d.etag) return;
     const now = Date.now();
     const adopt = (text: string, kind: SyncNote["kind"] | null) => {
       // The buffer is now the server's note. Both versions move together so
@@ -271,9 +292,9 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       joined = null;
     }
     const after = get().doc;
-    if (!after || after.path !== d.path || after.etag !== d.etag || after.bufferVersion !== d.bufferVersion) {
-      // Typed, or saved, while the merge ran. Whatever was typed has its own
-      // save scheduled, and it will meet this again with the newer text.
+    if (!after || after.path !== d.path || after.status === "gone" ||
+        after.etag !== d.etag || after.bufferVersion !== d.bufferVersion) {
+      // The buffer changed or the note was deleted while the merge ran.
       return;
     }
     if (joined === null) {
@@ -514,8 +535,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         // failure would ask the person to delete a ghost.
         if (ipc.asCoreError(e).code !== "not_found") throw e;
       }
-      await get().close(path, true);
-      void useRemote.getState().refresh();
+      await finishDelete(path, null);
       return true;
     },
 
@@ -523,8 +543,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       const d = get().doc;
       if (!d) return;
       await ipc.remoteDelete(d.path, d.etag);
-      await get().close(d.path, true);
-      void useRemote.getState().refresh();
+      await finishDelete(d.path, d);
     },
   };
 });

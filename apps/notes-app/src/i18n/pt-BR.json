@@ -392,7 +392,7 @@
   "remote.copyToLocal": "Salvar uma cópia na pasta local",
   "remote.create": "Criar",
   "remote.delete": "Excluir do servidor",
-  "remote.delete.body": "O servidor move a nota para a lixeira dele, quando tem uma. A pasta local não é tocada.",
+  "remote.delete.body": "O servidor move a nota para a lixeira dele, quando tem uma. As alterações ainda não enviadas que já estão na aba desta nota serão descartadas. A pasta local não é tocada.",
   "remote.delete.title": "Excluir “{name}” do servidor?",
   "remote.disconnect": "Desconectar",
   "remote.empty": "Ainda não há notas no servidor.",
