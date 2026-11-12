@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.8 - publish reviewed import text with its complete bytes
+## 1.12.9 - publish reviewed import text with its complete bytes
 
 Saving the reviewed PDF text created an empty note first and then applied that empty file's text profile. A terminal line feed was dropped. Copying a remote note to the local workspace used the same command.
 
