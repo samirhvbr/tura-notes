@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.7 - recover a missing co-tenant server executable despite a current stamp
+
+A current deployment stamp could outlive a missing executable or one whose execute bits had been removed. The deploy command reported success without reinstalling it or checking service health.
+
+Trigger the existing verified reinstall and activation flow when the executable is missing or unusable. Refuse a directory at the executable path. Fixture tests cover a current stamp after the executable is removed or loses its mode.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At

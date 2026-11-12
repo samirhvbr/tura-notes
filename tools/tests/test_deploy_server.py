@@ -83,10 +83,13 @@ echo "$1" >> "$TEST_CALLS"
 
     def test_a_failed_daemon_reload_is_retried_for_a_unit_only_change(self):
         (self.root / 'STAMP').write_text('1.12.0\n')
+        binary = self.root / 'BINARY'
+        binary.write_text('installed-binary\n')
+        binary.chmod(0o755)
         failed = self.deploy('daemon-reload')
         self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
         self.assertTrue((self.root / 'UNIT').is_file())
-        self.assertFalse((self.root / 'BINARY').exists())
+        self.assertEqual(binary.read_text(), 'installed-binary\n')
         self.assert_retry_applies()
 
     def test_a_failed_loopback_check_keeps_the_restart_pending(self):
@@ -94,6 +97,36 @@ echo "$1" >> "$TEST_CALLS"
         self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
         self.assertIn('loopback', failed.stdout)
         self.assert_retry_applies()
+
+    def test_a_current_stamp_does_not_hide_a_missing_or_non_executable_binary(self):
+        initial = self.deploy()
+        self.assertEqual(initial.returncode, 0, initial.stdout + initial.stderr)
+        binary = self.root / 'BINARY'
+        calls = Path(self.env['TEST_CALLS'])
+        for fault in ('non-executable', 'missing'):
+            with self.subTest(fault=fault):
+                if fault == 'non-executable':
+                    binary.chmod(0o644)
+                else:
+                    binary.unlink()
+                calls.write_text('')
+                recovered = self.deploy()
+                self.assertEqual(recovered.returncode, 0, recovered.stdout + recovered.stderr)
+                self.assertTrue(os.access(binary, os.X_OK))
+                self.assertEqual(binary.read_text(), 'new-binary\n')
+                self.assertEqual(calls.read_text().splitlines(),
+                                 ['download', 'download', 'download', 'daemon-reload',
+                                  'restart', 'health', 'health', 'health'])
+
+    def test_a_directory_at_the_binary_path_is_refused_without_downloading(self):
+        (self.root / 'STAMP').write_text('1.12.0\n')
+        binary = self.root / 'BINARY'
+        binary.mkdir()
+        failed = self.deploy()
+        self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
+        self.assertIn('é um diretório', failed.stdout)
+        self.assertEqual(list(binary.iterdir()), [])
+        self.assertFalse(Path(self.env['TEST_CALLS']).exists())
 
 
 if __name__ == '__main__':
