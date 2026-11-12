@@ -36,6 +36,27 @@ fn rel(s: &str) -> RelPath {
     RelPath::parse(s).unwrap()
 }
 
+#[test]
+fn imported_note_keeps_the_reviewed_text_byte_for_byte() {
+    let mut f = setup();
+    for (name, text) in [
+        ("imported-lf", "first line\nlast line\n"),
+        ("imported-crlf", "first line\r\nlast line\r\n"),
+        ("imported-no-final-newline", "última linha"),
+    ] {
+        let entry = f.svc.create_note_from_text(name, text).unwrap();
+        assert_eq!(entry.size, Some(text.len() as u64));
+        assert!(f.svc.open_note(&entry.path).unwrap().read_only.is_none());
+
+        let error = f.svc.create_note_from_text(name, "new text").unwrap_err();
+        assert!(matches!(error, CoreError::AlreadyExists { .. }));
+        assert_eq!(
+            std::fs::read(f.work.path().join(&entry.name)).unwrap(),
+            text.as_bytes(),
+        );
+    }
+}
+
 #[cfg(unix)]
 fn drafts_dir(svc: &WorkspaceService, id: notes_model::WorkspaceId) -> PathBuf {
     notes_core::paths::drafts_dir(&notes_core::paths::workspace_dir(svc.data_dir(), id))
@@ -581,6 +602,11 @@ fn state_written_by_a_newer_build_is_never_overwritten() {
         from_the_future,
         "state we cannot interpret must not be destroyed"
     );
+    let error = svc
+        .create_note_from_text("imported", "reviewed text\n")
+        .unwrap_err();
+    assert!(matches!(error, CoreError::Unavailable { .. }));
+    assert!(!work.path().join("imported.md").exists());
 }
 
 #[test]
