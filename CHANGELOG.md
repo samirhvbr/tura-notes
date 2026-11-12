@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.4 - preserve edits while a remote note is renamed
+
+A remote rename could replace keystrokes made during the request or bring back the renamed note over a different active tab. Renaming from the tree could also leave an active editor saving at the previous path.
+
+Complete the move against the current source revision. Keep edits in the buffer and save them at the new path, preserving the normal conflict checks when the server reports newer content. Regression tests cover concurrent typing and navigation, refused moves, polling, and subsequent saves.
+
 ## 1.12.3 - check changelog versions across complete merge history
 
 The changelog guard could reject an already published version after its commit was merged into a branch that kept a later version. Git's default path-history simplification omitted the parent carrying that version. Follow the complete merge history and include per-parent merge diffs so a version first written during conflict resolution is also recorded.
