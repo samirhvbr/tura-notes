@@ -1516,6 +1516,23 @@ impl WorkspaceService {
     }
 
     pub fn create_note(&mut self, dir: &RelPath, name: &str) -> Result<Entry> {
+        self.create_note_bytes(dir, name, b"")
+    }
+
+    /// Publish imported text as a new note. Its UTF-8 bytes, including the last
+    /// line ending, are the initial content and do not inherit a file profile.
+    pub fn create_note_from_text(&mut self, name: &str, text: &str) -> Result<Entry> {
+        let open = self.open()?;
+        if open.read_only {
+            return Err(CoreError::Unavailable {
+                root: open.registry.root.clone(),
+                reason: UnavailableReason::PermissionRevoked,
+            });
+        }
+        self.create_note_bytes(&RelPath::root(), name, text.as_bytes())
+    }
+
+    fn create_note_bytes(&mut self, dir: &RelPath, name: &str, bytes: &[u8]) -> Result<Entry> {
         // The tree is about to change shape; quick open must not offer a
         // path that is no longer there.
         self.invalidate_paths();
@@ -1534,13 +1551,14 @@ impl WorkspaceService {
         };
         let path = dir.join(&name)?;
         self.check_name(&name, &path)?;
-        self.open()?.arm(&path, notes_fs::hash(b""));
-        self.open()?.fs.create_new(&path, b"")?;
+        let open = self.open()?;
+        open.arm(&path, notes_fs::hash(bytes));
+        let stat = open.fs.create_new(&path, bytes)?;
         Ok(Entry {
             name,
             is_note: path.is_note(),
             kind: notes_model::EntryKind::File,
-            size: Some(0),
+            size: Some(stat.size),
             path,
         })
     }

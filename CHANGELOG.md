@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.8 - publish reviewed import text with its complete bytes
+
+Saving the reviewed PDF text created an empty note first and then applied that empty file's text profile. A terminal line feed was dropped. Copying a remote note to the local workspace used the same command.
+
+Create the note with the complete reviewed UTF-8 bytes through the existing exclusive atomic create operation. Preserve name validation, collision refusal and read-only workspace refusal. Regressions cover LF and CRLF endings, no final newline, an occupied name, and a read-only workspace.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At

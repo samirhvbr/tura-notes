@@ -26,6 +26,7 @@ was reviewed and integrated in 0.17.0; full mobile acceptance remains in
 | Two first clients share identity without changing GUI last workspace | Two simultaneous MCP child processes and a subsequent app-core open |
 | Parser upgrade only clears disposable data | Index schema 1→2 migration regression |
 | PDF import shows the extracted text before anything is written | `PdfImport.test.tsx`: the text is reviewable and the save callback runs only on the explicit save |
+| Saving reviewed text creates a new Markdown note with the exact UTF-8 bytes | `notes-core/tests/protocol.rs` covers final LF, final CRLF, no final newline, an occupied destination and a read-only workspace |
 
 Run the complete `tools/check.sh` gate and the native/Windows/Linux/Arch CI
 matrix. The MCP transport tests are real protocol clients, not a claim of a

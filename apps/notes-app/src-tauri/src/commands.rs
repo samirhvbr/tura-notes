@@ -255,15 +255,7 @@ fn extract_or_refuse(path: &Path) -> R<String> {
 /// note. This is the only import operation that writes into the workspace.
 #[tauri::command]
 pub fn pdf_save(app: State<'_, App>, name: String, text: String) -> R<Entry> {
-    let entry = svc(&app)?.create_note(&RelPath::root(), &name)?;
-    let opened = svc(&app)?.open_note(&entry.path)?;
-    let result = svc(&app)?.save_note(opened.note_id, &text, 1, &opened.base_rev)?;
-    if !matches!(result, SaveResult::Saved { .. }) {
-        return Err(CoreError::Internal {
-            message: "new PDF import could not be saved".into(),
-        });
-    }
-    Ok(entry)
+    svc(&app)?.create_note_from_text(&name, &text)
 }
 
 #[tauri::command]
