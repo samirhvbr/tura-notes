@@ -370,6 +370,8 @@ runs, openable and editable in place.
   guard. Every save carries the revision the text was read at. A note changed
   on the server in the meantime is a conflict the user resolves: compare, keep
   mine, use the server's, or save mine as a copy. It is never overwritten.
+- **Edits typed during a rename follow the note to its new path.** Saves for
+  that note wait for the move. A refused move keeps saving at the original path.
 - **An unsent edit stays in the buffer until it is sent or the user confirms
   discarding it.** Offline, it waits and retries. A tab, the window close control
   and the app's Quit menu ask before closing over it. Deleting a note from the

@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.3 - preserve edits while a remote note is renamed
+
+A remote rename could replace keystrokes made during the request or bring back the renamed note over a different active tab. Renaming from the tree could also leave an active editor saving at the previous path.
+
+Complete the move against the current source revision. Keep edits in the buffer and save them at the new path, preserving the normal conflict checks when the server reports newer content. Regression tests cover concurrent typing and navigation, refused moves, polling, and subsequent saves.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At
