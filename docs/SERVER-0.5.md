@@ -406,7 +406,9 @@ regenerable process lock files are excluded while their guards remain held;
 user files and SQLite operational state are included. Restore extracts
 into a private staging directory, verifies the gzip checksum, rejects
 links/traversal and unknown backup schemas, and publishes only to a new
-destination. Failed extraction leaves the previous data untouched. The restored
+destination after setting private permissions and writing the restore audit
+record. If staging fails, the requested destination remains available for a
+retry and the previous data stays untouched. The restored
 core enrollment is rebound to the new
 workspace paths with a preserved pre-restore index, keeping workspace and note
 identities. Source note bytes are never rewritten. Review the restored data,

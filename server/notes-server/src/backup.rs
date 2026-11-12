@@ -180,6 +180,17 @@ pub fn restore_as(archive: &Path, destination: &Path, mounted_root: Option<&Path
     notes_core::WorkspaceService::with_data_dir(restored.join("state"))?
         .rebind_restored_workspaces(&original.join("workspaces"), &final_root.join("workspaces"))?;
     fs::remove_file(restored.join("backup-manifest.json"))?;
+    // Complete the private directory and its audit record before publishing.
+    // An audit write failure must leave the requested destination retryable.
+    admin::private_dir(&restored)?;
+    admin::audit(
+        &restored,
+        "operator",
+        "local",
+        "restore",
+        "ok",
+        &uuid::Uuid::new_v4().to_string(),
+    )?;
     // Reserve the destination exclusively; never replace somebody else's data.
     #[cfg(unix)]
     fs::create_dir(destination)?;
@@ -188,14 +199,5 @@ pub fn restore_as(archive: &Path, destination: &Path, mounted_root: Option<&Path
         let _ = fs::remove_dir(destination);
         return Err(error.into());
     }
-    admin::private_dir(destination)?;
-    admin::audit(
-        destination,
-        "operator",
-        "local",
-        "restore",
-        "ok",
-        &uuid::Uuid::new_v4().to_string(),
-    )?;
     Ok(())
 }

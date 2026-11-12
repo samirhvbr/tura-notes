@@ -185,6 +185,7 @@ step "documentation index" python3 tools/doc-index.py
 step "gate and CI agree"   python3 tools/ci-parity.py
 step "acceptance ranges"   python3 tools/doc-ranges.py
 step "changelog versions" python3 tools/changelog-versions.py
+step "changelog merge history" python3 tools/tests/test_changelog_versions.py
 # Two rule blocks for the same selector is not a style question — the later one
 # wins on what it sets and the earlier survives on what it does not, so the
 # rendered result is a mix nobody designed. `.menu` was that for a while: a dead

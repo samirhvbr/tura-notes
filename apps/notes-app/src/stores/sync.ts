@@ -2,6 +2,7 @@ import { isSyncLocked } from "../ipc/barrier";
 import { create } from "zustand";
 import * as ipc from "../ipc";
 import { useEditor } from "./editor";
+import { useTabs } from "./tabs";
 import { useWorkspace } from "./workspace";
 
 /**
@@ -65,9 +66,12 @@ function dirty(): ipc.NoteId[] {
 async function run(all: boolean) {
   if (running || isSyncLocked()) return;
   running = true;
+  const workspace = useWorkspace.getState().info?.id;
   try {
     const r = all ? await ipc.reconcileAll(dirty()) : await ipc.reconcileTick(dirty());
-    if (!isSyncLocked()) for (const e of r.events) apply(e);
+    if (!isSyncLocked() && useWorkspace.getState().info?.id === workspace) {
+      for (const e of r.events) apply(e);
+    }
   } catch {
     // A workspace being closed mid-tick is the common case here, and it is not
     // something to show anybody.
@@ -102,7 +106,8 @@ function apply(e: ipc.CoreEvent) {
     case "note_moved": {
       void ws.refresh(parentOf(e.from));
       void ws.refresh(parentOf(e.to));
-      ed.repath(e.from, e.to);
+      useTabs.getState().repath(e.from, e.to, e.note_id);
+      if (ed.doc?.noteId === e.note_id) ed.repath(e.from, e.to);
       break;
     }
     case "workspace_unavailable":
