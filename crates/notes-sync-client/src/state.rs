@@ -421,7 +421,7 @@ impl Store {
             pending: s.pending.len(),
             received: s.received.len(),
             cursor: s.cursor,
-            applied: applied > 0 && applied == s.received.len() && deferred == 0,
+            applied: !s.unseen && applied > 0 && applied == s.received.len() && deferred == 0,
             applied_revisions: applied - superseded - deferred,
             acknowledged_revisions: acknowledged
                 - app
@@ -1324,7 +1324,13 @@ impl Store {
         if !app.superseded.is_empty() {
             let incoming = self.incoming(state)?;
             for i in &app.superseded {
-                let r = &state.received[*i].revision;
+                let publication = &state.received[*i];
+                // A compacted slot may be checkpointed before the later
+                // baseline has even been fetched. It contains no applied bytes.
+                if publication.payload_pruned {
+                    continue;
+                }
+                let r = &publication.revision;
                 if app
                     .notes
                     .get(&r.note)
@@ -1493,7 +1499,13 @@ impl Store {
             .chain(app.next..state.received.len())
             .take(20)
             .collect();
-        let incoming = self.incoming(&state)?;
+        let mut compacted_predecessors: BTreeMap<_, _> = app
+            .superseded
+            .iter()
+            .map(|i| &state.received[*i])
+            .filter(|p| p.payload_pruned)
+            .map(|p| (p.revision.id, p.expected))
+            .collect();
         for index in pending {
             let p = &state.received[index];
             // A server-retained cursor slot with no payload is causal metadata.
@@ -1505,6 +1517,7 @@ impl Store {
                     app.next += 1;
                 }
                 app.superseded.insert(index);
+                compacted_predecessors.insert(p.revision.id, p.expected);
                 self.save_application(&app)?;
                 continue;
             }
@@ -1512,16 +1525,15 @@ impl Store {
                 return Err(Error::UnsupportedApplication);
             }
             let previous = app.notes.get(&p.revision.note).cloned();
-            let baseline = previous.is_none()
-                && p.expected.is_some_and(|expected| {
-                    state.received[..index].iter().any(|earlier| {
-                        earlier.payload_pruned
-                            && earlier.revision.note == p.revision.note
-                            && incoming.is_ancestor(earlier.revision.id, expected)
-                    })
-                });
-            if previous.as_ref().map(|n| n.revision) != p.expected && !baseline {
-                return Err(Error::Conflict);
+            let previous_revision = previous.as_ref().map(|n| n.revision);
+            let mut expected = p.expected;
+            // Follow only validated append predecessors through metadata-only
+            // slots this receiver already skipped, back to the local receipt.
+            while expected != previous_revision {
+                expected = expected
+                    .and_then(|id| compacted_predecessors.get(&id))
+                    .copied()
+                    .ok_or(Error::Conflict)?;
             }
             if !effects && previous.as_ref().is_some_and(|n| n.path != p.revision.path) {
                 return Err(Error::UnsupportedApplication);

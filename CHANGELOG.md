@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.4 - resume receiving notes across compacted history pages
+
+A receiver could checkpoint a page of compacted metadata, then reject its own checkpoint when the live note was on a later page. A receiver with a local receipt also rejected a live successor when its immediate predecessor had been compacted.
+
+Accept checkpoints for metadata-only slots and follow their validated predecessors back to the local receipt. Report unfinished application while pages are still unseen. Regressions cover a 20-entry page boundary, receipt continuity, and preservation of a local edit.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At

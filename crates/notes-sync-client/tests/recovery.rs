@@ -894,6 +894,107 @@ fn new_receiver_uses_the_retained_live_publication_as_a_linear_baseline() {
 }
 
 #[test]
+fn new_receiver_resumes_after_a_page_of_pruned_linear_publications() {
+    let (dir, root, sender, mut peer) = fixture();
+    for index in 0..=20 {
+        fs::write(root.join("test.md"), format!("version {index}")).unwrap();
+        sender.stage().unwrap();
+        sender.transfer(&mut peer).unwrap();
+    }
+    assert_eq!(peer.log.len(), 21);
+    for publication in &mut peer.log[..20] {
+        notes_sync::transfer::prune_linear_payload(publication).unwrap();
+    }
+
+    let target = dir.path().join("new-receiver-notes");
+    let queue = dir.path().join("new-receiver-state");
+    let data = dir.path().join("new-receiver-data");
+    fs::create_dir(&target).unwrap();
+    let receiver = Store::open(&queue).unwrap();
+    receiver
+        .initialize(&target, endpoint(), Mode::Receive, &mut peer)
+        .unwrap();
+    receiver.fetch(&mut peer).unwrap();
+    assert_eq!(receiver.apply(&data).unwrap(), 0);
+    assert!(!target.join("test.md").exists());
+    drop(receiver);
+
+    let receiver = Store::open(&queue).unwrap();
+    let status = receiver.status().unwrap();
+    assert_eq!(status.superseded_revisions, 20);
+    assert_eq!(status.applied_revisions, 0);
+    assert!(!status.applied);
+    assert!(receiver.receiving().unwrap());
+    assert_eq!(receiver.acknowledge(&mut peer).unwrap(), 0);
+    assert!(peer.acknowledged.is_empty());
+    receiver.fetch(&mut peer).unwrap();
+    assert_eq!(receiver.apply(&data).unwrap(), 1);
+    assert_eq!(fs::read(target.join("test.md")).unwrap(), b"version 20");
+    assert_eq!(receiver.acknowledge(&mut peer).unwrap(), 1);
+    assert_eq!(peer.acknowledged, [peer.log[20].revision.id]);
+    let status = receiver.status().unwrap();
+    assert_eq!(status.applied_revisions, 1);
+    assert!(status.applied);
+}
+
+#[test]
+fn receiver_applies_the_live_baseline_over_an_earlier_receipt() {
+    let (dir, root, sender, mut peer) = fixture();
+    fs::write(root.join("test.md"), b"first bytes").unwrap();
+    sender.stage().unwrap();
+    sender.transfer(&mut peer).unwrap();
+
+    let [(receiver, target, data), (edited, edited_target, edited_data)] = ["unchanged", "edited"]
+        .map(|name| {
+            let base = dir.path().join(name);
+            let target = base.join("notes");
+            let data = base.join("data");
+            fs::create_dir_all(&target).unwrap();
+            let receiver = Store::open(&base.join("queue")).unwrap();
+            receiver
+                .initialize(&target, endpoint(), Mode::Receive, &mut peer)
+                .unwrap();
+            receiver.fetch(&mut peer).unwrap();
+            assert_eq!(receiver.apply(&data).unwrap(), 1);
+            assert_eq!(fs::read(target.join("test.md")).unwrap(), b"first bytes");
+            (receiver, target, data)
+        });
+    fs::write(edited_target.join("test.md"), b"unsynced local edit").unwrap();
+
+    for bytes in [b"second bytes".as_slice(), b"current bytes"] {
+        fs::write(root.join("test.md"), bytes).unwrap();
+        sender.stage().unwrap();
+        sender.transfer(&mut peer).unwrap();
+    }
+    // Another device has acknowledged the live head, so the server can
+    // compact both older revisions while this unacknowledged receiver still
+    // holds its original copy and receipt for the first one.
+    let head = peer.log[2].revision.clone();
+    peer.acknowledge(&notes_sync::transfer::ApplicationAcknowledgment {
+        workspace: peer.journal.workspace,
+        device: Uuid::new_v4(),
+        revision: head.id,
+    })
+    .unwrap();
+    for publication in &mut peer.log[..2] {
+        notes_sync::transfer::prune_linear_payload(publication).unwrap();
+    }
+
+    receiver.fetch(&mut peer).unwrap();
+    assert_eq!(receiver.apply(&data).unwrap(), 1);
+    assert_eq!(fs::read(target.join("test.md")).unwrap(), b"current bytes");
+    assert_eq!(receiver.status().unwrap().superseded_revisions, 1);
+
+    edited.fetch(&mut peer).unwrap();
+    blocked(edited.apply(&edited_data));
+    assert_eq!(
+        fs::read(edited_target.join("test.md")).unwrap(),
+        b"unsynced local edit"
+    );
+    assert_eq!(edited.status().unwrap().applied_revisions, 1);
+}
+
+#[test]
 fn explicit_paths_and_tombstones_resolve_rename_delete_conflicts_without_source_mutations() {
     for remote_deleted in [false, true] {
         for choose_delete in [false, true] {
