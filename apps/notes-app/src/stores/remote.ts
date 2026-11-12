@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import * as ipc from "../ipc";
+import { acquireSyncBarrier, endSyncBarrier, isSyncBarrierBusy } from "../ipc/barrier";
+import { dirty, REMOTE_UNSENT, resetRemoteDocTimers, useRemoteDoc } from "./remoteDoc";
+import { useUi } from "./ui";
+import { useEditor } from "./editor";
 
 /**
  * The remote folder (ADR-099): the server's notes workspace, as the rail's
@@ -31,8 +35,9 @@ export interface RemoteState {
   loading: boolean;
   error: ipc.CoreError | null;
   expanded: Record<string, boolean>;
+  changing: boolean;
   hydrate(): Promise<void>;
-  configure(config: ipc.RemoteConfig | null): Promise<void>;
+  configure(config: ipc.RemoteConfig | null, change?: ipc.RemoteChange): Promise<void>;
   refresh(): Promise<void>;
   toggle(dir: string): void;
   /** Make an empty folder — on the server when it knows folders, else only in
@@ -65,6 +70,58 @@ function remember(expanded: Record<string, boolean>) {
  *  spend a request of the server's 60 a minute on the same answer. */
 let inflight: Promise<void> | null = null;
 
+function resetRemoteEditor() {
+  resetRemoteDocTimers();
+  useRemoteDoc.setState({ doc: null, tabs: [] });
+  if (useUi.getState().mainView === "remote") useUi.setState({ mainView: "local" });
+}
+
+/** Freeze and drain the existing connection before credentials or config move. */
+export async function changeRemoteConnection<T>(work: (change: ipc.RemoteChange) => Promise<T>): Promise<T> {
+  const state = useRemote.getState();
+  if (dirty(useRemoteDoc.getState().doc)) throw { code: "unsupported", cap: REMOTE_UNSENT } as ipc.CoreError;
+  if (state.changing) throw { code: "sync", cause: "busy" } as ipc.CoreError;
+  useRemote.setState({ changing: true });
+  let held = false;
+  let change: ipc.RemoteChange | null = null;
+  try {
+    held = await acquireSyncBarrier();
+    if (!held) throw { code: "sync", cause: "busy" } as ipc.CoreError;
+    if (dirty(useRemoteDoc.getState().doc)) throw { code: "unsupported", cap: REMOTE_UNSENT } as ipc.CoreError;
+    change = ipc.beginRemoteChange();
+    // Device Sync can open the shared sign-in before the Remote panel exists.
+    await ipc.remoteConfigGet();
+    const before = ipc.remoteSessionId();
+    try {
+      return await work(change);
+    } finally {
+      const config = await ipc.remoteConfigGet();
+      if (ipc.remoteSessionId() !== before) {
+        resetRemoteEditor();
+        inflight = null;
+        useRemote.setState({
+          config, entries: null, folders: [], foldersSupported: false, pending: [],
+          loading: false, error: null, adopted: false,
+        });
+      }
+    }
+  } finally {
+    if (change) ipc.endRemoteChange(change);
+    if (held) endSyncBarrier();
+    useRemote.setState({ changing: false });
+    if (!isSyncBarrierBusy()) {
+      // A local debounce can expire behind the shared barrier. Resume its
+      // ordinary persistence once the barrier is available again.
+      const local = useEditor.getState();
+      if (local.doc && local.doc.bufferVersion !== local.doc.savedVersion) {
+        void (local.doc.conflict ? local.keepDraft("conflict") : local.save());
+      }
+    }
+    const current = useRemote.getState();
+    if (current.config && current.entries === null) void current.refresh();
+  }
+}
+
 export const useRemote = create<RemoteState>((set, get) => ({
   config: undefined,
   adopted: false,
@@ -76,10 +133,13 @@ export const useRemote = create<RemoteState>((set, get) => ({
   loading: false,
   error: null,
   expanded: remembered(),
+  changing: false,
 
   async hydrate() {
+    if (get().config !== undefined || get().changing) return;
     try {
       const config = await ipc.remoteConfigGet();
+      if (get().config !== undefined || get().changing) return;
       if (config) {
         set({ config });
         return;
@@ -90,7 +150,7 @@ export const useRemote = create<RemoteState>((set, get) => ({
       const { paired, draft } = await fromDeviceSync();
       if (paired) {
         try {
-          await ipc.remoteConfigSet(paired);
+          await changeRemoteConnection(() => ipc.remoteConfigSet(paired));
           set({ config: paired, adopted: true });
           return;
         } catch {
@@ -103,13 +163,25 @@ export const useRemote = create<RemoteState>((set, get) => ({
     }
   },
 
-  async configure(config) {
-    await ipc.remoteConfigSet(config);
-    set({ config, entries: null, folders: [], foldersSupported: false, error: null, adopted: false });
+  async configure(config, change) {
+    const apply = async () => {
+      await ipc.remoteConfigGet();
+      await ipc.remoteConfigSet(config);
+      resetRemoteEditor();
+      inflight = null;
+      set({ config, entries: null, folders: [], foldersSupported: false, pending: [], loading: false, error: null, adopted: false });
+    };
+    if (change) {
+      if (!ipc.ownsRemoteChange(change)) throw { code: "sync", cause: "busy" } as ipc.CoreError;
+      await apply();
+      return;
+    }
+    await changeRemoteConnection(apply);
     if (config) await get().refresh();
   },
 
   refresh() {
+    if (get().changing) return Promise.resolve();
     if (inflight) return inflight;
     set({ loading: true, error: null });
     inflight = ipc
@@ -143,6 +215,7 @@ export const useRemote = create<RemoteState>((set, get) => ({
   },
 
   async addFolder(path) {
+    if (get().changing) throw { code: "sync", cause: "busy" } as ipc.CoreError;
     const parts = path.split("/");
     const levels = parts.map((_, i) => parts.slice(0, i + 1).join("/"));
     const server = get().foldersSupported;

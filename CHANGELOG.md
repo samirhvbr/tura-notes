@@ -7,6 +7,29 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.10 - preserve remote work before changing connection authority
+
+Connection and shared keychain changes now refuse any unsent Remote editor
+buffer. A clean transition drains existing IPC under the input barrier, checks
+the buffer again, and retires the old editor, tabs and timers before releasing
+input. Both sign-in panels apply the same guard before changing the credential.
+Local saves resume after the transition barrier ends.
+
+Rust binds remote commands to an opaque connection session while selecting the
+connection under its mutex. Reconnects retain a credential fingerprint and
+refuse a changed authority until it is explicitly configured. Shared alias
+replacement retires a clean saved connection before the keychain changes.
+ADR-111 records the transition and the recovery behavior.
+
+The frontend suite and build passed on macOS, including manual connection,
+disconnect, sign-in/out refusal and IPC drain regressions. Native app and Windows
+client/server Clippy, client library tests, and sixteen loopback protocol tests
+passed. The full local gate reached the existing macOS watcher failure tracked
+in #114. Its other checks passed; ENOSPC is Linux-only. Earlier parallel HTTP
+checks encountered intermittent DELETE timeouts, with later runs passing.
+Their cause remains unproven. Installed desktop and real-keychain acceptance
+remain pending.
+
 ## 1.12.9 - publish reviewed import text with its complete bytes
 
 Saving the reviewed PDF text created an empty note first and then applied that empty file's text profile. A terminal line feed was dropped. Copying a remote note to the local workspace used the same command.

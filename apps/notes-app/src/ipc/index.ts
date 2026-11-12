@@ -5,7 +5,7 @@
 // committed files differ from a fresh generation. The frontend has no
 // filesystem capability — every read and write below is a command.
 import { invoke as rawInvoke } from "@tauri-apps/api/core";
-import { tracked } from "./barrier";
+import { isSyncLocked, tracked } from "./barrier";
 function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return tracked(() => rawInvoke<T>(command, args));
 }
@@ -411,23 +411,46 @@ export type { RemoteNote } from "./generated/RemoteNote";
 export type { RemoteSave } from "./generated/RemoteSave";
 export type { LocalMark } from "./generated/LocalMark";
 export type { SyncCause } from "./generated/SyncCause";
-export const remoteConfigGet = () => invoke<import("./generated/RemoteConfig").RemoteConfig | null>("remote_config_get");
-export const remoteConfigSet = (config: import("./generated/RemoteConfig").RemoteConfig | null) => invoke<void>("remote_config_set", {config});
-export const remoteProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("remote_probe", {origin,allowPrivate,tokenFile});
-export const remoteList = () => invoke<import("./generated/RemoteTree").RemoteTree>("remote_list");
+import type { RemoteSession } from "./generated/RemoteSession";
+let remoteSession: string | null = null;
+export type RemoteChange = { readonly token: symbol };
+let remoteChange: RemoteChange | null = null;
+export function beginRemoteChange(): RemoteChange {
+  if (!isSyncLocked() || remoteChange) throw { code: "sync", cause: "busy" } as CoreError;
+  remoteChange = { token: Symbol() };
+  return remoteChange;
+}
+export const ownsRemoteChange = (change: RemoteChange) => remoteChange === change;
+export function endRemoteChange(change: RemoteChange) {
+  if (ownsRemoteChange(change)) remoteChange = null;
+}
+export const remoteSessionId = () => remoteSession;
+// The connection transition owns the input/IPC barrier. Only its control calls
+// may run behind that barrier, after ordinary calls and their replies drain.
+const remoteControl = <T>(command: string, args?: Record<string, unknown>) =>
+  remoteChange ? rawInvoke<T>(command, args) : invoke<T>(command, args);
+function acceptRemoteSession(snapshot: RemoteSession) {
+  remoteSession = snapshot.session;
+  return snapshot.config;
+}
+export const remoteConfigGet = () => remoteControl<RemoteSession>("remote_config_get").then(acceptRemoteSession);
+export const remoteConfigSet = (config: import("./generated/RemoteConfig").RemoteConfig | null) =>
+  remoteControl<RemoteSession>("remote_config_set", {config, session: remoteSession}).then(acceptRemoteSession).then(() => {});
+export const remoteProbe = (origin: string, allowPrivate: boolean, tokenFile: string) => invoke<import("./generated/SyncProbe").SyncProbe>("remote_probe", {origin,allowPrivate,tokenFile,session: remoteSession});
+export const remoteList = () => invoke<import("./generated/RemoteTree").RemoteTree>("remote_list", {session: remoteSession});
 /** Make an empty folder on the server (1.11.0); `true` when it was made, `false` when it was there. */
-export const remoteCreateFolder = (path: string) => invoke<boolean>("remote_create_folder", {path});
-export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path});
-export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag});
-export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text});
+export const remoteCreateFolder = (path: string) => invoke<boolean>("remote_create_folder", {path,session: remoteSession});
+export const remoteOpen = (path: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_open", {path,session: remoteSession});
+export const remoteSave = (path: string, text: string, etag: string) => invoke<import("./generated/RemoteSave").RemoteSave>("remote_save", {path,text,etag,session: remoteSession});
+export const remoteCreate = (path: string, text: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_create", {path,text,session: remoteSession});
 export type { Paired } from "./generated/Paired";
 /** Start signing in to the owner's site (ADR-105): returns the address to open in the browser. */
 export const pairBegin = (site: string, label: string, allowPrivate: boolean) => invoke<string>("pair_begin", {site,label,allowPrivate});
 /** Finish it with the address the browser came back to. The credential is kept in the keychain and is not returned. */
-export const pairFinish = (redirect: string) => invoke<import("./generated/Paired").Paired>("pair_finish", {redirect});
+export const pairFinish = (redirect: string) => remoteControl<import("./generated/Paired").Paired>("pair_finish", {redirect,session: remoteSession});
 export const pairSignedIn = () => invoke<boolean>("pair_signed_in");
-export const pairSignOut = () => invoke<void>("pair_sign_out");
+export const pairSignOut = () => remoteControl<void>("pair_sign_out", {session: remoteSession});
 export const remoteMerge = (base: string, mine: string, theirs: string) => invoke<import("./generated/Merged").Merged>("remote_merge", {base,mine,theirs});
-export const remoteRename = (from: string, to: string, etag: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_rename", {from,to,etag});
-export const remoteDelete = (path: string, etag: string) => invoke<void>("remote_delete", {path,etag});
+export const remoteRename = (from: string, to: string, etag: string) => invoke<import("./generated/RemoteNote").RemoteNote>("remote_rename", {from,to,etag,session: remoteSession});
+export const remoteDelete = (path: string, etag: string) => invoke<void>("remote_delete", {path,etag,session: remoteSession});
 export const remoteRender = (path: string, text: string) => invoke<Rendered>("remote_render", {path,text});

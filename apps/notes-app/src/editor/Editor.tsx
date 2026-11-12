@@ -14,6 +14,7 @@ import { languages } from "@codemirror/language-data";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { useEditor } from "../stores/editor";
+import { useRemote } from "../stores/remote";
 import { Toolbar } from "./Toolbar";
 import { writingKeymap } from "./keys";
 import { pendingCursor, useTabs } from "../stores/tabs";
@@ -88,7 +89,9 @@ export function Editor({ source }: { source?: EditorSource } = {}) {
     const state = EditorState.create({
       doc: initial.current,
       extensions: [
-        EditorState.transactionFilter.of(tr => isSyncLocked() && tr.docChanged && !tr.annotation(External) ? [] : tr),
+        EditorState.transactionFilter.of(tr =>
+          (isSyncLocked() || (remoteRef.current && useRemote.getState().changing)) &&
+          tr.docChanged && !tr.annotation(External) ? [] : tr),
         ...(lineNumbersOn ? [lineNumbers()] : []),
         highlightActiveLine(),
         EditorState.tabSize.of(tabSize),

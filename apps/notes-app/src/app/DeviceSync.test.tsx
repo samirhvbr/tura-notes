@@ -5,14 +5,22 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { DeviceSync, conditions } from "./DeviceSync";
 import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
-vi.mock("../ipc", async original=>({...await original<typeof import("../ipc")>(),deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn(),deviceList:vi.fn(async()=>null),deviceRevoke:vi.fn(),pairBegin:vi.fn(),pairFinish:vi.fn(),pairSignOut:vi.fn(async()=>{}),shellOpen:vi.fn(async()=>{})}));
+import { resetRemoteDocTimers, useRemoteDoc, type RemoteDoc } from "../stores/remoteDoc";
 vi.mock("@tauri-apps/plugin-dialog",()=>({open:vi.fn()}));
+vi.mock("../ipc", async original=>({
+  ...await original<typeof import("../ipc")>(),
+  deviceStatus:vi.fn(),deviceConditions:vi.fn(async()=>{}),deviceConfigure:vi.fn(async()=>{}),
+  devicePair:vi.fn(async()=>{}),devicePreview:vi.fn(),deviceConfirm:vi.fn(async()=>{}),
+  deviceRun:vi.fn(async()=>{}),deviceApply:vi.fn(async()=>{}),deviceProbe:vi.fn(),
+  deviceList:vi.fn(async()=>null),deviceRevoke:vi.fn(),pairBegin:vi.fn(),pairFinish:vi.fn(),
+  pairSignOut:vi.fn(async()=>{}),shellOpen:vi.fn(async()=>{}),remoteConfigGet:vi.fn(async()=>null),
+}));
 const empty:ipc.DeviceSnapshot={receive:false,connection:null,paired:null,phase:"disabled",reason:null,pending:0,unapplied:0,history:[],conflicts:[],capacity_percent:null};
 const old=useWorkspace.getState();
 // The pairing form now persists its draft, so a test that types into it would
 // otherwise seed the next one.
 beforeEach(()=>{localStorage.clear();useWorkspace.setState({info:null});vi.mocked(ipc.deviceStatus).mockResolvedValue(empty);});
-afterEach(()=>{cleanup();useWorkspace.setState(old);vi.clearAllMocks();});
+afterEach(()=>{cleanup();useWorkspace.setState(old);resetRemoteDocTimers();useRemoteDoc.setState({doc:null,tabs:[]});vi.clearAllMocks();});
 function show(){render(<DeviceSync/>);fireEvent.click(screen.getByText(/Device sync/));}
 it("treats unavailable network and power information as unknown",async()=>{
   expect(await conditions()).toEqual({online:true,metered:null,charging:null});
@@ -245,6 +253,36 @@ async function signIn(){
   fireEvent.click(screen.getByRole("button",{name:"Finish signing in"}));
   await screen.findByText(/This device is connected/);
 }
+function pendingRemoteEdit() {
+  const doc: RemoteDoc = {
+    path:"case.md",text:"unsent work",base:"saved work",etag:'"same-revision"',
+    readOnly:null,bufferVersion:1,savedVersion:0,status:"pending",externalRev:0,
+    conflict:null,lastError:null,synced:null,
+  };
+  useRemoteDoc.setState({doc,tabs:[doc.path]});
+  return doc;
+}
+it("keeps the shared credential when Device sync sign-out meets an unsent remote edit",async()=>{
+  await signIn();
+  const doc=pendingRemoteEdit();
+  fireEvent.click(screen.getByRole("button",{name:"Sign out of this device"}));
+  expect(await screen.findByText(/has changes the server did not take/)).toBeInTheDocument();
+  expect(ipc.pairSignOut).not.toHaveBeenCalled();
+  expect(useRemoteDoc.getState().doc).toBe(doc);
+  expect(screen.getByRole("textbox",{name:/Credential file/})).toHaveValue("keychain:site");
+});
+it("refuses a Device sync sign-in before the shared credential can be replaced",async()=>{
+  vi.mocked(ipc.pairBegin).mockResolvedValue("https://site.example/tura/pair");
+  show();
+  fireEvent.change(screen.getByLabelText("Your site's address"),{target:{value:"https://site.example"}});
+  fireEvent.click(screen.getByRole("button",{name:"Sign in in the browser"}));
+  fireEvent.change(await screen.findByLabelText("Address the browser came back to"),{target:{value:"tura://pair?code=abc&state=xyz"}});
+  const doc=pendingRemoteEdit();
+  fireEvent.click(screen.getByRole("button",{name:"Finish signing in"}));
+  expect(await screen.findByText(/has changes the server did not take/)).toBeInTheDocument();
+  expect(ipc.pairFinish).not.toHaveBeenCalled();
+  expect(useRemoteDoc.getState().doc).toBe(doc);
+});
 it("signing in fills the server, the workspace and the credential with a keychain name, and touches nothing else",async()=>{
   show();
   fireEvent.change(screen.getByRole("textbox",{name:/Local notes folder/}),{target:{value:"/notes"}});

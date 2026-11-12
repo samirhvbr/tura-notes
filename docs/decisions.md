@@ -3646,3 +3646,46 @@ time for a metadata-only cache hit. Otherwise compare content hashes and reuse
 the parser and search entries when the bytes match. A matching fingerprint is
 a fast path for the derived cache. Rebuild still reads the saved bytes, and the
 index has no authority over file identity or write safety. [ADR-039](#adr-039--sqlite-stores-facts-the-core-owns-workspace-io)
+
+## ADR-111 — Remote connection changes preserve unsent work and retire the previous authority
+
+**Status:** `ACCEPTED` · 12/11/2026 · the owner chose to block a connection
+change while a remote edit is unsent. Implemented in 1.12.10.
+
+**Context.** Remote connection transitions need to coordinate editor state,
+queued operations and shared credentials. The transition must wait until the
+current edit is saved or explicitly resolved, then retire the previous session
+before accepting work on the selected connection.
+
+**Decision.** Manual configuration, disconnect and the shared sign-in/out flow
+refuse any unsent Remote buffer before changing configuration or keychain
+contents. The user can save or explicitly resolve the edit through the existing
+controls. A clean transition claims the input/IPC barrier, drains calls and their
+response continuations, verifies the buffer again and commits the change before
+clearing the previous Remote editor, tabs, save timers and tree. Pending dialogs
+also verify that their observed session still applies before acting.
+
+Rust assigns a new opaque session for each explicit configuration. Every
+Remote network command carries the session from which it was issued, checked
+under the mutex that selects the connection. A request already using a
+connection retains that connection through completion. A queued request from a
+retired session is refused. Re-selecting identical configuration still creates
+a different session. Configuration changes compare the expected session under
+that same mutex.
+
+The resolved credential is pinned by an in-memory fingerprint for the lifetime
+of the session. A reconnect refuses a changed credential reference until a new
+connection is explicitly selected. The shared keychain alias is retired under
+the same mutex before replacement or sign-out. Its prior Remote configuration is
+removed from disk, so reopening the app cannot silently adopt the replacement.
+The existing configuration schema remains readable, and neither the credential
+nor its fingerprint is exposed to the frontend.
+
+**Consequences.** Unsent work retains its original connection and recovery
+controls. A successful clean switch closes the earlier remote tabs. The local
+editor is briefly covered by the existing input barrier while a transition
+commits. Local autosave resumes after that barrier ends. A failed sign-in
+exchange can retire a clean connection if it used the
+shared alias. The user then selects the connection again. Tests cover blocked
+manual and shared sign-in paths, queued dispatch, credential replacement,
+connection failures and loopback protocol operations.

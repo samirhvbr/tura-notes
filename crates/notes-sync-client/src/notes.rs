@@ -59,6 +59,15 @@ impl RemoteConfig {
     }
 }
 
+/// The configured remote folder and the lifetime of its authority. A session
+/// changes on every explicit configuration, including selecting the same one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct RemoteSession {
+    pub config: Option<RemoteConfig>,
+    pub session: String,
+}
+
 /// One note of the remote tree. `path` is relative to the credential's scope,
 /// which is what the user sees as the remote folder's root. `etag` is `None`
 /// on a server older than 1.9.8, which lists paths only, and for a note over
@@ -191,8 +200,13 @@ const LIMIT: usize = 16 * 1024 * 1024;
 
 impl RemoteNotes {
     pub fn connect(config: &RemoteConfig) -> Result<Self> {
-        let url = config.validate()?;
+        config.validate()?;
         let bearer = credential(Path::new(&config.token_file)).map_err(|_| Error::Denied)?;
+        Self::connect_with_credential(config, bearer)
+    }
+
+    fn connect_with_credential(config: &RemoteConfig, bearer: String) -> Result<Self> {
+        let url = config.validate()?;
         let (host, addresses) = resolved(&url, config.allow_private)?;
         let client = client(&host, &addresses, None)?;
         let response = send(
@@ -534,7 +548,26 @@ fn refusal(status: u16) -> Error {
 pub struct RemoteFolder {
     file: PathBuf,
     data: PathBuf,
-    state: Mutex<(Option<RemoteConfig>, Option<Arc<RemoteNotes>>)>,
+    state: Mutex<FolderState>,
+}
+
+struct FolderState {
+    snapshot: RemoteSession,
+    remote: Option<Arc<RemoteNotes>>,
+    credential: Option<blake3::Hash>,
+}
+
+impl FolderState {
+    fn new(config: Option<RemoteConfig>) -> Self {
+        Self {
+            snapshot: RemoteSession {
+                config,
+                session: uuid::Uuid::new_v4().to_string(),
+            },
+            remote: None,
+            credential: None,
+        }
+    }
 }
 impl RemoteFolder {
     pub fn new(data: &Path) -> Self {
@@ -551,17 +584,42 @@ impl RemoteFolder {
         Self {
             file,
             data: data.to_owned(),
-            state: Mutex::new((config, None)),
+            state: Mutex::new(FolderState::new(config)),
         }
     }
     pub fn config(&self) -> Option<RemoteConfig> {
-        self.state.lock().ok()?.0.clone()
+        self.state.lock().ok()?.snapshot.config.clone()
+    }
+    pub fn snapshot(&self) -> Result<RemoteSession> {
+        Ok(self.state.lock().map_err(|_| Error::Busy)?.snapshot.clone())
     }
     /// Save a configuration, or forget it with `None`. Validated before it is
     /// written, and written atomically, as `sync-control.json` is.
     pub fn configure(&self, config: Option<RemoteConfig>) -> Result<()> {
         let mut state = self.state.lock().map_err(|_| Error::Busy)?;
-        match &config {
+        self.persist_config(config.as_ref())?;
+        *state = FolderState::new(config);
+        Ok(())
+    }
+
+    /// Compare and replace under the same lock used to select a connection.
+    /// A command queued by an earlier window state cannot reconfigure it.
+    pub fn configure_bound(
+        &self,
+        session: &str,
+        config: Option<RemoteConfig>,
+    ) -> Result<RemoteSession> {
+        let mut state = self.state.lock().map_err(|_| Error::Busy)?;
+        if state.snapshot.session != session {
+            return Err(Error::Invalid);
+        }
+        self.persist_config(config.as_ref())?;
+        *state = FolderState::new(config);
+        Ok(state.snapshot.clone())
+    }
+
+    fn persist_config(&self, config: Option<&RemoteConfig>) -> Result<()> {
+        match config {
             Some(c) => {
                 c.validate()?;
                 fs::create_dir_all(&self.data).map_err(|_| Error::Storage)?;
@@ -578,21 +636,77 @@ impl RemoteFolder {
                 Err(_) => return Err(Error::Storage),
             },
         }
-        *state = (config, None);
         Ok(())
+    }
+
+    /// Retire a connection before replacing a credential alias it uses. The
+    /// configuration is removed from disk too, so a restart cannot adopt the
+    /// alias's new authority through the earlier configuration.
+    pub fn update_credential<T>(
+        &self,
+        session: &str,
+        reference: &str,
+        update: impl FnOnce() -> Result<T>,
+    ) -> Result<T> {
+        let mut state = self.state.lock().map_err(|_| Error::Busy)?;
+        if state.snapshot.session != session {
+            return Err(Error::Invalid);
+        }
+        if state
+            .snapshot
+            .config
+            .as_ref()
+            .is_some_and(|c| c.token_file == reference)
+        {
+            self.persist_config(None)?;
+            *state = FolderState::new(None);
+        }
+        update()
+    }
+
+    /// Hold the connection lifetime while resolving an explicitly requested
+    /// credential, as the connection probe does. Alias replacement is serialized
+    /// with this read without installing a connection.
+    pub fn in_session<T>(&self, session: &str, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        let state = self.state.lock().map_err(|_| Error::Busy)?;
+        if state.snapshot.session != session {
+            return Err(Error::Invalid);
+        }
+        operation()
     }
     /// Run `f` against the connection, opening it first when there is none.
     /// A refusal that may mean the credential, the address or the server
     /// changed drops the connection, so the next call starts over.
     pub fn with<T>(&self, f: impl FnOnce(&RemoteNotes) -> Result<T>) -> Result<T> {
+        self.with_bound(&self.snapshot()?.session, f)
+    }
+
+    pub fn with_bound<T>(
+        &self,
+        session: &str,
+        f: impl FnOnce(&RemoteNotes) -> Result<T>,
+    ) -> Result<T> {
         let remote = {
             let mut state = self.state.lock().map_err(|_| Error::Busy)?;
-            match &state.1 {
+            if state.snapshot.session != session {
+                return Err(Error::Invalid);
+            }
+            match &state.remote {
                 Some(remote) => remote.clone(),
                 None => {
-                    let config = state.0.clone().ok_or(Error::Invalid)?;
-                    let remote = Arc::new(RemoteNotes::connect(&config)?);
-                    state.1 = Some(remote.clone());
+                    let config = state.snapshot.config.clone().ok_or(Error::Invalid)?;
+                    let bearer =
+                        credential(Path::new(&config.token_file)).map_err(|_| Error::Denied)?;
+                    let fingerprint = blake3::hash(bearer.as_bytes());
+                    if state
+                        .credential
+                        .is_some_and(|previous| previous != fingerprint)
+                    {
+                        return Err(Error::Denied);
+                    }
+                    state.credential = Some(fingerprint);
+                    let remote = Arc::new(RemoteNotes::connect_with_credential(&config, bearer)?);
+                    state.remote = Some(remote.clone());
                     remote
                 }
             }
@@ -603,7 +717,13 @@ impl RemoteFolder {
             Err(Error::Denied | Error::Offline | Error::Protocol)
         ) {
             if let Ok(mut state) = self.state.lock() {
-                state.1 = None;
+                if state
+                    .remote
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &remote))
+                {
+                    state.remote = None;
+                }
             }
         }
         result
@@ -663,5 +783,68 @@ mod refusal_tests {
             CoreError::Sync { cause, .. } => assert_eq!(cause, SyncCause::Rejected),
             other => panic!("expected a sync cause, got {other:?}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod session_tests {
+    use super::*;
+
+    fn config() -> RemoteConfig {
+        RemoteConfig {
+            origin: "https://example.com".into(),
+            workspace: "notes".into(),
+            token_file: "keychain:independent".into(),
+            allow_private: false,
+        }
+    }
+
+    #[test]
+    fn a_configuration_can_be_changed_only_once_from_its_observed_session() {
+        let data = tempfile::tempdir().unwrap();
+        let folder = Arc::new(RemoteFolder::new(data.path()));
+        let expected = folder.snapshot().unwrap().session;
+        let ready = Arc::new(std::sync::Barrier::new(2));
+        let requests: Vec<_> = (0..2)
+            .map(|_| {
+                let folder = folder.clone();
+                let expected = expected.clone();
+                let ready = ready.clone();
+                std::thread::spawn(move || {
+                    ready.wait();
+                    folder.configure_bound(&expected, Some(config()))
+                })
+            })
+            .collect();
+        let results: Vec<_> = requests.into_iter().map(|r| r.join().unwrap()).collect();
+        assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|r| matches!(r, Err(Error::Invalid)))
+                .count(),
+            1
+        );
+        assert_eq!(folder.config(), Some(config()));
+        assert_ne!(folder.snapshot().unwrap().session, expected);
+    }
+
+    #[test]
+    fn an_unrelated_credential_change_keeps_the_connection_session() {
+        let data = tempfile::tempdir().unwrap();
+        let folder = RemoteFolder::new(data.path());
+        folder.configure(Some(config())).unwrap();
+        let before = folder.snapshot().unwrap();
+        folder
+            .update_credential(&before.session, "keychain:site", || Ok(()))
+            .unwrap();
+        assert_eq!(folder.snapshot().unwrap(), before);
+        folder.configure(None).unwrap();
+        assert!(matches!(
+            folder.in_session(&before.session, || -> Result<()> {
+                panic!("a stale probe must not resolve credentials")
+            }),
+            Err(Error::Invalid)
+        ));
     }
 }

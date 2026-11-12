@@ -1040,6 +1040,19 @@ version/notes/status only; it cannot choose an update URL or verification key.
   - `stores/remote.ts` holds the configuration and the tree;
     `stores/remoteDoc.ts` holds the open remote notes, their tabs and their
     save queue;
+  - connection changes and shared sign-in credential changes refuse any unsent
+    remote buffer, then claim the existing input/IPC barrier and drain earlier
+    replies before changing authority. They verify the buffer again after the
+    drain. The successful transition clears the old remote editor, tabs, timers
+    and tree before releasing the barrier, then resumes any pending local save
+    (ADR-111);
+  - `RemoteFolder` gives each configured authority an opaque in-memory session.
+    Every remote network command carries the observed session. Rust compares it
+    while selecting the connection under the same mutex used by configuration
+    and keychain-alias changes. Reconnect also compares the resolved credential's
+    fingerprint with the session's original fingerprint. A changed credential
+    requires an explicit connection change. Existing config files keep their
+    schema, and no credential or fingerprint crosses IPC;
   - `ui.mainView` says whose note the main area shows;
   - `Editor` takes an optional `source`, and `Preview` an optional `remote`,
     so the view and the one `innerHTML` assignment stay single;

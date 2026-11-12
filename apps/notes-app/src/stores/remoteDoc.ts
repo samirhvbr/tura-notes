@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as ipc from "../ipc";
-import { isComposing } from "../ipc/barrier";
+import { isComposing, isSyncLocked } from "../ipc/barrier";
 import { useEditor } from "./editor";
 import { useRemote } from "./remote";
 import { useUi } from "./ui";
@@ -181,6 +181,10 @@ function stem(path: string) {
 }
 
 export const useRemoteDoc = create<RemoteDocState>((set, get) => {
+  function available() {
+    if (useRemote.getState().changing) throw { code: "sync", cause: "busy" } as ipc.CoreError;
+  }
+
   const renames = new Map<string, { config: ipc.RemoteConfig | null | undefined }>();
 
   function renaming(path: string) {
@@ -257,6 +261,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
   }
 
   async function runSave(): Promise<void> {
+    if (useRemote.getState().changing) return;
     const d = get().doc;
     if (!d || d.readOnly || d.conflict || d.status === "gone" || renaming(d.path)) return;
     if (d.bufferVersion === d.savedVersion) return;
@@ -390,6 +395,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     doc: null,
 
     async open(path) {
+      available();
       const current = get().doc;
       useUi.setState({ mainView: "remote" });
       if (current?.path === path) return;
@@ -414,6 +420,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async close(path, discard = false) {
+      available();
       const d = get().doc;
       if (d?.path === path && dirty(d) && !discard) {
         if (!(await leave())) return false;
@@ -430,7 +437,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
 
     edit(text) {
       const d = get().doc;
-      if (!d || d.readOnly || d.status === "gone") return;
+      if (isSyncLocked() || useRemote.getState().changing || !d || d.readOnly || d.status === "gone") return;
       set({
         doc: {
           ...d,
@@ -451,6 +458,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async resolve(choice) {
+      available();
       const d = get().doc;
       if (!d?.conflict) return;
       const theirs = d.conflict;
@@ -489,6 +497,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async recreate() {
+      available();
       const d = get().doc;
       if (!d || d.status !== "gone") return;
       const note = await ipc.remoteCreate(d.path, d.text);
@@ -520,12 +529,14 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async create(path) {
+      available();
       const note = await ipc.remoteCreate(path, "");
       void useRemote.getState().refresh();
       await get().open(note.path);
     },
 
     async sync() {
+      if (useRemote.getState().changing) return;
       const d = get().doc;
       // A save in flight, a conflict being decided, or a note that is not on
       // the server are not states to read over; nor is a word being composed.
@@ -559,12 +570,14 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async rename(to) {
+      available();
       const d = get().doc;
       if (!d || dirty(d)) return;
       await renameAt(d.path, to, d.etag);
     },
 
     async renameNote(from, to, etag) {
+      available();
       const config = useRemote.getState().config;
       const current = get().doc;
       // A listing from an older server carries no tag; the note then says
@@ -578,6 +591,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async deleteNote(path, etag) {
+      available();
       const d = get().doc;
       if (d && d.path === path) {
         await get().remove();
@@ -599,6 +613,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     async remove() {
+      available();
       const d = get().doc;
       if (!d) return;
       await ipc.remoteDelete(d.path, d.etag);
@@ -607,7 +622,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
   };
 });
 
-/** For tests: forget the timers and the queue between cases. */
+/** Retire a connection's timers and save queue; also used between test cases. */
 export function resetRemoteDocTimers() {
   if (debounce) clearTimeout(debounce);
   if (retry) clearTimeout(retry);

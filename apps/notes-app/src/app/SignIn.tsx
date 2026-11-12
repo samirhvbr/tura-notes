@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as ipc from "../ipc";
 import { t } from "../i18n";
 import { remoteErrorText } from "../remote/errorText";
+import { changeRemoteConnection } from "../stores/remote";
 
 const SITE_KEY = "tura-site";
 
@@ -25,9 +26,9 @@ export function SignIn({
   /** This device already has the site's credential. */
   signedIn: boolean;
   /** Use the answer. It may fail; the sign-in then reports it and is over. */
-  onPaired: (paired: ipc.Paired) => Promise<void> | void;
+  onPaired: (paired: ipc.Paired, change: ipc.RemoteChange) => Promise<void> | void;
   /** The key was forgotten on this device; undo whatever depended on it. */
-  onSignedOut: () => Promise<void> | void;
+  onSignedOut: (change: ipc.RemoteChange) => Promise<void> | void;
 }) {
   const [site, setSite] = useState(() => {
     try {
@@ -77,16 +78,21 @@ export function SignIn({
     });
   const finish = () =>
     run(async () => {
-      const paired = await ipc.pairFinish(pasted.trim());
-      await onPaired(paired);
+      const paired = await changeRemoteConnection(async change => {
+        const result = await ipc.pairFinish(pasted.trim());
+        await onPaired(result, change);
+        return result;
+      });
       setWaiting(false);
       setPasted("");
       setMessage(t("remote.signin.done", { label: paired.label }));
     });
   const signOut = () =>
     run(async () => {
-      await ipc.pairSignOut();
-      await onSignedOut();
+      await changeRemoteConnection(async change => {
+        await ipc.pairSignOut();
+        await onSignedOut(change);
+      });
       setMessage(t("remote.signin.signedOut"));
     });
 

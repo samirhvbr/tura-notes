@@ -900,7 +900,7 @@ mod pdf_tests {
 // or without a local folder open, like the device list.
 
 use notes_sync_client::notes::{
-    LocalMark, RemoteConfig, RemoteEntry, RemoteFolder, RemoteNote, RemoteSave,
+    LocalMark, RemoteConfig, RemoteEntry, RemoteFolder, RemoteNote, RemoteSave, RemoteSession,
 };
 
 /// Run a remote-folder call off the UI thread. `path` names the note in the
@@ -926,38 +926,51 @@ async fn remote_call<T: Send + 'static>(
 }
 
 #[tauri::command]
-pub fn remote_config_get(app: State<'_, App>) -> Option<RemoteConfig> {
-    app.remote.config()
+pub fn remote_config_get(app: State<'_, App>) -> R<RemoteSession> {
+    app.remote.snapshot().map_err(CoreError::from)
 }
 /// Save the remote folder's address and credential path, or forget them with
 /// `null`. The credential's bytes are never read here.
 #[tauri::command]
-pub async fn remote_config_set(app: State<'_, App>, config: Option<RemoteConfig>) -> R<()> {
-    remote_call(&app, None, move |f| f.configure(config)).await
+pub async fn remote_config_set(
+    app: State<'_, App>,
+    config: Option<RemoteConfig>,
+    session: String,
+) -> R<RemoteSession> {
+    remote_call(&app, None, move |f| f.configure_bound(&session, config)).await
 }
 /// The same connection test the device-sync form uses: which step answered.
 #[tauri::command]
 pub async fn remote_probe(
+    app: State<'_, App>,
     origin: String,
     allow_private: bool,
     token_file: String,
+    session: String,
 ) -> R<notes_sync_client::remote::SyncProbe> {
+    let folder = app.remote.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        notes_sync_client::remote::Remote::probe(
-            &origin,
-            allow_private,
-            Path::new(&token_file),
-            None,
-        )
+        folder.in_session(&session, || {
+            Ok(notes_sync_client::remote::Remote::probe(
+                &origin,
+                allow_private,
+                Path::new(&token_file),
+                None,
+            ))
+        })
     })
     .await
-    .map_err(sync_error)
+    .map_err(sync_error)?
+    .map_err(CoreError::from)
 }
 /// The whole remote tree, each note marked against the local folder when one
 /// is open, and the server's folders when it lists them.
 #[tauri::command]
-pub async fn remote_list(app: State<'_, App>) -> R<notes_sync_client::notes::RemoteTree> {
-    let listed = remote_call(&app, None, |f| f.with(|r| r.tree())).await?;
+pub async fn remote_list(
+    app: State<'_, App>,
+    session: String,
+) -> R<notes_sync_client::notes::RemoteTree> {
+    let listed = remote_call(&app, None, move |f| f.with_bound(&session, |r| r.tree())).await?;
     let service = svc(&app)?;
     let open = service.workspace_id().is_some();
     let entries = listed
@@ -991,14 +1004,20 @@ pub async fn remote_list(app: State<'_, App>) -> R<notes_sync_client::notes::Rem
 /// Make an empty folder on the server (1.11.0). Only called when the last
 /// listing said the server knows folders; `true` when it was made.
 #[tauri::command]
-pub async fn remote_create_folder(app: State<'_, App>, path: RelPath) -> R<bool> {
+pub async fn remote_create_folder(app: State<'_, App>, path: RelPath, session: String) -> R<bool> {
     let p = path.clone();
-    remote_call(&app, Some(path), move |f| f.with(|r| r.create_folder(&p))).await
+    remote_call(&app, Some(path), move |f| {
+        f.with_bound(&session, |r| r.create_folder(&p))
+    })
+    .await
 }
 #[tauri::command]
-pub async fn remote_open(app: State<'_, App>, path: RelPath) -> R<RemoteNote> {
+pub async fn remote_open(app: State<'_, App>, path: RelPath, session: String) -> R<RemoteNote> {
     let p = path.clone();
-    remote_call(&app, Some(path), move |f| f.with(|r| r.read(&p))).await
+    remote_call(&app, Some(path), move |f| {
+        f.with_bound(&session, |r| r.read(&p))
+    })
+    .await
 }
 /// Save a remote note, conditioned on the revision it was read at. A note
 /// changed on the server meanwhile comes back as a conflict with its current
@@ -1009,17 +1028,26 @@ pub async fn remote_save(
     path: RelPath,
     text: String,
     etag: String,
+    session: String,
 ) -> R<RemoteSave> {
     let p = path.clone();
     remote_call(&app, Some(path), move |f| {
-        f.with(|r| r.save(&p, &text, &etag))
+        f.with_bound(&session, |r| r.save(&p, &text, &etag))
     })
     .await
 }
 #[tauri::command]
-pub async fn remote_create(app: State<'_, App>, path: RelPath, text: String) -> R<RemoteNote> {
+pub async fn remote_create(
+    app: State<'_, App>,
+    path: RelPath,
+    text: String,
+    session: String,
+) -> R<RemoteNote> {
     let p = path.clone();
-    remote_call(&app, Some(path), move |f| f.with(|r| r.create(&p, &text))).await
+    remote_call(&app, Some(path), move |f| {
+        f.with_bound(&session, |r| r.create(&p, &text))
+    })
+    .await
 }
 #[tauri::command]
 pub async fn remote_rename(
@@ -1027,17 +1055,26 @@ pub async fn remote_rename(
     from: RelPath,
     to: RelPath,
     etag: String,
+    session: String,
 ) -> R<RemoteNote> {
     let target = to.clone();
     remote_call(&app, Some(to), move |f| {
-        f.with(|r| r.rename(&from, &target, &etag))
+        f.with_bound(&session, |r| r.rename(&from, &target, &etag))
     })
     .await
 }
 #[tauri::command]
-pub async fn remote_delete(app: State<'_, App>, path: RelPath, etag: String) -> R<()> {
+pub async fn remote_delete(
+    app: State<'_, App>,
+    path: RelPath,
+    etag: String,
+    session: String,
+) -> R<()> {
     let p = path.clone();
-    remote_call(&app, Some(path), move |f| f.with(|r| r.delete(&p, &etag))).await
+    remote_call(&app, Some(path), move |f| {
+        f.with_bound(&session, |r| r.delete(&p, &etag))
+    })
+    .await
 }
 /// Join this app's unsent edit of a remote note with the server's newer copy,
 /// when they started from the same text and did not touch the same lines. `text`
