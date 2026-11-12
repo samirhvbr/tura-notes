@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.6 - finish restored server state before publishing the destination
+
+Restore published its staging tree before writing the required audit record. When that write failed, the command returned an error but left the destination in place, blocking a retry.
+
+Complete the permissions and restore audit record in staging before publishing the tree. The regression forces an audit open error, checks that the destination is absent, and restores a valid archive at that same path.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At
