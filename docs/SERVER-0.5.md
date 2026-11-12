@@ -209,7 +209,9 @@ explicit operation.
 
 Two details worth stating. It derives the release carrying the binary from
 `version.md` as `X.Y.0`, because assets are published on minor bumps, which
-costs no GitHub API call. And it copies itself to `/run` and re-executes before
+costs no GitHub API call. A current version stamp still triggers a signed
+reinstall if the executable is missing or has lost its execute bits. The script
+copies itself to `/run` and re-executes before
 pulling: the script is inside the repository it updates, and bash reads a script
 as it runs, so a pull underneath it makes what runs afterwards not reliably the
 file that started.

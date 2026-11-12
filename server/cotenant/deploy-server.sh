@@ -164,7 +164,9 @@ if [ -e "$HELPER" ] && ! cmp -s "$REPO/server/cotenant/tura-publish" "$HELPER"; 
 fi
 
 # ── 3. Binário do servidor ───────────────────────────────────────────────────
-if [ "$installed" != "$target" ]; then
+# O stamp pode sobreviver à remoção do binário ou à perda do modo executável.
+[ ! -d "$BINARY" ] || fail "o caminho do binário é um diretório: $BINARY"
+if [ "$installed" != "$target" ] || [ ! -f "$BINARY" ] || [ ! -x "$BINARY" ]; then
     log "==> Baixando notes-server $target..."
     tmp=$(mktemp -d); trap 'rm -rf "$tmp"; rm -f "${TURA_DEPLOY_PINNED_FILE:-}"' EXIT
     base="https://github.com/samirhvbr/tura-notes/releases/download/$target"
