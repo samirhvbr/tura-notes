@@ -181,8 +181,60 @@ function stem(path: string) {
 }
 
 export const useRemoteDoc = create<RemoteDocState>((set, get) => {
+  const renames = new Map<string, { config: ipc.RemoteConfig | null | undefined }>();
+
+  function renaming(path: string) {
+    const move = renames.get(path);
+    return !!move && move.config === useRemote.getState().config;
+  }
+
   function update(path: string, patch: (d: RemoteDoc) => Partial<RemoteDoc>) {
     set((s) => (s.doc && s.doc.path === path ? { doc: { ...s.doc, ...patch(s.doc) } } : s));
+  }
+
+  async function renameAt(from: string, to: string, etag: string): Promise<boolean> {
+    if (renaming(from)) return false;
+    const move = { config: useRemote.getState().config };
+    const sameConnection = () => move.config === useRemote.getState().config;
+    renames.set(from, move);
+    let savePath = from;
+    try {
+      const note = await ipc.remoteRename(from, to, etag);
+      if (!sameConnection()) return false;
+      const active = get().doc;
+      const atSource = active?.path === from;
+      // A new note can occupy the old path by the time the move is read back.
+      const follows = atSource && active.etag === etag;
+      let doc = active;
+      if (follows) {
+        savePath = note.path;
+        if (dirty(active)) {
+          // The user could keep typing while the move was on the wire. The
+          // old revision remains the merge base if the follow-up read saw a
+          // newer edit on the server.
+          doc = { ...active, path: note.path, status: "pending", conflict: null };
+          if (note.text === active.base) {
+            doc.etag = note.etag;
+            doc.readOnly = note.read_only;
+          }
+        } else {
+          doc = fromNote(note, active.externalRev + 1);
+        }
+      }
+      set((s) => ({
+        doc,
+        tabs: atSource && !follows ? s.tabs : [...new Set(s.tabs.map((path) => path === from ? note.path : path))],
+      }));
+      void useRemote.getState().refresh();
+      if (follows && dirty(active) && note.text !== active.base) await reconcile(note);
+      return true;
+    } finally {
+      if (renames.get(from) === move) renames.delete(from);
+      // A debounce or manual save may have run during the move. Try again at
+      // the destination on success, or at the original path on refusal.
+      const active = get().doc;
+      if (sameConnection() && active?.path === savePath && dirty(active)) void get().save();
+    }
   }
 
   async function finishDelete(path: string, confirmed: RemoteDoc | null) {
@@ -206,7 +258,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
 
   async function runSave(): Promise<void> {
     const d = get().doc;
-    if (!d || d.readOnly || d.conflict || d.status === "gone") return;
+    if (!d || d.readOnly || d.conflict || d.status === "gone" || renaming(d.path)) return;
     if (d.bufferVersion === d.savedVersion) return;
     const sending = d.bufferVersion;
     update(d.path, () => ({ status: "writing" }));
@@ -257,6 +309,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
   async function reconcile(theirs: ipc.RemoteNote): Promise<void> {
     const d = get().doc;
     if (!d || d.path !== theirs.path || d.status === "gone" || theirs.etag === d.etag) return;
+    const config = useRemote.getState().config;
     const now = Date.now();
     const adopt = (text: string, kind: SyncNote["kind"] | null) => {
       // The buffer is now the server's note. Both versions move together so
@@ -292,7 +345,7 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       joined = null;
     }
     const after = get().doc;
-    if (!after || after.path !== d.path || after.status === "gone" ||
+    if (config !== useRemote.getState().config || !after || after.path !== d.path || after.status === "gone" ||
         after.etag !== d.etag || after.bufferVersion !== d.bufferVersion) {
       // The buffer changed or the note was deleted while the merge ran.
       return;
@@ -391,7 +444,9 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     },
 
     save() {
-      queue = queue.then(runSave, runSave);
+      const config = useRemote.getState().config;
+      const saveOnCurrentConnection = () => config === useRemote.getState().config ? runSave() : undefined;
+      queue = queue.then(saveOnCurrentConnection, saveOnCurrentConnection);
       return queue;
     },
 
@@ -474,7 +529,8 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
       const d = get().doc;
       // A save in flight, a conflict being decided, or a note that is not on
       // the server are not states to read over; nor is a word being composed.
-      if (syncing || !d || d.status === "writing" || d.status === "conflict" || d.status === "gone") return;
+      if (syncing || !d || d.status === "writing" || d.status === "conflict" || d.status === "gone" ||
+          renaming(d.path)) return;
       syncing = true;
       try {
         const theirs = await ipc.remoteOpen(d.path);
@@ -482,7 +538,8 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         // The note, its tag and the save state are what they were when the read
         // began, or this answer is older than something that already happened
         // (a save of ours that finished meanwhile would look like a change).
-        if (!now || now.path !== d.path || now.etag !== d.etag || now.status === "writing") return;
+        if (!now || now.path !== d.path || now.etag !== d.etag || now.status === "writing" ||
+            renaming(d.path)) return;
         syncFailures = 0;
         if (isComposing() && !dirty(now)) return;
         await reconcile(theirs);
@@ -490,7 +547,9 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
         const error = ipc.asCoreError(e);
         if (error.code === "not_found") {
           const now = get().doc;
-          if (now && now.path === d.path && now.etag === d.etag) update(d.path, () => ({ status: "gone" }));
+          if (now && now.path === d.path && now.etag === d.etag && !renaming(d.path)) {
+            update(d.path, () => ({ status: "gone" }));
+          }
           return;
         }
         syncFailures += 1;
@@ -502,28 +561,20 @@ export const useRemoteDoc = create<RemoteDocState>((set, get) => {
     async rename(to) {
       const d = get().doc;
       if (!d || dirty(d)) return;
-      const note = await ipc.remoteRename(d.path, to, d.etag);
-      set((s) => ({
-        doc: fromNote(note, d.externalRev + 1),
-        tabs: s.tabs.map((p) => (p === d.path ? note.path : p)),
-      }));
-      void useRemote.getState().refresh();
+      await renameAt(d.path, to, d.etag);
     },
 
     async renameNote(from, to, etag) {
-      const d = get().doc;
-      if (d && d.path === from) {
-        if (dirty(d)) return false;
-        await get().rename(to);
-        return true;
-      }
+      const config = useRemote.getState().config;
+      const current = get().doc;
       // A listing from an older server carries no tag; the note then says
       // which revision it is.
-      const tag = etag ?? (await ipc.remoteOpen(from)).etag;
-      const note = await ipc.remoteRename(from, to, tag);
-      set((s) => ({ tabs: s.tabs.map((p) => (p === from ? note.path : p)) }));
-      void useRemote.getState().refresh();
-      return true;
+      const tag = current?.path === from ? current.etag : etag ?? (await ipc.remoteOpen(from)).etag;
+      if (config !== useRemote.getState().config) return false;
+      const d = get().doc;
+      if (d?.path !== from) return renameAt(from, to, tag);
+      if (dirty(d)) return false;
+      return renameAt(from, to, d.etag);
     },
 
     async deleteNote(path, etag) {

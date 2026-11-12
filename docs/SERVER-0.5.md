@@ -209,7 +209,9 @@ explicit operation.
 
 Two details worth stating. It derives the release carrying the binary from
 `version.md` as `X.Y.0`, because assets are published on minor bumps, which
-costs no GitHub API call. And it copies itself to `/run` and re-executes before
+costs no GitHub API call. A current version stamp still triggers a signed
+reinstall if the executable is missing or has lost its execute bits. The script
+copies itself to `/run` and re-executes before
 pulling: the script is inside the repository it updates, and bash reads a script
 as it runs, so a pull underneath it makes what runs afterwards not reliably the
 file that started.
@@ -404,7 +406,9 @@ regenerable process lock files are excluded while their guards remain held;
 user files and SQLite operational state are included. Restore extracts
 into a private staging directory, verifies the gzip checksum, rejects
 links/traversal and unknown backup schemas, and publishes only to a new
-destination. Failed extraction leaves the previous data untouched. The restored
+destination after setting private permissions and writing the restore audit
+record. If staging fails, the requested destination remains available for a
+retry and the previous data stays untouched. The restored
 core enrollment is rebound to the new
 workspace paths with a preserved pre-restore index, keeping workspace and note
 identities. Source note bytes are never rewritten. Review the restored data,

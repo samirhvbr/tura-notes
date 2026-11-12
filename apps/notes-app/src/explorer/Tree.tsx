@@ -185,6 +185,18 @@ function useEntryActions(entry: Entry): MenuRow[] {
     [fail],
   );
 
+  async function moveTo(to: RelPath, target: RelPath) {
+    const workspace = useWorkspace.getState().info?.id;
+    const moved = await reviewedMove(entry.path, to);
+    if (!moved || useWorkspace.getState().info?.id !== workspace) return;
+    useTabs.getState().repath(entry.path, moved.path);
+    useEditor.getState().repath(entry.path, moved.path);
+    if (moved.failed.length) note(t("references.failed", { count: moved.failed.length }));
+    await refresh(parent);
+    if (target !== parent) await refresh(target);
+    if (useWorkspace.getState().info?.id === workspace) await useEditor.getState().reloadFromDisk();
+  }
+
   const rename = () =>
     run(async () => {
       const name = await askText({
@@ -196,13 +208,7 @@ function useEntryActions(entry: Entry): MenuRow[] {
       });
       if (!name || name === entry.name) return;
       const to = (parent ? `${parent}/${name}` : name) as RelPath;
-      const moved = await reviewedMove(entry.path, to);
-      if(!moved)return;
-      if(moved.failed.length)note(t("references.failed",{count:moved.failed.length}));
-      await refresh(parent);
-      // The tab keeps its identity, so the open note only needs its new path.
-      useEditor.getState().repath(entry.path, moved.path);
-      await useEditor.getState().reloadFromDisk();
+      await moveTo(to, parent);
     });
 
   const move = () =>
@@ -216,13 +222,7 @@ function useEntryActions(entry: Entry): MenuRow[] {
       if (dir === null) return;
       const target = (dir.trim() === "/" ? "" : dir.trim()) as RelPath;
       const to = (target ? `${target}/${entry.name}` : entry.name) as RelPath;
-      const moved = await reviewedMove(entry.path, to);
-      if(!moved)return;
-      if(moved.failed.length)note(t("references.failed",{count:moved.failed.length}));
-      await refresh(parent);
-      await refresh(target);
-      useEditor.getState().repath(entry.path, moved.path);
-      await useEditor.getState().reloadFromDisk();
+      await moveTo(to, target);
     });
 
   const duplicate = () =>

@@ -1001,6 +1001,40 @@ fn restore_refuses_invalid_gzip_trailers() {
     fs::write(&archive, original).unwrap();
     backup::restore(&archive, &destination).unwrap();
 }
+
+#[test]
+fn restore_does_not_publish_when_the_audit_log_cannot_be_written() {
+    let f = Fixture::new(&all());
+    let good_archive = f._dir.path().join("good.tar.gz");
+    backup::backup(&f.data, &good_archive).unwrap();
+
+    let events = f.data.join("audit/events.jsonl");
+    fs::remove_file(&events).unwrap();
+    fs::create_dir(&events).unwrap();
+    fs::write(
+        f.data.join("backup-manifest.json"),
+        json!({"schema": 1, "source_root": f.data}).to_string(),
+    )
+    .unwrap();
+    let bad_archive = f._dir.path().join("bad.tar.gz");
+    let gzip = flate2::write::GzEncoder::new(
+        fs::File::create(&bad_archive).unwrap(),
+        flate2::Compression::default(),
+    );
+    let mut tar = tar::Builder::new(gzip);
+    tar.append_dir_all("data", &f.data).unwrap();
+    tar.into_inner().unwrap().finish().unwrap();
+
+    let destination = f._dir.path().join("restored");
+    assert!(backup::restore(&bad_archive, &destination).is_err());
+    assert!(!destination.exists());
+
+    backup::restore(&good_archive, &destination).unwrap();
+    let audit = fs::read_to_string(destination.join("audit/events.jsonl")).unwrap();
+    let event: Value = serde_json::from_str(audit.lines().last().unwrap()).unwrap();
+    assert_eq!(event["operation"], "restore");
+    assert_eq!(event["result"], "ok");
+}
 #[test]
 fn future_schema_is_never_overwritten() {
     let f = Fixture::new(&all());

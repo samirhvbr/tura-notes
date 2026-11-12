@@ -14,7 +14,8 @@ import type { NoteId, RelPath, Session } from "../ipc";
 const saved: Session[] = [];
 let stored: Session = blankSession();
 
-vi.mock("../ipc", () => ({
+vi.mock("../ipc", async (original) => ({
+  ...(await original<typeof import("../ipc")>()),
   sessionGet: vi.fn(async () => structuredClone(stored)),
   sessionSave: vi.fn(async (s: Session) => {
     stored = structuredClone(s);
@@ -299,12 +300,14 @@ describe("persistence", () => {
 describe("following the tree", () => {
   it("a renamed note keeps its tab and its identity", async () => {
     await useTabs.getState().openPath(p("um.md"));
-    useTabs.getState().repath(idFor("um.md"), p("pasta/um.md"));
+    useTabs.getState().repath(p("um.md"), p("pasta/um.md"));
     expect(useTabs.getState().tabs[0]).toMatchObject({
       noteId: idFor("um.md"),
       path: "pasta/um.md",
     });
     expect(useTabs.getState().activeId).toBe(idFor("um.md"));
+    await useTabs.getState().persist();
+    expect(stored.tabs[0]).toMatchObject({ note_id: idFor("um.md"), path: "pasta/um.md" });
   });
 
   it("a deleted note loses its tab", async () => {
