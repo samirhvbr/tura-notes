@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.4 - resume receiving notes across compacted history pages
+## 1.12.5 - resume receiving notes across compacted history pages
 
 A receiver could checkpoint a page of compacted metadata, then reject its own checkpoint when the live note was on a later page. A receiver with a local receipt also rejected a live successor when its immediate predecessor had been compacted.
 
