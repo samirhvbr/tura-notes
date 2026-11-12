@@ -118,7 +118,7 @@ they were re-indexed rather than ticked where they were (ADR-037).
 | U2 | *New note* → empty name | Same, empty field → **Create** | Refused **in the dialog**, with "A name is required."; the core is never called |
 | U3 | *New folder* in the top bar | **Explorer toolbar → the folder-plus icon** | The folder appears in the tree |
 | U4 | Welcome → *Create Workspace…* | **Sidebar footer → the workspace name → *Create workspace…*** — and still on Welcome, for the first one | Native picker for the parent, the application's own modal for the name |
-| U5 | Right-click a note → *Rename…* | Right-click the row **or its `⋮`** → *Rename* | The tab keeps its cursor and identity; the sidebar shows the new name |
+| U5 | Right-click a note → *Rename…* | Right-click the row **or its `⋮`** → *Rename* while another tab is active | The sidebar and inactive tab show the new name. Activating that tab opens the renamed note at its saved cursor, even if a new note now has the old name |
 | U6 | Right-click → *Move to…* | Right-click the row **or its `⋮`** → *Move* | The note moves; an **empty field means the workspace root** and must not be read as a cancellation |
 | U7 | Right-click → *Delete…* | Right-click the row **or its `⋮`** → *Delete* (last, and marked destructive) | A **destructive** confirm; on cancel nothing happens; on confirm the status line says *trashed* or *permanent* and which |
 | U8 | `Escape` on any of the above | Unchanged — **and now also on every menu**, which is what `Menu.test.tsx` asserts and this confirms on screen | Cancels, and focus returns to the control that opened it |

@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.6 - keep local tabs bound to moved notes
+
+The tree updated only the active editor after a rename or move. An inactive tab retained the old path and could open a different note if that path was reused. Reconciliation reported external moves without updating the tab list either.
+
+Update tab paths and the active editor after a tree move and follow identity-bearing reconciliation events. Tab IDs and cursor state survive, and session persistence records the destination. Frontend regressions cover reused paths, moved folders with multiple open descendants, and external moves.
+
 ## 1.12.5 - resume receiving notes across compacted history pages
 
 A receiver could checkpoint a page of compacted metadata, then reject its own checkpoint when the live note was on a later page. A receiver with a local receipt also rejected a live successor when its immediate predecessor had been compacted.
