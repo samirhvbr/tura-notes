@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.7 - recover a missing co-tenant server executable despite a current stamp
+## 1.12.8 - recover a missing co-tenant server executable despite a current stamp
 
 A current deployment stamp could outlive a missing executable or one whose execute bits had been removed. The deploy command reported success without reinstalling it or checking service health.
 
