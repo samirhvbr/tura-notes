@@ -380,13 +380,15 @@ function RemoteNoteRow({
  * whichever door the person came through: the tree's row or the note's own menu.
  */
 export async function confirmRemoteDelete(path: string): Promise<boolean> {
+  const session = ipc.remoteSessionId();
   const name = path.split("/").pop() ?? path;
-  return askConfirm({
+  const confirmed = await askConfirm({
     title: t("remote.delete.title", { name }),
     body: t("remote.delete.body"),
     confirmLabel: t("remote.delete"),
     danger: true,
   });
+  return confirmed && session === ipc.remoteSessionId() && !useRemote.getState().changing;
 }
 
 /** What to say about a refusal, and what to do about the list it was made from. */
@@ -401,6 +403,7 @@ export function reportRemoteRefusal(say: (message: string) => void, e: unknown) 
 /** Ask for a note's new name or path on the server. Null when the person
  *  cancelled, or typed what is not a note. */
 export async function askRemoteName(path: string): Promise<string | null> {
+  const session = ipc.remoteSessionId();
   const to = await askText({
     title: t("remote.rename"),
     label: t("remote.newPath"),
@@ -408,12 +411,13 @@ export async function askRemoteName(path: string): Promise<string | null> {
     confirmLabel: t("remote.rename"),
     validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
   });
-  return to ? remoteNotePath(to) : null;
+  return to && session === ipc.remoteSessionId() && !useRemote.getState().changing ? remoteNotePath(to) : null;
 }
 
 /** A new note on the server, under folders that need not exist yet: the
  *  server makes them (`parents`, 1.9.8). */
 async function newNote(say: (m: string) => void, initial = "") {
+  const session = ipc.remoteSessionId();
   const path = await askText({
     title: t("remote.new"),
     label: t("remote.newPath"),
@@ -423,7 +427,7 @@ async function newNote(say: (m: string) => void, initial = "") {
     validate: (v) => (remoteNotePath(v) ? null : t("remote.nameInvalid")),
   });
   const note = path ? remoteNotePath(path) : null;
-  if (!note) return;
+  if (!note || session !== ipc.remoteSessionId() || useRemote.getState().changing) return;
   say("");
   try {
     await useRemoteDoc.getState().create(note);
@@ -439,6 +443,7 @@ async function newNote(say: (m: string) => void, initial = "") {
  * `initial` is the folder it is made in, so a subfolder is a prefix away.
  */
 async function newFolder(say: (m: string) => void, initial: string) {
+  const session = ipc.remoteSessionId();
   const typed = await askText({
     title: t("remote.newFolder"),
     label: t("remote.newFolder.prompt"),
@@ -448,7 +453,7 @@ async function newFolder(say: (m: string) => void, initial: string) {
     validate: (v) => (remoteFolderPath(v) ? null : t("remote.folderInvalid")),
   });
   const path = typed ? remoteFolderPath(typed) : null;
-  if (!path) return;
+  if (!path || session !== ipc.remoteSessionId() || useRemote.getState().changing) return;
   say("");
   try {
     await useRemote.getState().addFolder(path);
@@ -538,16 +543,16 @@ function RemoteConnect({
     <SignIn
       allowPrivate={form.allow_private}
       signedIn={form.token_file.startsWith("keychain:")}
-      onPaired={async (paired) => {
+      onPaired={async (paired, change) => {
         await useRemote.getState().configure({
           origin: paired.origin,
           workspace: paired.workspace,
           token_file: paired.token_file,
           allow_private: form.allow_private,
-        });
+        }, change);
         onDone();
       }}
-      onSignedOut={() => useRemote.getState().configure(null)}
+      onSignedOut={change => useRemote.getState().configure(null, change)}
     />
     <fieldset className="remote-connect" disabled={busy}>
       <legend>{t("remote.title")}</legend>

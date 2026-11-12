@@ -66,6 +66,7 @@ credential disclosure are the concrete failures the core and transports prevent.
 | Asset | Threat | Mitigation |
 |---|---|---|
 | Credentials, tokens, private keys | Committed by accident, then valid forever in git history | §5. `.gitignore` covers the classes; a leak requires **rotation**, not a revert |
+| Remote editor and connection | Stale remote connection state during configuration changes | Configuration and shared keychain changes refuse unsent remote text, drain IPC under the input barrier, and retire clean old tabs. Rust validates an opaque session while selecting a connection and pins the resolved credential fingerprint through reconnects (ADR-111) |
 | Agent permissions | An agent runs a destructive or history-rewriting command | `.claude/settings.json` deny-list; it always beats the allow-list |
 | Documents read by an agent | Prompt injection through text the agent treats as instruction | §4.9 |
 | Published history | Force-push or hard reset destroys the audit trail | `git push --force`, `-f`, `reset --hard`, `clean -fd` are denied |

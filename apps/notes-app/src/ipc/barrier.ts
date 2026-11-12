@@ -8,6 +8,7 @@ export const setComposing = (value: boolean) => { composing = value; };
 export const isComposing = () => composing;
 const listeners = new Set<() => void>();
 export const isSyncLocked = () => locked;
+export const isSyncBarrierBusy = () => locked || claiming;
 export const subscribeBarrier = (listener: () => void) => {
   listeners.add(listener);
   return () => { listeners.delete(listener); };

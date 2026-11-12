@@ -10,6 +10,7 @@
 use crate::commands::App;
 use notes_model::CoreError;
 use notes_sync_client::pairing::{self, Paired};
+use notes_sync_client::remote::KEYCHAIN_PREFIX;
 use std::time::{Duration, Instant};
 use tauri::State;
 
@@ -42,7 +43,11 @@ pub async fn pair_begin(
 /// back to (`tura://pair?code=…&state=…`). Consumes the pending sign-in whatever
 /// happens: a code is single-use, so a failure is a new sign-in and not a retry.
 #[tauri::command]
-pub async fn pair_finish(app: State<'_, App>, redirect: String) -> Result<Paired, CoreError> {
+pub async fn pair_finish(
+    app: State<'_, App>,
+    redirect: String,
+    session: String,
+) -> Result<Paired, CoreError> {
     let pending = app
         .pairing
         .lock()
@@ -54,10 +59,15 @@ pub async fn pair_finish(app: State<'_, App>, redirect: String) -> Result<Paired
     if began.elapsed() > WAIT {
         return Err(CoreError::from(notes_sync_client::Error::Invalid));
     }
-    tauri::async_runtime::spawn_blocking(move || pending.finish(&redirect, CREDENTIAL))
-        .await
-        .map_err(|_| CoreError::from(notes_sync_client::Error::Invalid))?
-        .map_err(CoreError::from)
+    let remote = app.remote.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        remote.update_credential(&session, &format!("{KEYCHAIN_PREFIX}{CREDENTIAL}"), || {
+            pending.finish(&redirect, CREDENTIAL)
+        })
+    })
+    .await
+    .map_err(|_| CoreError::from(notes_sync_client::Error::Invalid))?
+    .map_err(CoreError::from)
 }
 
 /// Whether this device has a credential from the site. A yes or a no: the
@@ -73,9 +83,12 @@ pub async fn pair_signed_in() -> bool {
 /// revoked on the site or from the devices list (ADR-096); until it is, it still
 /// works for anyone who has it, and the page says so.
 #[tauri::command]
-pub async fn pair_sign_out() -> Result<(), CoreError> {
-    tauri::async_runtime::spawn_blocking(|| {
-        notes_sync_client::remote::forget_credential(CREDENTIAL)
+pub async fn pair_sign_out(app: State<'_, App>, session: String) -> Result<(), CoreError> {
+    let remote = app.remote.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        remote.update_credential(&session, &format!("{KEYCHAIN_PREFIX}{CREDENTIAL}"), || {
+            notes_sync_client::remote::forget_credential(CREDENTIAL)
+        })
     })
     .await
     .map_err(|_| CoreError::from(notes_sync_client::Error::Invalid))?

@@ -437,6 +437,137 @@ fn the_folder_keeps_its_configuration_and_forgets_it() {
     assert!(RemoteFolder::new(data.path()).config().is_none());
 }
 
+#[test]
+fn a_retired_session_is_refused_before_its_operation_runs() {
+    let first = serve("notes", &all());
+    let second = serve("notes", &all());
+    let data = tempfile::tempdir().unwrap();
+    let folder = RemoteFolder::new(data.path());
+    folder.configure(Some(first.config.clone())).unwrap();
+    let old = folder.snapshot().unwrap();
+    folder.with_bound(&old.session, |r| r.list()).unwrap();
+    let current = folder
+        .configure_bound(&old.session, Some(second.config.clone()))
+        .unwrap();
+    folder.with_bound(&current.session, |r| r.list()).unwrap();
+
+    let mut called = false;
+    let result = folder.with_bound(&old.session, |_| {
+        called = true;
+        Ok(())
+    });
+    assert!(matches!(result, Err(Error::Invalid)));
+    assert!(!called);
+    assert!(matches!(
+        folder.configure_bound(&old.session, None),
+        Err(Error::Invalid)
+    ));
+
+    let returned = folder
+        .configure_bound(&current.session, Some(first.config.clone()))
+        .unwrap();
+    assert_ne!(returned.session, old.session);
+    assert!(matches!(
+        folder.with_bound(&old.session, |r| r.list()),
+        Err(Error::Invalid)
+    ));
+    folder.with_bound(&returned.session, |r| r.list()).unwrap();
+}
+
+#[test]
+fn an_old_connection_failure_does_not_clear_the_replacement_connection() {
+    use std::sync::{mpsc, Arc};
+    let first = serve("notes", &all());
+    let second = serve("notes", &all());
+    let data = tempfile::tempdir().unwrap();
+    let folder = Arc::new(RemoteFolder::new(data.path()));
+    folder.configure(Some(first.config)).unwrap();
+    let old = folder.snapshot().unwrap();
+    let (started, waiting) = mpsc::channel();
+    let (finish, finished) = mpsc::channel();
+    let old_folder = folder.clone();
+    let request = std::thread::spawn(move || {
+        old_folder.with_bound(&old.session, |_| {
+            started.send(()).unwrap();
+            finished.recv_timeout(Duration::from_secs(5)).unwrap();
+            Err::<(), _>(Error::Offline)
+        })
+    });
+    waiting.recv_timeout(Duration::from_secs(5)).unwrap();
+    folder.configure(Some(second.config.clone())).unwrap();
+    let current = folder.snapshot().unwrap();
+    folder.with_bound(&current.session, |r| r.list()).unwrap();
+    // The replacement is already connected. A late failure must not force it
+    // to reread a credential path whose bytes have since changed.
+    fs::write(&second.config.token_file, "not the established credential").unwrap();
+    finish.send(()).unwrap();
+    assert!(matches!(request.join().unwrap(), Err(Error::Offline)));
+    folder.with_bound(&current.session, |r| r.list()).unwrap();
+}
+
+#[test]
+fn reconnecting_requires_the_credential_that_established_the_session() {
+    let server = serve("notes", &all());
+    let data = tempfile::tempdir().unwrap();
+    let folder = RemoteFolder::new(data.path());
+    folder.configure(Some(server.config.clone())).unwrap();
+    let old = folder.snapshot().unwrap();
+    assert!(matches!(
+        folder.with_bound(&old.session, |_| Err::<(), _>(Error::Offline)),
+        Err(Error::Offline)
+    ));
+    let other = server._dir.path().join("other-token");
+    admin::create_token(
+        &server.data,
+        "replacement credential".into(),
+        "home".into(),
+        p("notes"),
+        all().into_iter().collect(),
+        false,
+        &other,
+    )
+    .unwrap();
+    fs::copy(other, &server.config.token_file).unwrap();
+
+    assert!(matches!(
+        folder.with_bound(&old.session, |r| r.list()),
+        Err(Error::Denied)
+    ));
+    let current = folder
+        .configure_bound(&old.session, Some(server.config.clone()))
+        .unwrap();
+    folder.with_bound(&current.session, |r| r.list()).unwrap();
+}
+
+#[test]
+fn replacing_a_used_credential_alias_retires_its_persisted_connection_first() {
+    let data = tempfile::tempdir().unwrap();
+    let folder = RemoteFolder::new(data.path());
+    let config = RemoteConfig {
+        origin: "https://example.com".into(),
+        workspace: "notes".into(),
+        token_file: "keychain:site".into(),
+        allow_private: false,
+    };
+    folder.configure(Some(config)).unwrap();
+    let old = folder.snapshot().unwrap();
+    let result = folder.update_credential(&old.session, "keychain:site", || {
+        assert!(!data.path().join("remote-notes.json").exists());
+        Err::<(), _>(Error::Denied)
+    });
+    assert!(matches!(result, Err(Error::Denied)));
+    let current = folder.snapshot().unwrap();
+    assert!(current.config.is_none());
+    assert_ne!(current.session, old.session);
+    assert!(RemoteFolder::new(data.path()).config().is_none());
+    assert!(matches!(
+        folder.update_credential(&old.session, "keychain:site", || -> Result<(), Error> {
+            panic!("stale mutation must be refused")
+        }),
+        Err(Error::Invalid)
+    ));
+}
+
 /// Transform only the response ETag as the production proxy chain does.
 ///
 /// Cloudflare prefixes `W/`; Apache can append `-gzip` to the opaque value.

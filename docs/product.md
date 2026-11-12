@@ -379,6 +379,10 @@ runs, openable and editable in place.
   while the delete request is pending remain in the tab and can be put back on
   the server or saved as a local note.
   There is no hidden cache and no draft of a remote note anywhere.
+- **Changing or disconnecting the remote connection waits for unsent work to
+  be resolved.** The same refusal applies before either sign-in panel replaces
+  or forgets the shared credential. A successful clean switch closes the old
+  remote tabs. Save or explicitly resolve the pending edit before trying again.
 - **Not in this version:** editing offline with an upload queue, the remote
   folder with no local folder open, images and attachments on the server,
   renaming or deleting folders, and mobile.

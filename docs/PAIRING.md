@@ -116,6 +116,12 @@ native applications, with the **site** as the authorization server and the
   in Rust). The file remains a way to configure them; it is no longer the only one.
   Where a platform has no keychain, signing in is unavailable and says so, with no
   fallback to a file, as for the AI assistant's key (ADR-100).
+- **Preserve pending remote work before changing that credential** (ADR-111).
+  Both sign-in panels refuse replacement or sign-out while the Remote editor has
+  unsent text. With a clean editor, alias replacement retires any Remote
+  connection using that alias before mutating the keychain. The old clean tabs
+  close, and selecting a connection again establishes a fresh session. A failed
+  exchange after retirement can therefore leave the old Remote disconnected.
 - **A pairing client in Rust**: the verifier and challenge, the authorization URL,
   the redirect's `state` check, the exchange, all through the transport policy
   every other connection uses (HTTPS only, no redirects followed, no proxy, the

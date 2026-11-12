@@ -457,3 +457,42 @@ it("a connection whose credential is in the keychain offers to sign out, and say
   await waitFor(() => expect(ipc.remoteConfigSet).toHaveBeenCalledWith(null));
   expect(screen.getByText(/it still works for anyone who has it/)).toBeInTheDocument();
 });
+
+function pendingRemoteEdit() {
+  const doc: import("../stores/remoteDoc").RemoteDoc = {
+    path:"case.md",text:"unsent work",base:"saved work",etag:'"same-revision"',
+    readOnly:null,bufferVersion:1,savedVersion:0,status:"pending",externalRev:0,
+    conflict:null,lastError:null,synced:null,
+  };
+  useRemoteDoc.setState({doc,tabs:[doc.path]});
+  return doc;
+}
+
+it("keeps an unsent remote edit and its connection when disconnect is requested", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
+  render(<RemoteBrowser />);
+  fireEvent.click(await screen.findByRole("button", {name:"Connection"}));
+  const doc=pendingRemoteEdit();
+  const source=useRemote.getState().config;
+  fireEvent.click(screen.getByRole("button", {name:"Disconnect"}));
+  expect(await screen.findByText(/has changes the server did not take/)).toBeInTheDocument();
+  expect(ipc.remoteConfigSet).not.toHaveBeenCalled();
+  expect(useRemote.getState().config).toBe(source);
+  expect(useRemoteDoc.getState().doc).toBe(doc);
+});
+
+it("keeps an unsent remote edit and its connection when another workspace is submitted", async () => {
+  vi.mocked(ipc.remoteConfigGet).mockResolvedValue(config);
+  vi.mocked(ipc.remoteList).mockResolvedValue(tree([]));
+  render(<RemoteBrowser />);
+  fireEvent.click(await screen.findByRole("button", {name:"Connection"}));
+  const doc=pendingRemoteEdit();
+  const source=useRemote.getState().config;
+  fireEvent.change(screen.getByLabelText(/^Server workspace$/), {target:{value:"second"}});
+  fireEvent.click(screen.getByRole("button", {name:"Connect"}));
+  expect(await screen.findByText(/has changes the server did not take/)).toBeInTheDocument();
+  expect(ipc.remoteConfigSet).not.toHaveBeenCalled();
+  expect(useRemote.getState().config).toBe(source);
+  expect(useRemoteDoc.getState().doc).toBe(doc);
+});
