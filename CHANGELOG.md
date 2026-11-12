@@ -13,6 +13,30 @@ The tree updated only the active editor after a rename or move. An inactive tab 
 
 Update tab paths and the active editor after a tree move and follow identity-bearing reconciliation events. Tab IDs and cursor state survive, and session persistence records the destination. Frontend regressions cover reused paths, moved folders with multiple open descendants, and external moves.
 
+## 1.12.5 - resume receiving notes across compacted history pages
+
+A receiver could checkpoint a page of compacted metadata, then reject its own checkpoint when the live note was on a later page. A receiver with a local receipt also rejected a live successor when its immediate predecessor had been compacted.
+
+Accept checkpoints for metadata-only slots and follow their validated predecessors back to the local receipt. Report unfinished application while pages are still unseen. Regressions cover a 20-entry page boundary, receipt continuity, and preservation of a local edit.
+
+## 1.12.4 - preserve edits while a remote note is renamed
+
+A remote rename could replace keystrokes made during the request or bring back the renamed note over a different active tab. Renaming from the tree could also leave an active editor saving at the previous path.
+
+Complete the move against the current source revision. Keep edits in the buffer and save them at the new path, preserving the normal conflict checks when the server reports newer content. Regression tests cover concurrent typing and navigation, refused moves, polling, and subsequent saves.
+
+## 1.12.3 - check changelog versions across complete merge history
+
+The changelog guard could reject an already published version after its commit was merged into a branch that kept a later version. Git's default path-history simplification omitted the parent carrying that version. Follow the complete merge history and include per-parent merge diffs so a version first written during conflict resolution is also recorded.
+
+Synthetic Git histories reproduce both failures and confirm that genuinely uncommitted changelog entries are still refused. The regression suite runs from the local gate and the CI contracts job.
+
+## 1.12.2 - update rustix for RUSTSEC-2026-0486
+
+The scheduled dependency check began rejecting the locked rustix 1.1.4 after publication of RUSTSEC-2026-0486. Update rustix to the first patched version, 1.1.6, and regenerate the third-party notices. The dependency edges are unchanged.
+
+The audit reproduced the advisory against the old lock and passed with the updated lock. The reviewed application calls did not establish reachability of the affected extended-attribute reads.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At

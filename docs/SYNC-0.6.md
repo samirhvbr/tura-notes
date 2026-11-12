@@ -1258,8 +1258,13 @@ missing receipt or zero known devices prevents this compaction.
 
 Receive queues compact only after fetching the exact server envelope. A newly
 enrolled receiver advances through pruned causal entries without touching its
-folder, then applies the retained current payload. This preserves cursor
-positions and ancestry while avoiding reconstruction from removed bytes.
+folder, then applies the retained current payload. The metadata-only
+checkpoints survive restarts even when the live payload is on a later page,
+and the queue stays unapplied while pages remain unseen. When the receiver
+already applied an older version, the live payload can advance that receipt
+only across the compacted linear links it has skipped. The normal checks on
+the actual source file still apply. This preserves cursor positions and
+ancestry while avoiding reconstruction from removed bytes.
 
 ### Restored application identity reconciliation (0.20.23)
 
