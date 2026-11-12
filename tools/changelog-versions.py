@@ -19,8 +19,7 @@ draft.** Tags were the obvious evidence and they are wrong twice over: a tag is
 created by the release workflow *after* the push, so a gate run in the minutes
 between fails on the version it just shipped — which is exactly what happened on
 the first run — and fetching them would put the network inside a check that must
-work on a train. `git log -p -- version.md` is local, is one call, and is the
-same source of truth `tools/release.sh` walks.
+work on a train. The local history of `version.md` is the source of truth.
 
 **The version being written is exempt**, because it has not been committed yet
 and so has never appeared in that file's history. Every other heading has had its
@@ -41,6 +40,9 @@ SEMVER = re.compile(r"\b(\d+\.\d+\.\d+)\b")
 def committed_versions() -> set[str]:
     """Every value `version.md` has ever held, from one `git log -p`.
 
+    Follow both sides of merges even when their resolution keeps one parent's
+    file, and show merge diffs to include versions introduced by resolution.
+
     **This needs real history**, which a CI checkout does not have by default:
     `actions/checkout` is shallow, `git log` then sees one commit, and every
     heading but the newest reads as uncommitted. The `contracts` job asks for
@@ -48,7 +50,8 @@ def committed_versions() -> set[str]:
     rather than left to produce two hundred confident false failures.
     """
     out = subprocess.run(
-        ["git", "-C", str(ROOT), "log", "-p", "--format=", "--", "version.md"],
+        ["git", "-C", str(ROOT), "log", "--full-history", "-m", "-p",
+         "--format=", "--", "version.md"],
         capture_output=True, text=True, check=True).stdout
     found = set()
     for line in out.splitlines():

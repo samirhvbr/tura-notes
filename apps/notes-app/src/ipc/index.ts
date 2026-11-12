@@ -99,6 +99,12 @@ export interface EnvReport {
 /** The workspace root, for listing. */
 export const ROOT = "" as RelPath;
 
+/** Follow a moved entry without matching siblings with a similar name. */
+export function pathAfterMove(path: RelPath, from: RelPath, to: RelPath): RelPath {
+  if (path === from) return to;
+  return path.startsWith(`${from}/`) ? (to + path.slice(from.length)) as RelPath : path;
+}
+
 /**
  * A rejected command carries a `CoreError`, whose `code` is the contract.
  * Nothing in the UI reads a message — `code` maps to an i18n key.

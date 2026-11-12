@@ -15,6 +15,7 @@ const { useRemoteDoc, resetRemoteDocTimers, backoff, dirty, syncDelay, REMOTE_UN
 const { useUi } = await import("./ui");
 const { useRemote } = await import("./remote");
 const initial = useRemoteDoc.getState();
+const initialConfig = useRemote.getState().config;
 
 /** What the command answers: the notes, and the folders when the server lists them. */
 const tree = (entries: ipc.RemoteEntry[], folders?: string[]): ipc.RemoteTree => ({
@@ -37,6 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   resetRemoteDocTimers();
   useRemoteDoc.setState(initial, true);
+  useRemote.setState({ config: initialConfig });
   useUi.setState({ mainView: "local" });
   vi.clearAllMocks();
   vi.useRealTimers();
@@ -266,6 +268,156 @@ it("renaming the open note keeps its buffer, and refuses while text is unsent", 
   useRemoteDoc.setState((s) => ({ doc: s.doc && { ...s.doc, bufferVersion: s.doc.savedVersion + 1 } }));
   expect(await useRemoteDoc.getState().renameNote("renamed.md", "again.md", null)).toBe(false);
   expect(ipc.remoteRename).not.toHaveBeenCalled();
+});
+
+it("saves edits made during a remote rename at the new path and revision", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  useRemoteDoc.getState().edit("new text while moving\n");
+  await useRemoteDoc.getState().save();
+  expect(ipc.remoteSave).not.toHaveBeenCalled();
+  answer(note("renamed.md", "one\n", '"moved"'));
+  vi.mocked(ipc.remoteSave).mockResolvedValueOnce({ outcome: "saved", etag: '"saved"' });
+  await renaming;
+  await useRemoteDoc.getState().save();
+
+  expect(ipc.remoteSave).toHaveBeenCalledExactlyOnceWith("renamed.md", "new text while moving\n", '"moved"');
+  expect(useRemoteDoc.getState().doc).toMatchObject({ path: "renamed.md", text: "new text while moving\n", status: "saved" });
+  expect(useRemoteDoc.getState().tabs).toEqual(["renamed.md"]);
+});
+
+it("keeps the active tab's edits when another tab's rename finishes", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  vi.mocked(ipc.remoteOpen).mockResolvedValueOnce(note("b.md", "second tab\n", '"b"'));
+  await useRemoteDoc.getState().open("b.md");
+  useRemoteDoc.getState().edit("edited second tab\n");
+  answer(note("renamed.md", "one\n", '"moved"'));
+  await renaming;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({ path: "b.md", text: "edited second tab\n", status: "pending" });
+  expect(useRemoteDoc.getState().tabs).toEqual(["renamed.md", "b.md"]);
+});
+
+it("follows a tree rename when the source note is opened and edited during the request", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().renameNote("b.md", "folder/b.md", '"b"');
+  vi.mocked(ipc.remoteOpen).mockResolvedValueOnce(note("b.md", "second tab\n", '"b"'));
+  await useRemoteDoc.getState().open("b.md");
+  useRemoteDoc.getState().edit("edited while moving\n");
+  answer(note("folder/b.md", "second tab\n", '"moved"'));
+  vi.mocked(ipc.remoteSave).mockResolvedValueOnce({ outcome: "saved", etag: '"saved"' });
+  await renaming;
+  await useRemoteDoc.getState().save();
+
+  expect(ipc.remoteSave).toHaveBeenCalledExactlyOnceWith("folder/b.md", "edited while moving\n", '"moved"');
+  expect(useRemoteDoc.getState().doc?.path).toBe("folder/b.md");
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md", "folder/b.md"]);
+});
+
+it("resumes saving at the original path when the rename is refused", async () => {
+  await opened();
+  let refuse!: (error: ipc.CoreError) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((_, reject) => { refuse = reject; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  useRemoteDoc.getState().edit("edited while moving\n");
+  await useRemoteDoc.getState().save();
+  expect(ipc.remoteSave).not.toHaveBeenCalled();
+  vi.mocked(ipc.remoteSave).mockResolvedValueOnce({ outcome: "saved", etag: '"saved"' });
+  refuse({ code: "already_exists", path: "renamed.md" });
+  await expect(renaming).rejects.toMatchObject({ code: "already_exists" });
+  await useRemoteDoc.getState().save();
+
+  expect(ipc.remoteSave).toHaveBeenCalledExactlyOnceWith("a.md", "edited while moving\n", '"e1"');
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md"]);
+});
+
+it("reconciles a server edit between the move and its follow-up read at the new path", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  useRemoteDoc.getState().edit("mine\n");
+  vi.mocked(ipc.remoteMerge).mockResolvedValueOnce({ text: null });
+  answer(note("renamed.md", "theirs\n", '"theirs"'));
+  await renaming;
+  await useRemoteDoc.getState().save();
+
+  expect(ipc.remoteMerge).toHaveBeenCalledExactlyOnceWith("one\n", "mine\n", "theirs\n");
+  expect(useRemoteDoc.getState().doc).toMatchObject({
+    path: "renamed.md", text: "mine\n", status: "conflict", conflict: { text: "theirs\n" },
+  });
+  expect(ipc.remoteSave).not.toHaveBeenCalled();
+});
+
+it("ignores an old-path poll refusal while the rename is pending", async () => {
+  await opened();
+  let missing!: (error: ipc.CoreError) => void;
+  vi.mocked(ipc.remoteOpen).mockReturnValueOnce(new Promise((_, reject) => { missing = reject; }));
+  const polling = useRemoteDoc.getState().sync();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  missing({ code: "not_found", path: "a.md" });
+  await polling;
+  useRemoteDoc.getState().edit("edit before the move reply\n");
+  vi.mocked(ipc.remoteSave).mockResolvedValueOnce({ outcome: "saved", etag: '"saved"' });
+  answer(note("renamed.md", "one\n", '"moved"'));
+  await renaming;
+  await useRemoteDoc.getState().save();
+
+  expect(ipc.remoteSave).toHaveBeenCalledExactlyOnceWith("renamed.md", "edit before the move reply\n", '"moved"');
+});
+
+it("does not repath a new note that occupies the old path before the move reply", async () => {
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  await useRemoteDoc.getState().close("a.md");
+  vi.mocked(ipc.remoteOpen).mockResolvedValueOnce(note("a.md", "different note\n", '"replacement"'));
+  await useRemoteDoc.getState().open("a.md");
+  answer(note("renamed.md", "one\n", '"moved"'));
+  await renaming;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({ path: "a.md", text: "different note\n", etag: '"replacement"' });
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md"]);
+});
+
+it("ignores a rename reply from a connection that has been replaced", async () => {
+  const config = { origin: "https://example.com", workspace: "first", token_file: "/test-token", allow_private: false };
+  useRemote.setState({ config });
+  await opened();
+  let answer!: (value: ipc.RemoteNote) => void;
+  vi.mocked(ipc.remoteRename).mockReturnValueOnce(new Promise((resolve) => { answer = resolve; }));
+  const renaming = useRemoteDoc.getState().rename("renamed.md");
+  await useRemoteDoc.getState().close("a.md");
+  useRemote.setState({ config: { ...config, workspace: "second" } });
+  await opened();
+  useRemoteDoc.getState().edit("edit on the new connection\n");
+  answer(note("renamed.md", "one\n", '"moved"'));
+  await renaming;
+
+  expect(useRemoteDoc.getState().doc).toMatchObject({ path: "a.md", text: "edit on the new connection\n", status: "pending" });
+  expect(useRemoteDoc.getState().tabs).toEqual(["a.md"]);
+  expect(ipc.remoteSave).not.toHaveBeenCalled();
+});
+
+it("keeps the new path when the tree refresh fails after a rename", async () => {
+  await opened();
+  vi.mocked(ipc.remoteRename).mockResolvedValueOnce(note("renamed.md", "one\n", '"moved"'));
+  vi.mocked(ipc.remoteList).mockRejectedValueOnce({ code: "sync", cause: "offline" });
+  await useRemoteDoc.getState().rename("renamed.md");
+
+  expect(useRemoteDoc.getState().doc?.path).toBe("renamed.md");
+  expect(useRemoteDoc.getState().tabs).toEqual(["renamed.md"]);
+  await vi.waitFor(() => expect(useRemote.getState().error).toEqual({ code: "sync", cause: "offline" }));
 });
 
 it("a refusal from the server reaches the caller and leaves the tabs as they were", async () => {

@@ -5,7 +5,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { Tree } from "./Tree";
 import * as ipc from "../ipc";
 import { useWorkspace } from "../stores/workspace";
+import { useEditor } from "../stores/editor";
+import { useTabs } from "../stores/tabs";
+import { useSync } from "../stores/sync";
 import { askText } from "../app/dialog";
+import { reviewedMove } from "../app/ReferenceReview";
 
 vi.mock("../ipc", async (original) => ({
   ...(await original<typeof import("../ipc")>()),
@@ -14,14 +18,20 @@ vi.mock("../ipc", async (original) => ({
     kind: "File", size: 0, is_note: true,
   })),
   dirCreate: vi.fn(async () => ({})),
+  noteOpen: vi.fn(),
+  noteReload: vi.fn(),
+  reconcileAll: vi.fn(),
 }));
 vi.mock("../app/dialog", () => ({ askText: vi.fn(), askConfirm: vi.fn() }));
+vi.mock("../app/ReferenceReview", () => ({ reviewedMove: vi.fn() }));
 
 const folder = { path: "BLUE3", name: "BLUE3", kind: "Dir", size: null, is_note: false } as const;
 const note = { path: "ShvIA.md", name: "ShvIA.md", kind: "File", size: 4, is_note: true } as const;
 const original = useWorkspace.getState();
 
 beforeEach(() => {
+  useTabs.getState().reset();
+  useEditor.setState({ doc: null });
   useWorkspace.setState({
     listings: { "": [folder, note] as never },
     expanded: new Set<string>(),
@@ -30,7 +40,13 @@ beforeEach(() => {
     note: vi.fn(),
   } as never);
 });
-afterEach(() => { cleanup(); useWorkspace.setState(original); vi.clearAllMocks(); });
+afterEach(() => {
+  cleanup();
+  useTabs.getState().reset();
+  useEditor.setState({ doc: null });
+  useWorkspace.setState(original);
+  vi.clearAllMocks();
+});
 
 function show() { render(<Tree />); }
 
@@ -38,6 +54,79 @@ function show() { render(<Tree />); }
 function openMenu(index: number) {
   fireEvent.click(screen.getAllByRole("button", { name: /right-click for rename/ })[index]);
 }
+
+const path = (value: string) => value as ipc.RelPath;
+function opened(name: string, id: string, content = id): ipc.OpenedNote {
+  return {
+    path: path(name), note_id: id as ipc.NoteId, text: content, read_only: null,
+    base_rev: { size: 0, mtime_ns: "0", hash: "" },
+    draft: null, profile: { bom: false, eol: "Lf", encoding: "Utf8", final_newline: false },
+  };
+}
+
+it("reopens the renamed inactive tab even when the old path has been reused", async () => {
+  const original = opened(note.path, "original");
+  const other = opened("other.md", "other");
+  const renamed = { ...original, path: path("renamed.md") };
+  const notes = new Map([[original.path, original], [other.path, other]]);
+  vi.mocked(ipc.noteOpen).mockImplementation(async (path) => notes.get(path)!);
+  vi.mocked(ipc.noteReload).mockResolvedValue(other);
+  vi.mocked(askText).mockResolvedValue("renamed.md");
+  vi.mocked(reviewedMove).mockImplementation(async () => {
+    notes.set(renamed.path, renamed);
+    notes.set(original.path, opened(note.path, "replacement"));
+    return { path: renamed.path, updated: [], failed: [], backup: "" };
+  });
+  await useTabs.getState().openPath(original.path);
+  useTabs.getState().noteCursor(original.note_id, 5, 2, 10);
+  await useTabs.getState().openPath(other.path);
+  show();
+  openMenu(1);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename…" }));
+  await waitFor(() => expect(ipc.noteReload).toHaveBeenCalledWith(other.note_id));
+
+  await useTabs.getState().activate(original.note_id);
+
+  expect(useEditor.getState().doc).toMatchObject({ noteId: original.note_id, path: renamed.path });
+  expect(useTabs.getState().tabs[0]).toMatchObject({ path: renamed.path, line: 5, col: 2, scrollTop: 10 });
+});
+
+it("updates every descendant tab when the tree moves a directory", async () => {
+  const first = opened("BLUE3/one.md", "one");
+  const second = opened("BLUE3/sub/two.md", "two");
+  const sibling = opened("BLUE30/three.md", "three");
+  vi.mocked(ipc.noteOpen).mockResolvedValueOnce(first).mockResolvedValueOnce(second).mockResolvedValueOnce(sibling);
+  vi.mocked(ipc.noteReload).mockResolvedValue(sibling);
+  vi.mocked(askText).mockResolvedValue("archive");
+  vi.mocked(reviewedMove).mockResolvedValue({ path: path("archive/BLUE3"), updated: [], failed: [], backup: "" });
+  for (const note of [first, second, sibling]) await useTabs.getState().openPath(note.path);
+  show();
+  openMenu(0);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Move to…" }));
+  await waitFor(() => expect(ipc.noteReload).toHaveBeenCalledWith(sibling.note_id));
+
+  expect(useTabs.getState().tabs.map((tab) => tab.path)).toEqual([
+    "archive/BLUE3/one.md", "archive/BLUE3/sub/two.md", "BLUE30/three.md",
+  ]);
+});
+
+it("updates a background tab when reconciliation reports a move", async () => {
+  const original = opened(note.path, "original");
+  const other = opened("other.md", "other");
+  const to = path("renamed.md");
+  vi.mocked(ipc.noteOpen).mockResolvedValueOnce(original).mockResolvedValueOnce(other);
+  await useTabs.getState().openPath(original.path);
+  await useTabs.getState().openPath(other.path);
+  vi.mocked(ipc.reconcileAll).mockResolvedValue({
+    events: [{ event: "note_moved", note_id: original.note_id, from: original.path, to }],
+    queued: 0,
+  });
+
+  await useSync.getState().scan();
+
+  expect(useTabs.getState().tabs[0]).toMatchObject({ noteId: original.note_id, path: to });
+  expect(useEditor.getState().doc?.noteId).toBe(other.note_id);
+});
 
 it("offers to create inside the folder, and creates there", async () => {
   // The toolbar's two buttons pass the workspace root and nothing else did:
