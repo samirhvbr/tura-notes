@@ -213,6 +213,7 @@ jobs:
           run "this job runs what the local gate runs"     python3 tools/ci-parity.py
           run "a cited range matches the rows it names" python3 tools/doc-ranges.py
           run "every changelog version exists"       python3 tools/changelog-versions.py
+          run "changelog merge history"             python3 tools/tests/test_changelog_versions.py
           exit "$fail"
 
   server-container:

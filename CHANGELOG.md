@@ -7,6 +7,12 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.3 - check changelog versions across complete merge history
+
+The changelog guard could reject an already published version after its commit was merged into a branch that kept a later version. Git's default path-history simplification omitted the parent carrying that version. Follow the complete merge history and include per-parent merge diffs so a version first written during conflict resolution is also recorded.
+
+Synthetic Git histories reproduce both failures and confirm that genuinely uncommitted changelog entries are still refused. The regression suite runs from the local gate and the CI contracts job.
+
 ## 1.12.2 - update rustix for RUSTSEC-2026-0486
 
 The scheduled dependency check began rejecting the locked rustix 1.1.4 after publication of RUSTSEC-2026-0486. Update rustix to the first patched version, 1.1.6, and regenerate the third-party notices. The dependency edges are unchanged.
