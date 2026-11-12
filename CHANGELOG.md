@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.6 - finish restored server state before publishing the destination
+## 1.12.7 - finish restored server state before publishing the destination
 
 Restore published its staging tree before writing the required audit record. When that write failed, the command returned an error but left the destination in place, blocking a retry.
 
