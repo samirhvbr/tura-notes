@@ -13,6 +13,12 @@ A remote rename could replace keystrokes made during the request or bring back t
 
 Complete the move against the current source revision. Keep edits in the buffer and save them at the new path, preserving the normal conflict checks when the server reports newer content. Regression tests cover concurrent typing and navigation, refused moves, polling, and subsequent saves.
 
+## 1.12.2 - update rustix for RUSTSEC-2026-0486
+
+The scheduled dependency check began rejecting the locked rustix 1.1.4 after publication of RUSTSEC-2026-0486. Update rustix to the first patched version, 1.1.6, and regenerate the third-party notices. The dependency edges are unchanged.
+
+The audit reproduced the advisory against the old lock and passed with the updated lock. The reviewed application calls did not establish reachability of the affected extended-attribute reads.
+
 ## 1.12.1 - verify Windows crash-test termination on the native process handle
 
 The 1.12.0 Windows crash loop twice timed out waiting for a killed writer. At
