@@ -52,7 +52,7 @@ interface TabsState {
   close: (noteId: NoteId) => Promise<void>;
   closeActive: () => Promise<void>;
   noteCursor: (noteId: NoteId, line: number, col: number, scrollTop: number) => void;
-  repath: (noteId: NoteId, to: RelPath) => void;
+  repath: (from: RelPath, to: RelPath, noteId?: NoteId) => void;
   forget: (noteIds: NoteId[]) => void;
   reset: () => void;
 
@@ -183,8 +183,15 @@ export const useTabs = create<TabsState>((set, get) => ({
     schedulePersist(get);
   },
 
-  repath(noteId, to) {
-    set((s) => ({ tabs: s.tabs.map((t) => (t.noteId === noteId ? { ...t, path: to } : t)) }));
+  repath(from, to, noteId) {
+    const previous = get().tabs;
+    const tabs = previous.map((tab) => {
+      if (noteId && tab.noteId !== noteId) return tab;
+      const path = noteId ? to : ipc.pathAfterMove(tab.path, from, to);
+      return path === tab.path ? tab : { ...tab, path };
+    });
+    if (tabs.every((tab, i) => tab === previous[i])) return;
+    set({ tabs });
     schedulePersist(get);
   },
 

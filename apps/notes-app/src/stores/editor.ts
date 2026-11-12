@@ -329,14 +329,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   repath(from, to) {
     const doc = get().doc;
     if (!doc) return;
-    if (doc.path === from) {
-      set({ doc: { ...doc, path: to } });
-      return;
-    }
-    // The note was inside a folder that moved.
-    if (doc.path.startsWith(`${from}/`)) {
-      set({ doc: { ...doc, path: (to + doc.path.slice(from.length)) as RelPath } });
-    }
+    const path = ipc.pathAfterMove(doc.path, from, to);
+    if (path !== doc.path) set({ doc: { ...doc, path } });
   },
 
   close() {
