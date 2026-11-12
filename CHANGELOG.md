@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.5 - keep local tabs bound to moved notes
+## 1.12.6 - keep local tabs bound to moved notes
 
 The tree updated only the active editor after a rename or move. An inactive tab retained the old path and could open a different note if that path was reused. Reconciliation reported external moves without updating the tab list either.
 
