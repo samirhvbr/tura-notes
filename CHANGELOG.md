@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.11 - preserve edits while closing a workspace
+
+Closing or switching a workspace used a dirty-buffer list captured before its
+native close request. Typing admitted while that request was pending could be
+discarded when the successful response cleared the editor.
+
+Drain ordinary IPC and freeze input before each close attempt, then capture the
+current dirty list and keep the barrier through editor and tab cleanup. A dirty
+refusal releases input for the existing save confirmation and repeats the same
+guard after the flush. Failed attempts release the barrier and retain the
+editor; local and Remote persistence resume after the lock or a timed-out claim.
+Focused editor regressions cover clean closing, closing after a flush, edits
+during the drain, timeout recovery, and failure recovery. The frontend suite
+passed all 432 tests, and the frontend build and lint passed on macOS.
+Installed desktop acceptance remains unverified.
+
 ## 1.12.10 - preserve remote work before changing connection authority
 
 Connection and shared keychain changes now refuse any unsent Remote editor
