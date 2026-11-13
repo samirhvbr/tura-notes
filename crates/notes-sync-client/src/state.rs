@@ -1553,11 +1553,12 @@ impl Store {
                         message: "could not persist application intent".into(),
                     })
             };
+            // A receipted deletion has no source to move. A later live revision
+            // needs guarded creation even when it chooses a different path.
             let applied = if effects
-                && previous
-                    .as_ref()
-                    .is_some_and(|n| p.revision.content.is_none() || n.path != p.revision.path)
-            {
+                && previous.as_ref().is_some_and(|n| {
+                    p.revision.content.is_none() || (!n.deleted && n.path != p.revision.path)
+                }) {
                 let before = previous.as_ref().ok_or(Error::Invalid)?;
                 notes_core::sync::apply_resolution_effect(
                     &state.source,

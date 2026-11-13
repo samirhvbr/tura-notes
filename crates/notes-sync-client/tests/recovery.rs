@@ -2997,3 +2997,174 @@ fn a_payload_changed_on_disk_is_refused_by_a_process_that_verified_the_original(
 
     assert!(matches!(receiver.status(), Err(Error::Invalid)));
 }
+
+struct ResurrectionFixture {
+    dir: tempfile::TempDir,
+    receiver: Store,
+    target: std::path::PathBuf,
+    data: std::path::PathBuf,
+    peer: Peer,
+    note: notes_model::NoteId,
+    restored: Uuid,
+}
+
+// Three devices: an uploader deletes the note, an offline editor explicitly
+// restores its conflicting saved edit, and an observer has applied the deletion.
+fn resurrection_fixture(result_path: &str) -> ResurrectionFixture {
+    let (dir, root, sender, mut peer) = fixture();
+    fs::write(root.join("test.md"), b"base").unwrap();
+    sender.stage().unwrap();
+    sender.transfer(&mut peer).unwrap();
+    let base = peer.log[0].revision.clone();
+
+    let target = dir.path().join("observer-notes");
+    fs::create_dir(&target).unwrap();
+    let data = dir.path().join("observer-data");
+    let receiver = Store::open(&dir.path().join("observer-state")).unwrap();
+    receiver
+        .initialize(&target, endpoint(), Mode::Receive, &mut peer)
+        .unwrap();
+    receiver.fetch(&mut peer).unwrap();
+    receiver.apply_effects(&data).unwrap();
+    receiver.acknowledge(&mut peer).unwrap();
+
+    let author_notes = dir.path().join("author-notes");
+    fs::create_dir(&author_notes).unwrap();
+    let author_data = dir.path().join("author-data");
+    let author = Store::open(&dir.path().join("author-state")).unwrap();
+    author
+        .initialize(&author_notes, endpoint(), Mode::Receive, &mut peer)
+        .unwrap();
+    author.fetch(&mut peer).unwrap();
+    author.apply_effects(&author_data).unwrap();
+    author.acknowledge(&mut peer).unwrap();
+    fs::write(author_notes.join("test.md"), b"offline author edit").unwrap();
+
+    fs::remove_file(root.join("test.md")).unwrap();
+    let deleted = sender.stage_delete(base.note, base.id).unwrap();
+    sender.transfer(&mut peer).unwrap();
+    receiver.fetch(&mut peer).unwrap();
+    receiver.apply_effects(&data).unwrap();
+    receiver.acknowledge(&mut peer).unwrap();
+    assert!(!target.join("test.md").exists());
+
+    author.fetch(&mut peer).unwrap();
+    let branch = author
+        .capture_receiver_conflict(&author_data, base.note)
+        .unwrap();
+    let result = dir.path().join("chosen.md");
+    fs::write(&result, b"recovered legal note").unwrap();
+    let restored = author
+        .resolve_to(
+            branch,
+            deleted,
+            notes_model::RelPath::parse(result_path).unwrap(),
+            &result,
+        )
+        .unwrap();
+    author.transfer(&mut peer).unwrap();
+    assert_eq!(peer.log.last().unwrap().revision.id, restored);
+    assert_eq!(author.apply_resolution(&author_data, restored).unwrap(), 1);
+    assert_eq!(
+        fs::read(author_notes.join(result_path)).unwrap(),
+        b"recovered legal note"
+    );
+    receiver.fetch(&mut peer).unwrap();
+    ResurrectionFixture {
+        dir,
+        receiver,
+        target,
+        data,
+        peer,
+        note: base.note,
+        restored,
+    }
+}
+
+#[test]
+fn receiver_restores_a_deleted_note_at_its_original_or_a_new_path() {
+    for path in ["test.md", "recovered.md"] {
+        let mut f = resurrection_fixture(path);
+        assert_eq!(f.receiver.apply_effects(&f.data).unwrap(), 1);
+        assert_eq!(
+            fs::read(f.target.join(path)).unwrap(),
+            b"recovered legal note"
+        );
+        if path != "test.md" {
+            assert!(!f.target.join("test.md").exists());
+        }
+        assert_eq!(f.receiver.acknowledge(&mut f.peer).unwrap(), 1);
+        assert_eq!(f.peer.acknowledged.last(), Some(&f.restored));
+        assert!(f.receiver.status().unwrap().applied);
+    }
+}
+
+#[test]
+fn receiver_resurrection_refuses_an_occupied_target_and_preserves_the_old_path() {
+    let mut f = resurrection_fixture("recovered.md");
+    let checkpoint = f.dir.path().join("observer-state/application.json");
+    let before = fs::read(&checkpoint).unwrap();
+    fs::write(f.target.join("recovered.md"), b"unrelated legal note").unwrap();
+    blocked(f.receiver.apply_effects(&f.data));
+    assert_eq!(
+        fs::read(f.target.join("recovered.md")).unwrap(),
+        b"unrelated legal note"
+    );
+    assert_eq!(fs::read(&checkpoint).unwrap(), before);
+    fs::remove_file(f.target.join("recovered.md")).unwrap();
+    fs::write(f.target.join("test.md"), b"new local note at the old path").unwrap();
+    assert_eq!(f.receiver.apply_effects(&f.data).unwrap(), 1);
+    assert_eq!(
+        fs::read(f.target.join("test.md")).unwrap(),
+        b"new local note at the old path"
+    );
+    assert_eq!(
+        fs::read(f.target.join("recovered.md")).unwrap(),
+        b"recovered legal note"
+    );
+    assert_eq!(f.receiver.acknowledge(&mut f.peer).unwrap(), 1);
+}
+
+#[test]
+fn receiver_resurrection_recovers_a_lost_receipt_without_rewriting_the_created_note() {
+    let mut f = resurrection_fixture("recovered.md");
+    let checkpoint = f.dir.path().join("observer-state/application.json");
+    let mut interrupted: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    assert_eq!(f.receiver.apply_effects(&f.data).unwrap(), 1);
+    let completed: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    let identity = &completed["notes"][f.note.to_string()]["local"];
+    let modified = fs::metadata(f.target.join("recovered.md"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    interrupted["intent"] = serde_json::json!(f.restored);
+    fs::write(&checkpoint, serde_json::to_vec(&interrupted).unwrap()).unwrap();
+    fs::write(f.target.join("test.md"), b"recreated after the deletion").unwrap();
+    let restarted = Store::open(&f.dir.path().join("observer-state")).unwrap();
+    assert_eq!(restarted.apply_effects(&f.data).unwrap(), 1);
+    assert_eq!(
+        fs::metadata(f.target.join("recovered.md"))
+            .unwrap()
+            .modified()
+            .unwrap(),
+        modified
+    );
+    let recovered: serde_json::Value =
+        serde_json::from_slice(&fs::read(&checkpoint).unwrap()).unwrap();
+    assert_eq!(&recovered["notes"][f.note.to_string()]["local"], identity);
+    assert_eq!(
+        fs::read(f.target.join("test.md")).unwrap(),
+        b"recreated after the deletion"
+    );
+    f.peer.lose_receipt = true;
+    assert!(matches!(
+        restarted.acknowledge(&mut f.peer),
+        Err(Error::Offline)
+    ));
+    assert_eq!(restarted.acknowledge(&mut f.peer).unwrap(), 1);
+    assert_eq!(restarted.acknowledge(&mut f.peer).unwrap(), 0);
+    assert_eq!(restarted.apply_effects(&f.data).unwrap(), 0);
+    assert!(restarted.status().unwrap().applied);
+}
