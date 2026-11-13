@@ -7,6 +7,18 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.12 - retain edits made while resolving a recovery draft
+
+Restoring or discarding a recovery draft could replace text typed while its
+native request was pending, or bring back a note after the user navigated away.
+Install the response only while the requested buffer is still current. A
+discard that finishes after typing clears the original draft banner and leaves
+the new text and its autosave in place, retaining any later draft metadata.
+
+CodeMirror regressions hold the native response across typing and navigation,
+cover both recovery choices, and verify that newer draft metadata survives.
+Installed application acceptance of this change remains pending.
+
 ## 1.12.11 - preserve edits while closing a workspace
 
 Closing or switching a workspace used a dirty-buffer list captured before its
