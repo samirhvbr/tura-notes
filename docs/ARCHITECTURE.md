@@ -384,6 +384,13 @@ termination can bypass the window close request. The `beforeunload` fallback
 is best effort on those paths. Updater and sync recovery restarts keep their
 own guards (ADR-074 and ADR-094).
 
+Closing or switching the workspace also drains ordinary IPC and freezes input
+before the final dirty-buffer list is captured. The barrier stays held through
+the native close and local editor/tab cleanup. A dirty refusal releases it for
+the save confirmation and flush, then repeats the frozen check. A failed close
+retains the editor. Ordinary local and Remote persistence resume when this
+barrier ends or its claim times out, once no other flow owns the barrier.
+
 ### 4.3 Conflicts
 
 `conflicts/<NoteId>/<iso-ts>-<id>-<local|disk>.md` plus a sidecar with `path`,
