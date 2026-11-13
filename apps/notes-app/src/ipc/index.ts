@@ -186,8 +186,12 @@ export const workspaceRecent = () => invoke<WorkspaceEntry[]>("workspace_recent"
 export const workspaceForget = (id: WorkspaceId) => invoke<void>("workspace_forget", { id });
 /** Remove everything the app keeps and restart into a first run (ADR-091). */
 export const appDataRemove = () => invoke<void>("app_data_remove");
-export const workspaceClose = (dirty: NoteId[]) =>
-  invoke<void>("workspace_close", { dirty });
+/** The workspace close flow owns the input/IPC barrier, from its final dirty
+ * snapshot through local cleanup. Ordinary tracked IPC is closed during it. */
+export const workspaceClose = (dirty: NoteId[]) => {
+  if (!isSyncLocked()) return Promise.reject({ code: "sync", cause: "busy" } as CoreError);
+  return rawInvoke<void>("workspace_close", { dirty });
+};
 
 export const treeList = (dir: RelPath) => invoke<Entry[]>("tree_list", { dir });
 

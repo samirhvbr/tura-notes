@@ -272,6 +272,16 @@ export const useEditor = create<EditorState>((set, get) => ({
     const doc = get().doc;
     if (!doc) return;
     const opened = await ipc.draftResolve(doc.noteId, restore ? "restore" : "discard");
+    const current = get().doc;
+    if (!sameBuffer(current, doc)) {
+      // Resolving a draft does not write the note. Keep any typing and its
+      // autosave admitted during IPC, or the note the user navigated to.
+      // Clear the discarded banner, but keep metadata from a later draft response.
+      if (!restore && current?.noteId === doc.noteId && current.draft === doc.draft) {
+        set({ doc: { ...current, draft: null } });
+      }
+      return;
+    }
     const bufferVersion = restore ? Math.max(1, opened.draft?.buffer_version ?? 0) : 0;
     set({ doc: { ...replacing(doc, opened), bufferVersion } });
   },
