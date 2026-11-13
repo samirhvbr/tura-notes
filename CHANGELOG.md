@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.14 - keep the workspace open when closing cannot persist metadata
+
+A failed registry write during workspace close returned an error after dropping
+the native workspace. The interface kept its editor open, but later saves and
+drafts failed with NoWorkspace even after storage recovered. Existing source
+bytes were not lost in the reproduction.
+
+Persist the registry before releasing the open workspace and its activity lease.
+A metadata failure leaves the same workspace available for recovery and editing;
+a successful retry closes it normally. The regression injects a registry storage
+failure, restores storage, verifies saved bytes and drafts, and checks that the
+activity lease is retained on failure and released after a successful close.
+
 ## 1.12.10 - preserve remote work before changing connection authority
 
 Connection and shared keychain changes now refuse any unsent Remote editor
