@@ -7,6 +7,22 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.13 - restore received notes at a new path after deletion
+
+A device that had applied and acknowledged a deletion could not receive a later
+explicit restoration at a different path. It tried to move the already deleted
+source and remained blocked on that publication.
+
+Apply a live revision following a receipted deletion through guarded creation,
+including when the restored note chooses a new path. Preserve occupied targets,
+files recreated at the old path, durable application intents and receipt retries.
+The core move and deletion guards remain unchanged.
+
+Three-device regressions use the public client APIs with an in-memory transport
+for deletion, saved-edit capture, explicit resolution, publication and application.
+They cover both restoration paths, destination collisions, recreated old paths,
+and recovery after a lost final receipt without changing identity or file time.
+
 ## 1.12.10 - preserve remote work before changing connection authority
 
 Connection and shared keychain changes now refuse any unsent Remote editor
