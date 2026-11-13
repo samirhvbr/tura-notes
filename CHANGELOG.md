@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.13 - restore received notes at a new path after deletion
+## 1.12.14 - restore received notes at a new path after deletion
 
 A device that had applied and acknowledged a deletion could not receive a later
 explicit restoration at a different path. It tried to move the already deleted
@@ -22,6 +22,22 @@ Three-device regressions use the public client APIs with an in-memory transport
 for deletion, saved-edit capture, explicit resolution, publication and application.
 They cover both restoration paths, destination collisions, recreated old paths,
 and recovery after a lost final receipt without changing identity or file time.
+
+## 1.12.13 - require the patched ammonia sanitizer
+
+The dependency audit reports RUSTSEC-2026-0533 against the locked ammonia
+4.2.4 sanitizer. Require the patched 4.2.5 release and refresh the lockfile and
+generated third-party notices so both the checked build and future dependency
+resolution exclude affected versions.
+
+The Markdown allowlist and rendering policy remain unchanged. This updates the
+upstream sanitizer without claiming that the application reproduces the
+advisory's affected raw-text-tag configuration.
+
+The 108 Markdown tests, including the existing raw-HTML and XSS corpus, pass
+with the patched lockfile. The dependency audit and generated-license check
+also pass; upstream package metadata retains the same Rust 1.85 minimum,
+dependency constraints and license texts.
 
 ## 1.12.12 - retain edits made while resolving a recovery draft
 
