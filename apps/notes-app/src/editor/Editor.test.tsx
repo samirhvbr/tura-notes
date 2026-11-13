@@ -13,12 +13,15 @@ import { Editor } from "./Editor";
 import * as ipc from "../ipc";
 import { useEditor } from "../stores/editor";
 import { useSettings } from "../stores/settings";
+import { EditorView } from "@codemirror/view";
 
 vi.mock("../ipc", async original => ({
   ...await original<typeof import("../ipc")>(),
   draftResolve: vi.fn(),
   conflictResolve: vi.fn(),
   noteConvertEol: vi.fn(),
+  noteSave: vi.fn(),
+  noteClose: vi.fn(async () => {}),
 }));
 
 const rev = { hash: "b3:abc", size: 8, mtime_ns: "1" } as ipc.BaseRev;
@@ -56,8 +59,9 @@ function shown(): string {
 
 afterEach(() => {
   cleanup();
-  useEditor.setState({ doc: null });
+  useEditor.getState().close();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 useSettings.setState({ settings: null } as never);
@@ -83,6 +87,67 @@ it("discarding a draft also reaches the screen", async () => {
   await act(async () => { await useEditor.getState().resolveDraft(false); });
 
   expect(shown()).toBe("from disk");
+});
+
+function held<T>() {
+  let finish!: (value: T) => void;
+  const promise = new Promise<T>(resolve => { finish = resolve; });
+  return { promise, finish };
+}
+
+it.each([true, false])("draft resolution (%s) keeps typing admitted while IPC was pending", async restore => {
+  vi.useFakeTimers();
+  onScreen("from disk", { draft });
+  render(<Editor />);
+  const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)!;
+  const reply = held<ipc.OpenedNote>();
+  vi.mocked(ipc.draftResolve).mockReturnValueOnce(reply.promise);
+
+  let resolving!: Promise<void>;
+  act(() => { resolving = useEditor.getState().resolveDraft(restore); });
+  act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: ", more typing" } }); });
+  expect(shown()).toBe("from disk, more typing");
+  await act(async () => {
+    reply.finish(opened(restore ? "older recovered text" : "from disk"));
+    await resolving;
+  });
+
+  expect(shown()).toBe("from disk, more typing");
+  expect(useEditor.getState().doc).toMatchObject({ text: shown(), bufferVersion: 1, savedVersion: 0 });
+  expect(useEditor.getState().doc?.draft).toBe(restore ? draft : null);
+  vi.mocked(ipc.noteSave).mockResolvedValue({ result: "saved", base_rev: rev, buffer_version: 1, unchanged: false });
+  await act(async () => { await vi.advanceTimersByTimeAsync(750); });
+  expect(ipc.noteSave).toHaveBeenCalledWith("note", "from disk, more typing", 1, rev);
+});
+
+it("a late draft response does not reopen the note the user left", async () => {
+  onScreen("from disk", { draft });
+  render(<Editor />);
+  const reply = held<ipc.OpenedNote>();
+  vi.mocked(ipc.draftResolve).mockReturnValueOnce(reply.promise);
+  const resolving = useEditor.getState().resolveDraft(true);
+  act(() => { onScreen("another note", { noteId: "other" as ipc.NoteId, path: "other.md" as ipc.RelPath }); });
+
+  await act(async () => { reply.finish(opened("older recovered text")); await resolving; });
+
+  expect(useEditor.getState().doc?.noteId).toBe("other");
+  expect(shown()).toBe("another note");
+});
+
+it("discarding an older recovery draft leaves newer draft metadata intact", async () => {
+  vi.useFakeTimers();
+  onScreen("from disk", { draft });
+  const reply = held<ipc.OpenedNote>();
+  vi.mocked(ipc.draftResolve).mockReturnValueOnce(reply.promise);
+  const resolving = useEditor.getState().resolveDraft(false);
+  useEditor.getState().edit("new typing");
+  const newer = { ...draft, buffer_version: 9 };
+  useEditor.setState(s => ({ doc: s.doc && { ...s.doc, draft: newer } }));
+
+  reply.finish(opened("from disk"));
+  await resolving;
+
+  expect(useEditor.getState().doc).toMatchObject({ text: "new typing", draft: newer });
 });
 
 it("resolving a conflict reaches the screen", async () => {

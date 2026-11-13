@@ -7,7 +7,7 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
-## 1.12.14 - keep the workspace open when closing cannot persist metadata
+## 1.12.15 - keep the workspace open when closing cannot persist metadata
 
 A failed registry write during workspace close returned an error after dropping
 the native workspace. The interface kept its editor open, but later saves and
@@ -19,6 +19,66 @@ A metadata failure leaves the same workspace available for recovery and editing;
 a successful retry closes it normally. The regression injects a registry storage
 failure, restores storage, verifies saved bytes and drafts, and checks that the
 activity lease is retained on failure and released after a successful close.
+
+## 1.12.14 - restore received notes at a new path after deletion
+
+A device that had applied and acknowledged a deletion could not receive a later
+explicit restoration at a different path. It tried to move the already deleted
+source and remained blocked on that publication.
+
+Apply a live revision following a receipted deletion through guarded creation,
+including when the restored note chooses a new path. Preserve occupied targets,
+files recreated at the old path, durable application intents and receipt retries.
+The core move and deletion guards remain unchanged.
+
+Three-device regressions use the public client APIs with an in-memory transport
+for deletion, saved-edit capture, explicit resolution, publication and application.
+They cover both restoration paths, destination collisions, recreated old paths,
+and recovery after a lost final receipt without changing identity or file time.
+
+## 1.12.13 - require the patched ammonia sanitizer
+
+The dependency audit reports RUSTSEC-2026-0533 against the locked ammonia
+4.2.4 sanitizer. Require the patched 4.2.5 release and refresh the lockfile and
+generated third-party notices so both the checked build and future dependency
+resolution exclude affected versions.
+
+The Markdown allowlist and rendering policy remain unchanged. This updates the
+upstream sanitizer without claiming that the application reproduces the
+advisory's affected raw-text-tag configuration.
+
+The 108 Markdown tests, including the existing raw-HTML and XSS corpus, pass
+with the patched lockfile. The dependency audit and generated-license check
+also pass; upstream package metadata retains the same Rust 1.85 minimum,
+dependency constraints and license texts.
+
+## 1.12.12 - retain edits made while resolving a recovery draft
+
+Restoring or discarding a recovery draft could replace text typed while its
+native request was pending, or bring back a note after the user navigated away.
+Install the response only while the requested buffer is still current. A
+discard that finishes after typing clears the original draft banner and leaves
+the new text and its autosave in place, retaining any later draft metadata.
+
+CodeMirror regressions hold the native response across typing and navigation,
+cover both recovery choices, and verify that newer draft metadata survives.
+Installed application acceptance of this change remains pending.
+
+## 1.12.11 - preserve edits while closing a workspace
+
+Closing or switching a workspace used a dirty-buffer list captured before its
+native close request. Typing admitted while that request was pending could be
+discarded when the successful response cleared the editor.
+
+Drain ordinary IPC and freeze input before each close attempt, then capture the
+current dirty list and keep the barrier through editor and tab cleanup. A dirty
+refusal releases input for the existing save confirmation and repeats the same
+guard after the flush. Failed attempts release the barrier and retain the
+editor; local and Remote persistence resume after the lock or a timed-out claim.
+Focused editor regressions cover clean closing, closing after a flush, edits
+during the drain, timeout recovery, and failure recovery. The frontend suite
+passed all 432 tests, and the frontend build and lint passed on macOS.
+Installed desktop acceptance remains unverified.
 
 ## 1.12.10 - preserve remote work before changing connection authority
 
