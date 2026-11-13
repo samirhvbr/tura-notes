@@ -26,7 +26,7 @@ notes-markdown = { path = "crates/notes-markdown" }
 notes-mcp = { path = "crates/notes-mcp" }
 
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
-ammonia = "4"
+ammonia = "4.2.5"
 # Freedesktop trash on Linux, Recycle Bin on Windows, Finder trash on macOS.
 # `ARCHITECTURE.md` §11 promises a trash per backend and §7.7 forbids a silent
 # fallback to a permanent delete; the crate is what makes the promise keepable
