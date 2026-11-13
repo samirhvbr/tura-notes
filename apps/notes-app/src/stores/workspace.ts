@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { askConfirm, askText } from "../app/dialog";
 import { t as tr } from "../i18n";
 import * as ipc from "../ipc";
+import { acquireSyncBarrier, endSyncBarrier, isComposing, isSyncBarrierBusy } from "../ipc/barrier";
 import type { CoreError, Entry, NoteId, RelPath, WorkspaceInfo } from "../ipc";
 import { useEditor } from "./editor";
+import { dirty as remoteDirty, useRemoteDoc } from "./remoteDoc";
 import { useTabs } from "./tabs";
 
 /** Directories always come first; this orders what follows within each kind. */
@@ -93,12 +95,34 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
   },
 
   async leave() {
-    // The editor holds one document (ADR-030), so the dirty set is at most one
-    // note — but it is sent as a list because that is the shape the core's
-    // refusal names, and 0.2's split panes will make it more than one.
-    const dirty = dirtyNotes();
+    const close = async () => {
+      let held = false;
+      try {
+        held = await acquireSyncBarrier();
+        if (!held || isComposing()) throw { code: "sync", cause: "busy" } as CoreError;
+        // A keystroke or an IPC response can change the buffer during the
+        // drain. Only this frozen dirty list authorizes the native close.
+        await ipc.workspaceClose(dirtyNotes());
+        // Keep input frozen until nothing can point into the closed workspace.
+        useEditor.getState().close();
+        useTabs.getState().reset();
+        set({ info: null, listings: {}, expanded: new Set(), error: null, notice: null });
+      } finally {
+        if (held) endSyncBarrier();
+        // A debounce can expire during the claim as well as under the lock.
+        // Resume after a timeout too, once no other flow owns the barrier.
+        if (!isSyncBarrierBusy()) {
+          const local = useEditor.getState();
+          if (local.doc && local.doc.bufferVersion !== local.doc.savedVersion) {
+            void (local.doc.conflict ? local.keepDraft("conflict") : local.save());
+          }
+          const remote = useRemoteDoc.getState();
+          if (remoteDirty(remote.doc)) void remote.save();
+        }
+      }
+    };
     try {
-      await ipc.workspaceClose(dirty);
+      await close();
     } catch (e) {
       const err = ipc.asCoreError(e);
       if (err.code !== "dirty_buffers") {
@@ -117,7 +141,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
       if (!ok) return false;
       await useEditor.getState().save(true);
       try {
-        await ipc.workspaceClose(dirtyNotes());
+        await close();
       } catch (again) {
         // The save did not take — a full disk, a permission, a conflict. The
         // workspace stays open, which is the only answer that keeps the buffer.
@@ -125,11 +149,6 @@ export const useWorkspace = create<WorkspaceState>((set, get) => ({
         return false;
       }
     }
-    // Only now: the core has let go, so nothing here can be pointing at a note
-    // in a workspace that is no longer open.
-    useEditor.getState().close();
-    useTabs.getState().reset();
-    set({ info: null, listings: {}, expanded: new Set(), error: null, notice: null });
     return true;
   },
 
