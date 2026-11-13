@@ -417,11 +417,12 @@ impl WorkspaceService {
                 count: dirty.len(),
             });
         }
-        if let Some(open) = self.open.take() {
+        if let Some(open) = self.open.as_ref() {
             if !open.read_only {
                 state::store(&paths::registry_file(&open.dir), &open.registry)?;
             }
         }
+        self.open = None;
         Ok(())
     }
 

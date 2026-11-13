@@ -172,3 +172,75 @@ fn a_claim_of_dirtiness_is_believed_rather_than_second_guessed() {
 
     assert!(svc.close_workspace(&[NoteId::new()]).is_err());
 }
+
+#[test]
+fn failed_close_retains_the_workspace_and_lease_until_metadata_persistence_succeeds() {
+    let root = tempfile::tempdir().unwrap();
+    let data = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("case.md"), b"saved legal note\r\n").unwrap();
+    let mut svc = WorkspaceService::with_data_dir(data.path()).unwrap();
+    let workspace = svc.open_workspace(root.path()).unwrap();
+    let note = svc.open_note(&rel("case.md")).unwrap();
+    let registry = notes_core::paths::workspace_dir(data.path(), workspace.id).join("registry.db");
+    let backup = registry.with_extension("db.before-failure");
+    std::fs::rename(&registry, &backup).unwrap();
+    std::fs::create_dir(&registry).unwrap();
+
+    assert!(svc.close_workspace(&[]).is_err());
+    // Restore storage before checking the live workspace and activity lease.
+    std::fs::remove_dir(&registry).unwrap();
+    std::fs::rename(&backup, &registry).unwrap();
+    assert_eq!(svc.workspace_id(), Some(workspace.id));
+    assert_eq!(
+        svc.workspace_root().unwrap(),
+        root.path().canonicalize().unwrap()
+    );
+    assert!(svc.list_dir(&RelPath::root()).is_ok());
+    assert_eq!(
+        std::fs::read(root.path().join("case.md")).unwrap(),
+        b"saved legal note\r\n"
+    );
+    let mut peer = WorkspaceService::with_data_dir(data.path()).unwrap();
+    assert!(matches!(
+        peer.open_sync_workspace(root.path()),
+        Err(notes_model::CoreError::LockTimeout {
+            what: notes_model::LockWait::ActivityExclusive
+        })
+    ));
+
+    svc.save_note(
+        note.note_id,
+        "edit after refused close\n",
+        1,
+        &note.base_rev,
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read(root.path().join("case.md")).unwrap(),
+        b"edit after refused close\r\n"
+    );
+    let saved = svc.reload_note(note.note_id).unwrap();
+    assert_eq!(saved.note_id, note.note_id);
+    svc.write_draft(
+        note.note_id,
+        "next unsaved edit\n",
+        2,
+        &saved.base_rev,
+        notes_core::DraftReason::Exit,
+    )
+    .unwrap();
+    assert!(svc
+        .list_drafts()
+        .unwrap()
+        .iter()
+        .any(|draft| draft.note_id == note.note_id));
+
+    svc.close_workspace(&[]).unwrap();
+    assert_eq!(svc.workspace_id(), None);
+    assert!(matches!(
+        svc.list_dir(&RelPath::root()),
+        Err(notes_model::CoreError::NoWorkspace)
+    ));
+    peer.open_sync_workspace(root.path()).unwrap();
+    assert_eq!(peer.workspace_id(), Some(workspace.id));
+}
