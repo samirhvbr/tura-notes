@@ -283,6 +283,7 @@
   "error.read_only": "Esta nota é somente leitura.",
   "error.remote.unsent": "Uma nota da pasta do servidor tem alterações que o servidor não aceitou, então ela continua aberta. Guarde-as com “Salvar uma cópia na pasta local” no menu ⋮ dela, ou feche a aba e descarte-as.",
   "error.schema_ahead": "Estes dados foram gravados por uma versão mais nova. Atualize o Notes.",
+  "error.state_unreadable": "O Notes não conseguiu ler um dos seus próprios arquivos ({store}), então parou e não mudou nada. O arquivo foi deixado como estava. Se isso continuar, avise.",
   "error.symlink_not_followed": "Isso é um link, e links não são seguidos.",
   "error.sync.application_blocked": "As notas recebidas não puderam ser aplicadas com o workspace em uso. Feche-o, preserve alterações não salvas e tente de novo.",
   "error.sync.busy": "A sincronização está ocupada agora. Nada foi perdido; tente de novo em instantes.",

@@ -112,3 +112,25 @@ it("keeps text typed while an older exit draft is being written", async () => {
   expect(useTabs.getState().activeId).toBe(id(first));
   expect(useEditor.getState().doc?.text).toBe("newer edit");
 });
+
+it("does not show the exit draft of a cancelled leave as a recovered draft", async () => {
+  const next = held<ipc.OpenedNote>();
+  vi.mocked(ipc.noteFlush).mockResolvedValue({ result: "write_failed", kind: "disk_full", buffer_version: 1 });
+  vi.mocked(ipc.draftWrite).mockResolvedValue({ schema: 1, note_id: id(first), path: first, buffer_version: 1, base_rev: rev, reason: "exit", written_at: "now" });
+  vi.mocked(ipc.noteOpen).mockReturnValueOnce(next.promise);
+  useEditor.getState().edit("older edit");
+  const switching = useTabs.getState().openPath(second);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(ipc.draftWrite).toHaveBeenCalledWith(id(first), "older edit", 1, rev, "exit");
+  expect(ipc.noteOpen).toHaveBeenLastCalledWith(second);
+
+  useEditor.getState().edit("older edit plus newer typing");
+  next.finish(opened(second));
+  await switching;
+
+  // The leave was cancelled by the typing. A banner offering to restore the
+  // older draft over that typing would be wrong: the draft is on disk, but the
+  // document in front of the user is newer.
+  expect(useTabs.getState().activeId).toBe(id(first));
+  expect(useEditor.getState().doc).toMatchObject({ text: "older edit plus newer typing", draft: null });
+});

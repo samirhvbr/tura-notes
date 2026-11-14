@@ -283,6 +283,7 @@
   "error.read_only": "This note is read-only.",
   "error.remote.unsent": "A note from the server's folder has changes the server did not take, so it stays open. Keep them with “Save a copy to the local folder” in its ⋮ menu, or close its tab and discard them.",
   "error.schema_ahead": "This data was written by a newer version. Update Notes.",
+  "error.state_unreadable": "Notes could not read one of its own files ({store}), so it stopped and changed nothing. The file was left as it is. If this keeps happening, report it.",
   "error.symlink_not_followed": "That is a link, and links are not followed.",
   "error.sync.application_blocked": "Received notes could not be applied while the workspace is in use. Close it, keep any unsaved changes, and try again.",
   "error.sync.busy": "Sync is busy right now. Nothing was lost; try again shortly.",

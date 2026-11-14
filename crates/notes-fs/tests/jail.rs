@@ -122,8 +122,9 @@ fn a_symlink_appears_in_the_listing_but_is_not_a_note() {
 
 /// The temp file is the half of the jail that a path check cannot reach.
 ///
-/// `tmp_path` uses a deterministic `.{name}.tmp` beside the note — deliberate,
-/// so a crash leaves at most one of them — which also makes it predictable. A
+/// `open_temp` uses a deterministic `.{name}.tmp` beside the note (a hash of the
+/// name when that is too long for the filesystem) — deliberate, so a crash
+/// leaves at most one of them — which also makes it predictable. A
 /// link left at that name used to receive the next save's bytes, because
 /// `File::create` follows a symlink and no path check ever looks at the temp.
 #[cfg(unix)]

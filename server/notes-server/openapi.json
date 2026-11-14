@@ -1541,7 +1541,7 @@
           "text": {
             "type": "string",
             "maxLength": 8388608,
-            "description": "UTF-8 text, at most 8 MiB in bytes; JSON body at most 16 MiB. PATCH appends this text."
+            "description": "UTF-8 text, at most 8 MiB in bytes; JSON body at most 16 MiB. PATCH appends this text. A PUT or PATCH whose resulting file, BOM and line endings included, would exceed 8 MiB is refused with 400 even when this text fits."
           }
         },
         "required": [

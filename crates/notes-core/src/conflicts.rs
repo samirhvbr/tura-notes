@@ -155,7 +155,9 @@ pub fn snapshot(
     Ok(info)
 }
 
-/// Everything under `conflicts/`, newest first.
+/// Everything under `conflicts/`, newest first by `written_at`. That has
+/// one-second resolution, and snapshots of one note and side no longer replace
+/// each other, so those taken in the same second come in no particular order.
 pub fn list(dir: &Path) -> Conflicts {
     let root = crate::paths::conflicts_dir(dir);
     let mut snapshots = Vec::new();

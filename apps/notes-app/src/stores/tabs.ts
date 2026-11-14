@@ -23,7 +23,8 @@ import { useUi } from "./ui";
  * Switching away from a dirty note **flushes it** first, and a note in conflict
  * writes its draft instead of being saved. Neither is a special case invented
  * here: they are the two things `ARCHITECTURE.md` §5 already says happen when a
- * buffer stops being looked at.
+ * buffer stops being looked at. If the flush does not land or the draft cannot
+ * be confirmed, the switch is refused and the tab stays open with its text.
  */
 export interface TabEntry {
   noteId: NoteId;
