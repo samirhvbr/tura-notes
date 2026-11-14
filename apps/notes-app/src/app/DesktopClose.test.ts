@@ -89,7 +89,10 @@ it("waits for a confirmed draft when the local flush fails", async () => {
   expect(native.destroy).not.toHaveBeenCalled();
   await act(async () => { write.finish(draft); await closing; });
 
-  expect(useEditor.getState().doc?.draft).toEqual(draft);
+  // The exit draft is written for the next start. It is not attached to the
+  // document on screen as a "recovered" draft, which would be wrong if the close
+  // were cancelled after this point.
+  expect(useEditor.getState().doc?.draft).toBeNull();
   expect(native.destroy).toHaveBeenCalledOnce();
 });
 

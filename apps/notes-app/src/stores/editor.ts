@@ -258,7 +258,11 @@ export const useEditor = create<EditorState>((set, get) => ({
       const info = await ipc.draftWrite(doc.noteId, doc.text, doc.bufferVersion, doc.baseRev, reason);
       const current = get().doc;
       if (!current || !sameBuffer(current, doc)) return false;
-      set({ doc: { ...current, draft: info } });
+      // An exit draft belongs to a document that is about to be replaced. If the
+      // caller then stays (the user typed while the next note loaded, or the
+      // neighbour tab was closed), attaching it here would show "draft
+      // recovered" with Restore and Discard over text newer than the draft.
+      if (reason !== "exit") set({ doc: { ...current, draft: info } });
       return true;
     } catch (e) {
       set((s) => s.doc && sameBuffer(s.doc, doc)
