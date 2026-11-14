@@ -140,7 +140,8 @@ snippets. List is also capped at 200. A truncated list or search answer carries
 `next_offset`; passing it back as `offset` continues from there (since 1.8.20 —
 the core honoured `offset` before, but the published schema did not list it, so
 it was refused). A query has 1–4,096 bytes and note input
-and resulting text are limited to 8 MiB. Enumeration is confined to the scope.
+and the resulting file on disk (BOM and line endings included, since 1.11.35)
+are limited to 8 MiB. Enumeration is confined to the scope.
 Large trees may take time: operations are serial and there is no progress or
 cancellation capability in this version.
 

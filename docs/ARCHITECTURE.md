@@ -295,10 +295,11 @@ folder the user chose, such as a device-sync queue.
     ├── reference-backups/               reviewed rewrite originals and journals
     ├── drafts/<NoteId>.md               unsaved buffer snapshot — OPERATIONAL (§4.2)
     ├── drafts/<NoteId>.json             draft sidecar
-    ├── conflicts/<NoteId>/<ts>-<side>.md  non-chosen version — OPERATIONAL (§4.3)
-    ├── conflicts/<NoteId>/<ts>-<side>.json
+    ├── conflicts/<NoteId>/<ts>-<uuid>-<side>.md  non-chosen version — OPERATIONAL (§4.3)
+    ├── conflicts/<NoteId>/<ts>-<uuid>-<side>.md.json
     ├── session.json                     tabs, cursor, scroll — OPERATIONAL, resettable (§4.4)
     ├── write.lock                       cross-process advisory lock, ephemeral (§6)
+    ├── drafts.lock                      advisory lock serializing draft writes and removal, ephemeral (§4.2)
     ├── index.db                         DERIVED — deleting it only costs a reindex
     └── cache/                           DERIVED
 ```
@@ -366,9 +367,14 @@ the buffer cannot be, or has not been, written to the note. Sidecar:
 Written when: a save is refused (conflict) or fails (I/O); a buffer has been
 dirty for more than 30 s without a confirmed save; a desktop close request
 cannot flush the latest buffer. Removed only after a confirmed write of a
-`buffer_version` ≥ the draft's. A separate app-data lock serializes draft writes
-with that removal, so a draft can still be written when the workspace write
-lock is unavailable.
+`buffer_version` ≥ the draft's. That number counts the edits of one open
+document and starts again whenever the note is opened, so the comparison only
+means something inside one editor session: a draft left by an earlier session
+with a higher number survives the saves of the reopened note until one of them
+reaches that number, and is then removed without having been resolved. Writing
+a draft replaces the note's previous one whatever its number; only removal
+compares. A separate app-data lock serializes draft writes with that removal, so
+a draft can still be written when the workspace write lock is unavailable.
 On `note_open`, an existing draft is returned alongside the disk text and the
 UI asks: restore draft / keep disk / compare.
 
@@ -393,7 +399,7 @@ barrier ends or its claim times out, once no other flow owns the barrier.
 
 ### 4.3 Conflicts
 
-`conflicts/<NoteId>/<iso-ts>-<id>-<local|disk>.md` plus a sidecar with `path`,
+`conflicts/<NoteId>/<iso-ts>-<uuid>-<local|disk>.md` plus a sidecar with `path`,
 `base_rev`, and `reason`. Retention: **unresolved conflicts are never
 auto-deleted**; resolved ones are kept 30 days (setting) then pruned; the
 directory warns at 200 MB per workspace and never deletes to make room.

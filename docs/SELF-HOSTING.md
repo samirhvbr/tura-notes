@@ -243,9 +243,13 @@ because a signature that does not match is far more often a publishing mistake
 than an attack.
 
 The script marks a service restart pending before changing the binary or the
-systemd unit. If reloading systemd, restarting the service or checking loopback
-health fails, rerun the deploy. It retries those steps even when the files on
-disk are already current and clears the marker after the loopback check passes.
+systemd unit, in `/usr/local/share/tura-notes/installed-version.pending-restart`.
+If reloading systemd, restarting the service or checking loopback health fails,
+rerun the deploy. It retries those steps even when the files on disk are already
+current and clears the marker after the loopback check passes. While that check
+keeps failing, or the marker cannot be removed, every deploy restarts the
+service again, whether or not the service is healthy for some other reason; the
+marker is the file to inspect or remove by hand.
 
 ### Signing a release (maintainer)
 
