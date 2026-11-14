@@ -228,8 +228,22 @@ async fn updates_and_appends_refuse_results_over_the_on_disk_read_limit() {
     assert_eq!(fs::read(&path).unwrap(), b"\xef\xbb\xbfstart\r\nok\r\n");
     let base = headers["etag"].to_str().unwrap();
 
-    // The exact limit is still writable and readable, including the BOM and CRLF.
+    // One byte over the limit (BOM + CRLF included) is refused, note untouched.
     let limit = 8 * 1024 * 1024;
+    let over = format!("{}\n", "a".repeat(limit - 4));
+    let before = fs::read(&path).unwrap();
+    let (status, _, _) = f
+        .request(
+            "PUT",
+            NOTE,
+            Some(json!({"text":over})),
+            &[("if-match", base)],
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(fs::read(&path).unwrap(), before);
+
+    // The exact limit is still writable and readable, including the BOM and CRLF.
     let text = format!("{}\n", "a".repeat(limit - 5));
     let (status, _, _) = f
         .request(

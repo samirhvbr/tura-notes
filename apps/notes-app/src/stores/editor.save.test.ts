@@ -131,3 +131,13 @@ it("the queue survives a save that threw, and the next one still runs", async ()
   await useEditor.getState().save(true);
   expect(ipc.noteFlush).toHaveBeenCalledTimes(1);
 });
+
+it("a save older than the recovery draft keeps the draft banner", async () => {
+  useEditor.setState({ doc: doc({ bufferVersion: 6, savedVersion: 0, draft }) });
+  vi.mocked(ipc.noteSave).mockResolvedValue(savedAt(6));
+
+  await useEditor.getState().save();
+
+  expect(useEditor.getState().doc?.savedVersion).toBe(6);
+  expect(useEditor.getState().doc?.draft).toBe(draft);
+});
