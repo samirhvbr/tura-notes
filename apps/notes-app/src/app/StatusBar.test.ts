@@ -36,3 +36,16 @@ it("a sync conflict no longer reads as unsupported storage", () => {
   expect(text).toBe(en["error.sync.conflict"]);
   expect(errorText({ code: "sync", cause: "receiving", received: 20 })).toContain("20 revisions");
 });
+
+// `errorText` builds most keys from the error's own fields, which
+// `tools/i18n-keys.py` cannot resolve, so a code with no sentence reached the
+// status bar as its key. Renaming or deleting an entry whose identity registry
+// cannot be read refuses with this code.
+it("an unreadable state file is explained in both languages, not printed as its key", () => {
+  for (const [name, table] of [["en", en], ["pt-BR", ptBR]] as const) {
+    expect(table, name).toHaveProperty(["error.state_unreadable"]);
+  }
+  const text = errorText({ code: "state_unreadable", store: "registry", path: "state/registry.db" });
+  expect(text).not.toBe("error.state_unreadable");
+  expect(text).toContain("(registry)");
+});

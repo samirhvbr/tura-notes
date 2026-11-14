@@ -187,6 +187,7 @@ export function errorText(e: CoreError): string {
   if (e.code === "dirty_buffers") return t("error.dirty_buffers", { count: e.count });
   if (e.code === "drafts_pending") return t("error.drafts_pending", { count: e.count });
   if (e.code === "sync") return t(`error.sync.${e.cause}`, { received: e.received ?? 0 });
+  if (e.code === "state_unreadable") return t("error.state_unreadable", { store: e.store });
   // `unsupported` is the generic "this storage cannot do that", and one refusal
   // is not about storage at all: leaving a remote note whose text the server has
   // not taken. It carries its reason in `cap`, which the generic sentence cannot
