@@ -7,6 +7,19 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+## 1.12.17 - Keep the iOS app icon assets opaque
+
+The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary
+app icon. Reuse the opaque copies prepared in the retained iOS bring-up branch:
+their dimensions and every RGB component match the existing assets exactly;
+only the nearly opaque alpha channel is removed. The brand guide records the
+check needed after icon regeneration, which can restore that channel.
+
+This ports only the platform icon assets. The generated Apple project, keychain,
+sandbox workspace flow and Simulator observations remain unintegrated work on
+`backup/ios-bringup`. No iOS build, upload or installed-device acceptance is
+claimed by this asset correction.
+
 ## 1.12.16 - an exit draft no longer comes back as a recovered draft when leaving a note is cancelled
 
 Leaving a note whose text cannot be saved writes an exit draft before the next note opens. The draft was attached to the open document as soon as it was written, so when the leave was then cancelled (the user typed while the next note loaded, or the neighbour tab was closed) the editor showed "An unsaved draft was recovered" with Restore and Discard over text that was newer than the draft, and Restore puts the draft's text over it. An exit draft is now only written; drafts kept for the other reasons are attached as before. The regression holds the next note's read, types during it and checks that the document keeps the newer text with no draft attached. It fails on the 1.12.15 store and passes now. One assertion in the desktop-close test expected the exit draft to be attached after a confirmed write; it now expects none, and no other test changed.

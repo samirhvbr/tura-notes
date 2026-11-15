@@ -18,6 +18,15 @@ cd apps/notes-app
 npm run tauri -- icon ../../docs/assets/tura-icon.svg --ios-color '#073B40'
 ```
 
+The ordinary iOS icon PNGs in `apps/notes-app/src-tauri/icons/ios` are opaque RGB
+assets, including the 1024-pixel icon. Icon regeneration can add an alpha channel
+again: inspect the regenerated PNG metadata before committing this set, and
+remove that channel while preserving the full-bleed background and RGB pixels.
+On macOS, `sips -g hasAlpha src-tauri/icons/ios/*.png` should report `no` for this
+ordinary icon set. This does not prescribe the transparency of a separate dark
+appearance or layered icon design. Icon assets alone do not establish an iOS
+build or App Store acceptance; mobile delivery remains tracked in `.continue/`.
+
 The repository is `samirhvbr/tura-notes`. Existing checkouts can update origin
 with `git remote set-url origin git@github.com:samirhvbr/tura-notes.git`.
 The local checkout directory need not change.
