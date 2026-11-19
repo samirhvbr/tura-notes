@@ -623,8 +623,8 @@ on return from the background `[0.4]`.
 An editor tick or full scan identifies the open local note. If the file was
 removed, its registry entry stays available while the UI handles the event.
 The editor closes the same clean buffer or writes a recovery draft if the user
-typed during the request. A later scan can release the identity after the
-buffer closes.
+typed during the request. When the editor confirms the close, the core can release the
+unchanged identity if the file is still absent and no draft needs it.
 
 ```
 raw watcher events ─▶ notify-debouncer (200 ms) ─▶ normalize  [the normalized shape below is the design; the code exposes `Watch` and `Degraded`, and no `FsEvent` type exists]

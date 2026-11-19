@@ -7,7 +7,7 @@ use crate::state::Schemad;
 
 /// One note's identity, as the app knows it. **None of this is ever written into
 /// the `.md` file** (`ARCHITECTURE.md` §18.2).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NoteRecord {
     pub path: RelPath,
     pub size: u64,

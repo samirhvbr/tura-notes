@@ -88,7 +88,7 @@ fn a_removed_editor_note_can_still_save_a_late_edit_as_a_draft_and_copy() {
 }
 
 #[test]
-fn a_released_removed_editor_note_is_forgotten_on_the_next_scan() {
+fn a_replacement_after_confirming_removal_gets_a_new_identity_before_the_next_scan() {
     let mut f = setup();
     let path = rel("nota.md");
     let note = f.svc.open_note(&path).unwrap();
@@ -97,7 +97,9 @@ fn a_released_removed_editor_note_is_forgotten_on_the_next_scan() {
         .reconcile_all_for_editor(&[], Some(note.note_id))
         .unwrap();
     f.svc.close_note(note.note_id).unwrap();
-    f.svc.reconcile_all_for_editor(&[], None).unwrap();
+    std::fs::write(f.work.path().join(path.as_str()), "unrelated replacement").unwrap();
+    let replacement = f.svc.open_note(&path).unwrap();
+    assert_ne!(replacement.note_id, note.note_id);
     assert!(matches!(
         f.svc.write_draft(
             note.note_id,
@@ -108,6 +110,66 @@ fn a_released_removed_editor_note_is_forgotten_on_the_next_scan() {
         ),
         Err(notes_model::CoreError::NotFound { .. })
     ));
+    assert_eq!(replacement.text, "unrelated replacement");
+}
+
+#[test]
+fn a_delayed_close_does_not_forget_a_reopened_record_or_its_draft() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let note = f.svc.open_note(&path).unwrap();
+    std::fs::remove_file(f.work.path().join(path.as_str())).unwrap();
+    f.svc
+        .reconcile_all_for_editor(&[], Some(note.note_id))
+        .unwrap();
+    std::fs::write(f.work.path().join(path.as_str()), "restored").unwrap();
+    let reopened = f.svc.open_note(&path).unwrap();
+    // The old close arrives after a second removal of the reopened file.
+    std::fs::remove_file(f.work.path().join(path.as_str())).unwrap();
+    f.svc.close_note(note.note_id).unwrap();
+    f.svc
+        .write_draft(
+            reopened.note_id,
+            "new edits",
+            1,
+            &reopened.base_rev,
+            notes_core::DraftReason::Conflict,
+        )
+        .unwrap();
+    assert_eq!(f.svc.list_drafts().unwrap()[0].note_id, reopened.note_id);
+}
+
+#[test]
+fn confirming_removal_keeps_an_existing_draft_recoverable() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let note = f.svc.open_note(&path).unwrap();
+    std::fs::remove_file(f.work.path().join(path.as_str())).unwrap();
+    f.svc
+        .reconcile_all_for_editor(&[], Some(note.note_id))
+        .unwrap();
+    let text = "the last draft";
+    f.svc
+        .write_draft(
+            note.note_id,
+            text,
+            1,
+            &note.base_rev,
+            notes_core::DraftReason::Conflict,
+        )
+        .unwrap();
+    f.svc.close_note(note.note_id).unwrap();
+    assert_eq!(f.svc.list_drafts().unwrap()[0].note_id, note.note_id);
+    let copy = f
+        .svc
+        .resolve_conflict(
+            note.note_id,
+            text,
+            &note.base_rev,
+            notes_core::ConflictChoice::SaveAsCopy,
+        )
+        .unwrap();
+    assert_eq!(copy.text, text);
     assert!(!f.work.path().join(path.as_str()).exists());
 }
 

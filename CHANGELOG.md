@@ -45,7 +45,9 @@ open local note's identity long enough for the UI to handle the response.
 If the user typed in the meantime, the editor can persist the text as a draft.
 A delayed removal does not close a reopened copy of the same note. Across
 eight macOS removal trials, the draft survived reopening the service and the
-original file stayed absent.
+original file stayed absent. After a confirmed clean close, a new file at the
+same path receives a new note ID. A reopened note or a retained draft keeps
+its identity.
 
 ## 1.12.17 - Keep the iOS app icon assets opaque
 

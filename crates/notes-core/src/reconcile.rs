@@ -524,9 +524,13 @@ impl super::WorkspaceService {
                     } else {
                         // The editor may have acquired unsaved text since it sent
                         // its dirty list. Keep its identity for draft_write until
-                        // the editor releases the note and another scan sees it gone.
-                        if Some(id) != open_note {
-                            self.open_mut()?.registry.notes.remove(&id);
+                        // the editor confirms the close or reopens the note.
+                        let open = self.open_mut()?;
+                        if Some(id) == open_note {
+                            open.removed_in_editor =
+                                open.registry.record(id).cloned().map(|record| (id, record));
+                        } else {
+                            open.registry.notes.remove(&id);
                         }
                         events.push(CoreEvent::FsChanged {
                             path: from,
