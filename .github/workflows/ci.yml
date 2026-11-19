@@ -428,9 +428,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: install cargo-audit
         run: cargo install cargo-audit --locked
-      # The lockfile is what ships, so the lockfile is what is audited.
       - name: rust advisories
-        run: cargo audit --deny warnings
+        run: python3 tools/audit-rust.py
       - uses: actions/setup-node@v6
         with:
           node-version: 22

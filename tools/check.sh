@@ -138,7 +138,7 @@ step "cargo test"           cargo test --workspace
 # dependency maintenance as a control. `cargo-audit` is installed on demand
 # because it can be; a run that cannot get it stops rather than reporting green.
 if require_tool cargo-audit cargo install cargo-audit --locked; then
-  step "rust advisories"    cargo audit --deny warnings
+  step "rust advisories"    python3 tools/audit-rust.py
 else
   missing "rust advisories" "cargo install cargo-audit --locked failed; run it by hand and read why"
 fi

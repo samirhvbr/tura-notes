@@ -31,7 +31,7 @@ ammonia = "4.2.5"
 # `ARCHITECTURE.md` §11 promises a trash per backend and §7.7 forbids a silent
 # fallback to a permanent delete; the crate is what makes the promise keepable
 # and `DeleteOutcome` is what keeps the honesty.
-trash = "5"
+trash = "5.4"
 # The watcher. A stable 8.x rather than the 9 release candidate: this is the
 # component that tells the application a file it is holding has changed
 # underneath it, and a candidate's behaviour on a backend we cannot test here —

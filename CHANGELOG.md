@@ -26,6 +26,12 @@ Device sync reports an operation error next to the paired controls when the
 connection form is closed. If a queue is created and connecting to it fails,
 the panel retains the error and stops before showing a successful pairing.
 
+The desktop trash backend now uses `trash` 5.4.0, which migrated its Linux
+timestamps from `chrono` to `jiff`. Cargo still locks an optional `chrono`
+adapter in `serde_with`. The local and CI audits check all workspace features
+and targets before exempting that unused package's maintenance advisory.
+Enabling the dependency again restores the warning.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

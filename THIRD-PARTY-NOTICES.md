@@ -245,8 +245,11 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `javascriptcore-rs` | 1.1.2 | MIT | https://github.com/tauri-apps/javascriptcore-rs |
 | Rust: `javascriptcore-rs-sys` | 1.1.1 | MIT | https://github.com/tauri-apps/javascriptcore-rs |
 | Rust: `jiff` | 0.2.35 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
+| Rust: `jiff` | 1.0.1 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
 | Rust: `jiff-core` | 0.1.0 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
+| Rust: `jiff-core` | 1.0.1 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
 | Rust: `jiff-static` | 0.2.35 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
+| Rust: `jiff-static` | 1.0.1 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
 | Rust: `jiff-tzdb` | 0.1.8 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
 | Rust: `jiff-tzdb-platform` | 0.1.3 | Unlicense OR MIT | https://github.com/BurntSushi/jiff |
 | Rust: `jni` | 0.21.1 | MIT/Apache-2.0 | https://github.com/jni-rs/jni-rs |
@@ -504,7 +507,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tracing` | 0.1.44 | MIT | https://github.com/tokio-rs/tracing |
 | Rust: `tracing-attributes` | 0.1.31 | MIT | https://github.com/tokio-rs/tracing |
 | Rust: `tracing-core` | 0.1.36 | MIT | https://github.com/tokio-rs/tracing |
-| Rust: `trash` | 5.2.9 | MIT | https://github.com/ArturKovacs/trash |
+| Rust: `trash` | 5.4.0 | MIT | https://github.com/ArturKovacs/trash |
 | Rust: `tray-icon` | 0.25.1 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tray-icon |
 | Rust: `try-lock` | 0.2.5 | MIT | https://github.com/seanmonstar/try-lock |
 | Rust: `ts-rs` | 12.0.1 | MIT | https://github.com/Aleph-Alpha/ts-rs |
@@ -1442,7 +1445,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### aho-corasick 1.1.5, byteorder 1.5.0, globset 0.4.20, ignore 0.4.34, jiff 0.2.35, jiff-core 0.1.0, jiff-static 0.2.35, jiff-tzdb 0.1.8, jiff-tzdb-platform 0.1.3, memchr 2.8.3, same-file 1.0.6, termcolor 1.4.1, walkdir 2.5.0, winapi-util 0.1.11
+### aho-corasick 1.1.5, byteorder 1.5.0, globset 0.4.20, ignore 0.4.34, jiff 0.2.35, jiff 1.0.1, jiff-core 0.1.0, jiff-core 1.0.1, jiff-static 0.2.35, jiff-static 1.0.1, jiff-tzdb 0.1.8, jiff-tzdb-platform 0.1.3, memchr 2.8.3, same-file 1.0.6, termcolor 1.4.1, walkdir 2.5.0, winapi-util 0.1.11
 
 ```text
 This project is dual-licensed under the Unlicense and MIT licenses.
@@ -1450,7 +1453,7 @@ This project is dual-licensed under the Unlicense and MIT licenses.
 You may use this code under the terms of either license.
 ```
 
-### aho-corasick 1.1.5, byteorder 1.5.0, byteorder-lite 0.1.0, globset 0.4.20, ignore 0.4.34, jiff 0.2.35, jiff-core 0.1.0, jiff-static 0.2.35, jiff-tzdb 0.1.8, jiff-tzdb-platform 0.1.3, memchr 2.8.3, termcolor 1.4.1, walkdir 2.5.0
+### aho-corasick 1.1.5, byteorder 1.5.0, byteorder-lite 0.1.0, globset 0.4.20, ignore 0.4.34, jiff 0.2.35, jiff 1.0.1, jiff-core 0.1.0, jiff-core 1.0.1, jiff-static 0.2.35, jiff-static 1.0.1, jiff-tzdb 0.1.8, jiff-tzdb-platform 0.1.3, memchr 2.8.3, termcolor 1.4.1, walkdir 2.5.0
 
 ```text
 The MIT License (MIT)
@@ -17339,7 +17342,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### trash 5.2.9
+### trash 5.4.0
 
 ```text
 Copyright 2019 Artúr Barnabás Kovács
