@@ -303,12 +303,12 @@ export const watchStatus = () => invoke<WatchStatus>("watch_status");
  * One watcher-driven tick. **The dirty list comes from here**, because the
  * buffers live in this process and the core does not hold them.
  */
-export const reconcileTick = (dirty: NoteId[]) =>
-  invoke<Reconciled>("reconcile_tick", { dirty });
+export const reconcileTick = (dirty: NoteId[], openNote: NoteId | null = null, visible = false) =>
+  invoke<Reconciled>("reconcile_tick", { dirty, openNote, visible });
 
 /** A full scan: window focus, tab switch, manual refresh. */
-export const reconcileAll = (dirty: NoteId[]) =>
-  invoke<Reconciled>("reconcile_all", { dirty });
+export const reconcileAll = (dirty: NoteId[], openNote: NoteId | null = null) =>
+  invoke<Reconciled>("reconcile_all", { dirty, openNote });
 
 /** Rename in place, keeping the `NoteId` — the tab and its cursor survive. */
 export const entryRename = (path: RelPath, newName: string) =>

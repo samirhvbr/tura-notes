@@ -254,7 +254,7 @@ code { font-family: var(--font-mono); }
 
 .note-head {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -273,32 +273,58 @@ code { font-family: var(--font-mono); }
 .note-actions { display: flex; gap: 2px; justify-content: flex-end; position: relative; }
 .note-actions .menu { top: calc(100% + 6px); right: 0; }
 
+/* Folder selection and note selection share the same action hierarchy. */
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.action-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 7px 14px; border-radius: 6px;
+  background: var(--bg-raised); font-weight: 550;
+}
+.action-primary { background: var(--accent); color: var(--bg-sunken); border-color: transparent; }
+.action-primary:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bg-sunken); }
+.quiet-button, .welcome-tools .update-manual button {
+  color: var(--fg-dim); background: transparent; border-color: transparent; font-size: 12px;
+}
+.quiet-button:hover:not(:disabled), .welcome-tools .update-manual button:hover:not(:disabled) {
+  color: var(--fg); background: var(--hover);
+}
 .welcome {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 32px;
-  text-align: center;
+  display: flex; height: 100%; overflow: auto; padding: clamp(20px, 5vw, 56px);
+  background: var(--bg);
 }
-.welcome h1 { margin: 0; font-size: 28px; font-weight: 600; }
-.welcome .actions { display: flex; gap: 10px; margin-top: 8px; }
-.welcome .recent { margin-top: 28px; width: min(560px, 100%); text-align: left; }
-.welcome .recent h2 {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--fg-dim); margin: 0 0 6px;
+.welcome-inner { width: min(100%, 640px); margin: auto; }
+.welcome-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; font-size: 18px; font-weight: 650; }
+.welcome h1, .workspace-start h1 {
+  margin: 0; font-weight: 650; letter-spacing: -.025em; font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.16; overflow-wrap: anywhere;
 }
-.welcome .recent ul { list-style: none; margin: 0; padding: 0; }
-.welcome .recent button {
-  width: 100%; text-align: left; background: transparent; border: none;
-  padding: 5px 8px; border-radius: 4px;
+.welcome-lead, .workspace-start p { max-width: 58ch; margin: 8px 0 20px; color: var(--fg-dim); line-height: 1.55; }
+.welcome .recent { margin: 28px 0 0; }
+.welcome .recent h2 { margin: 0 0 8px; font-size: 14px; }
+.welcome .recent ul { list-style: none; margin: 0; padding: 0; border-block: 1px solid var(--line); }
+.welcome .recent li { display: flex; align-items: center; gap: 8px; }
+.welcome .recent li + li { border-top: 1px solid var(--line); }
+.recent-open {
+  display: flex; flex: 1; min-width: 0; align-items: center; gap: 12px;
+  border: 0; background: transparent; padding: 10px 6px; text-align: start;
 }
-.welcome .recent button:hover { background: var(--hover); }
-.welcome .recent li { display: flex; gap: 4px; }
-.welcome .recent button.forget { width: auto; color: var(--fg-dim); }
-.welcome .remove-data { margin-top: 20px; font-size: 12px; color: var(--fg-dim); }
+.recent-open:hover { background: var(--hover-soft); }
+.recent-open svg { flex-shrink: 0; color: var(--fg-dim); }
+.recent-location { min-width: 0; display: grid; gap: 3px; }
+.recent-location strong { font-weight: 550; overflow-wrap: anywhere; }
+.recent-location > span { color: var(--fg-dim); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.workspace-start { flex: 0 1 auto; min-width: 0; max-width: 520px; margin: auto; padding: 20px; }
+.workspace-symbol { box-sizing: content-box; padding: 11px; background: var(--accent-soft); color: var(--accent); border-radius: 10px; margin-bottom: 14px; }
+.workspace-start h1 { font-size: clamp(22px, 3vw, 30px); }
+.welcome-tools {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 8px 16px; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.welcome-tools .update-manual { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.welcome-tools .update-manual p { margin: 0; overflow-wrap: anywhere; }
+.welcome-tools .update-running { font-size: 12px; color: var(--fg-dim); }
+.workspace-feedback { display: flex; align-items: baseline; gap: 8px; color: var(--on-bad); background: var(--tint-theirs); border-inline-start: 3px solid var(--bad); padding: 10px 12px; }
+.workspace-feedback svg { flex-shrink: 0; align-self: center; }
 
 .tree { list-style: none; margin: 0; padding: 0; }
 .row-wrap { display: flex; align-items: center; position: relative; border-radius: 4px; }
@@ -738,38 +764,75 @@ code { font-family: var(--font-mono); }
    selects it as a panel, so it takes the sidebar's width rather than adding a
    third column that pushed the editor over. */
 .search-panel {
-  flex: 1 1 auto; min-height: 0; min-width: 0;
-  display: flex; flex-direction: column;
-  overflow: hidden; padding: 10px 12px;
+  flex: 1; min-height: 0; min-width: 0; overflow-y: auto;
+  padding: 16px 14px;
 }
-.search-panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.search-panel input[type="text"], .search-panel input:not([type]) {
-  width: 100%; font: inherit; color: var(--fg);
-  background: var(--bg-sunken); border: 1px solid var(--line);
-  border-radius: 4px; padding: 6px 8px;
+.search-panel header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; margin-bottom: 14px;
 }
+.side .search-panel h2 {
+  margin: 0; color: var(--fg); font-size: 16px; line-height: 1.3;
+  font-weight: 600; letter-spacing: normal; text-transform: none;
+}
+.search-panel form { display: grid; gap: 10px; }
+.search-field, .search-mode {
+  display: grid; gap: 4px; font-size: 12px; color: var(--fg-dim);
+}
+.search-field input, .search-mode select {
+  min-width: 0; width: 100%; background: var(--field); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px;
+  font: inherit;
+}
+.search-field input { font-size: 14px; min-height: 34px; }
 .search-options {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 8px; font-size: 12px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px; align-items: end;
 }
-.search-options select {
-  font: inherit; color: var(--fg); background: var(--bg-sunken);
-  border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px;
+.search-case {
+  display: flex; align-items: center; gap: 5px; min-height: 30px;
+  color: var(--fg-dim); font-size: 12px;
 }
-.search-panel .note, .search-panel .count { font-size: 12px; margin: 8px 0 4px; }
-.search-panel .note strong { color: var(--warn); font-weight: 600; }
-.hits { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
-.hits .row {
-  display: block; width: 100%; text-align: left;
-  background: transparent; border: none; border-radius: 4px;
-  padding: 5px 6px;
+.search-case input { margin: 0; accent-color: var(--accent); }
+.search-disclosure, .search-progress, .search-hint, .search-warning {
+  font-size: 12px; line-height: 1.4; color: var(--fg-dim);
 }
-.hits .row:hover { background: var(--hover); }
-.hits .where { display: block; font-size: 12px; }
-.hits .context {
-  display: block; font-family: var(--font-mono);
-  font-size: 12px; color: var(--fg-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.search-disclosure { margin: 8px 0 0; }
+.search-disclosure strong, .search-warning { color: var(--warn); }
+.search-error {
+  display: flex; gap: 6px; align-items: baseline; margin: 12px 0 0;
+  color: var(--bad); font-size: 13px; overflow-wrap: anywhere;
+}
+.search-error svg, .hit-file svg { flex: 0 0 auto; align-self: center; }
+.search-summary { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.search-summary:empty { margin: 0; padding: 0; border: 0; }
+.search-progress, .search-hint { margin: 4px 0; }
+.hits { list-style: none; margin: 8px 0 0; padding: 0; }
+.hits li + li { border-top: 1px solid var(--line); }
+.hits button {
+  display: grid; gap: 4px; width: 100%; padding: 9px 5px;
+  background: transparent; border: 0; text-align: left;
+}
+.hits button:hover { background: var(--hover); }
+.hit-file { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.hit-file span { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+.hit-file svg { color: var(--accent); }
+.hit-file small { flex: 0 0 auto; color: var(--fg-dim); font-size: 11px; }
+.hit-folder { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hit-file span, .hit-context {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; line-height: 1.35;
+}
+.hit-folder, .hit-context { color: var(--fg-dim); font-size: 12px; }
+.hit-context { color: var(--fg); }
+
+/* Keep the query available while reviewing a long list. A short window
+   scrolls the whole panel so the form always remains reachable. */
+@media (min-height: 580px) {
+  .search-panel { display: flex; flex-direction: column; }
+  .search-panel > :not(.hits) { flex-shrink: 0; }
+  .hits { min-height: 64px; overflow-y: auto; padding: 2px 3px; }
 }
 
 /* ---- settings ---------------------------------------------------------- */
@@ -992,7 +1055,7 @@ code { font-family: var(--font-mono); }
 
   /* The row a phone keyboard has no keys for. Above this width the physical
      keyboard has them all and the row would be clutter. */
-  .mdbar { display: flex; }
+
 
   .rail { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .statusbar { padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -1034,6 +1097,8 @@ code { font-family: var(--font-mono); }
 .scrim { display: none; }
 @media (max-width: 720px) {
   .scrim { display: block; }
+  .mdbar { display: flex; }
+  .action-button { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1053,26 +1118,15 @@ code { font-family: var(--font-mono); }
 ::-webkit-scrollbar-thumb:hover { background: var(--disabled); background-clip: content-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* The Welcome screen is the first thing anyone sees, and it had the least
-   attention. Same tokens, same rhythm as the shell it leads into (D-05). */
-.welcome { background: var(--bg); }
-.welcome h1 { font-size: 30px; letter-spacing: -0.01em; }
-.welcome .actions button {
-  padding: 8px 16px;
-  border-radius: 6px;
-  background: var(--bg-raised);
+.browser-modes {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px;
+  padding: 8px; border-bottom: 1px solid var(--line);
 }
-.welcome .actions button:first-child {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg-sunken);
-  font-weight: 600;
-}
-.welcome .recent button { display: flex; gap: 10px; align-items: baseline; }
-
-.browser-modes, .index-controls { display:flex; gap:4px; padding:8px; flex-wrap:wrap; }
-.browser-modes button { flex:1; }
-.index-controls { font-size:11px; border-top:1px solid var(--border); }
+.browser-modes button { min-width: 0; padding: 5px 2px; font-size: 12px; color: var(--fg-dim); background: transparent; border-color: transparent; }
+.browser-modes button:hover { background: var(--hover-soft); }
+.browser-modes button[aria-pressed="true"] { color: var(--accent); background: var(--selected); box-shadow: inset 0 -2px var(--accent); font-weight: 650; }
+.index-controls { display: flex; align-items: center; gap: 4px; padding: 8px; flex-wrap: wrap; }
+.index-controls { font-size:11px; border-top:1px solid var(--line); }
 /* A live region directly above a button, in a column narrow enough that its
    sentences wrap at different line counts — so the text changing moved the
    button. Two lines are reserved, which is what the longest of them takes at
@@ -1118,6 +1172,10 @@ code { font-family: var(--font-mono); }
 /* Received sync owns an input barrier outside the ordinary app surfaces. */
 .sync-shell { height: 100vh; display: flex; flex-direction: column; }
 .sync-content { flex: 1; min-height: 0; }
+.sync-tools { display: flex; flex-wrap: wrap; align-items: baseline; flex-shrink: 0; max-height: 65%; overflow: auto; background: var(--bg-raised); border-top: 1px solid var(--line); }
+.sync-tools > .device-sync { flex: 1 1 auto; min-width: 0; }
+.sync-tools > .device-sync[open] { flex-basis: 100%; max-height: none; }
+.sync-tools > .received-controls, .sync-tools > .device-sync { border-bottom: 0; }
 .sync-content > .app { height: 100%; }
 .received-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--bg-raised); font-size: 12px; }
 .received-controls button { font: inherit; }

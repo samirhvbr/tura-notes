@@ -284,15 +284,16 @@ the ecosystems this project actually uses). A dependency is added deliberately,
 pinned, and reviewed for its own transitive surface. An unmaintained package is
 a vulnerability with a delay.
 
-**Dependabot answers a different question from the one this section asks.** It
-opens a pull request when a newer version exists; it does not say whether the
-version pinned right now carries a known vulnerability. From 1.3.3 the gate and
-CI ask that one directly: `cargo audit --deny warnings` against the lockfile and
-`npm audit --audit-level=high` for the frontend. CI runs them weekly as well as
-on every push, because an advisory is published against code that has not
-changed — a check that runs only on our commits learns about it whenever we
-happen to commit next. Locally, a missing `cargo-audit` is a warning naming the
-install rather than a refusal to run the rest of the gate.
+Dependabot proposes upgrades. On pushes and nightly runs, CI also audits the
+locked Rust dependencies and runs `npm audit --audit-level=high` for the
+frontend. The local gate runs the same checks.
+
+[`tools/audit-rust.py`](../tools/audit-rust.py) runs `cargo audit --deny warnings`
+against the full lockfile. Cargo records the optional `chrono` adapter from
+`serde_with` even when no workspace crate builds it. The script exempts only
+its maintenance advisory after `cargo tree` confirms that `chrono` is absent
+from the resolved graph across all targets and workspace features. If any
+target enables it, the advisory is checked again. [RustSec advisory](https://rustsec.org/advisories/RUSTSEC-2026-0543.html)
 
 ## 11. Incident response
 

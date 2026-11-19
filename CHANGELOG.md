@@ -7,6 +7,48 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.12.18 - Make the path from opening a workspace to editing a note clearer
+
+Welcome gives opening a folder priority and shows recent workspaces by name and
+path. A workspace with no note selected now names the current folder and offers
+file lookup or note creation where available. The save indicator appears when
+there is a document status to report. Sync and recovery controls remain
+available at the foot of the window.
+
+Content search distinguishes an untouched query, a running search, cancellation,
+failure and a completed search with no matches. Results show the note name,
+folder, line and matching text. On narrow screens a successful selection returns
+to the editor, including when the note is already active. A failed open keeps
+the drawer available. Editable notes expose the existing Markdown toolbar.
+
+Device sync reports an operation error next to the paired controls when the
+connection form is closed. If a queue is created and connecting to it fails,
+the panel retains the error and stops before showing a successful pairing.
+
+The desktop trash backend now uses `trash` 5.4.0, which migrated its Linux
+timestamps from `chrono` to `jiff`. Cargo still locks an optional `chrono`
+adapter in `serde_with`. The local and CI audits check all workspace features
+and targets before exempting that unused package's maintenance advisory.
+Enabling the dependency again restores the warning.
+
+On macOS the existing 300 ms editor tick also checks the displayed local note's
+file metadata. FSEvents can take several seconds to batch changes even after
+the recursive watcher is ready. The reconciler now checks native file identity
+alongside size and modification time so it can recognize atomic replacements
+that preserve both. In an isolated macOS run, all 21 external edits reached the
+reconciler on the first tick (301–326 ms). The six dirty-buffer cases retained
+the external file and the recoverable local draft.
+
+When a file disappears during an editor tick or scan, the core keeps the
+open local note's identity long enough for the UI to handle the response.
+If the user typed in the meantime, the editor can persist the text as a draft.
+A delayed removal does not close a reopened copy of the same note. Across
+eight macOS removal trials, the draft survived reopening the service and the
+original file stayed absent. After a confirmed clean close, a new file at the
+same path receives a new note ID. A reopened note or a retained draft keeps
+its identity.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

@@ -103,9 +103,9 @@ function LocalStatusBar({ doc }: { doc: ReturnType<typeof useEditor.getState>["d
   const watch = useSync((s) => s.watch);
   const watchText = watch ? coverage(watch) : null;
 
-  const status: DocStatus = wsError?.code === "unavailable"
+  const status: DocStatus | undefined = wsError?.code === "unavailable"
     ? "unavailable"
-    : doc?.status ?? "saved";
+    : doc?.status;
 
   const message = doc?.lastError
     ? errorText(doc.lastError)
@@ -139,9 +139,9 @@ function LocalStatusBar({ doc }: { doc: ReturnType<typeof useEditor.getState>["d
           <span className="muted count">{t("status.chars", { count: counts.chars })}</span>
         </>
       )}
-      <span className={`status status-${status}`}>
+      {status && <span className={`status status-${status}`}>
         <span aria-hidden="true">{GLYPH[status]}</span> {t(`status.${status}`)}
-      </span>
+      </span>}
     </footer>
   );
 }

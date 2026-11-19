@@ -44,17 +44,18 @@ already exists.
 
 ## 1. Editing in another program updates the tab in under a second
 
-**Automated as far as a test can take it** — `notes-core`,
-`tests/reconcile.rs::a_real_watcher_reports_a_change_within_the_debounce`. It
-starts a real watcher on a real directory, writes the file from outside the
-application, and asserts that the path reaches the reconciler and comes back as
-`FsChanged { kind: Modified }` **inside 900 ms**, measured. On a machine that
-cannot watch — a kernel out of inotify budget — it skips and says so rather than
-passing for the wrong reason.
+The core regression in `crates/notes-core/tests/reconcile.rs`,
+`the_desktop_tick_reconciles_an_edit_to_the_displayed_note_within_one_second`,
+opens a note, changes it on disk, and calls the editor's 300 ms reconciliation
+tick with its note ID. It requires a modified event for that note in under one
+second. `the_native_watcher_reports_a_changed_file` separately verifies
+delivery from the recursive watcher for a file the editor never opened.
+On macOS this test keeps editing that file while the OS collects its batch.
+Passing requires receiving the exact path from the native watcher.
 
-The clock, end to end: the watcher's own debounce is 200 ms
-(`notes-fs/src/watch.rs`), the frontend ticks every 300 ms
-(`src/stores/sync.ts`), so the worst case is ~500 ms before the reload starts.
+On macOS, FSEvents can batch external writes for several seconds. Each tick
+checks the metadata of the visible local note, so its update can start before
+the batch arrives. The native watcher continues to cover the whole workspace.
 
 **The cursor half is asserted in the editor, not in the core.** Replacing the
 text is one CodeMirror transaction with the selection clamped and preserved —

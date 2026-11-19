@@ -1,4 +1,6 @@
+import { errorText } from "../app/StatusBar";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertCircle, FileText, Search, X } from "lucide-react";
 import { t } from "../i18n";
 import * as ipc from "../ipc";
 import type { SearchHit, SearchId, SearchMode } from "../ipc";
@@ -21,9 +23,11 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<SearchMode>("literal");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
-  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "searching" | "finished" | "cancelled" | "failed">("idle");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const running = phase === "searching";
   const [truncated, setTruncated] = useState(false);
-  const [partial,setPartial]=useState(false);
+  const [partial, setPartial] = useState(false);
   const [scanned, setScanned] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const idRef = useRef<SearchId | null>(null);
@@ -38,41 +42,46 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const stop = useCallback(() => {
+  const cancelActive = useCallback(() => {
     generation.current += 1;
     const id = idRef.current;
     idRef.current = null;
-    setRunning(false);
     if (id !== null) void ipc.searchCancel(id).catch(() => {});
   }, []);
 
   // Cancel on unmount: a panel that is closed must not leave a walk running.
-  useEffect(() => stop, [stop]);
+  useEffect(() => cancelActive, [cancelActive]);
 
   const start = useCallback(async () => {
-    stop();
+    cancelActive();
     setHits([]);
     setTruncated(false);
     setPartial(false);
     setScanned(0);
     setError(null);
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setPhase("idle");
+      return;
+    }
+    setSubmittedQuery(query);
 
-    const ticket=generation.current;
-    setRunning(true);
+    const ticket = generation.current;
+    setPhase("searching");
     let id: SearchId;
     try {
       id = await ipc.searchStart(query, { mode, case_sensitive: mode === "words" ? false : caseSensitive });
     } catch (e) {
-      if(ticket!==generation.current)return;
-      setRunning(false);
+      if (ticket !== generation.current) return;
+      setPhase("failed");
       const err = ipc.asCoreError(e);
-      setError(err.code === "invalid_path" ? t("search.badPattern") : t(`error.${err.code}`));
+      setError(err.code === "invalid_path" ? t("search.badPattern") : errorText(err));
       return;
     }
-    if(ticket!==generation.current){void ipc.searchCancel(id).catch(()=>{});return;}
+    if (ticket !== generation.current) {
+      void ipc.searchCancel(id).catch(() => {});
+      return;
+    }
     idRef.current = id;
-    setRunning(true);
 
     // Polling rather than an event stream, following `reconcile_tick`. Fast
     // enough that the first result appears as soon as the core has it — it
@@ -86,115 +95,119 @@ export function SearchPanel({ onClose }: { onClose: () => void }) {
         setScanned(p.files_scanned);
         setTruncated(p.truncated);
         setPartial(p.partial);
-        if (p.done) {
+        if (p.done || p.cancelled) {
           idRef.current = null;
-          setRunning(false);
+          setPhase(p.cancelled ? "cancelled" : "finished");
           return;
         }
       } catch (e) {
-        if(idRef.current!==id)return;
-        setError(t(`error.${ipc.asCoreError(e).code}`));
+        if (idRef.current !== id) return;
+        setError(errorText(ipc.asCoreError(e)));
         idRef.current = null;
-        setRunning(false);
+        setPhase("failed");
         return;
       }
       setTimeout(() => void poll(), 30);
     };
     void poll();
-  }, [query, mode, caseSensitive, stop]);
+  }, [query, mode, caseSensitive, cancelActive]);
+
+  let summary = "";
+  if (running) summary = t("search.inProgress");
+  if (phase === "cancelled") summary = t("search.cancelled");
+  if (phase === "finished") {
+    summary = hits.length || partial
+      ? t("search.results", { query: submittedQuery })
+      : t("search.noMatches", { query: submittedQuery });
+  }
 
   return (
-    <aside className="search-panel" aria-label={t("search.title")}>
+    <section className="search-panel" aria-labelledby="workspace-search-heading">
       <header>
-        <strong>{t("search.title")}</strong>
-        <span className="spacer" />
-        <button onClick={onClose} aria-label={t("search.close")}>
-          ×
+        <h2 id="workspace-search-heading">{t("search.title")}</h2>
+        <button type="button" className="icon-btn" onClick={onClose}
+          aria-label={t("search.close")} title={t("search.close")}>
+          <X size={16} aria-hidden="true" />
         </button>
       </header>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void start();
-        }}
-      >
-        <input
-          ref={input}
-          value={query}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder={t("search.placeholder")}
-          aria-label={t("search.title")}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") onClose();
-          }}
-        />
+      <form onSubmit={(e) => { e.preventDefault(); void start(); }}>
+        <label className="search-field">
+          <span>{t("search.placeholder")}</span>
+          <input
+            ref={input}
+            type="text"
+            value={query}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+          />
+        </label>
         <div className="search-options">
-          {/* The three semantics keep their names and do not swap underneath a
-              running query (scope §10). `words` arrives with FTS5 at 0.2. */}
-          <label>
-            <span className="muted">{t("search.mode")}</span>
+          <label className="search-mode">
+            <span>{t("search.mode")}</span>
             <select value={mode} onChange={(e) => setMode(e.target.value as SearchMode)}>
               <option value="literal">{t("search.mode.literal")}</option>
               <option value="words">{t("search.mode.words")}</option>
               <option value="regex">{t("search.mode.regex")}</option>
             </select>
           </label>
-          <label>
-            <input
-              type="checkbox"
+          <label className="search-case">
+            <input type="checkbox"
               disabled={mode === "words"}
-              checked={mode === "words" ? false : caseSensitive}
+              checked={mode !== "words" && caseSensitive}
               onChange={(e) => setCaseSensitive(e.target.checked)}
             />
             {t("search.caseSensitive")}
           </label>
-          {running ? (
-            <button type="button" onClick={stop}>
-              {t("search.cancel")}
-            </button>
-          ) : (
-            <button type="submit" className="primary">
-              {t("search.run")}
-            </button>
-          )}
         </div>
+        {running ? (
+          <button type="button" className="action-button" onClick={() => {
+            cancelActive();
+            setPhase("cancelled");
+          }}>{t("search.cancel")}</button>
+        ) : (
+          <button type="submit" className="action-button action-primary" disabled={!query.trim()}>
+            <Search size={15} aria-hidden="true" />{t("search.run")}
+          </button>
+        )}
       </form>
-
-      {partial && <p className="muted">{t("search.partial")}</p>}
-      {error && <p className="bad">{error}</p>}
-
-      <p className="muted note">
+      <p className="search-disclosure">
         {t("search.readsDisk")}
         {dirty && <strong> {t("search.unsavedWarning")}</strong>}
       </p>
-
-      <p className="muted count">
-        {running
-          ? t("search.scanning", { files: scanned, hits: hits.length })
-          : t("search.found", { hits: hits.length, files: scanned })}
-        {truncated && ` · ${t("search.truncated", { hits: hits.length })}`}
+      {error && <p className="search-error" role="alert"><AlertCircle size={16} aria-hidden="true" />{error}</p>}
+      {partial && <p className="search-warning">{t("search.partial")}</p>}
+      <p className="search-summary" role="status">
+        {summary}
       </p>
-
-      <ul className="hits">
-        {hits.map((h, i) => (
-          <li key={`${h.path}:${h.line}:${h.col}:${i}`}>
-            <button
-              className="row"
-              onClick={() => void openAt(h.path, h.line, h.col)}
-              title={`${h.path}:${h.line}`}
-            >
-              <span className="where">
-                {h.path}
-                <span className="muted">:{h.line}</span>
-              </span>
-              <span className="context">{h.context}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </aside>
+      {(running || hits.length > 0 || partial) && (
+        <p className="search-progress">
+          {t("search.found", { files: scanned, hits: hits.length })}
+          {truncated && ` · ${t("search.truncated", { hits: hits.length })}`}
+        </p>
+      )}
+      {phase === "finished" && !hits.length && !partial && <p className="search-hint">{t("search.tryAgain")}</p>}
+      {!!hits.length && <ul className="hits" aria-label={t("search.results", { query: submittedQuery })}>
+        {hits.map((hit, index) => {
+          const split = hit.path.lastIndexOf("/");
+          const folder = hit.path.slice(0, Math.max(0, split));
+          return (
+            <li key={`${hit.path}:${hit.line}:${hit.col}:${index}`}>
+              <button type="button" onClick={() => void openAt(hit.path, hit.line, hit.col)}
+                title={`${hit.path}:${hit.line}`}>
+                <span className="hit-file">
+                  <FileText size={14} aria-hidden="true" />
+                  <span>{hit.path.slice(split + 1)}</span>
+                  <small>{t("search.line", { line: hit.line })}</small>
+                </span>
+                {folder && <span className="hit-folder">{folder}</span>}
+                <span className="hit-context">{hit.context}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>}
+    </section>
   );
 }

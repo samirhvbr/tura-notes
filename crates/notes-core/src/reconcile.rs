@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use notes_fs::FileSystem;
-use notes_model::{ContentHash, CoreError, EntryKind, NoteId, RelPath};
+use notes_model::{ContentHash, CoreError, EntryKind, IoKind, NoteId, RelPath};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -169,6 +169,15 @@ impl super::WorkspaceService {
         hints: &BTreeSet<RelPath>,
         dirty: &[NoteId],
     ) -> super::Result<Reconciled> {
+        self.reconcile_for_editor(hints, dirty, None)
+    }
+
+    fn reconcile_for_editor(
+        &mut self,
+        hints: &BTreeSet<RelPath>,
+        dirty: &[NoteId],
+        open_note: Option<NoteId>,
+    ) -> super::Result<Reconciled> {
         let full = hints.is_empty() || hints.iter().any(|p| p.is_root());
         let dirty: BTreeSet<NoteId> = dirty.iter().copied().collect();
         let mut events = Vec::new();
@@ -222,12 +231,12 @@ impl super::WorkspaceService {
             let stat = self.open()?.fs.stat(&path);
             match (known, stat) {
                 // Known, and still there.
-                (Some((id, base, _)), Ok(stat)) => {
+                (Some((id, base, native_id)), Ok(stat)) => {
                     if stat.kind != EntryKind::File {
                         continue;
                     }
-                    if base.cheap_match(&stat) {
-                        continue; // size and mtime agree: nothing to hash
+                    if base.cheap_match(&stat) && native_id == stat.native_id {
+                        continue; // An atomic replacement can preserve both size and mtime.
                     }
                     if budget == 0 {
                         self.open()?.queue(path);
@@ -301,7 +310,7 @@ impl super::WorkspaceService {
         }
 
         if !vanished.is_empty() {
-            events.extend(self.correlate(vanished, &dirty, &mut budget)?);
+            events.extend(self.correlate(vanished, &dirty, open_note, &mut budget)?);
         }
 
         let dir = self.open()?.dir.clone();
@@ -377,6 +386,7 @@ impl super::WorkspaceService {
         &mut self,
         vanished: Vec<(NoteId, RelPath)>,
         dirty: &BTreeSet<NoteId>,
+        open_note: Option<NoteId>,
         budget: &mut usize,
     ) -> super::Result<Vec<CoreEvent>> {
         let mut events = Vec::new();
@@ -512,7 +522,16 @@ impl super::WorkspaceService {
                             kind: ConflictKind::Removed,
                         });
                     } else {
-                        self.open_mut()?.registry.notes.remove(&id);
+                        // The editor may have acquired unsaved text since it sent
+                        // its dirty list. Keep its identity for draft_write until
+                        // the editor confirms the close or reopens the note.
+                        let open = self.open_mut()?;
+                        if Some(id) == open_note {
+                            open.removed_in_editor =
+                                open.registry.record(id).cloned().map(|record| (id, record));
+                        } else {
+                            open.registry.notes.remove(&id);
+                        }
                         events.push(CoreEvent::FsChanged {
                             path: from,
                             kind: ChangeKind::Removed,
@@ -578,7 +597,24 @@ impl super::WorkspaceService {
     /// Returns an empty result immediately when nothing has been seen and
     /// nothing is queued, so a poll loop costs a channel read.
     pub fn tick(&mut self, dirty: &[NoteId]) -> super::Result<Reconciled> {
-        let paths = self.watched_paths();
+        self.tick_for_editor(dirty, None, false)
+    }
+
+    /// The desktop editor ticks every 300 ms. FSEvents can batch notifications
+    /// for seconds even after its stream is ready. Check the displayed local
+    /// note's metadata so it can be reconciled on this tick.
+    pub fn tick_for_editor(
+        &mut self,
+        dirty: &[NoteId],
+        open_note: Option<NoteId>,
+        visible: bool,
+    ) -> super::Result<Reconciled> {
+        let mut paths = self.watched_paths();
+        if cfg!(target_os = "macos") && visible {
+            if let Some(path) = open_note.and_then(|id| self.visible_change(id)) {
+                paths.insert(path);
+            }
+        }
         let queued = self
             .open()?
             .recon
@@ -604,13 +640,46 @@ impl super::WorkspaceService {
         } else {
             paths
         };
-        self.reconcile(&hints, dirty)
+        self.reconcile_for_editor(&hints, dirty, open_note)
+    }
+
+    fn visible_change(&self, id: NoteId) -> Option<RelPath> {
+        let open = self.open.as_ref()?;
+        // An unresolved conflict intentionally retains the old registry revision.
+        if open.suspended.contains(&id) {
+            return None;
+        }
+        let record = open.registry.record(id)?;
+        let changed = match open.fs.stat(&record.path) {
+            Ok(stat) => {
+                stat.kind == EntryKind::File
+                    && (stat.size != record.size
+                        || stat.mtime_ns != record.mtime_ns
+                        || stat.native_id != record.native_id)
+            }
+            Err(CoreError::Io {
+                kind: IoKind::NotFound,
+                ..
+            }) => open.fs.root().is_dir(),
+            _ => false,
+        };
+        changed.then(|| record.path.clone())
     }
 
     /// A full scan — what a window regaining focus, a tab switch or a manual
     /// refresh triggers (`ARCHITECTURE.md` §8).
     pub fn reconcile_all(&mut self, dirty: &[NoteId]) -> super::Result<Reconciled> {
         self.reconcile(&BTreeSet::new(), dirty)
+    }
+
+    /// Keep the open editor's identity until the UI handles a removal, just as
+    /// on a watcher tick. Noninteractive full scans keep their original behavior.
+    pub fn reconcile_all_for_editor(
+        &mut self,
+        dirty: &[NoteId],
+        open_note: Option<NoteId>,
+    ) -> super::Result<Reconciled> {
+        self.reconcile_for_editor(&BTreeSet::new(), dirty, open_note)
     }
 
     /// Start (or restart) watching this workspace.

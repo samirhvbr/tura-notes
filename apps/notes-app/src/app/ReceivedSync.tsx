@@ -35,9 +35,11 @@ export function ReceivedSyncShell({ children }: { children: ReactNode }) {
     };
   }, []);
   return <div className="sync-shell">
-    <ReceivedSyncControls />
-    <DeviceSync />
     <div className="sync-content" inert={locked} aria-busy={locked}>{children}</div>
+    <div className="sync-tools">
+      <ReceivedSyncControls />
+      <DeviceSync />
+    </div>
   </div>;
 }
 
@@ -150,8 +152,9 @@ export function ReceivedSyncControls() {
     finally { setWorking(false); }
   }
 
+  if (info && !connected && !recovery && !working && !message) return null;
   return <section className="received-controls" data-sync-controls aria-label={t("received.title")}>
-    <button disabled={!!info || locked || working} title={info ? t("received.closeFirst") : t("received.pick")} onClick={() => void openReceived()}>{t("received.open")}</button>
+    {!info && <button disabled={locked || working} title={t("received.pick")} onClick={() => void openReceived()}>{t("received.open")}</button>}
     {connected && <button disabled={locked || working} onClick={() => void apply()}>{t("received.apply")}</button>}
     {recovery && <button disabled={working} onClick={() => void recover()}>{t("received.retryReload")}</button>}
     {recovery && <button disabled={working} onClick={() => void restart()}>{t("received.restart")}</button>}

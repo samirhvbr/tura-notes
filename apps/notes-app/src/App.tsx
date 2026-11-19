@@ -1,3 +1,4 @@
+import { FilePlus2, FolderOpen, Search } from "lucide-react";
 import { isSyncLocked } from "./ipc/barrier";
 import {Graph,WikiDialog} from "./app/Knowledge";
 import { ReferenceReview } from "./app/ReferenceReview";
@@ -39,6 +40,9 @@ import { useWorkspace } from "./stores/workspace";
 
 export default function App() {
   const info = useWorkspace((s) => s.info);
+  const noVisibleNotes = useWorkspace((s) =>
+    s.listings[ipc.ROOT]?.every((entry) => !entry.is_note && entry.kind !== "Dir"),
+  );
   const restore = useWorkspace((s) => s.restore);
   const refresh = useWorkspace((s) => s.refresh);
   const fail = useWorkspace((s) => s.fail);
@@ -372,10 +376,25 @@ export default function App() {
             <Compare />
           ) : (
             <div className={`panes pane-${view}`} ref={panes} id="note-panel" role="tabpanel">
-              {/* With no note open there is nothing to preview, so the editor's
-                  own empty state is what the pane shows — a blank Preview pane
-                  would say less than "open a note from the sidebar". */}
-              {(view !== "preview" || !doc) && <Editor />}
+              {!doc ? (
+                <section className="workspace-start" aria-labelledby="workspace-start-title">
+                  <FolderOpen className="workspace-symbol" size={24} aria-hidden="true" />
+                  <h1 id="workspace-start-title">{info.display_name}</h1>
+                  <p>{noVisibleNotes ? t("workspace.noVisibleNotes") : t("workspace.selectNote")}</p>
+                  <div className="workspace-actions">
+                    {!noVisibleNotes && (
+                      <button className="action-button action-primary" onClick={() => setPalette("files")}>
+                        <Search size={16} aria-hidden="true" />{t("workspace.findNote")}
+                      </button>
+                    )}
+                    {!info.read_only && (
+                      <button className={noVisibleNotes ? "action-button action-primary" : "action-button"} onClick={newNote}>
+                        <FilePlus2 size={16} aria-hidden="true" />{t("tree.newNote")}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              ) : view !== "preview" && <Editor />}
               {view === "split" && doc && <Divider panes={panes} />}
               {view !== "source" && doc && <Preview />}
             </div>

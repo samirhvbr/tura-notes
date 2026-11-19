@@ -612,15 +612,25 @@ pub enum CoreError {
 Sources of truth for "did the disk change": `stat`, then hash. Everything else
 is a hint that schedules a reconciliation.
 
-Triggers: watcher event (when `caps.watch`); window focus; tab switch; manual
-refresh; poll timer every 5 s in foreground when `!caps.watch`; full scan on
-return from background `[0.4]`.
+The desktop checks for watcher hints every 300 ms. On macOS the same tick
+also checks file metadata for the local note on screen. FSEvents can deliver
+changes several seconds after a write. Checking the visible note lets the
+editor reconcile an external edit while the recursive watcher continues to
+cover the rest of the workspace. Window focus, tab switches, manual refresh and the periodic
+five-second scan also trigger reconciliation. Mobile resumes with a full scan
+on return from the background `[0.4]`.
+
+An editor tick or full scan identifies the open local note. If the file was
+removed, its registry entry stays available while the UI handles the event.
+The editor closes the same clean buffer or writes a recovery draft if the user
+typed during the request. When the editor confirms the close, the core can release the
+unchanged identity if the file is still absent and no draft needs it.
 
 ```
 raw watcher events ─▶ notify-debouncer (200 ms) ─▶ normalize  [the normalized shape below is the design; the code exposes `Watch` and `Degraded`, and no `FsEvent` type exists]
   ─▶ drop ignored entries (§16 IGNORE_DEFAULT) and our own temp files (.*.tmp-*)
   ─▶ self-write filter: (path, hash) matches an armed expectation, not expired → consume expectation, drop event
-  ─▶ per path: stat; if (size, mtime) ≠ registry → hash; if hash ≠ registry → real change
+  ─▶ per path: stat; if (size, mtime, native file ID) ≠ registry → hash; if hash ≠ registry → real change
   ─▶ dispatch:
        Modified, note open, buffer clean   → registry update; emit fs:changed (frontend reloads, keeps cursor)
        Modified, note open, buffer dirty   → suspend autosave; draft; emit note:conflict { Modified }

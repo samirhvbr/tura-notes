@@ -215,6 +215,8 @@ struct Open {
     read_only: bool,
     extra_ignore: Vec<String>,
     suspended: BTreeSet<NoteId>,
+    /// The record retained until the editor acknowledges an external removal.
+    removed_in_editor: Option<(NoteId, registry::NoteRecord)>,
     /// What reconciliation remembers between ticks: the self-write
     /// expectations, and the paths the hash budget deferred.
     recon: std::sync::Mutex<reconcile::Recon>,
@@ -518,6 +520,7 @@ impl WorkspaceService {
             read_only,
             extra_ignore,
             suspended: BTreeSet::new(),
+            removed_in_editor: None,
             recon: std::sync::Mutex::new(reconcile::Recon::default()),
             watch: None,
             paths: std::sync::Mutex::new(PathState::default()),
@@ -653,6 +656,14 @@ impl WorkspaceService {
             self.touch_recent(note_id, path)?;
         }
         let draft = drafts::read(&paths::drafts_dir(&dir), note_id)?.map(|d| d.info);
+        let open = self.open_mut()?;
+        if open
+            .removed_in_editor
+            .as_ref()
+            .is_some_and(|(id, _)| *id == note_id)
+        {
+            open.removed_in_editor = None;
+        }
         Ok(OpenedNote {
             note_id,
             path: path.clone(),
@@ -1432,8 +1443,42 @@ impl WorkspaceService {
     /// removed by a confirmed write or by the user saying discard, and by
     /// nothing else (§4.2).
     pub fn close_note(&mut self, note_id: NoteId) -> Result<()> {
-        self.open_mut()?.suspended.remove(&note_id);
-        Ok(())
+        let open = self.open_mut()?;
+        open.suspended.remove(&note_id);
+        let Some((id, record)) = &open.removed_in_editor else {
+            return Ok(());
+        };
+        if *id != note_id || open.read_only {
+            return Ok(());
+        }
+        let removed = record.clone();
+        let dir = open.dir.clone();
+        let mut guard = lock::acquire(&paths::lock_file(&dir))?;
+        guard.with(|| {
+            self.refresh_entry_registry(&dir)?;
+            let open = self.open_mut()?;
+            // Another process may have observed this path since the report.
+            // Only release the unchanged record when its file and draft are gone.
+            if open.registry.record(note_id) == Some(&removed)
+                && open.fs.root().is_dir()
+                && matches!(
+                    open.fs.stat(&removed.path),
+                    Err(CoreError::Io {
+                        kind: notes_model::IoKind::NotFound,
+                        ..
+                    })
+                )
+                && matches!(
+                    drafts::path_for(&paths::drafts_dir(&dir), note_id).try_exists(),
+                    Ok(false)
+                )
+            {
+                open.registry.notes.remove(&note_id);
+                store_registry(&dir, &open.registry)?;
+            }
+            open.removed_in_editor = None;
+            Ok(())
+        })?
     }
 
     /// Rewrite a note's line endings, **because the user asked**.

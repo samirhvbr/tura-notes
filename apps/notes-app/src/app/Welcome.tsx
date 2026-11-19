@@ -1,3 +1,4 @@
+import { AlertCircle, Folder, FolderOpen, FolderPlus } from "lucide-react";
 import { UpdateButton } from "./Updater";
 import { Dialog } from "./DialogHost";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -13,7 +14,7 @@ export function Welcome() { return <><WelcomeContent/><Dialog/></>; }
 function WelcomeContent() {
   const adopt = useWorkspace((s) => s.adopt);
   const fail = useWorkspace((s) => s.fail);
-  const error=useWorkspace(s=>s.error);
+  const error = useWorkspace((s) => s.error);
   const [recent, setRecent] = useState<WorkspaceEntry[]>([]);
   const [refused, setRefused] = useState<string | null>(null);
   const reload = () => ipc.workspaceRecent().then(setRecent).catch(() => setRecent([]));
@@ -57,9 +58,9 @@ function WelcomeContent() {
   };
 
   const pick = async (create: boolean) => {
-    const picked = await openDialog({ directory: true, multiple: false });
-    if (typeof picked !== "string") return;
     try {
+      const picked = await openDialog({ directory: true, multiple: false });
+      if (typeof picked !== "string") return;
       if (create) {
         const name = await askText({
           title: t("welcome.create"),
@@ -79,47 +80,52 @@ function WelcomeContent() {
   };
 
   return (
-    <div className="welcome">
-      <img src="/tura-icon.svg" width="88" height="88" alt="" />
-      <h1>{t("welcome.title")}</h1>
-      <UpdateButton />
-      {error && <p role="alert">{t(`error.${error.code}`)}</p>}
-      <p className="muted">{t("welcome.subtitle")}</p>
-      <div className="actions">
-        <button onClick={() => pick(false)}>{t("welcome.open")}</button>
-        <button onClick={() => pick(true)}>{t("welcome.create")}</button>
+    <main className="welcome">
+      <div className="welcome-inner">
+        <header className="welcome-brand">
+          <img src="/tura-icon.svg" width="42" height="42" alt="" />
+          <span>{t("welcome.title")}</span>
+        </header>
+        <h1>{t("welcome.heading")}</h1>
+        <p className="welcome-lead">{t("welcome.subtitle")}</p>
+        <div className="workspace-actions">
+          <button className="action-button action-primary" onClick={() => void pick(false)}>
+            <FolderOpen size={17} aria-hidden="true" />{t("welcome.open")}
+          </button>
+          <button className="action-button" onClick={() => void pick(true)}>
+            <FolderPlus size={17} aria-hidden="true" />{t("welcome.create")}
+          </button>
+        </div>
+        {error && <p className="workspace-feedback" role="alert"><AlertCircle size={16} aria-hidden="true" />{errorText(error)}</p>}
+        {recent.length > 0 && (
+          <section className="recent">
+            <h2>{t("welcome.recent")}</h2>
+            <ul>
+              {recent.slice(0, 8).map((w) => (
+                <li key={w.id}>
+                  <button className="recent-open" title={w.root}
+                    onClick={() => ipc.workspaceOpen(w.root).then(adopt).catch(fail)}>
+                    <Folder size={18} aria-hidden="true" />
+                    <span className="recent-location">
+                      <strong>{w.display_name}</strong>
+                      <span>{w.root}</span>
+                    </span>
+                  </button>
+                  <button className="quiet-button" onClick={() => void forget(w)}
+                    aria-label={t("welcome.forget.title", { name: w.display_name })}>
+                    {t("welcome.forget")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {refused && <p className="workspace-feedback" role="alert"><AlertCircle size={16} aria-hidden="true" />{refused}</p>}
+        <footer className="welcome-tools">
+          <UpdateButton />
+          <button className="quiet-button" onClick={() => void removeAll()}>{t("welcome.removeData")}</button>
+        </footer>
       </div>
-      {recent.length > 0 && (
-        <section className="recent">
-          <h2>{t("welcome.recent")}</h2>
-          <ul>
-            {recent.slice(0, 8).map((w) => (
-              <li key={w.id}>
-                <button
-                  onClick={() =>
-                    ipc.workspaceOpen(w.root).then(adopt).catch(fail)
-                  }
-                  title={w.root}
-                >
-                  {w.display_name}
-                  <span className="muted"> — {w.root}</span>
-                </button>
-                <button
-                  className="forget"
-                  onClick={() => void forget(w)}
-                  aria-label={t("welcome.forget.title", { name: w.display_name })}
-                >
-                  {t("welcome.forget")}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {refused && <p role="alert">{refused}</p>}
-      <button className="remove-data" onClick={() => void removeAll()}>
-        {t("welcome.removeData")}
-      </button>
-    </div>
+    </main>
   );
 }
