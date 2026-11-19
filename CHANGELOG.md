@@ -7,6 +7,21 @@ whoever does the work and whoever commits it.
 
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
+
+## 1.12.18 - Make the path from opening a workspace to editing a note clearer
+
+Welcome gives opening a folder priority and shows recent workspaces by name and
+path. A workspace with no note selected now names the current folder and offers
+file lookup or note creation where available. The save indicator appears when
+there is a document status to report. Sync and recovery controls remain
+available at the foot of the window.
+
+Content search distinguishes an untouched query, a running search, cancellation,
+failure and a completed search with no matches. Results show the note name,
+folder, line and matching text. On narrow screens a successful selection returns
+to the editor, including when the note is already active. A failed open keeps
+the drawer available. Editable notes expose the existing Markdown toolbar.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

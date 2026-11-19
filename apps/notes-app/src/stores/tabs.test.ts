@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NARROW, useUi } from "./ui";
 import type { NoteId, RelPath, Session } from "../ipc";
 
 /**
@@ -145,6 +146,40 @@ describe("opening", () => {
     await useTabs.getState().openPath(p("um.md"));
     expect(useTabs.getState().tabs).toHaveLength(2);
     expect(useTabs.getState().activeId).toBe(idFor("um.md"));
+  });
+});
+
+describe("opening a note from the narrow drawer", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { matchMedia: (query: string) => ({ matches: query === NARROW }) });
+    useUi.setState({ panel: "files" });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useUi.setState({ panel: "files" });
+  });
+
+  it("reveals the note on first open and when a search hit targets the active tab", async () => {
+    const path = p("Cases/Hearing.md");
+    await useTabs.getState().openPath(path);
+    expect(useUi.getState().panel).toBeNull();
+    useUi.setState({ panel: "search" });
+
+    await useTabs.getState().openAt(path, 7, 2);
+
+    expect(useUi.getState().panel).toBeNull();
+    expect(useTabs.getState().tabs).toMatchObject([{ path, line: 7, col: 2 }]);
+    expect(editor.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps search available when opening a result fails", async () => {
+    useUi.setState({ panel: "search" });
+    editor.open.mockResolvedValueOnce(false);
+
+    await useTabs.getState().openAt(p("Unavailable.md"), 4, 1);
+
+    expect(useUi.getState().panel).toBe("search");
+    expect(useTabs.getState().tabs).toEqual([]);
   });
 });
 

@@ -13,7 +13,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
-import { useEditor } from "../stores/editor";
+import { useEditor, type OpenDoc } from "../stores/editor";
 import { useRemote } from "../stores/remote";
 import { Toolbar } from "./Toolbar";
 import { writingKeymap } from "./keys";
@@ -277,7 +277,7 @@ function EditorBody({
   view,
   externalRev,
 }: {
-  doc: { text: string } | null;
+  doc: { text: string; readOnly: OpenDoc["readOnly"] | boolean } | null;
   host: React.MutableRefObject<HTMLDivElement | null>;
   view: React.MutableRefObject<EditorView | null>;
   externalRev: number;
@@ -313,7 +313,7 @@ function EditorBody({
     <div className="editor-wrap">
       <div className="editor" ref={host} />
       {/* Hidden by CSS above the drawer breakpoint; see Toolbar. */}
-      <Toolbar view={() => view.current} />
+      {!doc.readOnly && <Toolbar view={() => view.current} />}
     </div>
   );
 }

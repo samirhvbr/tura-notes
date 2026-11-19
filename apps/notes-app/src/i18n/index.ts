@@ -17,9 +17,12 @@ function pick(): string {
 }
 
 let locale = pick();
+if (typeof document !== "undefined") document.documentElement.lang = locale;
 
 export function setLocale(l: string) {
-  if (catalogues[l]) locale = l;
+  if (!catalogues[l]) return;
+  locale = l;
+  if (typeof document !== "undefined") document.documentElement.lang = locale;
 }
 
 /** Missing keys render as the key itself — visible, never blank. */

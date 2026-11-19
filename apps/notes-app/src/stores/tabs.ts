@@ -95,6 +95,7 @@ export const useTabs = create<TabsState>((set, get) => ({
         : [...s.tabs, { noteId: doc.noteId, path: doc.path, line: 1, col: 1, scrollTop: 0, pinned: false }],
       activeId: doc.noteId,
     }));
+    useUi.getState().collapseOnNarrow();
     visited(doc.path);
     schedulePersist(get);
   },
@@ -122,15 +123,15 @@ export const useTabs = create<TabsState>((set, get) => ({
 
   async activate(noteId) {
     useUi.setState({ mainView: "local" });
-    if (get().activeId === noteId && useEditor.getState().doc?.noteId === noteId) return;
+    if (get().activeId === noteId && useEditor.getState().doc?.noteId === noteId) {
+      useUi.getState().collapseOnNarrow();
+      return;
+    }
     const tab = get().tabs.find((t) => t.noteId === noteId);
     if (!tab) return;
 
     if ((await preserveLocalBuffer()) === false || !(await useEditor.getState().open(tab.path))) return;
     set({ activeId: noteId });
-    // Every route that shows a note lands here - the tree, the palette, search,
-    // a link - so the drawer is handed back to the note in one place instead of
-    // in each of them.
     useUi.getState().collapseOnNarrow();
     visited(tab.path);
     schedulePersist(get);
