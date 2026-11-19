@@ -169,6 +169,15 @@ impl super::WorkspaceService {
         hints: &BTreeSet<RelPath>,
         dirty: &[NoteId],
     ) -> super::Result<Reconciled> {
+        self.reconcile_for_editor(hints, dirty, None)
+    }
+
+    fn reconcile_for_editor(
+        &mut self,
+        hints: &BTreeSet<RelPath>,
+        dirty: &[NoteId],
+        open_note: Option<NoteId>,
+    ) -> super::Result<Reconciled> {
         let full = hints.is_empty() || hints.iter().any(|p| p.is_root());
         let dirty: BTreeSet<NoteId> = dirty.iter().copied().collect();
         let mut events = Vec::new();
@@ -301,7 +310,7 @@ impl super::WorkspaceService {
         }
 
         if !vanished.is_empty() {
-            events.extend(self.correlate(vanished, &dirty, &mut budget)?);
+            events.extend(self.correlate(vanished, &dirty, open_note, &mut budget)?);
         }
 
         let dir = self.open()?.dir.clone();
@@ -377,6 +386,7 @@ impl super::WorkspaceService {
         &mut self,
         vanished: Vec<(NoteId, RelPath)>,
         dirty: &BTreeSet<NoteId>,
+        open_note: Option<NoteId>,
         budget: &mut usize,
     ) -> super::Result<Vec<CoreEvent>> {
         let mut events = Vec::new();
@@ -512,7 +522,12 @@ impl super::WorkspaceService {
                             kind: ConflictKind::Removed,
                         });
                     } else {
-                        self.open_mut()?.registry.notes.remove(&id);
+                        // The editor may have acquired unsaved text since it sent
+                        // its dirty list. Keep its identity for draft_write until
+                        // the editor releases the note and another scan sees it gone.
+                        if Some(id) != open_note {
+                            self.open_mut()?.registry.notes.remove(&id);
+                        }
                         events.push(CoreEvent::FsChanged {
                             path: from,
                             kind: ChangeKind::Removed,
@@ -578,20 +593,21 @@ impl super::WorkspaceService {
     /// Returns an empty result immediately when nothing has been seen and
     /// nothing is queued, so a poll loop costs a channel read.
     pub fn tick(&mut self, dirty: &[NoteId]) -> super::Result<Reconciled> {
-        self.tick_with_visible(dirty, None)
+        self.tick_for_editor(dirty, None, false)
     }
 
     /// The desktop editor ticks every 300 ms. FSEvents can batch notifications
     /// for seconds even after its stream is ready. Check the displayed local
     /// note's metadata so it can be reconciled on this tick.
-    pub fn tick_with_visible(
+    pub fn tick_for_editor(
         &mut self,
         dirty: &[NoteId],
-        visible: Option<NoteId>,
+        open_note: Option<NoteId>,
+        visible: bool,
     ) -> super::Result<Reconciled> {
         let mut paths = self.watched_paths();
-        if cfg!(target_os = "macos") {
-            if let Some(path) = visible.and_then(|id| self.visible_change(id)) {
+        if cfg!(target_os = "macos") && visible {
+            if let Some(path) = open_note.and_then(|id| self.visible_change(id)) {
                 paths.insert(path);
             }
         }
@@ -620,7 +636,7 @@ impl super::WorkspaceService {
         } else {
             paths
         };
-        self.reconcile(&hints, dirty)
+        self.reconcile_for_editor(&hints, dirty, open_note)
     }
 
     fn visible_change(&self, id: NoteId) -> Option<RelPath> {
@@ -650,6 +666,16 @@ impl super::WorkspaceService {
     /// refresh triggers (`ARCHITECTURE.md` §8).
     pub fn reconcile_all(&mut self, dirty: &[NoteId]) -> super::Result<Reconciled> {
         self.reconcile(&BTreeSet::new(), dirty)
+    }
+
+    /// Keep the open editor's identity until the UI handles a removal, just as
+    /// on a watcher tick. Noninteractive full scans keep their original behavior.
+    pub fn reconcile_all_for_editor(
+        &mut self,
+        dirty: &[NoteId],
+        open_note: Option<NoteId>,
+    ) -> super::Result<Reconciled> {
+        self.reconcile_for_editor(&BTreeSet::new(), dirty, open_note)
     }
 
     /// Start (or restart) watching this workspace.

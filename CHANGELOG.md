@@ -40,6 +40,13 @@ that preserve both. In an isolated macOS run, all 21 external edits reached the
 reconciler on the first tick (301–326 ms). The six dirty-buffer cases retained
 the external file and the recoverable local draft.
 
+When a file disappears during an editor tick or scan, the core keeps the
+open local note's identity long enough for the UI to handle the response.
+If the user typed in the meantime, the editor can persist the text as a draft.
+A delayed removal does not close a reopened copy of the same note. Across
+eight macOS removal trials, the draft survived reopening the service and the
+original file stayed absent.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

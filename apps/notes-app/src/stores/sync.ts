@@ -1,7 +1,7 @@
 import { isSyncLocked } from "../ipc/barrier";
 import { create } from "zustand";
 import * as ipc from "../ipc";
-import { useEditor } from "./editor";
+import { useEditor, type OpenDoc } from "./editor";
 import { useTabs } from "./tabs";
 import { useUi } from "./ui";
 import { useWorkspace } from "./workspace";
@@ -57,20 +57,19 @@ let watchPoll: ReturnType<typeof setInterval> | null = null;
 /** One reconciliation at a time: a slow scan must not queue up behind itself. */
 let running = false;
 
-function dirty(): ipc.NoteId[] {
-  const doc = useEditor.getState().doc;
-  return doc && doc.bufferVersion !== doc.savedVersion ? [doc.noteId] : [];
-}
-
 async function run(all: boolean) {
   if (running || isSyncLocked()) return;
   running = true;
   const workspace = useWorkspace.getState().info?.id;
   try {
-    const visible = useUi.getState().mainView === "local" ? useEditor.getState().doc?.noteId : null;
-    const r = all ? await ipc.reconcileAll(dirty()) : await ipc.reconcileTick(dirty(), visible ?? null);
+    const before = useEditor.getState().doc;
+    const openNote = before?.noteId ?? null;
+    const dirty = before && before.bufferVersion !== before.savedVersion ? [before.noteId] : [];
+    const r = all
+      ? await ipc.reconcileAll(dirty, openNote)
+      : await ipc.reconcileTick(dirty, openNote, useUi.getState().mainView === "local");
     if (!isSyncLocked() && useWorkspace.getState().info?.id === workspace) {
-      for (const e of r.events) apply(e);
+      for (const e of r.events) apply(e, before);
     }
   } catch {
     // A workspace being closed mid-tick is the common case here, and it is not
@@ -80,7 +79,7 @@ async function run(all: boolean) {
   }
 }
 
-function apply(e: ipc.CoreEvent) {
+function apply(e: ipc.CoreEvent, before: OpenDoc | null) {
   const ws = useWorkspace.getState();
   const ed = useEditor.getState();
 
@@ -93,11 +92,17 @@ function apply(e: ipc.CoreEvent) {
         // Clean buffer plus an external change: reload, keeping the cursor.
         void ed.reloadFromDisk();
       }
-      if (e.kind === "removed" && ed.doc && e.note_id === ed.doc.noteId) ed.close();
+      if (e.kind === "removed" && ed.doc && e.note_id === ed.doc.noteId) {
+        // A re-open or reload installs a fresh base revision. A delayed response
+        // belongs to the earlier buffer, even if the note ID is the same.
+        if (ed.doc.baseRev !== before?.baseRev || ed.doc.path !== e.path) break;
+        if (ed.doc.bufferVersion !== ed.doc.savedVersion) void ed.enterConflict();
+        else if (ed.doc === before) ed.close();
+      }
       break;
     }
     case "note_conflict": {
-      if (!ed.doc || e.note_id !== ed.doc.noteId) break;
+      if (!ed.doc || e.note_id !== ed.doc.noteId || ed.doc.baseRev !== before?.baseRev) break;
       // The core suspended autosave; the draft is this side's job, because the
       // buffer lives here (docs/DECISIONS-0.1a.md D-11).
       void ed.enterConflict();

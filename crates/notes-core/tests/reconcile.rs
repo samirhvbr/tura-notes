@@ -36,6 +36,81 @@ fn setup() -> Fixture {
     }
 }
 
+#[test]
+fn a_removed_editor_note_can_still_save_a_late_edit_as_a_draft_and_copy() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let note = f.svc.open_note(&path).unwrap();
+    std::fs::remove_file(f.work.path().join(path.as_str())).unwrap();
+
+    let result = f
+        .svc
+        .reconcile_all_for_editor(&[], Some(note.note_id))
+        .unwrap();
+    assert_eq!(
+        result.events,
+        vec![CoreEvent::FsChanged {
+            path: path.clone(),
+            kind: ChangeKind::Removed,
+            note_id: Some(note.note_id),
+        }]
+    );
+
+    let text = "typed while the reconciliation was in flight";
+    let draft = f
+        .svc
+        .write_draft(
+            note.note_id,
+            text,
+            1,
+            &note.base_rev,
+            notes_core::DraftReason::Conflict,
+        )
+        .unwrap();
+    assert_eq!(draft.path, path);
+    assert_eq!(f.svc.list_drafts().unwrap().len(), 1);
+    f.svc
+        .reconcile_all_for_editor(&[note.note_id], Some(note.note_id))
+        .unwrap();
+    let copy = f
+        .svc
+        .resolve_conflict(
+            note.note_id,
+            text,
+            &note.base_rev,
+            notes_core::ConflictChoice::SaveAsCopy,
+        )
+        .unwrap();
+    assert_ne!(copy.note_id, note.note_id);
+    assert_eq!(copy.text, text);
+    assert!(!f.work.path().join(path.as_str()).exists());
+    assert!(f.svc.list_drafts().unwrap().is_empty());
+}
+
+#[test]
+fn a_released_removed_editor_note_is_forgotten_on_the_next_scan() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let note = f.svc.open_note(&path).unwrap();
+    std::fs::remove_file(f.work.path().join(path.as_str())).unwrap();
+    f.svc
+        .reconcile_all_for_editor(&[], Some(note.note_id))
+        .unwrap();
+    f.svc.close_note(note.note_id).unwrap();
+    f.svc.reconcile_all_for_editor(&[], None).unwrap();
+    assert!(matches!(
+        f.svc.write_draft(
+            note.note_id,
+            "late",
+            1,
+            &note.base_rev,
+            notes_core::DraftReason::Conflict
+        ),
+        Err(notes_model::CoreError::NotFound { .. })
+    ));
+    assert!(!f.work.path().join(path.as_str()).exists());
+}
+
 /// A full scan — what a window regaining focus triggers.
 fn scan(f: &mut Fixture, dirty: &[NoteId]) -> Vec<CoreEvent> {
     f.svc.reconcile(&BTreeSet::new(), dirty).unwrap().events
@@ -425,8 +500,7 @@ fn the_hash_budget_defers_work_instead_of_blocking() {
 /// `start_watch` returns before that now: establishing the handle costs ~270 ms
 /// on macOS and moved onto the watcher's own thread so it stops holding the
 /// service mutex (ADR-078). A change made inside that window is not seen by the
-/// watcher — it is seen by the 5 s poll and the scan on focus, which is a
-/// different assertion from the one these two tests make.
+/// watcher. The full scan and the macOS displayed-note check run independently.
 ///
 /// Returns the reason when this machine cannot watch at all, which is a machine
 /// fact and an honest skip.
@@ -441,8 +515,8 @@ fn watching(f: &mut Fixture) -> Option<String> {
     status.degraded
 }
 
-/// Verify the raw subtree watch independently of any open note. macOS may
-/// coalesce even the first edit with activity preceding stream registration.
+/// Verify the raw subtree watch independently of any open note. FSEvents
+/// can batch several writes before reporting the path.
 #[test]
 fn the_native_watcher_reports_a_changed_file() {
     let mut f = setup();

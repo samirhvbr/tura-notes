@@ -399,15 +399,20 @@ pub fn watch_start(app: State<'_, App>) -> R<Option<String>> {
 pub fn reconcile_tick(
     app: State<'_, App>,
     dirty: Vec<NoteId>,
-    visible: Option<NoteId>,
+    open_note: Option<NoteId>,
+    visible: Option<bool>,
 ) -> R<Reconciled> {
-    svc(&app)?.tick_with_visible(&dirty, visible)
+    svc(&app)?.tick_for_editor(&dirty, open_note, visible.unwrap_or(false))
 }
 
 /// A full scan: window focus, tab switch, manual refresh.
 #[tauri::command]
-pub fn reconcile_all(app: State<'_, App>, dirty: Vec<NoteId>) -> R<Reconciled> {
-    svc(&app)?.reconcile_all(&dirty)
+pub fn reconcile_all(
+    app: State<'_, App>,
+    dirty: Vec<NoteId>,
+    open_note: Option<NoteId>,
+) -> R<Reconciled> {
+    svc(&app)?.reconcile_all_for_editor(&dirty, open_note)
 }
 
 // ---- entries -----------------------------------------------------------
