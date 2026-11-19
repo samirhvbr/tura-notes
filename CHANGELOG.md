@@ -22,6 +22,10 @@ folder, line and matching text. On narrow screens a successful selection returns
 to the editor, including when the note is already active. A failed open keeps
 the drawer available. Editable notes expose the existing Markdown toolbar.
 
+Device sync reports an operation error next to the paired controls when the
+connection form is closed. If a queue is created and connecting to it fails,
+the panel retains the error and stops before showing a successful pairing.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

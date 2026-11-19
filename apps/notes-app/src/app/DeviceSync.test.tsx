@@ -121,6 +121,28 @@ it("says so when a pairing succeeded",async()=>{
   fireEvent.click(screen.getByRole("button",{name:"Create pairing and review"}));
   await waitFor(()=>expect(screen.getByText(/Paired\./)).toBeInTheDocument());
 });
+it("keeps the configuration error when an upload queue was created but could not be attached", async () => {
+  vi.mocked(ipc.deviceConfigure).mockRejectedValueOnce({code: "unsupported", cap: "pairing"});
+  show();
+  for (const [label, value] of [
+    [/Local notes folder/, "/notes"], [/Private sync queue folder/, "/queue"],
+    [/Credential file/, "/token"], [/Server address/, "https://notes.example"],
+    [/^Server workspace$/, "home"],
+  ] as const) {
+    fireEvent.change(screen.getByRole("textbox", {name: label}), {target: {value}});
+  }
+  fireEvent.change(screen.getByRole("combobox", {name: /Pairing mode/}), {target: {value: "upload"}});
+  const pair = screen.getByRole("button", {name: "Create pairing and review"});
+  fireEvent.click(pair);
+
+  await waitFor(() => expect(ipc.deviceConfigure).toHaveBeenCalledOnce());
+  await waitFor(() => expect(pair).toBeEnabled());
+  expect(ipc.devicePair).toHaveBeenCalledWith(expect.objectContaining({mode: "upload"}));
+  expect(screen.queryByText(/^Paired\./)).not.toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(/Create pairing and review to make it/);
+  expect(ipc.devicePreview).not.toHaveBeenCalled();
+});
+
 it("requires review and refuses to confirm divergent pairing rows",async()=>{
   vi.mocked(ipc.devicePreview).mockResolvedValue({confirmation:"bound-snapshot",rows:[{action:"conflict",path:"a.md"}],attachment_conflicts:[]});
   show();
@@ -193,6 +215,34 @@ it("says which button makes a pairing when reconnect finds none",async()=>{
   // And it answers where it was asked: inside the fieldset holding the button,
   // not on the panel's top status line above it.
   expect(said.closest("fieldset")).not.toBeNull();
+  expect(screen.getAllByRole("alert")).toEqual([said]);
+});
+
+it("shows a failed apply once while paired and clears the alert after a successful retry", async () => {
+  vi.mocked(ipc.deviceStatus).mockResolvedValue({
+    ...empty, receive: true,
+    connection: {
+      state_dir: "/queue", token_file: "/token", enabled: false, interval_seconds: 300,
+      allow_metered: false, allow_battery: false, capture_saved: false,
+      capture_new: false, capture_renames: false,
+    },
+    paired: {
+      source: "/notes", mode: "receive", origin: "https://example.test",
+      workspace: "personal", scope: null, allow_private: false,
+    },
+  });
+  vi.mocked(ipc.deviceApply).mockRejectedValueOnce({code: "sync", cause: "application_blocked"});
+  show();
+  const apply = await screen.findByRole("button", {name: "Apply received files"});
+  fireEvent.click(apply);
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Received notes could not be applied");
+  expect(screen.queryByRole("textbox", {name: /Server address/})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Change connection…"}));
+  expect(screen.getAllByText(/Received notes could not be applied/)).toHaveLength(1);
+  fireEvent.click(apply);
+  await waitFor(() => expect(ipc.deviceApply).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
 it("says what it is paired to instead of six paths to retype",async()=>{

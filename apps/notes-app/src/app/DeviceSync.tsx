@@ -65,7 +65,7 @@ export function DeviceSync() {
      "This storage does not support that." three hundred pixels above the
      button that caused it, which reads as the panel having an opinion rather
      than as an answer. */
-  const [outcome,setOutcome]=useState("");
+  const [outcome,setOutcome]=useState<{ role: "alert" | "status"; text: string } | null>(null);
   const [chosen,setChosen]=useState<{local:string;remote:string}|null>(null);
   const [path,setPath]=useState("");
   const [result,setResult]=useState("");
@@ -118,10 +118,10 @@ export function DeviceSync() {
     window.addEventListener("online",poll);window.addEventListener("offline",poll);
     return()=>{alive=false;clearInterval(timer);window.removeEventListener("online",poll);window.removeEventListener("offline",poll);};
   },[]);
-  async function task(work:()=>Promise<void>) {
-    if(busy)return;setBusy(true);setOutcome("");
+  async function task(work:()=>Promise<unknown>) {
+    if(busy)return;setBusy(true);setOutcome(null);
     try {await work();await refresh();}
-    catch(e){setOutcome(errorText(ipc.asCoreError(e)));try{await refresh();}catch{/* keep error */}}
+    catch(e){setOutcome({ role: "alert", text: errorText(ipc.asCoreError(e)) });try{await refresh();}catch{/* keep error */}}
     finally{setBusy(false);}
   }
   async function pick(key:"state_dir"|"source"|"token_file") {
@@ -137,19 +137,21 @@ export function DeviceSync() {
          which renders as "This storage does not support that." — a sentence
          about the disk, for a button pressed in the wrong order, with no hint
          that the way out is the button immediately to its left. */
-      if(ipc.asCoreError(e).code==="unsupported"){setOutcome(t("device.attach.absent"));return;}
+      if(ipc.asCoreError(e).code==="unsupported"){setOutcome({ role: "alert", text: t("device.attach.absent") });return false;}
       throw e;
     }
     setSettings(c);setPreview(null);
+    return true;
   }
   async function pair() {
-    await ipc.devicePair(request);await attach();
+    await ipc.devicePair(request);
+    if (!(await attach())) return;
     if(request.mode!=="upload")setPreview(await ipc.devicePreview());
     /* `task` clears the message and only writes one on failure, so a pairing
        that worked said nothing at all — indistinguishable from a button that
        did nothing. The phase in the summary moves too, but only after the next
        poll. */
-    setOutcome(t("device.paired"));
+    setOutcome({ role: "status", text: t("device.paired") });
   }
   /* The one remote call that runs with the workspace open, because "is the
      server there and does this credential work" is what people ask *before*
@@ -199,6 +201,10 @@ export function DeviceSync() {
   const missing=[...(workspace?[t("device.missing.workspace")]:[]),
     ...required.filter(([key])=>!request[key]).map(([,label])=>t(label))];
   const conflicts=preview?.rows.some(r=>r.action==="conflict")||!!preview?.attachment_conflicts.length;
+  const pairingForm = !snapshot?.paired || editing;
+  const actionFeedback = outcome && (
+    <p className="device-outcome" role={outcome.role}>{outcome.text}</p>
+  );
   const phase=snapshot?.phase??"disabled";
   return <details className="device-sync">
     <summary>{t("device.title")} · <span role="status">{t(`device.phase.${phase}`)}</span>{snapshot?.connection&&` · ${t("device.counts",{pending:snapshot.pending,received:snapshot.unapplied})}`}</summary>
@@ -225,13 +231,13 @@ export function DeviceSync() {
         <button type="button" onClick={()=>setEditing(true)}>{t("device.change")}</button>
       </div>}
       {snapshot?.paired&&snapshot.connection&&!editing&&<DeviceList/>}
-      {(!snapshot?.paired||editing)&&<SignIn
+      {pairingForm&&<SignIn
         allowPrivate={request.allow_private}
         signedIn={request.token_file.startsWith("keychain:")}
         onPaired={paired=>setRequest(r=>({...r,origin:paired.origin,workspace:paired.workspace,token_file:paired.token_file}))}
         onSignedOut={()=>setRequest(r=>r.token_file.startsWith("keychain:")?{...r,token_file:""}:r)}
       />}
-      {(!snapshot?.paired||editing)&&<fieldset disabled={busy}><legend>{t("device.connection")}</legend>
+      {pairingForm&&<fieldset disabled={busy}><legend>{t("device.connection")}</legend>
         <div className="device-fields">
           {(["source","state_dir","token_file"] as const).map(key=><label key={key}>{t(`device.${key}`)}<span><input value={request[key]} onChange={e=>setRequest({...request,[key]:e.target.value})}/><button type="button" onClick={()=>void pick(key)} aria-label={t("device.chooseField",{field:t(`device.${key}`)})}>{t("device.choose")}</button></span></label>)}
           <label>{t("device.server")}<input type="url" placeholder="https://notes.example.com" value={request.origin} onChange={e=>setRequest({...request,origin:e.target.value})}/></label>
@@ -241,7 +247,7 @@ export function DeviceSync() {
         </div>
         <label><input type="checkbox" checked={request.allow_private} onChange={e=>setRequest({...request,allow_private:e.target.checked})}/>{t("device.private")}</label>
         <div className="device-actions"><button disabled={busy||!request.origin||!request.token_file} onClick={()=>void task(test)}>{busy?t("device.testing"):t("device.test")}</button><button disabled={busy||missing.length>0} onClick={()=>void task(pair)}>{t("device.pair")}</button><button disabled={busy||!request.state_dir||!request.token_file} onClick={()=>void task(attach)}>{t("device.attach")}</button></div>
-        {!!outcome&&<p role="status" aria-live="polite" className="device-outcome">{outcome}</p>}
+        {actionFeedback}
         {probe&&<p role="status" className={`device-probe ${verdict}`}>{said[probe.outcome]}
           {probe.status!==null&&` (HTTP ${probe.status})`}
           {probe.outcome==="granted"&&` · ${t("device.probe.workspace",{name:probe.workspace??""})}`}
@@ -263,6 +269,7 @@ export function DeviceSync() {
         {snapshot?.receive&&<label><input type="checkbox" checked={settings.capture_renames} onChange={e=>setSettings({...settings,capture_renames:e.target.checked})}/>{t("device.captureRenames")}</label>}
         <div className="device-actions"><button onClick={()=>void task(()=>ipc.deviceConfigure(settings))}>{t("device.save")}</button><button onClick={()=>void task(async()=>{await ipc.deviceConditions(await conditions());await ipc.deviceRun();})}>{t("device.run")}</button><button disabled={blocked||!snapshot?.receive} onClick={()=>void task(async()=>setPreview(await ipc.devicePreview()))}>{t("device.preview")}</button><button disabled={blocked||!snapshot?.receive||!!preview} onClick={()=>void task(()=>ipc.deviceApply())}>{t("device.apply")}</button></div>
       </fieldset>}
+      {!pairingForm && actionFeedback}
       {preview&&<section><h3>{t("device.review")}</h3><ul>{preview.rows.map((row,i)=><li key={i}>{t(`device.action.${row.action}`)} — {row.path}</li>)}{preview.attachment_conflicts.map(p=><li key={p}>{t("device.action.conflict")} — {p}</li>)}</ul><button disabled={blocked||conflicts} onClick={()=>void task(async()=>{await ipc.deviceConfirm(preview.confirmation);setPreview(null);})}>{t("device.confirm")}</button></section>}
       {!!snapshot?.conflicts.length&&<section><h3>{t("device.conflicts")}</h3><button disabled={blocked} onClick={()=>void task(()=>ipc.deviceRecapture())}>{t("device.recapture")}</button><ul>{snapshot.conflicts.map((c,i)=><li key={i}>{snapshot.history.find(r=>r.note===c.note)?.path??c.note} {c.collision?t("device.collision"):<button disabled={busy} onClick={()=>{setChosen(c);setPath(snapshot.history.find(r=>r.id===c.local)?.path??"");setResult("");setDeleting(false);}}>{t("device.resolve")}</button>}</li>)}</ul></section>}
       {chosen&&<fieldset disabled={busy}><legend>{t("device.resolve")}</legend>
