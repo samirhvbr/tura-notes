@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use notes_fs::FileSystem;
-use notes_model::{ContentHash, CoreError, EntryKind, NoteId, RelPath};
+use notes_model::{ContentHash, CoreError, EntryKind, IoKind, NoteId, RelPath};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -222,12 +222,12 @@ impl super::WorkspaceService {
             let stat = self.open()?.fs.stat(&path);
             match (known, stat) {
                 // Known, and still there.
-                (Some((id, base, _)), Ok(stat)) => {
+                (Some((id, base, native_id)), Ok(stat)) => {
                     if stat.kind != EntryKind::File {
                         continue;
                     }
-                    if base.cheap_match(&stat) {
-                        continue; // size and mtime agree: nothing to hash
+                    if base.cheap_match(&stat) && native_id == stat.native_id {
+                        continue; // An atomic replacement can preserve both size and mtime.
                     }
                     if budget == 0 {
                         self.open()?.queue(path);
@@ -578,7 +578,23 @@ impl super::WorkspaceService {
     /// Returns an empty result immediately when nothing has been seen and
     /// nothing is queued, so a poll loop costs a channel read.
     pub fn tick(&mut self, dirty: &[NoteId]) -> super::Result<Reconciled> {
-        let paths = self.watched_paths();
+        self.tick_with_visible(dirty, None)
+    }
+
+    /// The desktop editor ticks every 300 ms. FSEvents can batch notifications
+    /// for seconds even after its stream is ready. Check the displayed local
+    /// note's metadata so it can be reconciled on this tick.
+    pub fn tick_with_visible(
+        &mut self,
+        dirty: &[NoteId],
+        visible: Option<NoteId>,
+    ) -> super::Result<Reconciled> {
+        let mut paths = self.watched_paths();
+        if cfg!(target_os = "macos") {
+            if let Some(path) = visible.and_then(|id| self.visible_change(id)) {
+                paths.insert(path);
+            }
+        }
         let queued = self
             .open()?
             .recon
@@ -605,6 +621,29 @@ impl super::WorkspaceService {
             paths
         };
         self.reconcile(&hints, dirty)
+    }
+
+    fn visible_change(&self, id: NoteId) -> Option<RelPath> {
+        let open = self.open.as_ref()?;
+        // An unresolved conflict intentionally retains the old registry revision.
+        if open.suspended.contains(&id) {
+            return None;
+        }
+        let record = open.registry.record(id)?;
+        let changed = match open.fs.stat(&record.path) {
+            Ok(stat) => {
+                stat.kind == EntryKind::File
+                    && (stat.size != record.size
+                        || stat.mtime_ns != record.mtime_ns
+                        || stat.native_id != record.native_id)
+            }
+            Err(CoreError::Io {
+                kind: IoKind::NotFound,
+                ..
+            }) => open.fs.root().is_dir(),
+            _ => false,
+        };
+        changed.then(|| record.path.clone())
     }
 
     /// A full scan — what a window regaining focus, a tab switch or a manual

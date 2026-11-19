@@ -32,6 +32,14 @@ adapter in `serde_with`. The local and CI audits check all workspace features
 and targets before exempting that unused package's maintenance advisory.
 Enabling the dependency again restores the warning.
 
+On macOS the existing 300 ms editor tick also checks the displayed local note's
+file metadata. FSEvents can take several seconds to batch changes even after
+the recursive watcher is ready. The reconciler now checks native file identity
+alongside size and modification time so it can recognize atomic replacements
+that preserve both. In an isolated macOS run, all 21 external edits reached the
+reconciler on the first tick (301–326 ms). The six dirty-buffer cases retained
+the external file and the recoverable local draft.
+
 ## 1.12.17 - Keep the iOS app icon assets opaque
 
 The eighteen iOS PNGs carried an alpha channel, including the 1024-pixel ordinary

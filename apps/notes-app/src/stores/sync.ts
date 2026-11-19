@@ -3,6 +3,7 @@ import { create } from "zustand";
 import * as ipc from "../ipc";
 import { useEditor } from "./editor";
 import { useTabs } from "./tabs";
+import { useUi } from "./ui";
 import { useWorkspace } from "./workspace";
 
 /**
@@ -15,10 +16,8 @@ import { useWorkspace } from "./workspace";
  *
  * Two clocks, for the two cases §8 names:
  *
- * - a **tick** every 300 ms, which is a channel read when nothing has happened.
- *   With the watcher's own 200 ms debounce that keeps the 0.1b criterion —
- *   *"editar no VS Code com o app aberto atualiza a aba em <1s"* — with room to
- *   spare;
+ * - a **tick** every 300 ms. On macOS the core also checks metadata for the
+ *   displayed local note because FSEvents can delay delivery for several seconds;
  * - a **full scan** on window focus, on a manual refresh, and every 5 s when
  *   there is no watcher at all (a network mount, a kernel out of inotify
  *   watches).
@@ -68,7 +67,8 @@ async function run(all: boolean) {
   running = true;
   const workspace = useWorkspace.getState().info?.id;
   try {
-    const r = all ? await ipc.reconcileAll(dirty()) : await ipc.reconcileTick(dirty());
+    const visible = useUi.getState().mainView === "local" ? useEditor.getState().doc?.noteId : null;
+    const r = all ? await ipc.reconcileAll(dirty()) : await ipc.reconcileTick(dirty(), visible ?? null);
     if (!isSyncLocked() && useWorkspace.getState().info?.id === workspace) {
       for (const e of r.events) apply(e);
     }

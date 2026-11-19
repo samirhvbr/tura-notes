@@ -303,8 +303,8 @@ export const watchStatus = () => invoke<WatchStatus>("watch_status");
  * One watcher-driven tick. **The dirty list comes from here**, because the
  * buffers live in this process and the core does not hold them.
  */
-export const reconcileTick = (dirty: NoteId[]) =>
-  invoke<Reconciled>("reconcile_tick", { dirty });
+export const reconcileTick = (dirty: NoteId[], visible: NoteId | null = null) =>
+  invoke<Reconciled>("reconcile_tick", { dirty, visible });
 
 /** A full scan: window focus, tab switch, manual refresh. */
 export const reconcileAll = (dirty: NoteId[]) =>

@@ -396,8 +396,12 @@ pub fn watch_start(app: State<'_, App>) -> R<Option<String>> {
 /// because the core does not hold buffers and cannot know
 /// (`docs/DECISIONS-0.1a.md` D-11).
 #[tauri::command]
-pub fn reconcile_tick(app: State<'_, App>, dirty: Vec<NoteId>) -> R<Reconciled> {
-    svc(&app)?.tick(&dirty)
+pub fn reconcile_tick(
+    app: State<'_, App>,
+    dirty: Vec<NoteId>,
+    visible: Option<NoteId>,
+) -> R<Reconciled> {
+    svc(&app)?.tick_with_visible(&dirty, visible)
 }
 
 /// A full scan: window focus, tab switch, manual refresh.

@@ -3,8 +3,7 @@
 //!
 //! Every test here drives the reconciler directly with a set of hints, exactly
 //! as the shell does with what the watcher reported. The watcher itself is
-//! exercised by `a_real_watcher_reports_a_change_within_the_debounce`, which is
-//! the only test in this file that sleeps.
+//! exercised with real on-disk writes as well as through the desktop tick.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -437,45 +436,156 @@ fn watching(f: &mut Fixture) -> Option<String> {
     while f.svc.watch_status().walking && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(5));
     }
-    f.svc.watch_status().degraded
+    let status = f.svc.watch_status();
+    assert!(!status.walking, "watch startup did not finish");
+    status.degraded
 }
 
-/// The 0.1b acceptance criterion — *"editar no VS Code com o app aberto atualiza
-/// a aba em <1s"* — as far as it can be asserted without a window: a real
-/// change to a real file reaches the reconciler well inside the second.
+/// Verify the raw subtree watch independently of any open note. macOS may
+/// coalesce even the first edit with activity preceding stream registration.
 #[test]
-fn a_real_watcher_reports_a_change_within_the_debounce() {
+fn the_native_watcher_reports_a_changed_file() {
     let mut f = setup();
-    let id = f.svc.open_note(&rel("nota.md")).unwrap().note_id;
     if let Some(reason) = watching(&mut f) {
-        // A machine with no inotify budget is a machine fact. Skipping is
-        // honest; asserting anyway would pass for the wrong reason.
         eprintln!("skipped: this machine cannot watch — {reason}");
         return;
     }
 
+    let path = rel("nota.md");
+    let timeout = if cfg!(target_os = "macos") {
+        Duration::from_secs(20)
+    } else {
+        Duration::from_millis(900)
+    };
+    let deadline = std::time::Instant::now() + timeout;
+    for edit in 1.. {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no native event for {path}"
+        );
+        write(&f, path.as_str(), &format!("# external edit {edit}\n"));
+        // Keep producing real changes on macOS if the first write was coalesced.
+        // Other backends still have to deliver the original write within 900 ms.
+        let until = if cfg!(target_os = "macos") {
+            deadline.min(std::time::Instant::now() + Duration::from_millis(650))
+        } else {
+            deadline
+        };
+        while std::time::Instant::now() < until {
+            let remaining = until.saturating_duration_since(std::time::Instant::now());
+            if f.svc.wait_for_change(remaining).contains(&path) {
+                return;
+            }
+        }
+    }
+}
+
+/// Acceptance 0.1b: an edit on disk reaches the open note in under one second,
+/// using the same 300 ms tick and displayed note ID as the desktop application.
+#[test]
+fn the_desktop_tick_reconciles_an_edit_to_the_displayed_note_within_one_second() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let id = f.svc.open_note(&path).unwrap().note_id;
+    if let Some(reason) = watching(&mut f) {
+        if !cfg!(target_os = "macos") {
+            eprintln!("skipped: this machine cannot watch — {reason}");
+            return;
+        }
+    }
+    let wanted = CoreEvent::FsChanged {
+        path,
+        kind: ChangeKind::Modified,
+        note_id: Some(id),
+    };
     let started = std::time::Instant::now();
-    write(&f, "nota.md", "# outro editor\n");
+    write(&f, "nota.md", "# another editor\n");
+    loop {
+        std::thread::sleep(Duration::from_millis(300));
+        let tick = f.svc.tick_for_editor(&[], Some(id), true).unwrap();
+        assert!(
+            started.elapsed() < Duration::from_secs(1),
+            "late or missing: {wanted:?}"
+        );
+        if tick.events.contains(&wanted) {
+            break;
+        }
+    }
+}
 
-    let paths = f.svc.wait_for_change(Duration::from_millis(900));
-    assert!(
-        paths.contains(&rel("nota.md")),
-        "the watcher must report the file within a second: {paths:?}"
-    );
-
-    let events = f.svc.reconcile(&paths, &[]).unwrap().events;
+/// Leave the native watch unstarted so these events cannot be supplied by a
+/// conveniently timed FSEvents batch.
+#[cfg(target_os = "macos")]
+#[test]
+fn only_the_displayed_note_is_sampled_and_a_dirty_conflict_is_not_repeated() {
+    let mut f = setup();
+    let id = f.svc.open_note(&rel("nota.md")).unwrap().note_id;
+    let other = f.svc.open_note(&rel("outra.md")).unwrap().note_id;
+    write(&f, "nota.md", "# external edit\n");
+    for (open, visible) in [(None, false), (Some(id), false), (Some(other), true)] {
+        assert!(f
+            .svc
+            .tick_for_editor(&[id], open, visible)
+            .unwrap()
+            .events
+            .is_empty());
+    }
     assert_eq!(
-        events,
-        vec![CoreEvent::FsChanged {
-            path: rel("nota.md"),
-            kind: ChangeKind::Modified,
-            note_id: Some(id),
+        f.svc.tick_for_editor(&[id], Some(id), true).unwrap().events,
+        vec![CoreEvent::NoteConflict {
+            note_id: id,
+            kind: ConflictKind::Modified
         }]
     );
-    assert!(
-        started.elapsed() < Duration::from_secs(1),
-        "took {:?}",
-        started.elapsed()
+    assert!(f
+        .svc
+        .tick_for_editor(&[id], Some(id), true)
+        .unwrap()
+        .events
+        .is_empty());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn the_displayed_note_follows_atomic_replacement_and_rename_without_a_native_batch() {
+    let mut f = setup();
+    let path = rel("nota.md");
+    let id = f.svc.open_note(&path).unwrap().note_id;
+    let original = f.work.path().join(path.as_str());
+    let modified = std::fs::metadata(&original).unwrap().modified().unwrap();
+    let replacement = f.work.path().join("replacement");
+    std::fs::write(&replacement, b"# edit\n").unwrap(); // same size as the original
+    std::fs::File::open(&replacement)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    std::fs::rename(replacement, &original).unwrap();
+    assert_eq!(
+        f.svc.tick_for_editor(&[], Some(id), true).unwrap().events,
+        vec![CoreEvent::FsChanged {
+            path: path.clone(),
+            kind: ChangeKind::Modified,
+            note_id: Some(id)
+        }]
+    );
+    let moved = rel("renamed.md");
+    std::fs::rename(original, f.work.path().join(moved.as_str())).unwrap();
+    assert_eq!(
+        f.svc.tick_for_editor(&[], Some(id), true).unwrap().events,
+        vec![CoreEvent::NoteMoved {
+            note_id: id,
+            from: path,
+            to: moved.clone()
+        }]
+    );
+    write(&f, moved.as_str(), "# changed after rename\n");
+    assert_eq!(
+        f.svc.tick_for_editor(&[], Some(id), true).unwrap().events,
+        vec![CoreEvent::FsChanged {
+            path: moved,
+            kind: ChangeKind::Modified,
+            note_id: Some(id)
+        }]
     );
 }
 
