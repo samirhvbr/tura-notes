@@ -391,7 +391,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `rfd` | 0.17.2 | MIT | https://github.com/PolyMeilex/rfd |
 | Rust: `ring` | 0.17.14 | Apache-2.0 AND ISC | https://github.com/briansmith/ring |
 | Rust: `rsqlite-vfs` | 0.2.0 | MIT | https://github.com/Spxg/sqlite-wasm-rs |
-| Rust: `rusqlite` | 0.42.0 | MIT | https://github.com/rusqlite/rusqlite |
+| Rust: `rusqlite` | 0.43.0 | MIT | https://github.com/rusqlite/rusqlite |
 | Rust: `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | Rust: `rustix` | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/rustix |
 | Rust: `rustls` | 0.23.46 | Apache-2.0 OR ISC OR MIT | https://github.com/rustls/rustls |
@@ -464,16 +464,16 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `tao-macros` | 0.1.4 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tao |
 | Rust: `tar` | 0.4.46 | MIT OR Apache-2.0 | https://github.com/composefs/tar-rs |
 | Rust: `target-features` | 0.1.6 | MIT OR Apache-2.0 | https://github.com/calebzulawski/target-features |
-| Rust: `tauri` | 2.12.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-codegen` | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-macros` | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri` | 2.12.7 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-codegen` | 2.7.6 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-macros` | 2.7.6 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tauri-plugin-dialog` | 2.8.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-fs` | 2.7.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-shell` | 2.6.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | Rust: `tauri-plugin-updater` | 2.14.1 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
-| Rust: `tauri-runtime` | 2.12.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-runtime-wry` | 2.12.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
-| Rust: `tauri-utils` | 2.10.2 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-runtime` | 2.12.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-runtime-wry` | 2.12.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| Rust: `tauri-utils` | 2.10.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | Rust: `tempfile` | 3.27.0 | MIT OR Apache-2.0 | https://github.com/Stebalien/tempfile |
 | Rust: `tendril` | 0.5.1 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | Rust: `termcolor` | 1.4.1 | Unlicense OR MIT | https://github.com/BurntSushi/termcolor |
@@ -529,7 +529,7 @@ here, as MPL-2.0 section 3.2 requires.
 | Rust: `urlencoding` | 2.1.3 | MIT | https://github.com/kornelski/rust_urlencoding |
 | Rust: `urlpattern` | 0.6.0 | MIT | https://github.com/denoland/rust-urlpattern |
 | Rust: `utf8_iter` | 1.0.4 | Apache-2.0 OR MIT | https://github.com/hsivonen/utf8_iter |
-| Rust: `uuid` | 1.29.2 | Apache-2.0 OR MIT | https://github.com/uuid-rs/uuid |
+| Rust: `uuid` | 1.29.3 | Apache-2.0 OR MIT | https://github.com/uuid-rs/uuid |
 | Rust: `walkdir` | 2.5.0 | Unlicense/MIT | https://github.com/BurntSushi/walkdir |
 | Rust: `want` | 0.3.1 | MIT | https://github.com/seanmonstar/want |
 | Rust: `wasi` | 0.11.1+wasi-snapshot-preview1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/wasi |
@@ -682,7 +682,7 @@ here, as MPL-2.0 section 3.2 requires.
 | npm: `codemirror` | 6.0.2 | MIT | https://github.com/codemirror/basic-setup.git |
 | npm: `crelt` | 1.0.7 | MIT | git+https://code.haverbeke.berlin/marijn/crelt.git |
 | npm: `csstype` | 3.2.3 | MIT | https://github.com/frenic/csstype |
-| npm: `lucide-react` | 1.72.0 | ISC | https://github.com/lucide-icons/lucide.git |
+| npm: `lucide-react` | 1.76.0 | ISC | https://github.com/lucide-icons/lucide.git |
 | npm: `react` | 19.3.1 | MIT | https://github.com/react/react.git |
 | npm: `react-dom` | 19.3.1 | MIT | https://github.com/react/react.git |
 | npm: `scheduler` | 0.28.0 | MIT | https://github.com/react/react.git |
@@ -2185,7 +2185,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### arrayvec 0.7.8, async-channel 2.5.0, async-executor 1.14.1, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, atomic-waker 1.1.2, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.1, blocking 1.7.0, bs58 0.5.1, bstr 1.13.1, bumpalo 3.20.3, camino 1.2.5, cff-parser 0.2.0, cfg-if 1.0.4, concurrent-queue 2.5.0, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, diffy 0.5.2, displaydoc 0.2.7, equivalent 1.0.2, errno 0.3.14, euclid 0.20.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, filetime 0.2.29, flate2 1.1.11, fnv 1.0.7, form_urlencoded 1.2.3, futures-lite 2.6.1, glob 0.3.4, hashbrown 0.12.3, hashbrown 0.17.1, heck 0.4.1, heck 0.5.0, hermit-abi 0.5.3, html5ever 0.39.0, html5ever 0.40.1, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, jni 0.21.1, js-sys 0.3.105, keyboard-types 0.8.3, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, maplit 1.0.2, markup5ever 0.39.0, markup5ever 0.40.0, mime 0.3.17, muda 0.20.0, num 0.4.3, num-bigint 0.4.8, num-complex 0.4.6, num-integer 0.1.47, num-iter 0.1.46, num-rational 0.4.2, num-traits 0.2.19, once_cell 1.21.4, openssl-probe 0.2.1, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, piper 0.2.5, png 0.18.1, polling 3.11.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustix 1.1.6, rustls 0.23.46, rustls-native-certs 0.8.4, scopeguard 1.2.0, secret-service 5.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.22.0, serde_with_macros 3.22.0, servo_arc 0.4.3, signal-hook-registry 1.4.8, simd_cesu8 1.2.0, smallvec 1.16.0, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.11.0, string_cache 0.9.0, syn 1.0.109, system-configuration 0.7.0, system-configuration-sys 0.6.0, tao-macros 0.1.4, tar 0.4.46, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.25.1, ttf-parser 0.25.1, unicase 2.9.0, unicode-bidi 0.3.18, unicode-normalization 0.1.25, unicode-properties 0.1.4, unicode-segmentation 1.13.3, url 2.5.9, uuid 1.29.2, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, web_atoms 0.3.0, weezl 0.1.12, window-vibrancy 0.8.1, wit-bindgen 0.57.1, wry 0.57.0, xattr 1.6.1
+### arrayvec 0.7.8, async-channel 2.5.0, async-executor 1.14.1, async-io 2.6.0, async-lock 3.4.2, async-process 2.5.0, async-recursion 1.1.1, async-signal 0.2.14, async-task 4.7.1, atomic-waker 1.1.2, base64 0.21.7, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.1, blocking 1.7.0, bs58 0.5.1, bstr 1.13.1, bumpalo 3.20.3, camino 1.2.5, cff-parser 0.2.0, cfg-if 1.0.4, concurrent-queue 2.5.0, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.25.0, core-graphics-types 0.2.0, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, diffy 0.5.2, displaydoc 0.2.7, equivalent 1.0.2, errno 0.3.14, euclid 0.20.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, filetime 0.2.29, flate2 1.1.11, fnv 1.0.7, form_urlencoded 1.2.3, futures-lite 2.6.1, glob 0.3.4, hashbrown 0.12.3, hashbrown 0.17.1, heck 0.4.1, heck 0.5.0, hermit-abi 0.5.3, html5ever 0.39.0, html5ever 0.40.1, httparse 1.10.1, hyper-rustls 0.27.9, idna 1.1.0, idna_adapter 1.2.2, indexmap 1.9.3, indexmap 2.14.2, jni 0.21.1, js-sys 0.3.105, keyboard-types 0.8.3, libappindicator 0.9.0, linux-raw-sys 0.12.1, lock_api 0.4.14, log 0.4.34, maplit 1.0.2, markup5ever 0.39.0, markup5ever 0.40.0, mime 0.3.17, muda 0.20.0, num 0.4.3, num-bigint 0.4.8, num-complex 0.4.6, num-integer 0.1.47, num-iter 0.1.46, num-rational 0.4.2, num-traits 0.2.19, once_cell 1.21.4, openssl-probe 0.2.1, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, piper 0.2.5, png 0.18.1, polling 3.11.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, rustix 1.1.6, rustls 0.23.46, rustls-native-certs 0.8.4, scopeguard 1.2.0, secret-service 5.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, serde_with 3.22.0, serde_with_macros 3.22.0, servo_arc 0.4.3, signal-hook-registry 1.4.8, simd_cesu8 1.2.0, smallvec 1.16.0, socket2 0.6.5, stable_deref_trait 1.2.1, string_cache 0.11.0, string_cache 0.9.0, syn 1.0.109, system-configuration 0.7.0, system-configuration-sys 0.6.0, tao-macros 0.1.4, tar 0.4.46, tempfile 3.27.0, tendril 0.5.1, toml_datetime 0.6.3, tray-icon 0.25.1, ttf-parser 0.25.1, unicase 2.9.0, unicode-bidi 0.3.18, unicode-normalization 0.1.25, unicode-properties 0.1.4, unicode-segmentation 1.13.3, url 2.5.9, uuid 1.29.3, wasi 0.11.1+wasi-snapshot-preview1, wasip2 1.0.4+wasi-0.2.12, wasm-bindgen 0.2.128, wasm-bindgen-futures 0.4.78, wasm-bindgen-macro 0.2.128, wasm-bindgen-macro-support 0.2.128, wasm-bindgen-shared 0.2.128, web-sys 0.3.105, web_atoms 0.2.6, web_atoms 0.3.0, weezl 0.1.12, window-vibrancy 0.8.1, wit-bindgen 0.57.1, wry 0.57.0, xattr 1.6.1
 
 ```text
 Apache License
@@ -8169,7 +8169,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-shell 2.6.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.4
+### fdeflate 0.3.7, field-offset 0.3.6, image 0.25.10, miniz_oxide 0.8.9, miniz_oxide 0.9.1, num-conv 0.2.2, pin-project-lite 0.2.17, portable-atomic 1.15.0, portable-atomic-util 0.2.8, raw-window-handle 0.6.2, simdutf8 0.1.5, sync_wrapper 1.0.2, tauri 2.12.7, tauri-codegen 2.7.6, tauri-macros 2.7.6, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-shell 2.6.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.4, tauri-runtime-wry 2.12.5, tauri-utils 2.10.4, time 0.3.55, time-core 0.1.9, time-macros 0.2.32, @tauri-apps/api 2.12.4
 
 ```text
 Apache License
@@ -11188,7 +11188,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### libsqlite3-sys 0.40.0, rusqlite 0.42.0
+### libsqlite3-sys 0.40.0, rusqlite 0.43.0
 
 ```text
 Copyright (c) 2014 The rusqlite developers
@@ -11491,7 +11491,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### lucide-react 1.72.0
+### lucide-react 1.76.0
 
 ```text
 ISC License
@@ -16571,7 +16571,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### tauri 2.12.5, tauri-codegen 2.7.4, tauri-macros 2.7.4, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-shell 2.6.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.2, tauri-runtime-wry 2.12.3, tauri-utils 2.10.2, @tauri-apps/api 2.12.4
+### tauri 2.12.7, tauri-codegen 2.7.6, tauri-macros 2.7.6, tauri-plugin-dialog 2.8.4, tauri-plugin-fs 2.7.1, tauri-plugin-shell 2.6.0, tauri-plugin-updater 2.14.1, tauri-runtime 2.12.4, tauri-runtime-wry 2.12.5, tauri-utils 2.10.4, @tauri-apps/api 2.12.4
 
 ```text
 MIT License
@@ -17788,7 +17788,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### uuid 1.29.2
+### uuid 1.29.3
 
 ```text
 Copyright (c) 2014 The Rust Project Developers
