@@ -8,6 +8,33 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.20 - Validate the next reviewed desktop dependency updates together
+
+The next Dependabot round arrived after 1.12.19: Tauri 2.12.7, its build helper
+2.7.6, uuid 1.29.3, rusqlite 0.43.0, user-event 14.6.13, lucide-react 1.76.0
+and jest-dom 8.0.0. These are the updates actually proposed in PRs #134 through
+#140. The Tauri update already includes the build helper's complete change, so
+the separate build-helper PR contributes no additional lockfile delta. The
+existing url 2.5.9 security fix remains in place.
+
+The rusqlite update fixes use-after-free defects and rejects empty prepared SQL;
+the bundled SQLite engine and the index/registry schemas remain unchanged.
+Jest-dom 8 drops support for Vitest before version 5, while this application
+already uses Vitest 5.1. Its adapter types and frontend tests are validated with
+the actual installed combination. No note format, index schema, permission,
+acceptance status or production configuration is changed. Third-party notices
+are regenerated from the complete locked graph; advisories and the existing
+project gate remain required.
+
+The complete 48-step local gate passed: native and Windows Clippy with warnings
+denied, workspace tests, fresh RustSec and npm audits, server/MCP/transport tests,
+byte preservation and full-disk refusal, generated IPC types, notices/contracts,
+frontend tests and production build. Existing ts-rs attribute diagnostics and
+the documented advisory policy remain visible and unchanged. A semantic replay
+of every source-PR delta matches both manifests and complete lockfiles exactly;
+no dependency beyond those open PRs was updated. Installed-release and physical
+device acceptance remain separate from these synthetic checks.
+
 ## 1.12.19 - url 2.5.9 ends the stack overflow in nested blob: origins (RUSTSEC-2026-0592)
 
 `cargo audit` on the 1.12.19 dependency batch reported RUSTSEC-2026-0592, published on 20/11:
