@@ -8,6 +8,12 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.20 - Record the measured gate step count
+
+The completed gate printed 47 steps in 4m26s. The dependency entry's initial
+count of 48 was a transcription error; it now records the measured 47. The run
+passed every step, and no command or validation policy changed.
+
 ## 1.12.20 - Validate the next reviewed desktop dependency updates together
 
 The next Dependabot round arrived after 1.12.19: Tauri 2.12.7, its build helper
@@ -26,7 +32,7 @@ acceptance status or production configuration is changed. Third-party notices
 are regenerated from the complete locked graph; advisories and the existing
 project gate remain required.
 
-The complete 48-step local gate passed: native and Windows Clippy with warnings
+The complete 47-step local gate passed: native and Windows Clippy with warnings
 denied, workspace tests, fresh RustSec and npm audits, server/MCP/transport tests,
 byte preservation and full-disk refusal, generated IPC types, notices/contracts,
 frontend tests and production build. Existing ts-rs attribute diagnostics and
