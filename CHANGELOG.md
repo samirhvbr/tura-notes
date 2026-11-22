@@ -8,6 +8,51 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.19 - url 2.5.9 ends the stack overflow in nested blob: origins (RUSTSEC-2026-0592)
+
+`cargo audit` on the 1.12.19 dependency batch reported RUSTSEC-2026-0592, published on 20/11:
+`Url::origin()` overflows the stack on deeply nested `blob:` URLs, and `url` 2.5.9 fixes it. The
+local gate stopped at `rust advisories` on it, with nothing in the batch involved. `url` is in
+the dependency graph through `ammonia`, `reqwest` and `tauri-utils`; our own code calls
+`origin()` once, in a pairing test with a fixed URL. Whether a dependency calls it on a URL
+somebody else chooses was not traced, so this is treated as reachable until shown otherwise. The
+lock moves `url` 2.5.8 to 2.5.9 and `form_urlencoded` 1.2.2 to 1.2.3, which came with it, and
+nothing else; the notices are regenerated. `cargo audit` reports no vulnerability afterwards.
+
+## 1.12.19 - group react and react-dom in Dependabot
+
+`react-dom` throws at start-up when its version differs from `react`'s, even by a patch:
+"Incompatible React versions: The react and react-dom packages must have the exact same
+version". Dependabot proposed #130 with `react` at 19.3.1 and `react-dom` left at 19.3.0, and
+30 of the 47 frontend test files failed to load with that error while the 206 tests that did
+load passed. A single PR per package cannot ever be mergeable when the two move together, so
+the npm entry of `.github/dependabot.yml` now has a group named `react` with both packages, and
+their updates arrive in one PR. Nothing else in the file changes. Whether Dependabot opens the
+grouped PR is seen on its next weekly run, not before.
+
+## 1.12.19 - refresh the reviewed Rust, frontend, and server build dependencies
+
+Integrates the seven updates proposed in #124 through #130, open since 16/11 and not mergeable
+one by one: five of them failed the `contracts` job because `THIRD-PARTY-NOTICES.md` was stale
+(the notices embed every locked version, so each update changes them), and #130 failed for the
+`react` and `react-dom` mismatch described in the entry above. #126 and #127 were green, and are
+in the batch because a squash merge made in GitHub's interface changes the lockfile and nothing
+else, so the version and the Release would not have moved (see the 1.11.24 entry).
+
+Rust: `rusqlite` 0.41.1 to 0.42.0, which takes `libsqlite3-sys` 0.39.1 to 0.40.0, `rsqlite-vfs`
+0.1.1 to 0.2.0 and `sqlite-wasm-rs` 0.5.5 to 0.6.3, and removes `hashbrown` 0.16.1 from the
+lock. The lock change is the one #129 proposed, 23 lines added and 35 removed. Both
+`libsqlite3-sys` versions bundle SQLite 3.54.1, compared in the registry sources, so the engine
+under the rebuildable index does not change. Frontend: `@codemirror/view` 6.43.15,
+`lucide-react` 1.55.0 to 1.72.0, `react` and `react-dom` together at 19.3.1, `zustand` 5.0.15 to
+5.1.0 and `@testing-library/user-event` 14.6.10. Server: the builder image moves to
+`rust:1.100.0-bookworm` with the digest #127 pinned; it is covered by the `server HTTPS
+container` job of that PR, not by a local image build. The notices are regenerated with both
+ecosystems installed.
+
+Measured on a macOS arm64 host: lint, the frontend build, 48 test files with 451 tests, and
+`npm audit` with no vulnerabilities.
+
 ## 1.12.18 - Make the path from opening a workspace to editing a note clearer
 
 Welcome gives opening a folder priority and shows recent workspaces by name and
