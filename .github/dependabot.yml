@@ -17,6 +17,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # react-dom refuses to start when its version differs from react's by even a
+    # patch, so a PR that moves only one of them fails every component test (#130).
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
   - package-ecosystem: docker
     directory: "/server"
     schedule:

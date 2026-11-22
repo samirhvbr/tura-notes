@@ -8,6 +8,17 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.19 - group react and react-dom in Dependabot
+
+`react-dom` throws at start-up when its version differs from `react`'s, even by a patch:
+"Incompatible React versions: The react and react-dom packages must have the exact same
+version". Dependabot proposed #130 with `react` at 19.3.1 and `react-dom` left at 19.3.0, and
+30 of the 47 frontend test files failed to load with that error while the 206 tests that did
+load passed. A single PR per package cannot ever be mergeable when the two move together, so
+the npm entry of `.github/dependabot.yml` now has a group named `react` with both packages, and
+their updates arrive in one PR. Nothing else in the file changes. Whether Dependabot opens the
+grouped PR is seen on its next weekly run, not before.
+
 ## 1.12.19 - refresh the reviewed Rust, frontend, and server build dependencies
 
 Integrates the seven updates proposed in #124 through #130, open since 16/11 and not mergeable
