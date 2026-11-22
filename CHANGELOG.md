@@ -8,6 +8,17 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.19 - url 2.5.9 ends the stack overflow in nested blob: origins (RUSTSEC-2026-0592)
+
+`cargo audit` on the 1.12.19 dependency batch reported RUSTSEC-2026-0592, published on 20/11:
+`Url::origin()` overflows the stack on deeply nested `blob:` URLs, and `url` 2.5.9 fixes it. The
+local gate stopped at `rust advisories` on it, with nothing in the batch involved. `url` is in
+the dependency graph through `ammonia`, `reqwest` and `tauri-utils`; our own code calls
+`origin()` once, in a pairing test with a fixed URL. Whether a dependency calls it on a URL
+somebody else chooses was not traced, so this is treated as reachable until shown otherwise. The
+lock moves `url` 2.5.8 to 2.5.9 and `form_urlencoded` 1.2.2 to 1.2.3, which came with it, and
+nothing else; the notices are regenerated. `cargo audit` reports no vulnerability afterwards.
+
 ## 1.12.19 - group react and react-dom in Dependabot
 
 `react-dom` throws at start-up when its version differs from `react`'s, even by a patch:
