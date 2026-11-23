@@ -27,16 +27,6 @@
 
 [advisories]
 ignore = [
-  # --- Tauri, through `tauri-utils` -> `urlpattern` -------------------------
-  # Five crates of one unmaintained family. `urlpattern` is Tauri's, not ours;
-  # nothing in this workspace parses a URL pattern. They leave together when
-  # Tauri drops the dependency.
-  "RUSTSEC-2025-0100",  # unic-ucd-ident unmaintained
-  "RUSTSEC-2025-0098",  # unic-ucd-version unmaintained
-  "RUSTSEC-2025-0081",  # unic-char-property unmaintained
-  "RUSTSEC-2025-0075",  # unic-char-range unmaintained
-  "RUSTSEC-2025-0080",  # unic-common unmaintained
-
   # --- Tauri, through GTK on Linux -----------------------------------------
   # `glib` 0.18.5 <- atk <- gtk <- muda <- tauri, and `proc-macro-error` is
   # `glib-macros`' own build dependency. The unsoundness is in
