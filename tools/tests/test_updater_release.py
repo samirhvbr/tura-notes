@@ -126,7 +126,7 @@ class UpdaterReleaseTests(unittest.TestCase):
              patch.object(updater.subprocess, 'check_output', side_effect=output), \
              patch.object(updater, 'urlopen', side_effect=public):
             try:
-                updater.publish(self.artifact, '1.1.0', 'b3sys@100.64.100.125', '/srv/app', '/tmp', 'https://example.com')
+                updater.publish(self.artifact, '1.1.0', 'b3sys@100.64.100.128', '/srv/app', '/tmp', 'https://example.com')
             finally:
                 self.calls = calls
         return calls, manifests
@@ -139,7 +139,7 @@ class UpdaterReleaseTests(unittest.TestCase):
         self.assertIn('mv -f', command)
         self.assertIn('linux-aarch64-deb', manifests[0]['url'])
         self.assertEqual(calls[0][0], 'scp')
-        self.assertTrue(calls[0][-1].startswith('b3sys@100.64.100.125:'))
+        self.assertTrue(calls[0][-1].startswith('b3sys@100.64.100.128:'))
 
     def test_the_sudo_call_asks_for_a_terminal(self):
         """`ssh host "cmd"` allocates no tty, and sudo will not prompt without one.

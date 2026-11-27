@@ -8,6 +8,19 @@ whoever does the work and whoever commits it.
 Bodies are narrative: what changed, why, and what was measured. This file is
 never rewritten.
 
+## 1.12.21 - Publish to the new web server, webs (100.64.100.128)
+
+The sites that serve the downloads and the updater feed (samirhv.com.br, and
+shvia.org with it) moved on 26/11/2026 at 22:01 from `100.64.100.125` to a new
+server, `webs` (`100.64.100.128`), with the same paths, the same `b3sys` user and
+the same `tura-publish` sudo rule. The default publish host in `build-local.sh`
+and `tools/build-linux.sh` follows it; a saved `TURA_PUBLISH_HOST` override
+needs the same change. Publishing to the old address would now fail the feed
+check, since `https://samirhv.com.br` no longer reads from it. The first publish
+from each machine asks to accept the new host key, ED25519
+`SHA256:4N37MLsTtYwBIw9sa953PQFebnG5odKWR2xxKXm+Gh8`. The updater test fixture
+and the runbook and updater pages name the new host.
+
 ## 1.12.20 - Record the measured gate step count
 
 The completed gate printed 47 steps in 4m26s. The dependency entry's initial

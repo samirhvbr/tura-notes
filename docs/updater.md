@@ -100,7 +100,8 @@ neither a private signing key nor npm/Cargo compilation. `--force` rebuilds.
 
 ## Hosting and publication
 
-Upload remains SCP/SSH to `b3sys@100.64.100.125`. Public clients read:
+Upload remains SCP/SSH, to `b3sys@100.64.100.128` (`webs`; `100.64.100.125` until
+26/11/2026). Public clients read:
 
 ```
 https://samirhv.com.br/updates/tura-notes/{{target}}-{{arch}}-{{bundle_type}}.json
@@ -111,7 +112,7 @@ https://samirhv.com.br/updates/tura-notes/{{target}}-{{arch}}-{{bundle_type}}.js
 application cannot be told to look somewhere else. The upload host does not
 appear in it, which is the property worth being precise about: **publishing
 works from any machine, to any path, as long as the bytes end up somewhere
-`https://samirhv.com.br` serves them.** `100.64.100.125` is that machine — it
+`https://samirhv.com.br` serves them.** `100.64.100.128` is that machine — it
 answers for both shvia.org and samirhv.com.br — so the download page and the
 updater feed both work with no redirection and no second name. Uploading to a
 host that serves a *different* domain does not: the feed would be readable, at
@@ -324,7 +325,7 @@ verified again after packaging restored it.
 published. That stopped being true on 17/09/2026 and the correction is below.**
 The application path was never wrong:
 `/srv/www/samirhv.com.br/samirhv` is exactly where the site's `deploy.sh` puts
-the Laravel application, and `ssh b3sys@100.64.100.125 test -f
+the Laravel application, and `ssh b3sys@100.64.100.128 test -f
 /srv/www/samirhv.com.br/samirhv/artisan` succeeds. The host was wrong, for six
 releases, and a wrong host reports itself as a missing path — which is what the
 previous version of this paragraph recorded, in good faith, as a path to

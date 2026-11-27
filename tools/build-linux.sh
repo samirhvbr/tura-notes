@@ -10,7 +10,7 @@ cd "$ROOT"
 . "$ROOT/tools/build-clock.sh"
 bundles=deb,appimage
 skip_npm=0; skip_pull=0; publish=0; force=0
-host="${TURA_PUBLISH_HOST:-b3sys@100.64.100.125}"
+host="${TURA_PUBLISH_HOST:-b3sys@100.64.100.128}"
 stage="${TURA_PUBLISH_STAGE:-/tmp}"
 app="${TURA_PUBLISH_APP:-/srv/www/samirhv.com.br/samirhv}"
 slug="${TURA_PUBLISH_SLUG:-tura-notes}"

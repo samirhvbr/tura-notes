@@ -382,8 +382,12 @@ The implementation is `tools/build-clock.sh`, sourced by both scripts: the
 Linux half had no clock at all until 1.6.7, which is the same kind of asymmetry
 as the publish ordering 1.1.14 fixed.
 
-The default SCP/SSH destination is `b3sys@100.64.100.125`, on the private
-network — the machine that serves both shvia.org and samirhv.com.br.
+The default SCP/SSH destination is `b3sys@100.64.100.128` (`webs`), on the
+private network — the machine that serves both shvia.org and samirhv.com.br.
+**It was `100.64.100.125` from 1.1.17 to 1.12.20.** That server stopped serving
+both names on 26/11/2026 at 22:01, when the sites moved to `webs`; a publish to
+it would now fail the feed check, because `https://samirhv.com.br` no longer
+reads from it.
 `https://samirhv.com.br` is the public download URL, not the upload host. An
 explicit `--dest` or `TURA_PUBLISH_HOST` overrides this default; update any
 saved override that still points to the public host.
